@@ -141,6 +141,37 @@ function initEstados(tareas,semanas){
   return est;
 }
 
+// Logo Mediterra — M bold con árbol integrado en segunda pata
+function MediterraLogo({color="#7ecfca", size=80}){
+  return(
+    <svg width={size} height={size} viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg" style={{display:"block",marginBottom:8}}>
+      {/* M - pata izquierda */}
+      <path d="M20 180 L20 50" stroke={color} strokeWidth="28" strokeLinecap="square"/>
+      {/* M - diagonal izquierda bajando */}
+      <path d="M20 50 L78 125" stroke={color} strokeWidth="28" strokeLinejoin="miter" strokeLinecap="square"/>
+      {/* M - diagonal subiendo al centro */}
+      <path d="M78 125 L110 75" stroke={color} strokeWidth="28" strokeLinejoin="miter" strokeLinecap="square"/>
+      {/* M - diagonal bajando derecha */}
+      <path d="M110 75 L142 125" stroke={color} strokeWidth="28" strokeLinejoin="miter" strokeLinecap="square"/>
+      {/* M - pata derecha (tronco del árbol integrado) */}
+      <path d="M142 125 L142 180" stroke={color} strokeWidth="28" strokeLinecap="square"/>
+      {/* línea diagonal hacia arriba derecha de la M */}
+      <path d="M142 125 L200 50" stroke={color} strokeWidth="28" strokeLinejoin="miter" strokeLinecap="square"/>
+      {/* pata derecha de la M */}
+      <path d="M200 50 L200 180" stroke={color} strokeWidth="28" strokeLinecap="square"/>
+      {/* Copa del árbol - circulo sobre la segunda pata */}
+      <circle cx="142" cy="68" r="38" fill="none" stroke={color} strokeWidth="7"/>
+      {/* Tronco visible dentro de la copa */}
+      <line x1="142" y1="46" x2="142" y2="100" stroke={color} strokeWidth="5" strokeLinecap="round"/>
+      {/* Rama horizontal */}
+      <line x1="122" y1="68" x2="162" y2="68" stroke={color} strokeWidth="5" strokeLinecap="round"/>
+      {/* Ramas diagonales */}
+      <line x1="125" y1="55" x2="142" y2="68" stroke={color} strokeWidth="4" strokeLinecap="round"/>
+      <line x1="159" y1="55" x2="142" y2="68" stroke={color} strokeWidth="4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 export default function App(){
   const hoy=new Date();
   const [usuarioActual,setUsuarioActual]=useState(null);
@@ -462,15 +493,7 @@ export default function App(){
         ):(
           <div>
             <div style={{textAlign:"center",marginBottom:28}}>
-              <svg width="80" height="80" viewBox="0 0 200 200" fill="none" style={{marginBottom:8}}>
-                <path d="M18 160 L18 48 L72 112 L100 68 L128 112 L182 48 L182 160" stroke="white" strokeWidth="22" strokeLinejoin="miter" strokeLinecap="square" fill="none"/>
-                <line x1="128" y1="90" x2="128" y2="130" stroke="white" strokeWidth="6" strokeLinecap="round"/>
-                <circle cx="128" cy="68" r="26" stroke="white" strokeWidth="5" fill="none"/>
-                <line x1="128" y1="52" x2="128" y2="88" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
-                <line x1="114" y1="65" x2="142" y2="65" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
-                <line x1="118" y1="57" x2="128" y2="67" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-                <line x1="138" y1="57" x2="128" y2="67" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-              </svg>
+              <MediterraLogo color="#7ecfca" size={90}/>
               <div style={{fontSize:11,letterSpacing:4,color:"#7ecfca",fontWeight:600,marginBottom:4}}>MEDITERRA</div>
               <h2 style={{margin:0,color:"#1e293b",fontSize:17,fontWeight:800}}>Planificacion Depto. Adm. y Finanzas</h2>
               <p style={{margin:"4px 0 0",color:"#94a3b8",fontSize:12}}>Ingresa con tu nombre y PIN</p>
@@ -692,15 +715,7 @@ export default function App(){
       <div style={{background:"linear-gradient(135deg,#1e3a5f,#2563eb)",borderRadius:16,padding:"20px 28px",marginBottom:20,color:"#fff"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
           <div style={{display:"flex",alignItems:"center",gap:16}}>
-            <svg width="70" height="70" viewBox="0 0 200 200" fill="none">
-              <path d="M18 160 L18 48 L72 112 L100 68 L128 112 L182 48 L182 160" stroke="rgba(255,255,255,0.95)" strokeWidth="22" strokeLinejoin="miter" strokeLinecap="square" fill="none"/>
-              <line x1="128" y1="90" x2="128" y2="130" stroke="rgba(255,255,255,0.95)" strokeWidth="6" strokeLinecap="round"/>
-              <circle cx="128" cy="68" r="26" stroke="rgba(255,255,255,0.95)" strokeWidth="5" fill="none"/>
-              <line x1="128" y1="52" x2="128" y2="88" stroke="rgba(255,255,255,0.95)" strokeWidth="3.5" strokeLinecap="round"/>
-              <line x1="114" y1="65" x2="142" y2="65" stroke="rgba(255,255,255,0.95)" strokeWidth="3.5" strokeLinecap="round"/>
-              <line x1="118" y1="57" x2="128" y2="67" stroke="rgba(255,255,255,0.95)" strokeWidth="2.5" strokeLinecap="round"/>
-              <line x1="138" y1="57" x2="128" y2="67" stroke="rgba(255,255,255,0.95)" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
+            <MediterraLogo color="rgba(255,255,255,0.95)" size={70}/>
             <div>
               <div style={{fontSize:11,opacity:0.7,letterSpacing:3,textTransform:"uppercase",marginBottom:2}}>MEDITERRA</div>
               <h1 style={{margin:0,fontSize:20,fontWeight:800}}>Planificacion Depto. Administracion y Finanzas</h1>
