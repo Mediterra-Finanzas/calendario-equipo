@@ -50,12 +50,12 @@ const SEMAFORO={
 };
 const ORDEN_SEM=["gris","verde","amarillo","rojo","na"];
 
-const WORKERS=[
-  {nombre:"Milagros Becerra",cargo:"Sec. Administrativa",     email:"Mbecerra@grupomediterra.cl",pin:"4827",esCFO:false},
-  {nombre:"Carol Machuca",   cargo:"Analista Finanzas",       email:"cmachuca@grupomediterra.cl",pin:"3159",esCFO:false},
-  {nombre:"Michelle Garcia", cargo:"Contadora General",       email:"mgarcia@grupomediterra.cl", pin:"7413",esCFO:false},
-  {nombre:"Pablo Duran",     cargo:"Asistente Contable",      email:"pduran@grupomediterra.cl",  pin:"2986",esCFO:false},
-  {nombre:"Angelo Huerta",   cargo:"Gerencia Adm. y Finanzas",email:"ahuerta@grupomediterra.cl", pin:"6054",esCFO:true},
+const WORKERS_BASE=[
+  {nombre:"Milagros Becerra",cargo:"Sec. Administrativa",     email:"Mbecerra@grupomediterra.cl",pin:"4827",rol:"editor",  esCFO:false},
+  {nombre:"Carol Machuca",   cargo:"Analista Finanzas",       email:"cmachuca@grupomediterra.cl",pin:"3159",rol:"editor",  esCFO:false},
+  {nombre:"Michelle Garcia", cargo:"Contadora General",       email:"mgarcia@grupomediterra.cl", pin:"7413",rol:"editor",  esCFO:false},
+  {nombre:"Pablo Duran",     cargo:"Asistente Contable",      email:"pduran@grupomediterra.cl",  pin:"2986",rol:"editor",  esCFO:false},
+  {nombre:"Angelo Huerta",   cargo:"Gerencia Adm. y Finanzas",email:"ahuerta@grupomediterra.cl", pin:"6054",rol:"admin",   esCFO:true},
 ];
 
 const CATEGORIAS={
@@ -191,8 +191,19 @@ export default function App(){
   const [anio,setAnio]=useState(hoy.getFullYear());
   const semanas=semanasDelMes(anio,mes);
 
-  // Tareas dinámicas (base + personalizadas)
-  const [tareasExtra,setTareasExtra]=useState([]);
+  // Usuarios dinámicos
+  const [usuarios,setUsuarios]=useState(WORKERS_BASE);
+  const WORKERS=usuarios.filter(u=>!u.desactivado);
+
+  function getWorker(nombre){return usuarios.find(u=>u.nombre===nombre);}
+  function getRol(nombre){return getWorker(nombre)?.rol||"editor";}
+  function esSoloConsulta(nombre){return getRol(nombre)==="consulta";}
+
+  // Estado gestión usuarios
+  const [tabUsuarios,setTabUsuarios]=useState("lista"); // "lista"|"nuevo"|"editar"
+  const [usuarioEditando,setUsuarioEditando]=useState(null);
+  const [formUsuario,setFormUsuario]=useState({nombre:"",cargo:"",email:"",pin:"",rol:"editor"});
+  const [copiarDe,setCopiarDe]=useState("");
   const [tareasConfig,setTareasConfig]=useState(()=>{
     const c={};
     TAREAS_BASE.forEach(t=>{c[t.id]={supervisor:t.supervisor,diaLimiteSem:t.diaLimiteSem,diaLimite:t.diaLimite,frecuencia:t.frecuencia,bloqueada:false,dependeDe:t.dependeDe||null};});
@@ -251,6 +262,7 @@ export default function App(){
       const raw=localStorage.getItem(STORAGE_KEY);
       if(raw){
         const d=JSON.parse(raw);
+        if(d.usuarios)           setUsuarios(prev=>[...WORKERS_BASE.map(wb=>{const saved=d.usuarios.find(u=>u.nombre===wb.nombre);return saved?{...wb,...saved}:wb;}),...(d.usuarios.filter(u=>!WORKERS_BASE.find(wb=>wb.nombre===u.nombre))||[])]);
         if(d.estados)            setEstados(prev=>({...prev,...d.estados}));
         if(d.comentarios)        setComentarios(d.comentarios);
         if(d.tareasConfig)       setTareasConfig(prev=>({...prev,...d.tareasConfig}));
@@ -266,19 +278,19 @@ export default function App(){
     setCargando(false);
   },[]); // eslint-disable-line
 
-  const guardar=useCallback((est,com,tc,sup,te,pins,rd,rc,m,a)=>{
+  const guardar=useCallback((est,com,tc,sup,te,pins,rd,rc,usrs,m,a)=>{
     setGuardado("guardando");
     try{
-      localStorage.setItem(STORAGE_KEY,JSON.stringify({estados:est,comentarios:com,tareasConfig:tc,supervisores:sup,tareasExtra:te,pinsPersonalizados:pins,recsDone:rd,recsComentarios:rc,mes:m,anio:a}));
+      localStorage.setItem(STORAGE_KEY,JSON.stringify({estados:est,comentarios:com,tareasConfig:tc,supervisores:sup,tareasExtra:te,pinsPersonalizados:pins,recsDone:rd,recsComentarios:rc,usuarios:usrs,mes:m,anio:a}));
       setGuardado("ok");setTimeout(()=>setGuardado("idle"),2000);
     }catch{setGuardado("error");setTimeout(()=>setGuardado("idle"),3000);}
   },[]);
 
   useEffect(()=>{
     if(cargando)return;
-    const t=setTimeout(()=>guardar(estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,mes,anio),800);
+    const t=setTimeout(()=>guardar(estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio),800);
     return()=>clearTimeout(t);
-  },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,mes,anio,cargando,guardar]);
+  },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,cargando,guardar]);
 
   function getPinActivo(w){return pinsPersonalizados[w.nombre]||w.pin;}
 
@@ -311,6 +323,7 @@ export default function App(){
 
   function puedeEditar(tarea,esResp){
     if(!usuarioActual)return false;
+    if(esSoloConsulta(usuarioActual.nombre))return false;
     if(usuarioActual.esCFO)return true;
     const sup=getSupervisor(tarea.id);
     return esResp?tarea.responsable===usuarioActual.nombre:sup===usuarioActual.nombre;
@@ -396,7 +409,43 @@ export default function App(){
     setMostrarFormTarea(false);
   }
 
-  function toggleBloqueada(id){
+  function agregarUsuario(){
+    if(!formUsuario.nombre.trim()||!formUsuario.email.trim()||!formUsuario.pin.trim()){alert("Nombre, email y PIN son obligatorios.");return;}
+    if(usuarios.find(u=>u.nombre===formUsuario.nombre)){alert("Ya existe un usuario con ese nombre.");return;}
+    const nuevo={...formUsuario,esCFO:formUsuario.rol==="admin",desactivado:false};
+    setUsuarios(prev=>[...prev,nuevo]);
+    // Copiar tareas si se seleccionó
+    if(copiarDe){
+      const tareasOrigen=todasTareas().filter(t=>t.responsable===copiarDe||getSupervisor(t.id)===copiarDe);
+      tareasOrigen.forEach(t=>{
+        setTareasExtra(prev=>[...prev,{...t,id:`custom_${Date.now()}_${t.id}`,responsable:formUsuario.nombre}]);
+      });
+    }
+    setFormUsuario({nombre:"",cargo:"",email:"",pin:"",rol:"editor"});
+    setCopiarDe("");setTabUsuarios("lista");
+  }
+
+  function guardarEdicionUsuario(){
+    if(!formUsuario.nombre.trim()||!formUsuario.email.trim()){alert("Nombre y email son obligatorios.");return;}
+    setUsuarios(prev=>prev.map(u=>u.nombre===usuarioEditando?{...u,...formUsuario,esCFO:formUsuario.rol==="admin"}:u));
+    setUsuarioEditando(null);setFormUsuario({nombre:"",cargo:"",email:"",pin:"",rol:"editor"});setTabUsuarios("lista");
+  }
+
+  function toggleDesactivarUsuario(nombre){
+    if(nombre===usuarioActual.nombre){alert("No puedes desactivarte a ti mismo.");return;}
+    setUsuarios(prev=>prev.map(u=>u.nombre===nombre?{...u,desactivado:!u.desactivado}:u));
+  }
+
+  function resetPinUsuario(nombre){
+    const pin=String(Math.floor(1000+Math.random()*9000));
+    setPinsPersonalizados(prev=>({...prev,[nombre]:pin}));
+    alert(`PIN reseteado para ${nombre}.\nNuevo PIN temporal: ${pin}\n\nCompártelo de forma segura con el usuario.`);
+  }
+
+  function iniciarEdicion(u){
+    setFormUsuario({nombre:u.nombre,cargo:u.cargo,email:u.email,pin:"",rol:u.rol||"editor"});
+    setUsuarioEditando(u.nombre);setTabUsuarios("editar");
+  }
     setTareasConfig(prev=>({...prev,[id]:{...getConfig(id),bloqueada:!getConfig(id).bloqueada}}));
   }
 
@@ -725,7 +774,8 @@ export default function App(){
               <h1 style={{margin:0,fontSize:20,fontWeight:800}}>Planificacion Depto. Administracion y Finanzas</h1>
               <div style={{fontSize:12,opacity:0.8,marginTop:3}}>
                 Hola, <strong>{usuarioActual.nombre.split(" ")[0]}</strong> - {usuarioActual.cargo}
-                {usuarioActual.esCFO&&<span style={{background:"#fbbf24",color:"#78350f",borderRadius:20,padding:"1px 8px",fontSize:10,fontWeight:700,marginLeft:8}}>ACCESO TOTAL</span>}
+                {usuarioActual.esCFO&&<span style={{background:"#fbbf24",color:"#78350f",borderRadius:20,padding:"1px 8px",fontSize:10,fontWeight:700,marginLeft:8}}>ADMIN</span>}
+                {esSoloConsulta(usuarioActual.nombre)&&<span style={{background:"#ede9fe",color:"#6d28d9",borderRadius:20,padding:"1px 8px",fontSize:10,fontWeight:700,marginLeft:8}}>CONSULTA</span>}
               </div>
             </div>
           </div>
@@ -936,6 +986,110 @@ export default function App(){
       {/* CONFIGURAR */}
       {tab==="configurar"&&usuarioActual.esCFO&&(
         <div style={{display:"flex",flexDirection:"column",gap:24}}>
+
+          {/* GESTION USUARIOS */}
+          <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{margin:0,color:"#1e293b",fontSize:15}}>Gestion de Usuarios</h3>
+              <div style={{display:"flex",gap:8}}>
+                {["lista","nuevo"].map(t=>(
+                  <button key={t} onClick={()=>{setTabUsuarios(t);setUsuarioEditando(null);setFormUsuario({nombre:"",cargo:"",email:"",pin:"",rol:"editor"});}}
+                    style={{padding:"5px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:tabUsuarios===t&&usuarioEditando===null?"#2563eb":"#f1f5f9",color:tabUsuarios===t&&usuarioEditando===null?"#fff":"#374151"}}>
+                    {t==="lista"?"Ver usuarios":"+ Nuevo usuario"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Lista de usuarios */}
+            {tabUsuarios==="lista"&&!usuarioEditando&&(
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{background:"#f8fafc",color:"#64748b"}}>
+                  <th style={{padding:"8px 12px",textAlign:"left",fontWeight:600}}>Nombre</th>
+                  <th style={{padding:"8px 12px",textAlign:"left",fontWeight:600}}>Cargo</th>
+                  <th style={{padding:"8px 12px",textAlign:"left",fontWeight:600}}>Email</th>
+                  <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:90}}>Rol</th>
+                  <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:200}}>Acciones</th>
+                </tr></thead>
+                <tbody>{usuarios.map((u,i)=>(
+                  <tr key={u.nombre} style={{borderTop:"1px solid #f1f5f9",background:u.desactivado?"#f8fafc":i%2===0?"#fff":"#fafafa",opacity:u.desactivado?0.5:1}}>
+                    <td style={{padding:"8px 12px",fontWeight:600,color:"#1e293b"}}>
+                      {u.nombre}
+                      {u.nombre===usuarioActual.nombre&&<span style={{fontSize:10,background:"#dbeafe",color:"#1d4ed8",borderRadius:20,padding:"1px 6px",marginLeft:6}}>yo</span>}
+                    </td>
+                    <td style={{padding:"8px 12px",color:"#64748b"}}>{u.cargo}</td>
+                    <td style={{padding:"8px 12px",color:"#64748b",fontSize:12}}>{u.email}</td>
+                    <td style={{padding:"8px 12px",textAlign:"center"}}>
+                      <span style={{background:u.rol==="admin"?"#fef3c7":u.rol==="consulta"?"#ede9fe":"#dcfce7",color:u.rol==="admin"?"#92400e":u.rol==="consulta"?"#6d28d9":"#166534",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:600}}>
+                        {u.rol==="admin"?"Admin":u.rol==="consulta"?"Consulta":"Editor"}
+                      </span>
+                    </td>
+                    <td style={{padding:"8px 12px",textAlign:"center"}}>
+                      <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
+                        <button onClick={()=>iniciarEdicion(u)} style={{background:"#dbeafe",color:"#1d4ed8",border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>Editar</button>
+                        <button onClick={()=>resetPinUsuario(u.nombre)} style={{background:"#fef9c3",color:"#92400e",border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>Reset PIN</button>
+                        {u.nombre!==usuarioActual.nombre&&(
+                          <button onClick={()=>toggleDesactivarUsuario(u.nombre)}
+                            style={{background:u.desactivado?"#dcfce7":"#fee2e2",color:u.desactivado?"#166534":"#991b1b",border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>
+                            {u.desactivado?"Activar":"Desactivar"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+
+            {/* Formulario nuevo / editar */}
+            {(tabUsuarios==="nuevo"||(tabUsuarios==="editar"&&usuarioEditando))&&(
+              <div>
+                <h4 style={{margin:"0 0 16px",color:"#1e293b",fontSize:14}}>{usuarioEditando?"Editar usuario":"Nuevo usuario"}</h4>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+                  {[["Nombre completo *","nombre","text"],["Cargo","cargo","text"],["Email *","email","email"]].map(([lbl,campo,tipo])=>(
+                    <div key={campo}>
+                      <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>{lbl}</label>
+                      <input type={tipo} value={formUsuario[campo]} onChange={e=>setFormUsuario(p=>({...p,[campo]:e.target.value}))}
+                        disabled={usuarioEditando&&campo==="nombre"}
+                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:usuarioEditando&&campo==="nombre"?"#f1f5f9":"#fff"}}/>
+                    </div>
+                  ))}
+                  <div>
+                    <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>{usuarioEditando?"Nuevo PIN (dejar vacio para no cambiar)":"PIN inicial *"}</label>
+                    <input type="password" value={formUsuario.pin} onChange={e=>setFormUsuario(p=>({...p,pin:e.target.value}))} maxLength={6}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",textAlign:"center",letterSpacing:4}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>Rol</label>
+                    <select value={formUsuario.rol} onChange={e=>setFormUsuario(p=>({...p,rol:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}>
+                      <option value="editor">Editor — gestiona sus tareas</option>
+                      <option value="consulta">Consulta — solo visualiza</option>
+                      <option value="admin">Administrador — acceso total</option>
+                    </select>
+                  </div>
+                  {!usuarioEditando&&(
+                    <div>
+                      <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>Copiar perfil de tareas de</label>
+                      <select value={copiarDe} onChange={e=>setCopiarDe(e.target.value)}
+                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}>
+                        <option value="">Sin copiar</option>
+                        {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16}}>
+                  <button onClick={()=>{setTabUsuarios("lista");setUsuarioEditando(null);setFormUsuario({nombre:"",cargo:"",email:"",pin:"",rol:"editor"});}}
+                    style={{padding:"8px 18px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:14}}>Cancelar</button>
+                  <button onClick={usuarioEditando?guardarEdicionUsuario:agregarUsuario}
+                    style={{padding:"8px 18px",borderRadius:8,border:"none",background:"#2563eb",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>
+                    {usuarioEditando?"Guardar cambios":"Crear usuario"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Agregar nueva tarea */}
           <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001",border:"2px dashed #e2e8f0"}}>
