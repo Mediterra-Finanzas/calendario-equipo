@@ -144,30 +144,28 @@ function initEstados(tareas,semanas){
 // Logo Mediterra — M bold con árbol integrado en segunda pata
 function MediterraLogo({color="#7ecfca", size=80}){
   return(
-    <svg width={size} height={size} viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg" style={{display:"block",marginBottom:8}}>
-      {/* M - pata izquierda */}
-      <path d="M20 180 L20 50" stroke={color} strokeWidth="28" strokeLinecap="square"/>
-      {/* M - diagonal izquierda bajando */}
-      <path d="M20 50 L78 125" stroke={color} strokeWidth="28" strokeLinejoin="miter" strokeLinecap="square"/>
-      {/* M - diagonal subiendo al centro */}
-      <path d="M78 125 L110 75" stroke={color} strokeWidth="28" strokeLinejoin="miter" strokeLinecap="square"/>
-      {/* M - diagonal bajando derecha */}
-      <path d="M110 75 L142 125" stroke={color} strokeWidth="28" strokeLinejoin="miter" strokeLinecap="square"/>
-      {/* M - pata derecha (tronco del árbol integrado) */}
-      <path d="M142 125 L142 180" stroke={color} strokeWidth="28" strokeLinecap="square"/>
-      {/* línea diagonal hacia arriba derecha de la M */}
-      <path d="M142 125 L200 50" stroke={color} strokeWidth="28" strokeLinejoin="miter" strokeLinecap="square"/>
-      {/* pata derecha de la M */}
-      <path d="M200 50 L200 180" stroke={color} strokeWidth="28" strokeLinecap="square"/>
-      {/* Copa del árbol - circulo sobre la segunda pata */}
-      <circle cx="142" cy="68" r="38" fill="none" stroke={color} strokeWidth="7"/>
-      {/* Tronco visible dentro de la copa */}
-      <line x1="142" y1="46" x2="142" y2="100" stroke={color} strokeWidth="5" strokeLinecap="round"/>
+    <svg width={size} height={size} viewBox="0 0 240 220" fill="none" xmlns="http://www.w3.org/2000/svg" style={{display:"block",marginBottom:8}}>
+      {/* M - bloque izquierdo (pata izquierda) */}
+      <rect x="15" y="50" width="30" height="145" fill={color}/>
+      {/* M - bloque derecho (pata derecha) */}
+      <rect x="195" y="50" width="30" height="145" fill={color}/>
+      {/* M - diagonal izquierda */}
+      <polygon points="15,50 45,50 110,130 80,130" fill={color}/>
+      {/* M - diagonal derecha */}
+      <polygon points="225,50 195,50 130,130 160,130" fill={color}/>
+      {/* M - pata central izquierda */}
+      <rect x="95" y="115" width="25" height="80" fill={color}/>
+      {/* M - pata central derecha (= tronco del árbol) */}
+      <rect x="120" y="115" width="25" height="80" fill={color}/>
+      {/* Copa del árbol - circulo que sobresale de la M */}
+      <circle cx="132" cy="62" r="44" fill="none" stroke={color} strokeWidth="8"/>
+      {/* Tronco dentro de la copa */}
+      <line x1="132" y1="30" x2="132" y2="100" stroke={color} strokeWidth="6" strokeLinecap="round"/>
       {/* Rama horizontal */}
-      <line x1="122" y1="68" x2="162" y2="68" stroke={color} strokeWidth="5" strokeLinecap="round"/>
-      {/* Ramas diagonales */}
-      <line x1="125" y1="55" x2="142" y2="68" stroke={color} strokeWidth="4" strokeLinecap="round"/>
-      <line x1="159" y1="55" x2="142" y2="68" stroke={color} strokeWidth="4" strokeLinecap="round"/>
+      <line x1="108" y1="62" x2="156" y2="62" stroke={color} strokeWidth="6" strokeLinecap="round"/>
+      {/* Ramas diagonales superiores */}
+      <line x1="113" y1="44" x2="132" y2="62" stroke={color} strokeWidth="5" strokeLinecap="round"/>
+      <line x1="151" y1="44" x2="132" y2="62" stroke={color} strokeWidth="5" strokeLinecap="round"/>
     </svg>
   );
 }
@@ -410,10 +408,16 @@ export default function App(){
   function estaVencida(tarea,key,numSemana){
     const hoyD=new Date();hoyD.setHours(0,0,0,0);
     const frec=getFrecuencia(tarea.id);
-    if(frec==="Mensual"){return hoyD>new Date(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite)&&(estados[key]?.estadoResp||"gris")==="gris";}
+    if(frec==="Mensual"){
+      const fechaLimite=new Date(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite);
+      if(fechaLimite<FECHA_INICIO)return false;
+      return hoyD>fechaLimite&&(estados[key]?.estadoResp||"gris")==="gris";
+    }
     const sw=semanas.find(s=>s.num===numSemana)||semanas[0];
     const ds=getConfig(tarea.id).diaLimiteSem??tarea.diaLimiteSem;
-    return hoyD>fechaDiaSemana(sw.inicioSem,ds)&&(estados[key]?.estadoResp||"gris")==="gris";
+    const fechaLimite=fechaDiaSemana(sw.inicioSem,ds);
+    if(fechaLimite<FECHA_INICIO)return false;
+    return hoyD>fechaLimite&&(estados[key]?.estadoResp||"gris")==="gris";
   }
 
   function estaProxima(tarea,key,numSemana){
