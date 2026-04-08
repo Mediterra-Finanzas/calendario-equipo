@@ -196,23 +196,12 @@ export default function App() {
 
   function abrirEmailResumen() {
     const resumen = generarResumenEmail();
-    const worker = WORKERS.find(w => resumenPorPersona => resumenPorPersona);
-    
-    // Genera mailto para cada persona con tareas vencidas
-    const lineas = [];
-    WORKERS.forEach(w => {
-      const tareas = resumen[w.nombre];
-      if (tareas.length > 0) {
-        lineas.push(`${w.nombre} (${w.email}):\n${tareas.map(t => `  - ${t.nombre} (venció día ${t.diaLimite})`).join('\n')}`);
-      }
-    });
-
-    if (lineas.length === 0) {
+    const hayVencidas = WORKERS.some(w => (resumen[w.nombre]||[]).length > 0);
+    if (!hayVencidas) {
       alert("✅ ¡No hay tareas vencidas sin estado! Todo está al día.");
       return;
     }
-
-    setModalEmail({ resumen, lineas });
+    setModalEmail({ resumen });
   }
 
   function enviarEmailPersona(worker, tareas) {
@@ -278,8 +267,6 @@ export default function App() {
       const com = comentarios[key] || "";
       const vencida = estaVencida(t, estados, key, mes, año);
       const proxima = !vencida && estaProxima(t, mes, año) && est.estadoResp === "gris";
-      const fechaLimite = new Date(año, mes, t.diaLimite);
-
       return (
         <tr key={key} style={{
           borderBottom:"1px solid #f1f5f9",
