@@ -3,19 +3,19 @@ import { useState, useEffect, useCallback, useRef } from "react";
 const EMAILJS_SERVICE  = "service_ahuerta";
 const EMAILJS_TEMPLATE = "template_c7yup8d";
 const EMAILJS_KEY      = "bwCBq7JXlEwCTzWNe";
+const FECHA_INICIO     = new Date(2026, 3, 13);
 
-const FECHA_INICIO = new Date(2026, 3, 13); // 13 abril 2026
-
-async function enviarPinTemporal(worker, pin) {
+async function enviarEmail(toEmail, nombre, asunto, cuerpo) {
   await fetch("https://api.emailjs.com/api/v1.0/email/send", {
     method:"POST", headers:{"Content-Type":"application/json"},
     body:JSON.stringify({service_id:EMAILJS_SERVICE,template_id:EMAILJS_TEMPLATE,user_id:EMAILJS_KEY,
-      template_params:{nombre:worker.nombre,pin_temporal:pin,to_email:worker.email}})
+      template_params:{nombre,pin_temporal:cuerpo,to_email:toEmail,subject:asunto}})
   });
 }
 
 const DIAS_SEMANA = ["Lunes","Martes","Miercoles","Jueves","Viernes"];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const FRECUENCIAS = ["Diaria","Semanal","Mensual"];
 
 function diaHabil(anio,mes,dia){
   const f=new Date(anio,mes,dia);const d=f.getDay();
@@ -27,12 +27,10 @@ function mesAnteriorAlInicio(anio,mes){
 }
 
 const RECORDATORIOS=[
-  {id:"rec1",titulo:"Emision Factura Corporativo",diaMes:4,
-    destinatarios:["Milagros Becerra"],copia:["Carol Machuca"],
-    mensaje:(n)=>`Estimada ${n.split(" ")[0]}, te recordamos que el dia 4 de este mes corresponde emitir la factura de servicios Corporativo. Por favor asegurate de tener listos los antecedentes necesarios para su emision oportuna.`},
-  {id:"rec2",titulo:"Emision Factura Frisku",diaMes:25,
-    destinatarios:["Milagros Becerra"],copia:["Carol Machuca"],
-    mensaje:(n)=>`Estimada ${n.split(" ")[0]}, te recordamos que el dia 25 de este mes corresponde emitir la factura de servicios Frisku. Por favor verifica que los documentos de respaldo esten en orden antes de proceder.`},
+  {id:"rec1",titulo:"Emision Factura Corporativo",diaMes:4,destinatarios:["Milagros Becerra"],copia:["Carol Machuca"],
+    mensaje:(n)=>`Estimada ${n.split(" ")[0]}, te recordamos que el dia 4 de este mes corresponde emitir la factura de servicios Corporativo.`},
+  {id:"rec2",titulo:"Emision Factura Frisku",diaMes:25,destinatarios:["Milagros Becerra"],copia:["Carol Machuca"],
+    mensaje:(n)=>`Estimada ${n.split(" ")[0]}, te recordamos que el dia 25 de este mes corresponde emitir la factura de servicios Frisku.`},
 ];
 
 function getRecordatoriosActivos(nombre,anio,mes,esCFO){
@@ -44,18 +42,20 @@ function getRecordatoriosActivos(nombre,anio,mes,esCFO){
 }
 
 const SEMAFORO={
-  verde:   {label:"Completado",color:"#22c55e",bg:"#dcfce7",border:"#86efac"},
-  amarillo:{label:"En proceso",color:"#eab308",bg:"#fef9c3",border:"#fde047"},
-  rojo:    {label:"Pendiente", color:"#ef4444",bg:"#fee2e2",border:"#fca5a5"},
-  gris:    {label:"Sin iniciar",color:"#9ca3af",bg:"#f3f4f6",border:"#d1d5db"},
+  verde:    {label:"Completado",  color:"#22c55e",bg:"#dcfce7",border:"#86efac"},
+  amarillo: {label:"En proceso",  color:"#eab308",bg:"#fef9c3",border:"#fde047"},
+  rojo:     {label:"Pendiente",   color:"#ef4444",bg:"#fee2e2",border:"#fca5a5"},
+  gris:     {label:"Sin iniciar", color:"#9ca3af",bg:"#f3f4f6",border:"#d1d5db"},
+  na:       {label:"No Aplica",   color:"#475569",bg:"#f1f5f9",border:"#94a3b8"},
 };
+const ORDEN_SEM=["gris","verde","amarillo","rojo","na"];
 
 const WORKERS=[
-  {nombre:"Milagros Becerra",cargo:"Sec. Administrativa",      email:"Mbecerra@grupomediterra.cl",pin:"4827",esCFO:false},
-  {nombre:"Carol Machuca",   cargo:"Analista Finanzas",        email:"cmachuca@grupomediterra.cl",pin:"3159",esCFO:false},
-  {nombre:"Michelle Garcia", cargo:"Contadora General",        email:"mgarcia@grupomediterra.cl", pin:"7413",esCFO:false},
-  {nombre:"Pablo Duran",     cargo:"Asistente Contable",       email:"pduran@grupomediterra.cl",  pin:"2986",esCFO:false},
-  {nombre:"Angelo Huerta",   cargo:"Gerencia Adm. y Finanzas", email:"ahuerta@grupomediterra.cl", pin:"6054",esCFO:true},
+  {nombre:"Milagros Becerra",cargo:"Sec. Administrativa",     email:"Mbecerra@grupomediterra.cl",pin:"4827",esCFO:false},
+  {nombre:"Carol Machuca",   cargo:"Analista Finanzas",       email:"cmachuca@grupomediterra.cl",pin:"3159",esCFO:false},
+  {nombre:"Michelle Garcia", cargo:"Contadora General",       email:"mgarcia@grupomediterra.cl", pin:"7413",esCFO:false},
+  {nombre:"Pablo Duran",     cargo:"Asistente Contable",      email:"pduran@grupomediterra.cl",  pin:"2986",esCFO:false},
+  {nombre:"Angelo Huerta",   cargo:"Gerencia Adm. y Finanzas",email:"ahuerta@grupomediterra.cl", pin:"6054",esCFO:true},
 ];
 
 const CATEGORIAS={
@@ -67,83 +67,78 @@ const CATEGORIAS={
   "Gerencia":      {color:"#6366f1",bg:"#e0e7ff"},
 };
 
-// dependeDe: id tarea que debe estar en verde (estadoResp) para desbloquear esta
-const TAREAS_SEMANALES=[
-  {id:"s1", nombre:"Gestion documental",                                   responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Administracion",diaLimiteSem:4,dependeDe:null},
-  {id:"s2", nombre:"Preparacion de nominas de pago",                       responsable:"Milagros Becerra",supervisor:"Carol Machuca",  categoria:"Tesoreria",     diaLimiteSem:1,dependeDe:null},
-  {id:"s3", nombre:"Entrega nominas de pago para revision",                responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Tesoreria",     diaLimiteSem:2,dependeDe:null},
-  {id:"s4", nombre:"Carga nominas al banco y envio email para aprobacion", responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Tesoreria",     diaLimiteSem:3,dependeDe:null},
-  {id:"s5", nombre:"Seguimiento documentos",                               responsable:"Milagros Becerra",supervisor:"",               categoria:"Administracion",diaLimiteSem:4,dependeDe:null},
-  {id:"s6", nombre:"Envio nominas a contabilidad para registros",          responsable:"Milagros Becerra",supervisor:"Pablo Duran",    categoria:"Contabilidad",  diaLimiteSem:3,dependeDe:null},
-  {id:"s7", nombre:"Registro documentos mercantiles",                      responsable:"Milagros Becerra",supervisor:"",               categoria:"Administracion",diaLimiteSem:0,dependeDe:null},
-  {id:"s8", nombre:"Revision gastos menores y respaldos",                  responsable:"Milagros Becerra",supervisor:"Carol Machuca",  categoria:"Tesoreria",     diaLimiteSem:2,dependeDe:null},
-  {id:"s9", nombre:"Envio de email a Daniel",                              responsable:"Milagros Becerra",supervisor:"",               categoria:"Administracion",diaLimiteSem:0,dependeDe:null},
-  {id:"s10",nombre:"Gestion con bancos por compra venta de divisas",       responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Tesoreria",     diaLimiteSem:2,dependeDe:null},
-  {id:"s11",nombre:"Email solicitud anticipo sueldo Allpa y Allegria",     responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Administracion",diaLimiteSem:1,dependeDe:null},
-  {id:"s12",nombre:"Tareas de apoyo a Gerencia (reuniones, etc)",          responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Gerencia",      diaLimiteSem:4,dependeDe:null},
-  {id:"s13",nombre:"Cobranza de empresas",                                 responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      diaLimiteSem:0,dependeDe:null},
-  {id:"s14",nombre:"Primera Revision nominas de pago",                     responsable:"Carol Machuca",   supervisor:"",               categoria:"Tesoreria",     diaLimiteSem:1,dependeDe:"s2"},
-  {id:"s15",nombre:"Registro contable",                                    responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  diaLimiteSem:2,dependeDe:null},
-  {id:"s16",nombre:"Conciliaciones",                                       responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  diaLimiteSem:3,dependeDe:null},
-  {id:"s17",nombre:"Ingreso movimientos bancarios",                        responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  diaLimiteSem:0,dependeDe:null},
-  {id:"s18",nombre:"Registro pagos de nominas",                            responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  diaLimiteSem:3,dependeDe:"s6"},
+const TAREAS_BASE=[
+  {id:"s1", nombre:"Gestion documental",                                   responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:4,diaLimite:28,dependeDe:null},
+  {id:"s2", nombre:"Preparacion de nominas de pago",                       responsable:"Milagros Becerra",supervisor:"Carol Machuca",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:1,diaLimite:5, dependeDe:null},
+  {id:"s3", nombre:"Entrega nominas de pago para revision",                responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:2,diaLimite:7, dependeDe:null},
+  {id:"s4", nombre:"Carga nominas al banco y envio email para aprobacion", responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:3,diaLimite:8, dependeDe:null},
+  {id:"s5", nombre:"Seguimiento documentos",                               responsable:"Milagros Becerra",supervisor:"",               categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:4,diaLimite:28,dependeDe:null},
+  {id:"s6", nombre:"Envio nominas a contabilidad para registros",          responsable:"Milagros Becerra",supervisor:"Pablo Duran",    categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:3,diaLimite:8, dependeDe:null},
+  {id:"s7", nombre:"Registro documentos mercantiles",                      responsable:"Milagros Becerra",supervisor:"",               categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:0,diaLimite:5, dependeDe:null},
+  {id:"s8", nombre:"Revision gastos menores y respaldos",                  responsable:"Milagros Becerra",supervisor:"Carol Machuca",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:2,diaLimite:7, dependeDe:null},
+  {id:"s9", nombre:"Envio de email a Daniel",                              responsable:"Milagros Becerra",supervisor:"",               categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:0,diaLimite:5, dependeDe:null},
+  {id:"s10",nombre:"Gestion con bancos por compra venta de divisas",       responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:2,diaLimite:7, dependeDe:null},
+  {id:"s11",nombre:"Email solicitud anticipo sueldo Allpa y Allegria",     responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:1,diaLimite:5, dependeDe:null},
+  {id:"s12",nombre:"Tareas de apoyo a Gerencia (reuniones, etc)",          responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Gerencia",      frecuencia:"Semanal",diaLimiteSem:4,diaLimite:28,dependeDe:null},
+  {id:"s13",nombre:"Cobranza de empresas",                                 responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Semanal",diaLimiteSem:0,diaLimite:5, dependeDe:null},
+  {id:"s14",nombre:"Primera Revision nominas de pago",                     responsable:"Carol Machuca",   supervisor:"",               categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:1,diaLimite:5, dependeDe:"s2"},
+  {id:"s15",nombre:"Registro contable",                                    responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:2,diaLimite:7, dependeDe:null},
+  {id:"s16",nombre:"Conciliaciones",                                       responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:3,diaLimite:7, dependeDe:null},
+  {id:"s17",nombre:"Ingreso movimientos bancarios",                        responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:0,diaLimite:5, dependeDe:null},
+  {id:"s18",nombre:"Registro pagos de nominas",                            responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:3,diaLimite:8, dependeDe:"s6"},
+  {id:"m1", nombre:"EERR real vs presupuesto + analisis de variaciones",   responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:18,dependeDe:"m11"},
+  {id:"m2", nombre:"Identificacion de riesgos financieros y operacionales",responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:20,dependeDe:null},
+  {id:"m3", nombre:"Preparacion planillas anticipo clientes",              responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:5, dependeDe:null},
+  {id:"m4", nombre:"Preparacion planillas anticipo productores",           responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:5, dependeDe:null},
+  {id:"m5", nombre:"Chequeo contratos firmados y cargados en nube",        responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Administracion",frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
+  {id:"m6", nombre:"Revision de proveedores masivo",                       responsable:"Carol Machuca",   supervisor:"",               categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
+  {id:"m7", nombre:"Primera Revision nominas de pago Chile",               responsable:"Carol Machuca",   supervisor:"",               categoria:"Tesoreria",     frecuencia:"Mensual",diaLimiteSem:0,diaLimite:5, dependeDe:null},
+  {id:"m8", nombre:"Primera Revision nominas de pago Peru",                responsable:"Carol Machuca",   supervisor:"",               categoria:"Tesoreria",     frecuencia:"Mensual",diaLimiteSem:0,diaLimite:5, dependeDe:null},
+  {id:"m9", nombre:"Retroalimentacion con Gerentes por desviaciones",      responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:22,dependeDe:"m1"},
+  {id:"m10",nombre:"Analisis de cuenta",                                   responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
+  {id:"m11",nombre:"Entrega Final Estados Financieros",                    responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:15,dependeDe:"m12"},
+  {id:"m12",nombre:"Preparacion estados financieros grupo",                responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:13,dependeDe:"m13"},
+  {id:"m13",nombre:"Cierre contable",                                      responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
+  {id:"m14",nombre:"Formulario 29",                                        responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Tributario",    frecuencia:"Mensual",diaLimiteSem:0,diaLimite:12,dependeDe:null},
+  {id:"m15",nombre:"Formulario 50",                                        responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Tributario",    frecuencia:"Mensual",diaLimiteSem:0,diaLimite:12,dependeDe:null},
+  {id:"m16",nombre:"Analisis registros contables",                         responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:15,dependeDe:null},
+  {id:"m17",nombre:"Pago Formulario 29",                                   responsable:"Angelo Huerta",   supervisor:"",               categoria:"Tributario",    frecuencia:"Mensual",diaLimiteSem:0,diaLimite:20,dependeDe:"m14"},
+  {id:"m18",nombre:"Pago Formulario 50",                                   responsable:"Angelo Huerta",   supervisor:"",               categoria:"Tributario",    frecuencia:"Mensual",diaLimiteSem:0,diaLimite:20,dependeDe:"m15"},
+  {id:"m19",nombre:"Analisis de cuenta",                                   responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:8, dependeDe:null},
+  {id:"m20",nombre:"Apoyo cierre",                                         responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
 ];
 
-const TAREAS_MENSUALES=[
-  {id:"m1", nombre:"EERR real vs presupuesto + analisis de variaciones",   responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",     diaLimite:18,dependeDe:"m11"},
-  {id:"m2", nombre:"Identificacion de riesgos financieros y operacionales",responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",     diaLimite:20,dependeDe:null},
-  {id:"m3", nombre:"Preparacion planillas anticipo clientes",              responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",     diaLimite:5, dependeDe:null},
-  {id:"m4", nombre:"Preparacion planillas anticipo productores",           responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",     diaLimite:5, dependeDe:null},
-  {id:"m5", nombre:"Chequeo contratos firmados y cargados en nube",        responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Administracion",diaLimite:10,dependeDe:null},
-  {id:"m6", nombre:"Revision de proveedores masivo",                       responsable:"Carol Machuca",   supervisor:"",               categoria:"Finanzas",     diaLimite:10,dependeDe:null},
-  {id:"m7", nombre:"Primera Revision nominas de pago Chile",               responsable:"Carol Machuca",   supervisor:"",               categoria:"Tesoreria",    diaLimite:5, dependeDe:null},
-  {id:"m8", nombre:"Primera Revision nominas de pago Peru",                responsable:"Carol Machuca",   supervisor:"",               categoria:"Tesoreria",    diaLimite:5, dependeDe:null},
-  {id:"m9", nombre:"Retroalimentacion con Gerentes por desviaciones",      responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",     diaLimite:22,dependeDe:"m1"},
-  {id:"m10",nombre:"Analisis de cuenta",                                   responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad", diaLimite:10,dependeDe:null},
-  {id:"m11",nombre:"Entrega Final Estados Financieros",                    responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad", diaLimite:15,dependeDe:"m12"},
-  {id:"m12",nombre:"Preparacion estados financieros grupo",                responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad", diaLimite:13,dependeDe:"m13"},
-  {id:"m13",nombre:"Cierre contable",                                      responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad", diaLimite:10,dependeDe:null},
-  {id:"m14",nombre:"Formulario 29",                                        responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Tributario",   diaLimite:12,dependeDe:null},
-  {id:"m15",nombre:"Formulario 50",                                        responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Tributario",   diaLimite:12,dependeDe:null},
-  {id:"m16",nombre:"Analisis registros contables",                         responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad", diaLimite:15,dependeDe:null},
-  {id:"m17",nombre:"Pago Formulario 29",                                   responsable:"Angelo Huerta",   supervisor:"",               categoria:"Tributario",   diaLimite:20,dependeDe:"m14"},
-  {id:"m18",nombre:"Pago Formulario 50",                                   responsable:"Angelo Huerta",   supervisor:"",               categoria:"Tributario",   diaLimite:20,dependeDe:"m15"},
-  {id:"m19",nombre:"Analisis de cuenta",                                   responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad", diaLimite:8, dependeDe:null},
-  {id:"m20",nombre:"Apoyo cierre",                                         responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad", diaLimite:10,dependeDe:null},
-];
-
-const STORAGE_KEY="calendario_v8";
+const STORAGE_KEY="calendario_v9";
 
 function semanasDelMes(anio,mes){
-  const semanas=[];const primerDia=new Date(anio,mes,1);const ultimoDia=new Date(anio,mes+1,0);
-  let fecha=new Date(primerDia);const dow=(fecha.getDay()+6)%7;fecha.setDate(fecha.getDate()-dow);
-  while(fecha<=ultimoDia){
-    const tmp=new Date(fecha);tmp.setDate(tmp.getDate()+3);
-    const w1=new Date(tmp.getFullYear(),0,4);
-    const iso=1+Math.round(((tmp-w1)/86400000-3+((w1.getDay()+6)%7))/7);
-    const fin=new Date(fecha);fin.setDate(fecha.getDate()+6);
-    if(fecha.getMonth()===mes||fin.getMonth()===mes)semanas.push({num:semanas.length+1,iso,inicioSem:new Date(fecha)});
-    fecha.setDate(fecha.getDate()+7);
+  const semanas=[];const p=new Date(anio,mes,1);const u=new Date(anio,mes+1,0);
+  let f=new Date(p);const d=(f.getDay()+6)%7;f.setDate(f.getDate()-d);
+  while(f<=u){
+    const t=new Date(f);t.setDate(t.getDate()+3);
+    const w1=new Date(t.getFullYear(),0,4);
+    const iso=1+Math.round(((t-w1)/86400000-3+((w1.getDay()+6)%7))/7);
+    const fin=new Date(f);fin.setDate(f.getDate()+6);
+    if(f.getMonth()===mes||fin.getMonth()===mes)semanas.push({num:semanas.length+1,iso,inicioSem:new Date(f)});
+    f.setDate(f.getDate()+7);
   }
   return semanas;
 }
 
-function fechaDiaSemana(inicioSemana,diaSem){const f=new Date(inicioSemana);f.setDate(inicioSemana.getDate()+diaSem);return f;}
-
-function initEstados(semanas){
-  const est={};
-  semanas.forEach(s=>TAREAS_SEMANALES.forEach(t=>{est[`${t.id}_s${s.num}`]={estadoResp:"gris",estadoSup:"gris",aprobado:false};}));
-  TAREAS_MENSUALES.forEach(t=>{est[t.id]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});
-  return est;
-}
-function initConfigSemanal(){const d={};TAREAS_SEMANALES.forEach(t=>{d[t.id]=t.diaLimiteSem;});return d;}
-function initDiasLimite(){const d={};TAREAS_MENSUALES.forEach(t=>{d[t.id]=t.diaLimite;});return d;}
-function initSupervisores(){const d={};[...TAREAS_SEMANALES,...TAREAS_MENSUALES].forEach(t=>{d[t.id]=t.supervisor||"";});return d;}
+function fechaDiaSemana(ini,ds){const f=new Date(ini);f.setDate(ini.getDate()+ds);return f;}
 
 function semanaActivaDefault(semanas){
   const hoy=new Date();hoy.setHours(0,0,0,0);
   for(const s of semanas){const fin=new Date(s.inicioSem);fin.setDate(s.inicioSem.getDate()+6);if(hoy>=s.inicioSem&&hoy<=fin)return s.num;}
   return semanas[0]?.num||1;
+}
+
+function initEstados(tareas,semanas){
+  const est={};
+  tareas.filter(t=>t.frecuencia!=="Mensual").forEach(t=>{
+    semanas.forEach(s=>{est[`${t.id}_s${s.num}`]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});
+  });
+  tareas.filter(t=>t.frecuencia==="Mensual").forEach(t=>{est[t.id]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});
+  return est;
 }
 
 export default function App(){
@@ -162,16 +157,26 @@ export default function App(){
   const [pinConfirm,setPinConfirm]=useState("");
   const [pinError,setPinError]=useState("");
   const pinsTempRef=useRef({});
+
   const [mes,setMes]=useState(hoy.getMonth());
   const [anio,setAnio]=useState(hoy.getFullYear());
   const semanas=semanasDelMes(anio,mes);
-  const [estados,setEstados]=useState(()=>initEstados(semanas));
+
+  // Tareas dinámicas (base + personalizadas)
+  const [tareasExtra,setTareasExtra]=useState([]);
+  const [tareasConfig,setTareasConfig]=useState(()=>{
+    const c={};
+    TAREAS_BASE.forEach(t=>{c[t.id]={supervisor:t.supervisor,diaLimiteSem:t.diaLimiteSem,diaLimite:t.diaLimite,frecuencia:t.frecuencia,bloqueada:false,dependeDe:t.dependeDe||null};});
+    return c;
+  });
+
+  const todasTareas=useCallback(()=>[...TAREAS_BASE,...tareasExtra],[tareasExtra]);
+
+  const [estados,setEstados]=useState(()=>initEstados(TAREAS_BASE,semanasDelMes(hoy.getMonth(),hoy.getFullYear())));  // eslint-disable-line
   const [comentarios,setComentarios]=useState({});
-  const [configSemanal,setConfigSemanal]=useState(initConfigSemanal);
-  const [diasLimite,setDiasLimite]=useState(initDiasLimite);
-  const [supervisores,setSupervisores]=useState(initSupervisores);
+  const [supervisores,setSupervisores]=useState(()=>{const d={};TAREAS_BASE.forEach(t=>{d[t.id]=t.supervisor||"";});return d;});
   const [tab,setTab]=useState("semanal");
-  const [semanaActiva,setSemanaActiva]=useState(()=>semanaActivaDefault(semanas));
+  const [semanaActiva,setSemanaActiva]=useState(()=>semanaActivaDefault(semanasDelMes(hoy.getMonth(),hoy.getFullYear())));
   const [guardado,setGuardado]=useState("idle");
   const [cargando,setCargando]=useState(true);
   const [editComentario,setEditComentario]=useState(null);
@@ -183,28 +188,45 @@ export default function App(){
   const [editRecComentario,setEditRecComentario]=useState(null);
   const [textoRecComentario,setTextoRecComentario]=useState("");
 
+  // Modal notificación dependencia
+  const [modalNotif,setModalNotif]=useState(null); // {key, tarea, numSem}
+  const [textoNotif,setTextoNotif]=useState("");
+  const [enviandoNotif,setEnviandoNotif]=useState(false);
+
+  // Nueva tarea
+  const [nuevaTarea,setNuevaTarea]=useState({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:""});
+  const [mostrarFormTarea,setMostrarFormTarea]=useState(false);
+
   function recKey(id){return `${id}_${mes}_${anio}`;}
+  function getTareaById(id){return todasTareas().find(t=>t.id===id);}
+  function getConfig(id){return tareasConfig[id]||{supervisor:"",diaLimiteSem:0,diaLimite:10,frecuencia:"Semanal",bloqueada:false,dependeDe:null};}
+  function getSupervisor(id){return supervisores[id]??getConfig(id).supervisor??"";}
+  function getFrecuencia(id){return getConfig(id).frecuencia||"Semanal";}
+  function isBloqueada(id){return getConfig(id).bloqueada||false;}
+  function getDependeDe(id){return getConfig(id).dependeDe||null;}
 
   useEffect(()=>{
     const s=semanasDelMes(anio,mes);
     setSemanaActiva(semanaActivaDefault(s));
     setEstados(prev=>{
       const n={...prev};
-      s.forEach(sw=>TAREAS_SEMANALES.forEach(t=>{const k=`${t.id}_s${sw.num}`;if(!n[k])n[k]={estadoResp:"gris",estadoSup:"gris",aprobado:false};}));
+      todasTareas().filter(t=>getFrecuencia(t.id)!=="Mensual").forEach(t=>{
+        s.forEach(sw=>{const k=`${t.id}_s${sw.num}`;if(!n[k])n[k]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});
+      });
       return n;
     });
-  },[mes,anio]); // eslint-disable-line react-hooks/exhaustive-deps
+  },[mes,anio]); // eslint-disable-line
 
   useEffect(()=>{
     try{
       const raw=localStorage.getItem(STORAGE_KEY);
       if(raw){
         const d=JSON.parse(raw);
-        if(d.estados)            setEstados(prev=>({...initEstados(semanasDelMes(d.mes??hoy.getMonth(), d.anio??hoy.getFullYear())),...d.estados}));
+        if(d.estados)            setEstados(prev=>({...prev,...d.estados}));
         if(d.comentarios)        setComentarios(d.comentarios);
-        if(d.configSemanal)      setConfigSemanal(prev=>({...prev,...d.configSemanal}));
-        if(d.diasLimite)         setDiasLimite(prev=>({...prev,...d.diasLimite}));
+        if(d.tareasConfig)       setTareasConfig(prev=>({...prev,...d.tareasConfig}));
         if(d.supervisores)       setSupervisores(prev=>({...prev,...d.supervisores}));
+        if(d.tareasExtra)        setTareasExtra(d.tareasExtra);
         if(d.pinsPersonalizados) setPinsPersonalizados(d.pinsPersonalizados);
         if(d.recsDone)           setRecsDone(d.recsDone);
         if(d.recsComentarios)    setRecsComentarios(d.recsComentarios);
@@ -213,77 +235,49 @@ export default function App(){
       }
     }catch{}
     setCargando(false);
-  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  },[]); // eslint-disable-line
 
-  const guardar=useCallback((est,com,cs,dl,sup,pins,rd,rc,m,a)=>{
+  const guardar=useCallback((est,com,tc,sup,te,pins,rd,rc,m,a)=>{
     setGuardado("guardando");
     try{
-      localStorage.setItem(STORAGE_KEY,JSON.stringify({estados:est,comentarios:com,configSemanal:cs,diasLimite:dl,supervisores:sup,pinsPersonalizados:pins,recsDone:rd,recsComentarios:rc,mes:m,anio:a}));
+      localStorage.setItem(STORAGE_KEY,JSON.stringify({estados:est,comentarios:com,tareasConfig:tc,supervisores:sup,tareasExtra:te,pinsPersonalizados:pins,recsDone:rd,recsComentarios:rc,mes:m,anio:a}));
       setGuardado("ok");setTimeout(()=>setGuardado("idle"),2000);
     }catch{setGuardado("error");setTimeout(()=>setGuardado("idle"),3000);}
   },[]);
 
   useEffect(()=>{
     if(cargando)return;
-    const t=setTimeout(()=>guardar(estados,comentarios,configSemanal,diasLimite,supervisores,pinsPersonalizados,recsDone,recsComentarios,mes,anio),800);
+    const t=setTimeout(()=>guardar(estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,mes,anio),800);
     return()=>clearTimeout(t);
-  },[estados,comentarios,configSemanal,diasLimite,supervisores,pinsPersonalizados,recsDone,recsComentarios,mes,anio,cargando,guardar]);
+  },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,mes,anio,cargando,guardar]);
 
   function getPinActivo(w){return pinsPersonalizados[w.nombre]||w.pin;}
-  function getSupervisor(id){return supervisores[id]??"";}
-
-  // Verifica si la tarea dependiente esta completada
-  function dependenciaOk(tarea,numSemana){
-    if(!tarea.dependeDe)return true;
-    const depId=tarea.dependeDe;
-    // buscar en semanales
-    const depSem=TAREAS_SEMANALES.find(t=>t.id===depId);
-    if(depSem){
-      const key=`${depId}_s${numSemana}`;
-      return(estados[key]?.estadoResp||"gris")==="verde";
-    }
-    // buscar en mensuales
-    return(estados[depId]?.estadoResp||"gris")==="verde";
-  }
-
-  function getNombreDependencia(tarea){
-    if(!tarea.dependeDe)return null;
-    const dep=[...TAREAS_SEMANALES,...TAREAS_MENSUALES].find(t=>t.id===tarea.dependeDe);
-    return dep?dep.nombre:null;
-  }
 
   function handleLogin(){
     const w=WORKERS.find(x=>x.nombre===loginNombre);
     if(!w){setLoginError("Selecciona tu nombre.");return;}
-    const pinTemp=pinsTempRef.current[w.nombre];
-    const pinOk=getPinActivo(w);
-    if(loginPin.trim()===pinOk||(pinTemp&&loginPin.trim()===pinTemp)){
-      if(pinTemp&&loginPin.trim()===pinTemp){delete pinsTempRef.current[w.nombre];setModalPin("cambiar");}
+    const pt=pinsTempRef.current[w.nombre];const po=getPinActivo(w);
+    if(loginPin.trim()===po||(pt&&loginPin.trim()===pt)){
+      if(pt&&loginPin.trim()===pt){delete pinsTempRef.current[w.nombre];setModalPin("cambiar");}
       setUsuarioActual(w);setLoginError("");
-    }else{setLoginError("PIN incorrecto. Intenta nuevamente.");}
+    }else{setLoginError("PIN incorrecto.");}
   }
 
   async function handleResetPin(){
-    const w=WORKERS.find(x=>x.nombre===resetNombre);
-    if(!w){setResetMsg("Selecciona tu nombre.");return;}
-    setResetEnviando(true);
-    const temporal=String(Math.floor(1000+Math.random()*9000));
-    pinsTempRef.current[w.nombre]=temporal;
-    try{await enviarPinTemporal(w,temporal);setResetMsg("PIN temporal enviado a "+w.email);}
-    catch{setResetMsg("Error al enviar. Intenta nuevamente.");}
+    const w=WORKERS.find(x=>x.nombre===resetNombre);if(!w){setResetMsg("Selecciona tu nombre.");return;}
+    setResetEnviando(true);const temporal=String(Math.floor(1000+Math.random()*9000));pinsTempRef.current[w.nombre]=temporal;
+    try{await enviarEmail(w.email,w.nombre,"PIN temporal - Mediterra",`Tu PIN temporal es: ${temporal}\nIngresa y cambialo inmediatamente.`);setResetMsg("PIN enviado a "+w.email);}
+    catch{setResetMsg("Error al enviar.");}
     setResetEnviando(false);
   }
 
   function handleCambiarPin(){
-    setPinError("");
-    const pinOk=getPinActivo(usuarioActual);
-    const pinTemp=pinsTempRef.current[usuarioActual?.nombre];
-    if(pinActual!==pinOk&&pinActual!==pinTemp){setPinError("PIN actual incorrecto.");return;}
-    if(pinNuevo.length<4){setPinError("El PIN debe tener al menos 4 digitos.");return;}
+    setPinError("");const po=getPinActivo(usuarioActual);const pt=pinsTempRef.current[usuarioActual?.nombre];
+    if(pinActual!==po&&pinActual!==pt){setPinError("PIN actual incorrecto.");return;}
+    if(pinNuevo.length<4){setPinError("Minimo 4 digitos.");return;}
     if(pinNuevo!==pinConfirm){setPinError("Los PINs no coinciden.");return;}
     setPinsPersonalizados(prev=>({...prev,[usuarioActual.nombre]:pinNuevo}));
-    setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);
-    alert("PIN cambiado exitosamente!");
+    setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);alert("PIN cambiado!");
   }
 
   function puedeEditar(tarea,esResp){
@@ -293,13 +287,37 @@ export default function App(){
     return esResp?tarea.responsable===usuarioActual.nombre:sup===usuarioActual.nombre;
   }
 
+  function dependenciaOk(tarea,numSemana){
+    const depId=getDependeDe(tarea.id);if(!depId)return true;
+    const depT=getTareaById(depId);if(!depT)return true;
+    if(getFrecuencia(depT.id)==="Mensual"){return(estados[depId]?.estadoResp||"gris")==="verde";}
+    const key=`${depId}_s${numSemana}`;return(estados[key]?.estadoResp||"gris")==="verde";
+  }
+
+  function getNombreDep(tarea){const id=getDependeDe(tarea.id);if(!id)return null;return getTareaById(id)?.nombre||null;}
+
   function ciclarResp(key,tarea,numSemana){
     if(!puedeEditar(tarea,true))return;
-    if(!dependenciaOk(tarea,numSemana)){alert(`Esta tarea depende de:\n"${getNombreDependencia(tarea)}"\nCompleta esa tarea primero.`);return;}
+    if(!dependenciaOk(tarea,numSemana)){
+      // Si hay dependencia pendiente, ofrecer notificar
+      const depId=getDependeDe(tarea.id);const depT=getTareaById(depId);
+      if(depT){alert(`Esta tarea depende de:\n"${depT.nombre}"\n\nResponsable: ${depT.responsable}\n\nCompleta esa tarea primero.`);}
+      return;
+    }
     setEstados(prev=>{
       const actual=prev[key]?.estadoResp||"gris";
-      const sig=["gris","verde","amarillo","rojo"][(["gris","verde","amarillo","rojo"].indexOf(actual)+1)%4];
-      return{...prev,[key]:{...prev[key],estadoResp:sig,aprobado:false,estadoSup:sig!=="verde"?"gris":prev[key].estadoSup}};
+      const sig=ORDEN_SEM[(ORDEN_SEM.indexOf(actual)+1)%ORDEN_SEM.length];
+      const nuevoEst={...prev,[key]:{...prev[key],estadoResp:sig,aprobado:false,estadoSup:sig!=="verde"?"gris":prev[key].estadoSup}};
+      // Si se pone en verde y hay tareas que dependen de esta, ofrecer notificar
+      if(sig==="verde"){
+        const dependientes=todasTareas().filter(t=>{
+          const d=getDependeDe(t.id);return d===tarea.id&&!isBloqueada(t.id);
+        });
+        if(dependientes.length>0){
+          setTimeout(()=>setModalNotif({key,tarea,numSemana,dependientes}),300);
+        }
+      }
+      return nuevoEst;
     });
   }
 
@@ -308,60 +326,116 @@ export default function App(){
     setEstados(prev=>{
       if(prev[key]?.estadoResp!=="verde")return prev;
       const actual=prev[key]?.estadoSup||"gris";
-      const sig=["gris","verde","amarillo","rojo"][(["gris","verde","amarillo","rojo"].indexOf(actual)+1)%4];
+      const sig=ORDEN_SEM[(ORDEN_SEM.indexOf(actual)+1)%ORDEN_SEM.length];
       return{...prev,[key]:{...prev[key],estadoSup:sig,aprobado:sig==="verde"}};
     });
   }
 
+  async function enviarNotifDependencia(){
+    if(!modalNotif)return;
+    setEnviandoNotif(true);
+    try{
+      for(const dep of modalNotif.dependientes){
+        const w=WORKERS.find(x=>x.nombre===dep.responsable);
+        if(w){
+          const asunto=`Tarea desbloqueada: ${dep.nombre}`;
+          const cuerpo=`Hola ${w.nombre.split(" ")[0]},\n\nLa tarea "${modalNotif.tarea.nombre}" ha sido completada por ${usuarioActual.nombre}.\n\nAhora puedes iniciar: "${dep.nombre}"\n\n${textoNotif?`Nota: ${textoNotif}\n\n`:""}Accede en: https://calendario-mediterra-2026.vercel.app\n\nSaludos`;
+          await enviarEmail(w.email,w.nombre,asunto,cuerpo);
+        }
+      }
+      alert("Notificacion enviada!");
+    }catch{alert("Error al enviar notificacion.");}
+    setEnviandoNotif(false);setModalNotif(null);setTextoNotif("");
+  }
+
   function guardarComentario(){setComentarios(prev=>({...prev,[editComentario]:textoComentario}));setEditComentario(null);}
 
-  function estaVencidaSem(tarea,key,numSemana){
+  function agregarTarea(){
+    if(!nuevaTarea.nombre.trim()||!nuevaTarea.responsable){alert("Nombre y responsable son obligatorios.");return;}
+    const id=`custom_${Date.now()}`;
+    const t={...nuevaTarea,id,diaLimiteSem:0,diaLimite:10,dependeDe:nuevaTarea.dependeDe||null};
+    setTareasExtra(prev=>[...prev,t]);
+    setTareasConfig(prev=>({...prev,[id]:{supervisor:nuevaTarea.supervisor,diaLimiteSem:0,diaLimite:10,frecuencia:nuevaTarea.frecuencia,bloqueada:false,dependeDe:nuevaTarea.dependeDe||null}}));
+    setSupervisores(prev=>({...prev,[id]:nuevaTarea.supervisor||""}));
+    setEstados(prev=>{
+      const n={...prev};
+      if(nuevaTarea.frecuencia==="Mensual"){n[id]={estadoResp:"gris",estadoSup:"gris",aprobado:false};}
+      else{semanas.forEach(s=>{n[`${id}_s${s.num}`]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});}
+      return n;
+    });
+    setNuevaTarea({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:""});
+    setMostrarFormTarea(false);
+  }
+
+  function toggleBloqueada(id){
+    setTareasConfig(prev=>({...prev,[id]:{...getConfig(id),bloqueada:!getConfig(id).bloqueada}}));
+  }
+
+  function updateConfig(id,campo,valor){
+    setTareasConfig(prev=>({...prev,[id]:{...getConfig(id),[campo]:valor}}));
+    if(campo==="supervisor")setSupervisores(prev=>({...prev,[id]:valor}));
+  }
+
+  function estaVencida(tarea,key,numSemana){
     const hoyD=new Date();hoyD.setHours(0,0,0,0);
+    const frec=getFrecuencia(tarea.id);
+    if(frec==="Mensual"){return hoyD>new Date(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite)&&(estados[key]?.estadoResp||"gris")==="gris";}
     const sw=semanas.find(s=>s.num===numSemana)||semanas[0];
-    const ds=configSemanal[tarea.id]??tarea.diaLimiteSem;
+    const ds=getConfig(tarea.id).diaLimiteSem??tarea.diaLimiteSem;
     return hoyD>fechaDiaSemana(sw.inicioSem,ds)&&(estados[key]?.estadoResp||"gris")==="gris";
   }
-  function estaProximaSem(tarea,key,numSemana){
+
+  function estaProxima(tarea,key,numSemana){
     const hoyD=new Date();hoyD.setHours(0,0,0,0);
-    const sw=semanas.find(s=>s.num===numSemana)||semanas[0];
-    const ds=configSemanal[tarea.id]??tarea.diaLimiteSem;
-    const diff=(fechaDiaSemana(sw.inicioSem,ds)-hoyD)/(1000*60*60*24);
-    return diff>=0&&diff<=2&&(estados[key]?.estadoResp||"gris")==="gris";
-  }
-  function estaVencidaMen(tarea,key){
-    const hoyD=new Date();hoyD.setHours(0,0,0,0);
-    return hoyD>new Date(anio,mes,diasLimite[tarea.id]||tarea.diaLimite)&&(estados[key]?.estadoResp||"gris")==="gris";
-  }
-  function estaProximaMen(tarea,key){
-    const hoyD=new Date();hoyD.setHours(0,0,0,0);
-    const diff=(new Date(anio,mes,diasLimite[tarea.id]||tarea.diaLimite)-hoyD)/(1000*60*60*24);
+    const frec=getFrecuencia(tarea.id);
+    let diff;
+    if(frec==="Mensual"){diff=(new Date(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite)-hoyD)/(1000*60*60*24);}
+    else{const sw=semanas.find(s=>s.num===numSemana)||semanas[0];const ds=getConfig(tarea.id).diaLimiteSem??tarea.diaLimiteSem;diff=(fechaDiaSemana(sw.inicioSem,ds)-hoyD)/(1000*60*60*24);}
     return diff>=0&&diff<=2&&(estados[key]?.estadoResp||"gris")==="gris";
   }
 
   function generarResumenEmail(){
     const res={};WORKERS.forEach(w=>{res[w.nombre]=[];});
-    semanas.forEach(s=>{TAREAS_SEMANALES.forEach(t=>{const key=`${t.id}_s${s.num}`;if(estaVencidaSem(t,key,s.num))res[t.responsable]?.push({...t,key});});});
-    TAREAS_MENSUALES.forEach(t=>{if(estaVencidaMen(t,t.id))res[t.responsable]?.push({...t,key:t.id});});
+    todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{
+      const frec=getFrecuencia(t.id);
+      if(frec==="Mensual"){if(estaVencida(t,t.id,null))res[t.responsable]?.push({...t,key:t.id});}
+      else{semanas.forEach(s=>{const key=`${t.id}_s${s.num}`;if(estaVencida(t,key,s.num))res[t.responsable]?.push({...t,key});});}
+    });
     return res;
   }
 
   function enviarEmailPersona(w,tareas){
     const asunto=encodeURIComponent(`Tareas pendientes - ${MESES[mes]} ${anio}`);
-    const cuerpo=encodeURIComponent(`Hola ${w.nombre.split(" ")[0]},\n\nLas siguientes tareas estan vencidas:\n\n`+tareas.map(t=>`- ${t.nombre}`).join('\n')+`\n\nActualiza en: https://calendario-mediterra-2026.vercel.app\n\nSaludos`);
+    const cuerpo=encodeURIComponent(`Hola ${w.nombre.split(" ")[0]},\n\nLas siguientes tareas estan vencidas:\n\n`+tareas.map(t=>`- ${t.nombre}`).join('\n')+`\n\nhttps://calendario-mediterra-2026.vercel.app\n\nSaludos`);
     window.open(`mailto:${w.email}?subject=${asunto}&body=${cuerpo}`);
   }
 
   const totalVencidas=(()=>{
     let c=0;
-    semanas.forEach(s=>TAREAS_SEMANALES.forEach(t=>{if(estaVencidaSem(t,`${t.id}_s${s.num}`,s.num))c++;}));
-    TAREAS_MENSUALES.forEach(t=>{if(estaVencidaMen(t,t.id))c++;});
+    todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{
+      const frec=getFrecuencia(t.id);
+      if(frec==="Mensual"){if(estaVencida(t,t.id,null))c++;}
+      else{semanas.forEach(s=>{if(estaVencida(t,`${t.id}_s${s.num}`,s.num))c++;});}
+    });
     return c;
   })();
 
   function resumen(nombre){
     let v=0,a=0,r=0,g=0,total=0;
-    semanas.forEach(s=>{TAREAS_SEMANALES.forEach(t=>{if(t.responsable===nombre||getSupervisor(t.id)===nombre){const e=(t.responsable===nombre?estados[`${t.id}_s${s.num}`]?.estadoResp:estados[`${t.id}_s${s.num}`]?.estadoSup)||"gris";total++;if(e==="verde")v++;else if(e==="amarillo")a++;else if(e==="rojo")r++;else g++;}});});
-    TAREAS_MENSUALES.forEach(t=>{if(t.responsable===nombre||getSupervisor(t.id)===nombre){const e=(t.responsable===nombre?estados[t.id]?.estadoResp:estados[t.id]?.estadoSup)||"gris";total++;if(e==="verde")v++;else if(e==="amarillo")a++;else if(e==="rojo")r++;else g++;}});
+    todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{
+      const frec=getFrecuencia(t.id);const sup=getSupervisor(t.id);
+      const esResp=t.responsable===nombre;const esSup=sup===nombre;
+      if(!esResp&&!esSup)return;
+      if(frec==="Mensual"){
+        const e=(esResp?estados[t.id]?.estadoResp:estados[t.id]?.estadoSup)||"gris";
+        if(e==="na")return;total++;if(e==="verde")v++;else if(e==="amarillo")a++;else if(e==="rojo")r++;else g++;
+      }else{
+        semanas.forEach(s=>{
+          const e=(esResp?estados[`${t.id}_s${s.num}`]?.estadoResp:estados[`${t.id}_s${s.num}`]?.estadoSup)||"gris";
+          if(e==="na")return;total++;if(e==="verde")v++;else if(e==="amarillo")a++;else if(e==="rojo")r++;else g++;
+        });
+      }
+    });
     return{v,a,r,g,total,pct:total>0?Math.round((v/total)*100):0};
   }
 
@@ -376,7 +450,6 @@ export default function App(){
           <div>
             <button onClick={()=>{setModalPin(null);setResetMsg("");setResetNombre("");}} style={{background:"none",border:"none",color:"#64748b",cursor:"pointer",fontSize:13,marginBottom:16}}>&larr; Volver</button>
             <h3 style={{margin:"0 0 6px",color:"#1e293b"}}>Resetear PIN</h3>
-            <p style={{fontSize:13,color:"#64748b",marginBottom:16}}>Te enviaremos un PIN temporal a tu email.</p>
             <select value={resetNombre} onChange={e=>setResetNombre(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:14,marginBottom:12,boxSizing:"border-box"}}>
               <option value="">Selecciona tu nombre...</option>
               {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre}</option>)}
@@ -389,21 +462,17 @@ export default function App(){
         ):(
           <div>
             <div style={{textAlign:"center",marginBottom:28}}>
-              <svg width="80" height="80" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" style={{marginBottom:8}}>
-                {/* M shape - bold */}
+              <svg width="80" height="80" viewBox="0 0 200 200" fill="none" style={{marginBottom:8}}>
                 <path d="M18 160 L18 48 L72 112 L100 68 L128 112 L182 48 L182 160" stroke="white" strokeWidth="22" strokeLinejoin="miter" strokeLinecap="square" fill="none"/>
-                {/* Tree trunk on second right leg */}
                 <line x1="128" y1="90" x2="128" y2="130" stroke="white" strokeWidth="6" strokeLinecap="round"/>
-                {/* Tree canopy - circle outline */}
                 <circle cx="128" cy="68" r="26" stroke="white" strokeWidth="5" fill="none"/>
-                {/* Tree branches inside */}
                 <line x1="128" y1="52" x2="128" y2="88" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
                 <line x1="114" y1="65" x2="142" y2="65" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
                 <line x1="118" y1="57" x2="128" y2="67" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
                 <line x1="138" y1="57" x2="128" y2="67" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
               </svg>
               <div style={{fontSize:11,letterSpacing:4,color:"#7ecfca",fontWeight:600,marginBottom:4}}>MEDITERRA</div>
-              <h2 style={{margin:0,color:"#1e293b",fontSize:18,fontWeight:800}}>Planificacion Depto. Adm. y Finanzas</h2>
+              <h2 style={{margin:0,color:"#1e293b",fontSize:17,fontWeight:800}}>Planificacion Depto. Adm. y Finanzas</h2>
               <p style={{margin:"4px 0 0",color:"#94a3b8",fontSize:12}}>Ingresa con tu nombre y PIN</p>
             </div>
             <div style={{marginBottom:14}}>
@@ -415,7 +484,7 @@ export default function App(){
             </div>
             <div style={{marginBottom:8}}>
               <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>PIN</label>
-              <input type="password" value={loginPin} onChange={e=>setLoginPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Ingresa tu PIN" maxLength={6}
+              <input type="password" value={loginPin} onChange={e=>setLoginPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} maxLength={6}
                 style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:14,boxSizing:"border-box",letterSpacing:6,textAlign:"center"}}/>
             </div>
             <div style={{textAlign:"right",marginBottom:16}}>
@@ -429,47 +498,53 @@ export default function App(){
     </div>
   );
 
-  // APP
+  // TABLA FILAS
   function TablaFilas({tareas,getKey,getSemana}){
-    const filtradas=filtroPersona?tareas.filter(t=>t.responsable===filtroPersona||getSupervisor(t.id)===filtroPersona):tareas;
+    const todas=tareas.filter(t=>!isBloqueada(t.id));
+    const filtradas=filtroPersona?todas.filter(t=>t.responsable===filtroPersona||getSupervisor(t.id)===filtroPersona):todas;
     return filtradas.map((t,i)=>{
       const numSem=getSemana?getSemana():null;
-      const key=getKey(t);
+      const frec=getFrecuencia(t.id);
+      const key=frec==="Mensual"?t.id:getKey(t);
       const est=estados[key]||{estadoResp:"gris",estadoSup:"gris",aprobado:false};
-      const semResp=SEMAFORO[est.estadoResp];
+      const semResp=SEMAFORO[est.estadoResp]||SEMAFORO.gris;
       const sup=getSupervisor(t.id);
-      const supActivo=est.estadoResp==="verde"&&sup;
+      const supActivo=est.estadoResp==="verde"&&sup&&est.estadoResp!=="na";
       const semSup=SEMAFORO[supActivo?est.estadoSup:"gris"];
       const cat=CATEGORIAS[t.categoria]||{color:"#64748b",bg:"#f1f5f9"};
       const com=comentarios[key]||"";
-      const esSem=numSem!==null;
-      const vencida=esSem?estaVencidaSem(t,key,numSem):estaVencidaMen(t,key);
-      const proxima=!vencida&&(esSem?estaProximaSem(t,key,numSem):estaProximaMen(t,key));
+      const vencida=estaVencida(t,key,numSem)&&est.estadoResp!=="na";
+      const proxima=!vencida&&estaProxima(t,key,numSem)&&est.estadoResp!=="na";
       const puedeResp=puedeEditar(t,true);
       const puedeSup=puedeEditar(t,false);
       const depOk=dependenciaOk(t,numSem);
-      const depNombre=getNombreDependencia(t);
-      const labelLimite=esSem?`Limite: ${DIAS_SEMANA[configSemanal[t.id]??t.diaLimiteSem]}`:`Limite: dia ${diasLimite[t.id]||t.diaLimite}`;
+      const depNombre=getNombreDep(t);
+      const esNA=est.estadoResp==="na";
+      const diaLimiteLabel=frec==="Mensual"?`dia ${getConfig(t.id).diaLimite||t.diaLimite}`:`${DIAS_SEMANA[getConfig(t.id).diaLimiteSem??t.diaLimiteSem]}`;
       return(
-        <tr key={key} style={{borderBottom:"1px solid #f1f5f9",background:!depOk?"#f8f8ff":vencida?"#fff5f5":proxima?"#fffbeb":i%2===0?"#fff":"#f8fafc",borderLeft:!depOk?"4px solid #c4b5fd":vencida?"4px solid #ef4444":proxima?"4px solid #f59e0b":"4px solid transparent"}}>
+        <tr key={key} style={{borderBottom:"1px solid #f1f5f9",opacity:esNA?0.55:1,
+          background:!depOk?"#f8f8ff":esNA?"#f8fafc":vencida?"#fff5f5":proxima?"#fffbeb":i%2===0?"#fff":"#f8fafc",
+          borderLeft:!depOk?"4px solid #c4b5fd":esNA?"4px solid #94a3b8":vencida?"4px solid #ef4444":proxima?"4px solid #f59e0b":"4px solid transparent"}}>
           <td style={{padding:"9px 14px"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               {!depOk&&<span title={`Depende de: ${depNombre}`} style={{fontSize:11,color:"#7c3aed"}}>🔒</span>}
-              {vencida&&depOk&&<span style={{color:"#ef4444",fontWeight:700,fontSize:11}}>!!</span>}
-              {proxima&&depOk&&<span style={{color:"#f59e0b",fontWeight:700,fontSize:11}}>!</span>}
-              <div style={{fontWeight:500,color:!depOk?"#7c3aed":vencida?"#ef4444":"#1e293b",fontSize:13}}>{t.nombre}</div>
+              {vencida&&depOk&&!esNA&&<span style={{color:"#ef4444",fontWeight:700,fontSize:11}}>!!</span>}
+              {proxima&&depOk&&!esNA&&<span style={{color:"#f59e0b",fontWeight:700,fontSize:11}}>!</span>}
+              {esNA&&<span style={{fontSize:11,color:"#475569"}}>⊘</span>}
+              <div style={{fontWeight:500,color:!depOk?"#7c3aed":esNA?"#94a3b8":vencida?"#ef4444":"#1e293b",fontSize:13,textDecoration:esNA?"line-through":"none"}}>{t.nombre}</div>
             </div>
             <div style={{display:"flex",gap:6,marginTop:2,flexWrap:"wrap"}}>
               <span style={{fontSize:10,background:cat.bg,color:cat.color,borderRadius:20,padding:"1px 8px",fontWeight:600}}>{t.categoria}</span>
-              <span style={{fontSize:10,color:vencida?"#ef4444":proxima?"#f59e0b":"#94a3b8"}}>{labelLimite}</span>
-              {!depOk&&<span style={{fontSize:10,color:"#7c3aed",background:"#ede9fe",borderRadius:20,padding:"1px 8px"}}>Espera: {depNombre?.substring(0,20)}...</span>}
+              <span style={{fontSize:10,color:"#94a3b8"}}>{frec} · {diaLimiteLabel}</span>
+              {!depOk&&<span style={{fontSize:10,color:"#7c3aed",background:"#ede9fe",borderRadius:20,padding:"1px 8px"}}>Espera: {depNombre?.substring(0,18)}...</span>}
             </div>
           </td>
           <td style={{textAlign:"center",padding:"9px 8px",fontSize:12,color:"#374151"}}>{t.responsable.split(" ")[0]}</td>
           <td style={{textAlign:"center",padding:"9px 8px"}}>
             <button onClick={()=>ciclarResp(key,t,numSem)} title={!depOk?"Bloqueada":puedeResp?semResp.label:"Sin permiso"}
-              style={{width:28,height:28,borderRadius:"50%",background:semResp.color,border:`3px solid ${semResp.border}`,cursor:puedeResp&&depOk?"pointer":"not-allowed",outline:"none",opacity:puedeResp&&depOk?1:0.4,boxShadow:"0 2px 6px #0002",transition:"transform 0.1s"}}
-              onMouseEnter={e=>{if(puedeResp&&depOk)e.target.style.transform="scale(1.2)";}} onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
+              style={{width:28,height:28,borderRadius:"50%",background:semResp.color,border:`3px solid ${semResp.border}`,cursor:puedeResp?"pointer":"not-allowed",outline:"none",opacity:puedeResp?1:0.4,boxShadow:"0 2px 6px #0002",transition:"transform 0.1s",
+                backgroundImage:est.estadoResp==="na"?"repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,0.15) 3px,rgba(0,0,0,0.15) 6px)":undefined}}
+              onMouseEnter={e=>{if(puedeResp)e.target.style.transform="scale(1.2)";}} onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
           </td>
           <td style={{textAlign:"center",padding:"9px 8px",fontSize:12,color:"#374151"}}>{sup?sup.split(" ")[0]:<span style={{color:"#d1d5db"}}>-</span>}</td>
           <td style={{textAlign:"center",padding:"9px 8px"}}>
@@ -501,8 +576,42 @@ export default function App(){
 
   if(cargando)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"sans-serif",color:"#64748b"}}>Cargando...</div>;
 
+  const tareasSemanales=todasTareas().filter(t=>getFrecuencia(t.id)!=="Mensual");
+  const tareasMenusuales=todasTareas().filter(t=>getFrecuencia(t.id)==="Mensual");
+
   return(
     <div style={{fontFamily:"sans-serif",background:"#f8fafc",minHeight:"100vh",padding:"20px"}}>
+
+      {/* Modal notificacion dependencia */}
+      {modalNotif&&(
+        <div style={{position:"fixed",inset:0,background:"#0006",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{background:"#fff",borderRadius:16,padding:28,width:440,maxWidth:"90vw",boxShadow:"0 8px 32px #0003"}}>
+            <h3 style={{margin:"0 0 6px",color:"#1e293b"}}>Notificar tarea desbloqueada</h3>
+            <p style={{fontSize:13,color:"#64748b",marginBottom:12}}>
+              Completaste: <strong>{modalNotif.tarea.nombre}</strong><br/>
+              Esto desbloquea:
+            </p>
+            {modalNotif.dependientes.map(d=>(
+              <div key={d.id} style={{background:"#ede9fe",borderRadius:8,padding:"8px 12px",marginBottom:8,fontSize:13}}>
+                <strong>{d.nombre}</strong> → {d.responsable}
+              </div>
+            ))}
+            <div style={{marginTop:12,marginBottom:16}}>
+              <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>Mensaje o instruccion (opcional)</label>
+              <textarea value={textoNotif} onChange={e=>setTextoNotif(e.target.value)} rows={3}
+                placeholder="Ej: Comprar USD 50.000 al mejor tipo de cambio disponible..."
+                style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,resize:"vertical",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+              <button onClick={()=>{setModalNotif(null);setTextoNotif("");}} style={{padding:"8px 18px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:14}}>Omitir</button>
+              <button onClick={enviarNotifDependencia} disabled={enviandoNotif}
+                style={{padding:"8px 18px",borderRadius:8,border:"none",background:"#2563eb",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600,opacity:enviandoNotif?0.6:1}}>
+                {enviandoNotif?"Enviando...":"Enviar notificacion"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal cambiar PIN */}
       {modalPin==="cambiar"&&(
@@ -526,7 +635,7 @@ export default function App(){
         </div>
       )}
 
-      {/* Modal comentario tarea */}
+      {/* Modal comentario */}
       {editComentario!==null&&(
         <div style={{position:"fixed",inset:0,background:"#0006",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{background:"#fff",borderRadius:16,padding:28,width:420,maxWidth:"90vw",boxShadow:"0 8px 32px #0003"}}>
@@ -546,8 +655,7 @@ export default function App(){
         <div style={{position:"fixed",inset:0,background:"#0006",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{background:"#fff",borderRadius:16,padding:28,width:420,maxWidth:"90vw",boxShadow:"0 8px 32px #0003"}}>
             <h3 style={{margin:"0 0 6px",color:"#1e293b"}}>Comentario del recordatorio</h3>
-            <p style={{fontSize:12,color:"#64748b",marginBottom:12}}>Explica por que no se ha realizado o agrega una nota.</p>
-            <textarea value={textoRecComentario} onChange={e=>setTextoRecComentario(e.target.value)} rows={4} placeholder="Ej: Se realizo el dia 5, pendiente confirmacion..."
+            <textarea value={textoRecComentario} onChange={e=>setTextoRecComentario(e.target.value)} rows={4} placeholder="Explica el motivo o agrega una nota..."
               style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:14,resize:"vertical",boxSizing:"border-box"}}/>
             <div style={{display:"flex",gap:10,marginTop:14,justifyContent:"flex-end"}}>
               <button onClick={()=>setEditRecComentario(null)} style={{padding:"8px 18px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:14}}>Cancelar</button>
@@ -584,14 +692,10 @@ export default function App(){
       <div style={{background:"linear-gradient(135deg,#1e3a5f,#2563eb)",borderRadius:16,padding:"20px 28px",marginBottom:20,color:"#fff"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
           <div style={{display:"flex",alignItems:"center",gap:16}}>
-            <svg width="70" height="70" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* M shape - bold */}
+            <svg width="70" height="70" viewBox="0 0 200 200" fill="none">
               <path d="M18 160 L18 48 L72 112 L100 68 L128 112 L182 48 L182 160" stroke="rgba(255,255,255,0.95)" strokeWidth="22" strokeLinejoin="miter" strokeLinecap="square" fill="none"/>
-              {/* Tree trunk */}
               <line x1="128" y1="90" x2="128" y2="130" stroke="rgba(255,255,255,0.95)" strokeWidth="6" strokeLinecap="round"/>
-              {/* Tree canopy */}
               <circle cx="128" cy="68" r="26" stroke="rgba(255,255,255,0.95)" strokeWidth="5" fill="none"/>
-              {/* Tree branches */}
               <line x1="128" y1="52" x2="128" y2="88" stroke="rgba(255,255,255,0.95)" strokeWidth="3.5" strokeLinecap="round"/>
               <line x1="114" y1="65" x2="142" y2="65" stroke="rgba(255,255,255,0.95)" strokeWidth="3.5" strokeLinecap="round"/>
               <line x1="118" y1="57" x2="128" y2="67" stroke="rgba(255,255,255,0.95)" strokeWidth="2.5" strokeLinecap="round"/>
@@ -607,24 +711,14 @@ export default function App(){
             </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            {totalVencidas>0&&usuarioActual.esCFO&&(
-              <button onClick={()=>setModalEmail({resumen:generarResumenEmail()})} style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",cursor:"pointer",fontWeight:700,fontSize:13}}>
-                {totalVencidas} vencida(s)
-              </button>
-            )}
+            {totalVencidas>0&&usuarioActual.esCFO&&<button onClick={()=>setModalEmail({resumen:generarResumenEmail()})} style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:10,padding:"8px 16px",cursor:"pointer",fontWeight:700,fontSize:13}}>{totalVencidas} vencida(s)</button>}
             {estadoGuardadoUI&&<span style={{fontSize:12,color:"#fff",background:"rgba(255,255,255,0.15)",borderRadius:20,padding:"4px 12px"}}>{estadoGuardadoUI.icon} {estadoGuardadoUI.text}</span>}
             <button onClick={()=>{setPinActual("");setPinNuevo("");setPinConfirm("");setPinError("");setModalPin("cambiar");}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>Cambiar PIN</button>
             <button onClick={()=>setUsuarioActual(null)} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>Salir</button>
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:12,marginTop:12}}>
-          <button
-            onClick={()=>{
-              const nuevoMes=mes===0?11:mes-1;
-              const nuevoAnio=mes===0?anio-1:anio;
-              if(!mesAnteriorAlInicio(nuevoAnio,nuevoMes))return;
-              if(mes===0){setMes(11);setAnio(a=>a-1);}else setMes(m=>m-1);
-            }}
+          <button onClick={()=>{const nm=mes===0?11:mes-1;const na=mes===0?anio-1:anio;if(mesAnteriorAlInicio(na,nm))return;if(mes===0){setMes(11);setAnio(a=>a-1);}else setMes(m=>m-1);}}
             disabled={mesAnteriorAlInicio(mes===0?anio-1:anio,mes===0?11:mes-1)}
             style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",borderRadius:8,padding:"4px 14px",cursor:"pointer",fontSize:18,opacity:mesAnteriorAlInicio(mes===0?anio-1:anio,mes===0?11:mes-1)?0.3:1}}>{"<"}</button>
           <span style={{fontSize:18,fontWeight:700,minWidth:160,textAlign:"center"}}>{MESES[mes]} {anio}</span>
@@ -642,15 +736,10 @@ export default function App(){
                 <span style={{fontSize:22}}>{rec.diff<0?"🔴":rec.diff===0?"🚨":"⚠️"}</span>
                 <div>
                   <div style={{fontWeight:700,fontSize:13,color:"#1e293b"}}>{rec.titulo}</div>
-                  <div style={{fontSize:12,color:"#64748b"}}>
-                    {rec.diff<0?"Vencido - ":"Vence el "}{rec.fechaVence.getDate()} de {MESES[rec.fechaVence.getMonth()]}
-                    {rec.diff===0&&<strong style={{color:"#ef4444"}}> - HOY</strong>}
-                    {rec.diff===1&&<strong style={{color:"#f59e0b"}}> - Manana</strong>}
-                    {rec.diff===2&&<strong style={{color:"#f59e0b"}}> - En 2 dias</strong>}
-                  </div>
+                  <div style={{fontSize:12,color:"#64748b"}}>{rec.diff<0?"Vencido":"Vence el"} {rec.fechaVence.getDate()} de {MESES[rec.fechaVence.getMonth()]}{rec.diff===0&&<strong style={{color:"#ef4444"}}> - HOY</strong>}{rec.diff===1&&<strong style={{color:"#f59e0b"}}> - Manana</strong>}</div>
                 </div>
               </div>
-              <span style={{fontSize:11,color:"#2563eb",fontWeight:600,whiteSpace:"nowrap"}}>Ver &rarr;</span>
+              <span style={{fontSize:11,color:"#2563eb",fontWeight:600}}>Ver &rarr;</span>
             </div>
           ))}
         </div>
@@ -686,7 +775,7 @@ export default function App(){
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
         {Object.entries(SEMAFORO).map(([k,v])=>(
           <span key={k} style={{display:"flex",alignItems:"center",gap:5,background:"#fff",borderRadius:20,padding:"3px 12px",boxShadow:"0 1px 4px #0001",fontSize:11}}>
-            <span style={{width:11,height:11,borderRadius:"50%",background:v.color,display:"inline-block"}}></span>{v.label}
+            <span style={{width:11,height:11,borderRadius:"50%",background:v.color,display:"inline-block",backgroundImage:k==="na"?"repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(0,0,0,0.2) 2px,rgba(0,0,0,0.2) 4px)":undefined}}></span>{v.label}
           </span>
         ))}
         <span style={{fontSize:11,background:"#ede9fe",color:"#7c3aed",borderRadius:20,padding:"3px 12px",boxShadow:"0 1px 4px #0001"}}>🔒 Bloqueada por dependencia</span>
@@ -696,14 +785,12 @@ export default function App(){
       {tab==="semanal"&&(<>
         <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
           {semanas.map(s=>{
-            const inicioSemana=s.inicioSem;
-            const bloqueada=inicioSemana<FECHA_INICIO&&new Date(inicioSemana.getTime()+6*86400000)<FECHA_INICIO;
-            if(bloqueada)return null;
+            const fin=new Date(s.inicioSem);fin.setDate(s.inicioSem.getDate()+6);
+            if(s.inicioSem<FECHA_INICIO&&fin<FECHA_INICIO)return null;
             return(
               <button key={s.num} onClick={()=>setSemanaActiva(s.num)}
                 style={{padding:"8px 20px",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,fontSize:13,background:semanaActiva===s.num?"#0f172a":"#fff",color:semanaActiva===s.num?"#fff":"#374151",boxShadow:semanaActiva===s.num?"0 2px 8px #0003":"0 1px 4px #0001"}}>
-                Semana {s.num}
-                <div style={{fontSize:10,fontWeight:400,opacity:0.7}}>Sem {s.iso}</div>
+                Semana {s.num}<div style={{fontSize:10,fontWeight:400,opacity:0.7}}>Sem {s.iso}</div>
               </button>
             );
           })}
@@ -711,7 +798,7 @@ export default function App(){
         <div style={{overflowX:"auto"}}>
           <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:14,overflow:"hidden",boxShadow:"0 2px 12px #0001"}}>
             {encabezadoTabla}
-            <tbody><TablaFilas tareas={TAREAS_SEMANALES} getKey={t=>`${t.id}_s${semanaActiva}`} getSemana={()=>semanaActiva}/></tbody>
+            <tbody><TablaFilas tareas={tareasSemanales} getKey={t=>`${t.id}_s${semanaActiva}`} getSemana={()=>semanaActiva}/></tbody>
           </table>
         </div>
       </>)}
@@ -720,11 +807,11 @@ export default function App(){
       {tab==="mensual"&&(
         <div style={{overflowX:"auto"}}>
           <div style={{background:"#fef9c3",border:"1px solid #fde047",borderRadius:10,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#92400e"}}>
-            Tareas de cierre mensual. Fechas configurables por el CFO. Las tareas con 🔒 esperan que se complete una tarea previa.
+            Tareas de cierre mensual. Las tareas con 🔒 esperan que se complete una tarea previa.
           </div>
           <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:14,overflow:"hidden",boxShadow:"0 2px 12px #0001"}}>
             {encabezadoTabla}
-            <tbody><TablaFilas tareas={TAREAS_MENSUALES} getKey={t=>t.id} getSemana={null}/></tbody>
+            <tbody><TablaFilas tareas={tareasMenusuales} getKey={t=>t.id} getSemana={null}/></tbody>
           </table>
         </div>
       )}
@@ -733,9 +820,7 @@ export default function App(){
       {tab==="resumen"&&(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:16}}>
           {WORKERS.map(w=>{
-            const r=resumen(w.nombre);
-            const resumenEmail=generarResumenEmail();
-            const vencidas=resumenEmail[w.nombre]?.length||0;
+            const r=resumen(w.nombre);const re=generarResumenEmail();const vencidas=re[w.nombre]?.length||0;
             return(
               <div key={w.nombre} style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001",border:vencidas>0?"2px solid #fca5a5":"2px solid transparent"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
@@ -756,11 +841,7 @@ export default function App(){
                     <span key={k} style={{background:SEMAFORO[k].bg,border:`1px solid ${SEMAFORO[k].border}`,borderRadius:8,padding:"3px 9px",fontSize:12,fontWeight:600,color:"#374151"}}>{ico} {n}</span>
                   ))}
                 </div>
-                {vencidas>0&&usuarioActual.esCFO&&(
-                  <button onClick={()=>enviarEmailPersona(w,resumenEmail[w.nombre])} style={{width:"100%",background:"#ef4444",color:"#fff",border:"none",borderRadius:8,padding:"7px",cursor:"pointer",fontSize:12,fontWeight:600}}>
-                    Enviar aviso a {w.nombre.split(" ")[0]}
-                  </button>
-                )}
+                {vencidas>0&&usuarioActual.esCFO&&<button onClick={()=>enviarEmailPersona(w,re[w.nombre])} style={{width:"100%",background:"#ef4444",color:"#fff",border:"none",borderRadius:8,padding:"7px",cursor:"pointer",fontSize:12,fontWeight:600}}>Enviar aviso a {w.nombre.split(" ")[0]}</button>}
               </div>
             );
           })}
@@ -770,21 +851,14 @@ export default function App(){
       {/* RECORDATORIOS */}
       {tab==="recordatorios"&&(()=>{
         const lista=usuarioActual.esCFO
-          ? RECORDATORIOS.map(rec=>{const fv=diaHabil(anio,mes,rec.diaMes);const hD=new Date();hD.setHours(0,0,0,0);return{...rec,fechaVence:fv,diff:Math.ceil((fv-hD)/(1000*60*60*24))};})
-          : getRecordatoriosActivos(usuarioActual.nombre,anio,mes,false);
-        const listaFiltrada=lista.filter(r=>!recsDone[recKey(r.id)]);
-        const listaCompletada=lista.filter(r=>recsDone[recKey(r.id)]);
-
+          ?RECORDATORIOS.map(rec=>{const fv=diaHabil(anio,mes,rec.diaMes);const hD=new Date();hD.setHours(0,0,0,0);return{...rec,fechaVence:fv,diff:Math.ceil((fv-hD)/(1000*60*60*24))};})
+          :getRecordatoriosActivos(usuarioActual.nombre,anio,mes,false);
+        const listaF=lista.filter(r=>!recsDone[recKey(r.id)]);
+        const listaC=lista.filter(r=>recsDone[recKey(r.id)]);
         return(
           <div style={{display:"flex",flexDirection:"column",gap:16}}>
-            {listaFiltrada.length===0&&listaCompletada.length===0&&(
-              <div style={{background:"#fff",borderRadius:14,padding:32,textAlign:"center",boxShadow:"0 2px 10px #0001"}}>
-                <div style={{fontSize:32,marginBottom:8}}>✅</div>
-                <div style={{color:"#64748b",fontSize:14}}>No hay recordatorios activos este mes.</div>
-              </div>
-            )}
-
-            {listaFiltrada.map(rec=>{
+            {listaF.length===0&&listaC.length===0&&<div style={{background:"#fff",borderRadius:14,padding:32,textAlign:"center",boxShadow:"0 2px 10px #0001"}}><div style={{fontSize:32,marginBottom:8}}>✅</div><div style={{color:"#64748b",fontSize:14}}>No hay recordatorios activos este mes.</div></div>}
+            {listaF.map(rec=>{
               const color=rec.diff<0?"#ef4444":rec.diff<=2?"#f59e0b":"#22c55e";
               const bg=rec.diff<0?"#fff5f5":rec.diff<=2?"#fffbeb":"#f0fdf4";
               const border=rec.diff<0?"#fca5a5":rec.diff<=2?"#fde047":"#86efac";
@@ -805,54 +879,35 @@ export default function App(){
                       </div>
                       <div style={{fontSize:13,color:"#64748b",marginBottom:8}}>Fecha: <strong>{rec.fechaVence.getDate()} de {MESES[rec.fechaVence.getMonth()]} {rec.fechaVence.getFullYear()}</strong></div>
                       <div style={{fontSize:12,color:"#374151",background:"rgba(0,0,0,0.04)",borderRadius:8,padding:"8px 12px",marginBottom:10,lineHeight:1.5}}>{rec.mensaje(rec.destinatarios[0])}</div>
-                      <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>Para: {rec.destinatarios.join(", ")}{ccW.length>0&&<span style={{marginLeft:12}}>CC: {ccW.map(w=>w.nombre).join(", ")}</span>}</div>
-                      {/* Comentario del recordatorio */}
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <button onClick={()=>{setEditRecComentario(rec.id);setTextoRecComentario(comRec);}}
-                          style={{background:comRec?"#dbeafe":"#f1f5f9",border:"none",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,color:comRec?"#1d4ed8":"#9ca3af"}}>
-                          {comRec?`💬 ${comRec.substring(0,20)}${comRec.length>20?"...":""}` : "+ Agregar comentario"}
-                        </button>
-                      </div>
+                      <div style={{fontSize:11,color:"#64748b",marginBottom:8}}>Para: {rec.destinatarios.join(", ")}{ccW.length>0&&<span style={{marginLeft:12}}>CC: {ccW.map(w=>w.nombre).join(", ")}</span>}</div>
+                      <button onClick={()=>{setEditRecComentario(rec.id);setTextoRecComentario(comRec);}}
+                        style={{background:comRec?"#dbeafe":"#f1f5f9",border:"none",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,color:comRec?"#1d4ed8":"#9ca3af"}}>
+                        {comRec?`💬 ${comRec.substring(0,25)}${comRec.length>25?"...":""}` : "+ Agregar comentario"}
+                      </button>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                      {rec.diff<=2&&(
-                        <button onClick={()=>{destW.forEach(w=>{const asunto=encodeURIComponent(`Recordatorio: ${rec.titulo} - ${MESES[mes]} ${anio}`);const cc=ccW.map(c=>c.email).join(",");const cuerpo=encodeURIComponent(rec.mensaje(w.nombre)+`\n\nSaludos,\nEquipo Mediterra`);window.open(`mailto:${w.email}${cc?`?cc=${cc}&`:"?"}subject=${asunto}&body=${cuerpo}`);});}}
-                          style={{background:color,color:"#fff",border:"none",borderRadius:10,padding:"10px 18px",cursor:"pointer",fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>
-                          Enviar aviso
-                        </button>
-                      )}
+                      {rec.diff<=2&&<button onClick={()=>{destW.forEach(w=>{const asunto=encodeURIComponent(`Recordatorio: ${rec.titulo}`);const cc=ccW.map(c=>c.email).join(",");const cuerpo=encodeURIComponent(rec.mensaje(w.nombre)+`\n\nSaludos,\nEquipo Mediterra`);window.open(`mailto:${w.email}${cc?`?cc=${cc}&`:"?"}subject=${asunto}&body=${cuerpo}`);});}}
+                        style={{background:color,color:"#fff",border:"none",borderRadius:10,padding:"10px 18px",cursor:"pointer",fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>Enviar aviso</button>}
                       <button onClick={()=>setRecsDone(prev=>({...prev,[recKey(rec.id)]:true}))}
-                        style={{background:"#22c55e",color:"#fff",border:"none",borderRadius:10,padding:"10px 18px",cursor:"pointer",fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>
-                        ✓ Completado
-                      </button>
+                        style={{background:"#22c55e",color:"#fff",border:"none",borderRadius:10,padding:"10px 18px",cursor:"pointer",fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>✓ Completado</button>
                     </div>
                   </div>
                 </div>
               );
             })}
-
-            {/* Recordatorios completados */}
-            {listaCompletada.length>0&&(
+            {listaC.length>0&&(
               <div>
                 <div style={{fontSize:12,color:"#94a3b8",fontWeight:600,marginBottom:8,marginTop:8}}>COMPLETADOS ESTE MES</div>
-                {listaCompletada.map(rec=>{
-                  const comRec=recsComentarios[recKey(rec.id)]||"";
-                  return(
-                    <div key={rec.id} style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:12,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
-                      <div>
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:14}}>✅</span>
-                          <span style={{fontWeight:600,fontSize:13,color:"#15803d"}}>{rec.titulo}</span>
-                        </div>
-                        {comRec&&<div style={{fontSize:11,color:"#64748b",marginTop:4}}>💬 {comRec}</div>}
-                      </div>
-                      <button onClick={()=>setRecsDone(prev=>{const n={...prev};delete n[recKey(rec.id)];return n;})}
-                        style={{background:"none",border:"1px solid #d1d5db",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:"#64748b"}}>
-                        Deshacer
-                      </button>
+                {listaC.map(rec=>{const comRec=recsComentarios[recKey(rec.id)]||"";return(
+                  <div key={rec.id} style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:12,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+                    <div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}><span>✅</span><span style={{fontWeight:600,fontSize:13,color:"#15803d"}}>{rec.titulo}</span></div>
+                      {comRec&&<div style={{fontSize:11,color:"#64748b",marginTop:4}}>💬 {comRec}</div>}
                     </div>
-                  );
-                })}
+                    <button onClick={()=>setRecsDone(prev=>{const n={...prev};delete n[recKey(rec.id)];return n;})}
+                      style={{background:"none",border:"1px solid #d1d5db",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:"#64748b"}}>Deshacer</button>
+                  </div>
+                );})}
               </div>
             )}
           </div>
@@ -863,142 +918,164 @@ export default function App(){
       {tab==="configurar"&&usuarioActual.esCFO&&(
         <div style={{display:"flex",flexDirection:"column",gap:24}}>
 
-          {/* Semanales */}
-          <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
-            <h3 style={{margin:"0 0 16px",color:"#1e293b",fontSize:15}}>Tareas Semanales</h3>
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                <thead><tr style={{background:"#f8fafc",color:"#64748b"}}>
-                  <th style={{padding:"8px 12px",textAlign:"left",fontWeight:600,minWidth:200}}>Tarea</th>
-                  <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:110}}>Responsable</th>
-                  <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:150}}>Supervisor</th>
-                  <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:160}}>Dia limite</th>
-                </tr></thead>
-                <tbody>{TAREAS_SEMANALES.map((t,i)=>(
-                  <tr key={t.id} style={{borderTop:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
-                    <td style={{padding:"8px 12px",color:"#1e293b"}}>{t.nombre}</td>
-                    <td style={{padding:"8px 12px",textAlign:"center",color:"#64748b"}}>{t.responsable.split(" ")[0]}</td>
-                    <td style={{padding:"8px 12px",textAlign:"center"}}>
-                      <select value={supervisores[t.id]||""} onChange={e=>setSupervisores(prev=>({...prev,[t.id]:e.target.value}))}
-                        style={{padding:"4px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,cursor:"pointer",width:"100%"}}>
-                        <option value="">Sin supervisor</option>
-                        {WORKERS.filter(w=>w.nombre!==t.responsable).map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
-                      </select>
-                    </td>
-                    <td style={{padding:"8px 12px",textAlign:"center"}}>
-                      <select value={configSemanal[t.id]??t.diaLimiteSem} onChange={e=>setConfigSemanal(prev=>({...prev,[t.id]:parseInt(e.target.value)}))}
-                        style={{padding:"4px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,cursor:"pointer"}}>
-                        {DIAS_SEMANA.map((d,idx)=><option key={idx} value={idx}>{d}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                ))}</tbody>
-              </table>
+          {/* Agregar nueva tarea */}
+          <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001",border:"2px dashed #e2e8f0"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:mostrarFormTarea?16:0}}>
+              <h3 style={{margin:0,color:"#1e293b",fontSize:15}}>+ Agregar nueva tarea</h3>
+              <button onClick={()=>setMostrarFormTarea(p=>!p)} style={{background:mostrarFormTarea?"#f1f5f9":"#2563eb",color:mostrarFormTarea?"#374151":"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600}}>
+                {mostrarFormTarea?"Cancelar":"Nueva tarea"}
+              </button>
             </div>
+            {mostrarFormTarea&&(
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+                <div style={{gridColumn:"1/-1"}}>
+                  <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>Nombre de la tarea *</label>
+                  <input value={nuevaTarea.nombre} onChange={e=>setNuevaTarea(p=>({...p,nombre:e.target.value}))} placeholder="Ej: Revision semanal de presupuesto"
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                {[
+                  ["Responsable *","responsable",WORKERS.map(w=>({v:w.nombre,l:w.nombre.split(" ")[0]+" "+w.nombre.split(" ")[1]}))],
+                  ["Supervisor","supervisor",[{v:"",l:"Sin supervisor"},...WORKERS.map(w=>({v:w.nombre,l:w.nombre.split(" ")[0]+" "+w.nombre.split(" ")[1]}))]],
+                  ["Categoria","categoria",Object.keys(CATEGORIAS).map(k=>({v:k,l:k}))],
+                  ["Frecuencia","frecuencia",FRECUENCIAS.map(f=>({v:f,l:f}))],
+                ].map(([lbl,campo,opts])=>(
+                  <div key={campo}>
+                    <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>{lbl}</label>
+                    <select value={nuevaTarea[campo]} onChange={e=>setNuevaTarea(p=>({...p,[campo]:e.target.value}))}
+                      style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}>
+                      {opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                    </select>
+                  </div>
+                ))}
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>Depende de (opcional)</label>
+                  <select value={nuevaTarea.dependeDe} onChange={e=>setNuevaTarea(p=>({...p,dependeDe:e.target.value}))}
+                    style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}>
+                    <option value="">Sin dependencia</option>
+                    {todasTareas().map(t=><option key={t.id} value={t.id}>{t.nombre.substring(0,30)}{t.nombre.length>30?"...":""}</option>)}
+                  </select>
+                </div>
+                <div style={{gridColumn:"1/-1",display:"flex",justifyContent:"flex-end"}}>
+                  <button onClick={agregarTarea} style={{background:"#22c55e",color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",cursor:"pointer",fontWeight:700,fontSize:14}}>Guardar tarea</button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Mensuales */}
-          <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
-            <h3 style={{margin:"0 0 16px",color:"#1e293b",fontSize:15}}>Tareas Mensuales</h3>
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                <thead><tr style={{background:"#f8fafc",color:"#64748b"}}>
-                  <th style={{padding:"8px 12px",textAlign:"left",fontWeight:600,minWidth:200}}>Tarea</th>
-                  <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:110}}>Responsable</th>
-                  <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:150}}>Supervisor</th>
-                  <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:160}}>Dia del mes</th>
-                </tr></thead>
-                <tbody>{TAREAS_MENSUALES.map((t,i)=>(
-                  <tr key={t.id} style={{borderTop:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
-                    <td style={{padding:"8px 12px",color:"#1e293b"}}>
-                      {t.nombre}
-                      {t.dependeDe&&<span style={{fontSize:10,color:"#7c3aed",background:"#ede9fe",borderRadius:20,padding:"1px 6px",marginLeft:6}}>🔒 dep.</span>}
-                    </td>
-                    <td style={{padding:"8px 12px",textAlign:"center",color:"#64748b"}}>{t.responsable.split(" ")[0]}</td>
-                    <td style={{padding:"8px 12px",textAlign:"center"}}>
-                      <select value={supervisores[t.id]||""} onChange={e=>setSupervisores(prev=>({...prev,[t.id]:e.target.value}))}
-                        style={{padding:"4px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,cursor:"pointer",width:"100%"}}>
-                        <option value="">Sin supervisor</option>
-                        {WORKERS.filter(w=>w.nombre!==t.responsable).map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
-                      </select>
-                    </td>
-                    <td style={{padding:"8px 12px",textAlign:"center"}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                        <button onClick={()=>setDiasLimite(prev=>({...prev,[t.id]:Math.max(1,(prev[t.id]||t.diaLimite)-1)}))} style={{width:24,height:24,borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontWeight:700}}>-</button>
-                        <span style={{fontWeight:700,color:"#1e293b",minWidth:28,textAlign:"center"}}>{diasLimite[t.id]||t.diaLimite}</span>
-                        <button onClick={()=>setDiasLimite(prev=>({...prev,[t.id]:Math.min(31,(prev[t.id]||t.diaLimite)+1)}))} style={{width:24,height:24,borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontWeight:700}}>+</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}</tbody>
-              </table>
+          {/* Tabla configuracion */}
+          {[["Semanales y Diarias",todasTareas().filter(t=>getFrecuencia(t.id)!=="Mensual")],["Mensuales",todasTareas().filter(t=>getFrecuencia(t.id)==="Mensual")]].map(([titulo,tareas])=>(
+            <div key={titulo} style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
+              <h3 style={{margin:"0 0 16px",color:"#1e293b",fontSize:15}}>{titulo}</h3>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead><tr style={{background:"#f8fafc",color:"#64748b"}}>
+                    <th style={{padding:"8px 12px",textAlign:"left",fontWeight:600,minWidth:180}}>Tarea</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:90}}>Resp.</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:130}}>Supervisor</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:110}}>Frecuencia</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:130}}>Dia limite</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:130}}>Depende de</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:80}}>Estado</th>
+                  </tr></thead>
+                  <tbody>{tareas.map((t,i)=>{
+                    const cfg=getConfig(t.id);const bloq=isBloqueada(t.id);
+                    return(
+                      <tr key={t.id} style={{borderTop:"1px solid #f1f5f9",background:bloq?"#f8fafc":i%2===0?"#fff":"#fafafa",opacity:bloq?0.6:1}}>
+                        <td style={{padding:"8px 12px",color:bloq?"#94a3b8":"#1e293b",textDecoration:bloq?"line-through":"none"}}>
+                          {t.nombre}
+                          {t.id.startsWith("custom_")&&<span style={{fontSize:9,background:"#dbeafe",color:"#1d4ed8",borderRadius:20,padding:"1px 6px",marginLeft:4}}>nueva</span>}
+                        </td>
+                        <td style={{padding:"8px 12px",textAlign:"center",color:"#64748b"}}>{t.responsable.split(" ")[0]}</td>
+                        <td style={{padding:"8px 12px",textAlign:"center"}}>
+                          <select value={getSupervisor(t.id)||""} onChange={e=>updateConfig(t.id,"supervisor",e.target.value)}
+                            style={{padding:"3px 6px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,cursor:"pointer",width:"100%"}}>
+                            <option value="">Ninguno</option>
+                            {WORKERS.filter(w=>w.nombre!==t.responsable).map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
+                          </select>
+                        </td>
+                        <td style={{padding:"8px 12px",textAlign:"center"}}>
+                          <select value={cfg.frecuencia||t.frecuencia} onChange={e=>updateConfig(t.id,"frecuencia",e.target.value)}
+                            style={{padding:"3px 6px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,cursor:"pointer"}}>
+                            {FRECUENCIAS.map(f=><option key={f} value={f}>{f}</option>)}
+                          </select>
+                        </td>
+                        <td style={{padding:"8px 12px",textAlign:"center"}}>
+                          {cfg.frecuencia==="Mensual"||t.frecuencia==="Mensual"?(
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                              <button onClick={()=>updateConfig(t.id,"diaLimite",Math.max(1,(cfg.diaLimite||t.diaLimite)-1))} style={{width:20,height:20,borderRadius:4,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12,lineHeight:1}}>-</button>
+                              <span style={{fontWeight:700,minWidth:22,textAlign:"center"}}>{cfg.diaLimite||t.diaLimite}</span>
+                              <button onClick={()=>updateConfig(t.id,"diaLimite",Math.min(31,(cfg.diaLimite||t.diaLimite)+1))} style={{width:20,height:20,borderRadius:4,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12,lineHeight:1}}>+</button>
+                            </div>
+                          ):(
+                            <select value={cfg.diaLimiteSem??t.diaLimiteSem} onChange={e=>updateConfig(t.id,"diaLimiteSem",parseInt(e.target.value))}
+                              style={{padding:"3px 6px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,cursor:"pointer"}}>
+                              {DIAS_SEMANA.map((d,idx)=><option key={idx} value={idx}>{d}</option>)}
+                            </select>
+                          )}
+                        </td>
+                        <td style={{padding:"8px 12px",textAlign:"center"}}>
+                          <select value={cfg.dependeDe||""} onChange={e=>updateConfig(t.id,"dependeDe",e.target.value||null)}
+                            style={{padding:"3px 6px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,cursor:"pointer",width:"100%"}}>
+                            <option value="">Ninguna</option>
+                            {todasTareas().filter(x=>x.id!==t.id).map(x=><option key={x.id} value={x.id}>{x.nombre.substring(0,20)}{x.nombre.length>20?"...":""}</option>)}
+                          </select>
+                        </td>
+                        <td style={{padding:"8px 12px",textAlign:"center"}}>
+                          <button onClick={()=>toggleBloqueada(t.id)}
+                            style={{background:bloq?"#f1f5f9":"#dcfce7",color:bloq?"#64748b":"#15803d",border:`1px solid ${bloq?"#d1d5db":"#86efac"}`,borderRadius:8,padding:"3px 10px",cursor:"pointer",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>
+                            {bloq?"🔓 Activar":"🔒 Bloquear"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}</tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          ))}
 
           <div style={{background:"#dbeafe",borderRadius:10,padding:"10px 16px",fontSize:13,color:"#1d4ed8"}}>
-            Los cambios se guardan automaticamente. Configurar solo visible para el CFO.
+            Cambios guardados automaticamente. Las tareas bloqueadas se ocultan del calendario pero conservan su historial.
           </div>
         </div>
       )}
+
       {/* FOOTER */}
       <div style={{marginTop:40,borderTop:"1px solid #e2e8f0",paddingTop:24}}>
         <div style={{textAlign:"center",marginBottom:20}}>
-          <span style={{fontSize:11,color:"#94a3b8",letterSpacing:3,textTransform:"uppercase",fontWeight:600}}>Nuestras Empresas</span>
-          <span style={{fontSize:11,color:"#94a3b8",letterSpacing:2}}> – </span>
-          <span style={{fontSize:11,color:"#94a3b8",letterSpacing:3,textTransform:"uppercase",fontWeight:600}}>Mediterra</span>
+          <span style={{fontSize:11,color:"#94a3b8",letterSpacing:3,textTransform:"uppercase",fontWeight:600}}>Nuestras Empresas – Mediterra</span>
         </div>
         <div style={{display:"flex",flexWrap:"wrap",gap:16,justifyContent:"center",alignItems:"center"}}>
-
-          {/* Frisku Foods */}
           <div style={{background:"#1a1a2e",borderRadius:10,padding:"10px 18px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:120}}>
-            <div style={{display:"flex",alignItems:"baseline",gap:1}}>
-              <span style={{color:"#6b7280",fontWeight:900,fontSize:15,letterSpacing:1}}>FRISKU</span>
-              <span style={{color:"#60a5fa",fontWeight:900,fontSize:15,letterSpacing:1}}>FOODS</span>
-            </div>
+            <div style={{display:"flex",alignItems:"baseline",gap:1}}><span style={{color:"#6b7280",fontWeight:900,fontSize:15,letterSpacing:1}}>FRISKU</span><span style={{color:"#60a5fa",fontWeight:900,fontSize:15,letterSpacing:1}}>FOODS</span></div>
             <span style={{color:"#9ca3af",fontSize:8,letterSpacing:2,marginTop:2}}>CONNECTING QUALITY</span>
           </div>
-
-          {/* Osiris Plant Management */}
           <div style={{background:"#0f2d4a",borderRadius:10,padding:"10px 18px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:140}}>
             <span style={{color:"#2980b9",fontWeight:700,fontSize:16,letterSpacing:3}}>OSIRIS</span>
             <span style={{color:"#7fb3d3",fontSize:9,letterSpacing:2,marginTop:1}}>PLANT MANAGEMENT</span>
           </div>
-
-          {/* Allegria Foods */}
           <div style={{background:"#1a1a1a",borderRadius:10,padding:"10px 18px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:120}}>
-            <div style={{display:"flex",alignItems:"baseline",gap:4}}>
-              <span style={{color:"#374151",fontWeight:300,fontSize:18,fontStyle:"italic",fontFamily:"Georgia,serif"}}>Allegr</span>
-              <span style={{color:"#374151",fontWeight:300,fontSize:18,fontStyle:"italic",fontFamily:"Georgia,serif"}}>ía</span>
-            </div>
+            <span style={{color:"#9ca3af",fontWeight:300,fontSize:18,fontStyle:"italic",fontFamily:"Georgia,serif"}}>Allegria</span>
             <span style={{color:"#ec4899",fontSize:11,letterSpacing:2,marginTop:-2}}>foods</span>
           </div>
-
-          {/* Allegria Service */}
           <div style={{background:"#111",borderRadius:10,padding:"10px 18px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:130}}>
-            <span style={{color:"#e5e7eb",fontWeight:700,fontSize:15,letterSpacing:2,fontFamily:"Georgia,serif"}}>ALLEGRÍA</span>
+            <span style={{color:"#e5e7eb",fontWeight:700,fontSize:15,letterSpacing:2,fontFamily:"Georgia,serif"}}>ALLEGRIA</span>
             <span style={{color:"#ef4444",fontSize:10,letterSpacing:3,marginTop:2,borderTop:"1px solid #ef4444",paddingTop:3,width:"100%",textAlign:"center"}}>SERVICE</span>
           </div>
-
-          {/* Integrity Farms */}
           <div style={{background:"#0f2010",borderRadius:10,padding:"10px 18px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:130,border:"1px solid #166534"}}>
             <span style={{color:"#16a34a",fontWeight:800,fontSize:13,letterSpacing:2}}>INTEGRITY</span>
             <span style={{color:"#16a34a",fontWeight:800,fontSize:13,letterSpacing:2,borderTop:"1px solid #16a34a",paddingTop:3,width:"100%",textAlign:"center"}}>FARMS</span>
           </div>
-
-          {/* Allpa Farms Peru */}
           <div style={{background:"#1e1b4b",borderRadius:10,padding:"10px 18px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:100}}>
-            <span style={{color:"#3730a3",fontWeight:900,fontSize:14,letterSpacing:1}}>ALLPA</span>
-            <span style={{color:"#3730a3",fontWeight:900,fontSize:14,letterSpacing:1}}>FARMS</span>
+            <span style={{color:"#818cf8",fontWeight:900,fontSize:14,letterSpacing:1}}>ALLPA</span>
+            <span style={{color:"#818cf8",fontWeight:900,fontSize:14,letterSpacing:1}}>FARMS</span>
             <span style={{background:"#34d399",color:"#fff",fontSize:9,fontWeight:700,borderRadius:4,padding:"1px 8px",marginTop:3,letterSpacing:2}}>PERU</span>
           </div>
-
-          {/* Allpa Farms Chile */}
           <div style={{background:"#1e1b4b",borderRadius:10,padding:"10px 18px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:100}}>
-            <span style={{color:"#3730a3",fontWeight:900,fontSize:14,letterSpacing:1}}>ALLPA</span>
-            <span style={{color:"#3730a3",fontWeight:900,fontSize:14,letterSpacing:1}}>FARMS</span>
+            <span style={{color:"#818cf8",fontWeight:900,fontSize:14,letterSpacing:1}}>ALLPA</span>
+            <span style={{color:"#818cf8",fontWeight:900,fontSize:14,letterSpacing:1}}>FARMS</span>
             <span style={{background:"#f87171",color:"#fff",fontSize:9,fontWeight:700,borderRadius:4,padding:"1px 8px",marginTop:3,letterSpacing:2}}>CHILE</span>
           </div>
-
         </div>
         <div style={{textAlign:"center",marginTop:20,fontSize:10,color:"#cbd5e1"}}>
           © {new Date().getFullYear()} Grupo Mediterra · Todos los derechos reservados
