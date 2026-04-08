@@ -91,16 +91,18 @@ function initEstados() {
 }
 
 // Verifica si una tarea está vencida (fecha límite pasó y sigue sin iniciar)
-function estaVencida(tarea, estados, key, mes, año) {
+function estaVencida(tarea, estados, key, mes, año, diasLimite) {
   const hoy = new Date();
-  const fechaLimite = new Date(año, mes, tarea.diaLimite);
+  const dia = diasLimite[tarea.id] || tarea.diaLimite;
+  const fechaLimite = new Date(año, mes, dia);
   const estado = estados[key]?.estadoResp || "gris";
   return hoy > fechaLimite && estado === "gris";
 }
 
-function estaProxima(tarea, mes, año) {
+function estaProxima(tarea, mes, año, diasLimite) {
   const hoy = new Date();
-  const fechaLimite = new Date(año, mes, tarea.diaLimite);
+  const dia = diasLimite[tarea.id] || tarea.diaLimite;
+  const fechaLimite = new Date(año, mes, dia);
   const diff = (fechaLimite - hoy) / (1000 * 60 * 60 * 24);
   return diff >= 0 && diff <= 3;
 }
@@ -118,6 +120,11 @@ export default function App() {
   const [editComentario, setEditComentario] = useState(null);
   const [textoComentario, setTextoComentario] = useState("");
   const [filtroPersona, setFiltroPersona] = useState("");
+  const [diasLimite, setDiasLimite] = useState(() => {
+    const d = {};
+    [...TAREAS_SEMANALES, ...TAREAS_MENSUALES].forEach(t => { d[t.id] = t.diaLimite; });
+    return d;
+  });
   const [modalEmail, setModalEmail] = useState(false);
 
   useEffect(() => {
@@ -127,6 +134,7 @@ export default function App() {
         const d = JSON.parse(raw);
         if (d.estados)     setEstados(prev => ({...initEstados(), ...d.estados}));
         if (d.comentarios) setComentarios(d.comentarios);
+        if (d.diasLimite)  setDiasLimite(prev => ({...prev, ...d.diasLimite}));
         if (d.mes !== undefined) setMes(d.mes);
         if (d.año !== undefined) setAño(d.año);
       }
@@ -134,10 +142,10 @@ export default function App() {
     setCargando(false);
   }, []);
 
-  const guardar = useCallback(async (estados, comentarios, mes, año) => {
+  const guardar = useCallback(async (estados, comentarios, diasLimite, mes, año) => {
     setGuardado("guardando");
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ estados, comentarios, mes, año }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ estados, comentarios, diasLimite, mes, año }));
       setGuardado("ok");
       setTimeout(() => setGuardado("idle"), 2000);
     } catch {
@@ -148,7 +156,7 @@ export default function App() {
 
   useEffect(() => {
     if (cargando) return;
-    const t = setTimeout(() => guardar(estados, comentarios, mes, año), 800);
+    const t = setTimeout(() => guardar(estados, comentarios, diasLimite, mes, año), 800);
     return () => clearTimeout(t);
   }, [estados, comentarios, mes, año, cargando, guardar]);
 
@@ -222,7 +230,7 @@ export default function App() {
       ...SEMANAS.flatMap(s => TAREAS_SEMANALES.map(t => ({ ...t, key: `${t.id}_s${s}` }))),
       ...TAREAS_MENSUALES.map(t => ({ ...t, key: t.id }))
     ];
-    todasTareas.forEach(t => { if (estaVencida(t, estados, t.key, mes, año)) count++; });
+    todasTareas.forEach(t => {       if (estaVencida(t, estados, t.key, mes, año, diasLimite)) count++; });
     return count;
   })();
 
@@ -265,8 +273,9 @@ export default function App() {
       const semSup = SEMAFORO[supActivo ? est.estadoSup : "gris"];
       const cat = CATEGORIAS[t.categoria] || {color:"#64748b",bg:"#f1f5f9"};
       const com = comentarios[key] || "";
-      const vencida = estaVencida(t, estados, key, mes, año);
-      const proxima = !vencida && estaProxima(t, mes, año) && est.estadoResp === "gris";
+      const vencida = estaVencida(t, estados, key, mes, año, diasLimite);
+      const proxima = !vencida && estaProxima(t, mes, año, diasLimite) && est.estadoResp === "gris";
+      const diaLimiteActual = diasLimite[t.id] || t.diaLimite;
       return (
         <tr key={key} style={{
           borderBottom:"1px solid #f1f5f9",
@@ -282,7 +291,7 @@ export default function App() {
             <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
               <span style={{fontSize:10,background:cat.bg,color:cat.color,borderRadius:20,padding:"1px 8px",fontWeight:600}}>{t.categoria}</span>
               <span style={{fontSize:10,color: vencida?"#ef4444":proxima?"#f59e0b":"#94a3b8"}}>
-                📅 Límite: {t.diaLimite} {MESES[mes]}
+                📅 Límite: {diaLimiteActual} {MESES[mes]}
               </span>
             </div>
           </td>
@@ -428,7 +437,7 @@ export default function App() {
 
       {/* Tabs */}
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-        {[["semanal","📋 Tareas Semanales"],["mensual","📆 Tareas Mensuales"],["resumen","📊 Resumen"]].map(([t,l])=>(
+        {[["semanal","📋 Tareas Semanales"],["mensual","📆 Tareas Mensuales"],["resumen","📊 Resumen"],["configurar","⚙️ Configurar"]].map(([t,l])=>(
           <button key={t} onClick={()=>setTab(t)}
             style={{padding:"8px 20px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:600,fontSize:13,
               background:tab===t?"#2563eb":"#fff",color:tab===t?"#fff":"#374151",
@@ -499,7 +508,7 @@ export default function App() {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:16}}>
           {WORKERS.map(w=>{
             const r = resumen(w.nombre);
-            const resumenEmail = generarResumenEmail();
+      const resumenEmail = generarResumenEmail();
             const vencidas = resumenEmail[w.nombre]?.length || 0;
             return (
               <div key={w.nombre} style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001",
@@ -535,6 +544,48 @@ export default function App() {
           })}
         </div>
       )}
-    </div>
-  );
-}
+      {/* CONFIGURAR */}
+      {tab==="configurar" && (
+        <div style={{display:"flex",flexDirection:"column",gap:24}}>
+          {[["Tareas Semanales 📋", TAREAS_SEMANALES],["Tareas Mensuales 📆", TAREAS_MENSUALES]].map(([titulo, tareas]) => (
+            <div key={titulo} style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
+              <h3 style={{margin:"0 0 16px",color:"#1e293b",fontSize:15}}>{titulo}</h3>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead>
+                  <tr style={{background:"#f8fafc",color:"#64748b"}}>
+                    <th style={{padding:"8px 12px",textAlign:"left",fontWeight:600}}>Tarea</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:120}}>Responsable</th>
+                    <th style={{padding:"8px 12px",textAlign:"center",fontWeight:600,width:160}}>Día límite del mes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tareas.map((t,i) => (
+                    <tr key={t.id} style={{borderTop:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
+                      <td style={{padding:"8px 12px",color:"#1e293b"}}>{t.nombre}</td>
+                      <td style={{padding:"8px 12px",textAlign:"center",color:"#64748b"}}>{t.responsable.split(" ")[0]}</td>
+                      <td style={{padding:"8px 12px",textAlign:"center"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                          <button onClick={()=>setDiasLimite(prev=>({...prev,[t.id]:Math.max(1,(prev[t.id]||t.diaLimite)-1)}))}
+                            style={{width:26,height:26,borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontWeight:700,fontSize:14}}>−</button>
+                          <span style={{fontWeight:700,color:"#1e293b",minWidth:30,textAlign:"center",fontSize:15}}>
+                            {diasLimite[t.id] || t.diaLimite}
+                          </span>
+                          <button onClick={()=>setDiasLimite(prev=>({...prev,[t.id]:Math.min(31,(prev[t.id]||t.diaLimite)+1)}))}
+                            style={{width:26,height:26,borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontWeight:700,fontSize:14}}>+</button>
+                          <input type="number" min={1} max={31}
+                            value={diasLimite[t.id] || t.diaLimite}
+                            onChange={e=>{const v=parseInt(e.target.value); if(v>=1&&v<=31) setDiasLimite(prev=>({...prev,[t.id]:v}));}}
+                            style={{width:50,padding:"4px 8px",borderRadius:6,border:"1px solid #d1d5db",textAlign:"center",fontSize:13}}/>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+          <div style={{background:"#dbeafe",borderRadius:10,padding:"10px 16px",fontSize:13,color:"#1d4ed8"}}>
+            💡 Los cambios se guardan automáticamente. El día límite se aplica al mes que estás viendo.
+          </div>
+        </div>
+      )}
