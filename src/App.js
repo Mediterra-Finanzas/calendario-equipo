@@ -187,7 +187,7 @@ function modulosDeUsuario(usuario){
 
 function OsirisLogoSmall() {
   return (
-    <img src="/osiris-logo.png" alt="Osiris Plant Management"
+    <img src="/osiris-logo.jpg" alt="Osiris Plant Management"
       style={{height:70, objectFit:"contain", display:"block", marginBottom:6}}/>
   );
 }
