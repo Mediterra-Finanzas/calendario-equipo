@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const EMAILJS_SERVICE  = "service_ahuerta";
 const EMAILJS_TEMPLATE = "template_c7yup8d";
@@ -181,7 +181,7 @@ export default function App(){
   const [pinNuevo,setPinNuevo]=useState("");
   const [pinConfirm,setPinConfirm]=useState("");
   const [pinError,setPinError]=useState("");
-  const pinsTempRef=useRef({});
+
 
   const [mes,setMes]=useState(hoy.getMonth());
   const [anio,setAnio]=useState(hoy.getFullYear());
