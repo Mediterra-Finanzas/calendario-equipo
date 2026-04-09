@@ -1334,18 +1334,413 @@ function OsirisLogo({height=52}) {
   );
 }
 
+
+// ════════════════════════════════════════════════════════════
+// DATOS CONTRATOS INIT
+// ════════════════════════════════════════════════════════════
+const TIPOS_FEE=["Con Devolución","Sin Devolución","Sin Contract Fee"];
+const MESES_ANO=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const TIPOS_CONTRATO=["Licencia","Exclusiva","No Exclusiva"];
+const MONEDAS=["USD","EUR","CLP","PEN"];
+const SECCIONES_CT=[
+  {id:"empresa",   label:"🏢 Empresa",         color:"#2563eb"},
+  {id:"contrato",  label:"📄 Contrato",         color:"#7c3aed"},
+  {id:"rep",       label:"👤 Representante",    color:"#0f766e"},
+  {id:"ubicacion", label:"🌱 Ubicación plantas",color:"#16a34a"},
+  {id:"factura",   label:"💰 Facturación",      color:"#d97706"},
+];
+
+const CONTRATOS_INIT=[
+  {id:"ct1",razonSocial:"Agroextiende",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2024-09-23",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Sin Devolución",montoContractFee:30000,valorRoyaltyPlanta:0.85,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Abril",notas:""},
+  {id:"ct2",razonSocial:"Allpa Farms",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2024-07-15",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Sin Contract Fee",montoContractFee:0,valorRoyaltyPlanta:1.00,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Abril",notas:""},
+  {id:"ct3",razonSocial:"Vanguard",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2024-10-23",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Sin Devolución",montoContractFee:30000,valorRoyaltyPlanta:0.85,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Abril",notas:""},
+  {id:"ct4",razonSocial:"Mainland Farms SA",taxID:"",pais:"Mexico",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2022-05-01",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Con Devolución",montoContractFee:30000,valorRoyaltyPlanta:0.49,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Julio",notas:""},
+  {id:"ct5",razonSocial:"Frusan Agro SAC",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2023-12-01",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Con Devolución",montoContractFee:30000,valorRoyaltyPlanta:1.00,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Abril",notas:""},
+  {id:"ct6",razonSocial:"Danper Trujillo SAC",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2022-11-10",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Con Devolución",montoContractFee:30000,valorRoyaltyPlanta:0.85,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Abril",notas:""},
+  {id:"ct7",razonSocial:"Hass Peru SA",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2022-08-19",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Con Devolución",montoContractFee:30000,valorRoyaltyPlanta:0.85,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Abril",notas:""},
+  {id:"ct8",razonSocial:"Pura Berries",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2024-12-12",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Sin Contract Fee",montoContractFee:0,valorRoyaltyPlanta:1.00,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Abril",notas:""},
+  {id:"ct9",razonSocial:"San Clemente",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2022-04-26",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Con Devolución",montoContractFee:30000,valorRoyaltyPlanta:1.00,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Junio",notas:""},
+  {id:"ct10",razonSocial:"Fruits Giddings SA de CV",taxID:"",pais:"Mexico",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2022-07-30",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:true,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Con Devolución",montoContractFee:30000,valorRoyaltyPlanta:0.25,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"Julio",notas:""},
+  {id:"ct11",razonSocial:"Frunatural",taxID:"",pais:"Mexico",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"2026-03-01",fechaTermino:"",firmadoLicenciado:true,firmadoOsiris:true,verDigital:"",anexo1:false,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Sin Devolución",montoContractFee:30000,valorRoyaltyPlanta:1.00,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"",notas:""},
+];
+
+// ════════════════════════════════════════════════════════════
+// CONTROL CONTRATOS
+// ════════════════════════════════════════════════════════════
+function ControlContratos({data,setData,can}){
+  const [vista,setVista]=useState("tabla");
+  const [sel,setSel]=useState(null);
+  const [sec,setSec]=useState("empresa");
+  const [busq,setBusq]=useState("");
+  const [filtroPais,setFiltroPais]=useState("Todos");
+  const formVacio={razonSocial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"",fechaTermino:"",firmadoLicenciado:false,firmadoOsiris:false,verDigital:"",anexo1:false,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Sin Devolución",montoContractFee:30000,valorRoyaltyPlanta:1.00,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"",notas:""};
+  const [form,setForm]=useState(formVacio);
+
+  const upd=(id,c,v)=>setData(prev=>prev.map(r=>r.id===id?{...r,[c]:v}:r));
+  const setF=(c,v)=>setForm(p=>({...p,[c]:v}));
+
+  const filtrado=data.filter(r=>
+    (filtroPais==="Todos"||r.pais===filtroPais)&&
+    (!busq||r.razonSocial.toLowerCase().includes(busq.toLowerCase()))
+  );
+  const actual=data.find(r=>r.id===sel);
+  const totalFirmados=data.filter(r=>r.firmadoLicenciado&&r.firmadoOsiris).length;
+
+  function guardarNuevo(){
+    if(!form.razonSocial.trim()){alert("Razón Social es obligatoria.");return;}
+    setData(prev=>[...prev,{...form,id:`ct_${Date.now()}`}]);
+    setVista("tabla");setForm(formVacio);
+  }
+  function eliminar(id){
+    if(!window.confirm("¿Eliminar este contrato?"))return;
+    setData(prev=>prev.filter(r=>r.id!==id));
+    if(sel===id){setVista("tabla");setSel(null);}
+  }
+
+  // Campos helpers
+  function Campo({label,campo,tipo="text",opts=null,r,fullWidth=false}){
+    return(
+      <div style={fullWidth?{gridColumn:"1/-1"}:{}}>
+        <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>{label}</div>
+        {opts
+          ? <Cell val={r[campo]} onChange={v=>upd(r.id,campo,v)} opts={opts} can={can}/>
+          : <Cell val={r[campo]} onChange={v=>upd(r.id,campo,v)} type={tipo} can={can}/>
+        }
+      </div>
+    );
+  }
+
+  function CampoNuevo({label,campo,tipo="text",opts=null,fullWidth=false}){
+    return(
+      <div style={fullWidth?{gridColumn:"1/-1"}:{}}>
+        <label style={{fontSize:11,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>{label}</label>
+        {opts
+          ? <select value={form[campo]} onChange={e=>setF(campo,e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}>
+              {opts.map(o=><option key={o}>{o}</option>)}
+            </select>
+          : tipo==="checkbox"
+            ? <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:C.sl}}>
+                <input type="checkbox" checked={form[campo]||false} onChange={()=>setF(campo,!form[campo])}/> {label}
+              </label>
+            : <input type={tipo} value={form[campo]} onChange={e=>setF(campo,e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+        }
+      </div>
+    );
+  }
+
+  // ── VISTA DETALLE ──────────────────────────────────────────
+  if(vista==="detalle"&&actual){
+    const r=actual;
+    return(
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+          <button onClick={()=>{setVista("tabla");setSel(null);}} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:13,color:C.sl,fontWeight:600}}>← Volver</button>
+          <h2 style={{margin:0,fontSize:17,fontWeight:800,color:C.sl,flex:1}}>{r.razonSocial}</h2>
+          <span style={{fontSize:11,background:r.pais==="Peru"?C.verdeBg:r.pais==="Mexico"?C.azulBg:C.amBg,
+            color:r.pais==="Peru"?C.verde:r.pais==="Mexico"?C.azul:C.am,borderRadius:20,padding:"3px 12px",fontWeight:700}}>
+            {r.pais}
+          </span>
+          <span style={{fontSize:11,background:r.firmadoLicenciado&&r.firmadoOsiris?C.verdeBg:C.amBg,
+            color:r.firmadoLicenciado&&r.firmadoOsiris?C.verde:C.am,borderRadius:20,padding:"3px 12px",fontWeight:700}}>
+            {r.firmadoLicenciado&&r.firmadoOsiris?"✅ Firmado completo":"⏳ Pendiente firma"}
+          </span>
+          {can&&<button onClick={()=>eliminar(r.id)} style={{background:"#fee2e2",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:600}}>🗑 Eliminar</button>}
+        </div>
+
+        {/* Tabs secciones */}
+        <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+          {SECCIONES_CT.map(s=>(
+            <button key={s.id} onClick={()=>setSec(s.id)}
+              style={{padding:"7px 15px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,
+                background:sec===s.id?s.color:"#fff",color:sec===s.id?"#fff":C.sl,
+                boxShadow:sec===s.id?`0 2px 8px ${s.color}55`:"0 1px 4px #0001"}}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{background:"#fff",borderRadius:14,padding:24,boxShadow:"0 2px 10px #0001"}}>
+
+          {sec==="empresa"&&(
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:16}}>
+              <Campo label="Razón Social" campo="razonSocial" r={r}/>
+              <Campo label="Tax ID / RUC" campo="taxID" r={r}/>
+              <Campo label="País" campo="pais" opts={PAISES} r={r}/>
+              <Campo label="Dirección" campo="direccion" r={r}/>
+              <Campo label="Ciudad" campo="ciudad" r={r}/>
+            </div>
+          )}
+
+          {sec==="contrato"&&(
+            <div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:16,marginBottom:20}}>
+                <Campo label="Tipo Contrato" campo="tipoContrato" opts={TIPOS_CONTRATO} r={r}/>
+                <Campo label="Moneda" campo="moneda" opts={MONEDAS} r={r}/>
+                <Campo label="Fecha Contrato" campo="fechaContrato" tipo="date" r={r}/>
+                <Campo label="Fecha Término" campo="fechaTermino" tipo="date" r={r}/>
+                <Campo label="Ver Digital (URL)" campo="verDigital" r={r}/>
+              </div>
+              {/* Firmas */}
+              <div style={{background:"#f8fafc",borderRadius:12,padding:16,marginBottom:16}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:12}}>Estado de Firmas</div>
+                <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                  {[["firmadoLicenciado","Firmado Licenciado"],["firmadoOsiris","Firmado OSIRIS"]].map(([campo,label])=>(
+                    <label key={campo} style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",
+                      background:r[campo]?C.verdeBg:C.rojoBg,border:`1px solid ${r[campo]?"#86efac":"#fca5a5"}`,
+                      borderRadius:10,padding:"9px 18px",fontSize:13,fontWeight:600,
+                      color:r[campo]?C.verde:C.rojo}}>
+                      <input type="checkbox" checked={r[campo]} disabled={!can} onChange={()=>upd(r.id,campo,!r[campo])} style={{accentColor:r[campo]?"#16a34a":"#dc2626"}}/>
+                      {r[campo]?"✅":"❌"} {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {/* Anexos */}
+              <div style={{background:"#f8fafc",borderRadius:12,padding:16,marginBottom:16}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:12}}>Anexos del contrato</div>
+                <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                  {[["anexo1","Anexo 1"],["anexo2","Anexo 2"],["anexo3","Anexo 3"]].map(([campo,label])=>(
+                    <label key={campo} style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",
+                      background:r[campo]?C.azulBg:"#f1f5f9",border:`1px solid ${r[campo]?"#93c5fd":"#d1d5db"}`,
+                      borderRadius:10,padding:"9px 18px",fontSize:13,fontWeight:600,
+                      color:r[campo]?C.azul:"#94a3b8"}}>
+                      <input type="checkbox" checked={r[campo]} disabled={!can} onChange={()=>upd(r.id,campo,!r[campo])} style={{accentColor:"#2563eb"}}/>
+                      {r[campo]?"📎":"○"} {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {/* Notas */}
+              <div>
+                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:6}}>Notas / Observaciones</div>
+                {can
+                  ? <textarea value={r.notas||""} onChange={e=>upd(r.id,"notas",e.target.value)} rows={3} placeholder="Agrega observaciones del contrato..."
+                      style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,resize:"vertical",boxSizing:"border-box"}}/>
+                  : <div style={{fontSize:13,color:C.sl,background:"#f8fafc",borderRadius:8,padding:"10px 12px",minHeight:56}}>{r.notas||<span style={{color:"#cbd5e1"}}>Sin notas</span>}</div>
+                }
+              </div>
+            </div>
+          )}
+
+          {sec==="rep"&&(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <Campo label="Nombre Representante Legal" campo="nombreRep" r={r}/>
+              <Campo label="Personería" campo="personeria" r={r}/>
+            </div>
+          )}
+
+          {sec==="ubicacion"&&(
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:16}}>
+              <Campo label="Nombre Predio" campo="nombrePredio" r={r}/>
+              <Campo label="Dirección Predio" campo="direccionPredio" r={r}/>
+              <Campo label="Cuartel" campo="cuartel" r={r}/>
+              <Campo label="Región" campo="region" r={r}/>
+              <Campo label="Ciudad" campo="ciudadPredio" r={r}/>
+              <Campo label="Coordenadas GPS" campo="coordenadas" r={r}/>
+            </div>
+          )}
+
+          {sec==="factura"&&(
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:16}}>
+              <div>
+                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Tipo Contract Fee</div>
+                <Cell val={r.tipoContractFee} onChange={v=>upd(r.id,"tipoContractFee",v)} opts={TIPOS_FEE} can={can}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Monto Contract Fee (USD)</div>
+                <Cell val={r.montoContractFee} onChange={v=>upd(r.id,"montoContractFee",parseFloat(v)||0)} type="number" can={can}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Valor Royalty/Planta (USD)</div>
+                <Cell val={r.valorRoyaltyPlanta} onChange={v=>upd(r.id,"valorRoyaltyPlanta",parseFloat(v)||0)} type="number" can={can}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Valor Royalty Comercial (USD/Há)</div>
+                <Cell val={r.valorRoyaltyComercial} onChange={v=>upd(r.id,"valorRoyaltyComercial",parseFloat(v)||0)} type="number" can={can}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Mes Facturación Royalty Comercial</div>
+                <Cell val={r.mesFacuracionRC||""} onChange={v=>upd(r.id,"mesFacuracionRC",v)} opts={["—",...MESES_ANO]} can={can}/>
+              </div>
+              <div style={{display:"flex",alignItems:"flex-end",paddingBottom:4}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",
+                  background:r.royaltyInflacion?C.amBg:"#f1f5f9",border:`1px solid ${r.royaltyInflacion?"#fde047":"#d1d5db"}`,
+                  borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:600,
+                  color:r.royaltyInflacion?C.am:"#94a3b8"}}>
+                  <input type="checkbox" checked={r.royaltyInflacion||false} disabled={!can} onChange={()=>upd(r.id,"royaltyInflacion",!r.royaltyInflacion)} style={{accentColor:"#d97706"}}/>
+                  📈 Sujeto a Inflación
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── VISTA NUEVO ────────────────────────────────────────────
+  if(vista==="nuevo"){
+    return(
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+          <button onClick={()=>{setVista("tabla");setForm(formVacio);}} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:13,color:C.sl,fontWeight:600}}>← Volver</button>
+          <h2 style={{margin:0,fontSize:16,fontWeight:800,color:C.sl}}>Nuevo Contrato</h2>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {/* Empresa */}
+          <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.azul,marginBottom:14}}>🏢 Antecedentes Empresa</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+              <CampoNuevo label="Razón Social *" campo="razonSocial"/>
+              <CampoNuevo label="Tax ID / RUC" campo="taxID"/>
+              <CampoNuevo label="País" campo="pais" opts={PAISES}/>
+              <CampoNuevo label="Dirección" campo="direccion"/>
+              <CampoNuevo label="Ciudad" campo="ciudad"/>
+            </div>
+          </div>
+          {/* Contrato */}
+          <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.mo,marginBottom:14}}>📄 Datos del Contrato</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+              <CampoNuevo label="Tipo Contrato" campo="tipoContrato" opts={TIPOS_CONTRATO}/>
+              <CampoNuevo label="Moneda" campo="moneda" opts={MONEDAS}/>
+              <CampoNuevo label="Fecha Contrato" campo="fechaContrato" tipo="date"/>
+              <CampoNuevo label="Fecha Término" campo="fechaTermino" tipo="date"/>
+              <CampoNuevo label="Ver Digital (URL)" campo="verDigital"/>
+            </div>
+            <div style={{display:"flex",gap:14,marginTop:14,flexWrap:"wrap"}}>
+              {[["firmadoLicenciado","✅ Firmado Licenciado"],["firmadoOsiris","✅ Firmado OSIRIS"],["anexo1","📎 Anexo 1"],["anexo2","📎 Anexo 2"],["anexo3","📎 Anexo 3"]].map(([c,l])=>(
+                <label key={c} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:form[c]?C.sl:"#94a3b8"}}>
+                  <input type="checkbox" checked={form[c]||false} onChange={()=>setF(c,!form[c])}/>{l}
+                </label>
+              ))}
+            </div>
+          </div>
+          {/* Rep + Ubicacion */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+            <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.teal,marginBottom:14}}>👤 Representante</div>
+              <CampoNuevo label="Nombre" campo="nombreRep"/>
+              <div style={{marginTop:12}}><CampoNuevo label="Personería" campo="personeria"/></div>
+            </div>
+            <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.verde,marginBottom:14}}>🌱 Ubicación Plantas</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {[["Nombre Predio","nombrePredio"],["Cuartel","cuartel"],["Región","region"],["Coordenadas","coordenadas"]].map(([l,c])=>(
+                  <div key={c}><CampoNuevo label={l} campo={c}/></div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Facturación */}
+          <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.am,marginBottom:14}}>💰 Facturación</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+              <CampoNuevo label="Tipo Contract Fee" campo="tipoContractFee" opts={TIPOS_FEE}/>
+              <CampoNuevo label="Monto Contract Fee (USD)" campo="montoContractFee" tipo="number"/>
+              <CampoNuevo label="Royalty/Planta (USD)" campo="valorRoyaltyPlanta" tipo="number"/>
+              <CampoNuevo label="Royalty Comercial (USD/Há)" campo="valorRoyaltyComercial" tipo="number"/>
+              <CampoNuevo label="Mes Facturación RC" campo="mesFacuracionRC" opts={["—",...MESES_ANO]}/>
+              <div style={{display:"flex",alignItems:"flex-end"}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,fontWeight:600,color:C.sl}}>
+                  <input type="checkbox" checked={form.royaltyInflacion||false} onChange={()=>setF("royaltyInflacion",!form.royaltyInflacion)}/>
+                  📈 Sujeto a Inflación
+                </label>
+              </div>
+            </div>
+            <div style={{marginTop:12}}>
+              <label style={{fontSize:11,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>Notas / Observaciones</label>
+              <textarea value={form.notas} onChange={e=>setF("notas",e.target.value)} rows={2} placeholder="Notas adicionales del contrato..."
+                style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,resize:"vertical",boxSizing:"border-box"}}/>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",paddingBottom:16}}>
+            <button onClick={()=>{setVista("tabla");setForm(formVacio);}} style={{padding:"9px 22px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:14}}>Cancelar</button>
+            <button onClick={guardarNuevo} style={{padding:"9px 22px",borderRadius:8,border:"none",background:C.azul,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>Guardar contrato</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── VISTA TABLA ────────────────────────────────────────────
+  return(
+    <div>
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        {[[data.length,"Total contratos",C.azul,C.azulBg],[totalFirmados,"Firmados completos",C.verde,C.verdeBg],[data.length-totalFirmados,"Pendientes firma",C.am,C.amBg]].map(([v,l,c,bg])=>(
+          <div key={l} style={{background:bg,borderRadius:12,padding:"12px 18px",flex:1,minWidth:120}}>
+            <div style={{fontSize:11,color:c,fontWeight:600}}>{l}</div>
+            <div style={{fontSize:22,fontWeight:800,color:c}}>{v}</div>
+          </div>
+        ))}
+        {can&&<button onClick={()=>{setVista("nuevo");setForm(formVacio);}} style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontSize:13,fontWeight:700,alignSelf:"center"}}>+ Nuevo contrato</button>}
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar empresa..."
+          style={{padding:"7px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minWidth:200}}/>
+        {["Todos",...PAISES].map(p=>(
+          <button key={p} onClick={()=>setFiltroPais(p)}
+            style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
+              background:filtroPais===p?"#1e293b":"#fff",color:filtroPais===p?"#fff":C.sl}}>
+            {p}
+          </button>
+        ))}
+      </div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
+          <Th cols={[{l:"Empresa",w:160},{l:"País",w:80},{l:"Tipo",w:100},{l:"Fecha",c:true,w:100},{l:"Firmas",c:true,w:140},{l:"Anexos",c:true,w:90},{l:"Contract Fee",c:true,w:110},{l:"R./Planta",c:true,w:90},{l:"R./Comercial",c:true,w:110},{l:"",c:true,w:70}]}/>
+          <tbody>
+            {filtrado.map((r,i)=>(
+              <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc",cursor:"pointer"}}
+                onClick={()=>{setSel(r.id);setVista("detalle");setSec("empresa");}}>
+                <td style={{padding:"9px 12px",fontWeight:700,color:C.sl}}>{r.razonSocial}</td>
+                <td style={{padding:"9px 12px",fontSize:12,color:C.gris}}>{r.pais}</td>
+                <td style={{padding:"9px 12px",fontSize:11,color:C.gris}}>{r.tipoContrato}</td>
+                <td style={{padding:"9px 12px",textAlign:"center",fontSize:11,color:C.gris}}>{r.fechaContrato||"—"}</td>
+                <td style={{padding:"9px 12px",textAlign:"center",fontSize:11}}>
+                  <span style={{color:r.firmadoLicenciado?C.verde:C.rojo}}>{r.firmadoLicenciado?"✅":"❌"}</span> Lic.&nbsp;
+                  <span style={{color:r.firmadoOsiris?C.verde:C.rojo}}>{r.firmadoOsiris?"✅":"❌"}</span> Osiris
+                </td>
+                <td style={{padding:"9px 12px",textAlign:"center",fontSize:11,color:C.gris}}>
+                  {[r.anexo1&&"A1",r.anexo2&&"A2",r.anexo3&&"A3"].filter(Boolean).join(" · ")||"—"}
+                </td>
+                <td style={{padding:"9px 12px",textAlign:"right",fontSize:12,color:C.mo,fontWeight:600}}>{r.tipoContractFee==="Sin Contract Fee"?"Sin fee":$$(r.montoContractFee)}</td>
+                <td style={{padding:"9px 12px",textAlign:"center",fontSize:12}}>{r.valorRoyaltyPlanta?`$${r.valorRoyaltyPlanta}/pl`:"—"}</td>
+                <td style={{padding:"9px 12px",textAlign:"center",fontSize:12}}>
+                  {r.valorRoyaltyComercial?`$${r.valorRoyaltyComercial}/há`:"—"}
+                  {r.royaltyInflacion?<span style={{fontSize:9,color:C.am,marginLeft:4}}>+IPC</span>:null}
+                </td>
+                <td style={{padding:"9px 12px",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
+                  <button onClick={()=>{setSel(r.id);setVista("detalle");setSec("empresa");}}
+                    style={{background:C.azulBg,color:C.azul,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>
+                    Ver →
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {filtrado.length===0&&<tr><td colSpan={10} style={{textAlign:"center",padding:32,color:C.gris}}>Sin contratos</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ══════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL
+// COMPONENTE PRINCIPAL — con hub interno
 // ══════════════════════════════════════════════════════════
 export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osirisData,setOsirisData}) {
+  const [subApp,setSubApp]=useState(null); // null=hub | "ingresos" | "contratos"
   const [subTab,setSubTab]=useState("resumen");
 
+  const ctData=osirisData?.contratos        ??CONTRATOS_INIT;
   const rpData=osirisData?.royaltyPlanta    ??ROYALTY_PLANTA_INIT;
   const feData=osirisData?.feeEntrada       ??FEE_ENTRADA_INIT;
   const rcData=osirisData?.royaltyComercial ??ROYALTY_COMERCIAL_INIT;
   const fvData=osirisData?.feeViveros       ??FEE_VIVEROS_INIT;
   const tpData=osirisData?.totalPedidos     ??TOTAL_PEDIDOS_INIT;
 
+  const setCt=useCallback(fn=>setOsirisData(prev=>({...prev,contratos:      typeof fn==="function"?fn(prev?.contratos      ??CONTRATOS_INIT)      :fn})),[setOsirisData]);
   const setRp=useCallback(fn=>setOsirisData(prev=>({...prev,royaltyPlanta:   typeof fn==="function"?fn(prev?.royaltyPlanta   ??ROYALTY_PLANTA_INIT)   :fn})),[setOsirisData]);
   const setFe=useCallback(fn=>setOsirisData(prev=>({...prev,feeEntrada:      typeof fn==="function"?fn(prev?.feeEntrada      ??FEE_ENTRADA_INIT)      :fn})),[setOsirisData]);
   const setRc=useCallback(fn=>setOsirisData(prev=>({...prev,royaltyComercial:typeof fn==="function"?fn(prev?.royaltyComercial??ROYALTY_COMERCIAL_INIT):fn})),[setOsirisData]);
@@ -1373,46 +1768,8 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
     {id:"feeViveros",       label:"🌱 Fee Viveros",       badge:0},
   ];
 
-  const [confirmReset,setConfirmReset]=useState(false);
-
-  function handleReset() {
-    setOsirisData({
-      royaltyPlanta:    ROYALTY_PLANTA_INIT,
-      feeEntrada:       FEE_ENTRADA_INIT,
-      royaltyComercial: ROYALTY_COMERCIAL_INIT,
-      feeViveros:       FEE_VIVEROS_INIT,
-      totalPedidos:     TOTAL_PEDIDOS_INIT,
-    });
-    setConfirmReset(false);
-    alert("✅ Datos de Osiris reseteados a los valores del código.");
-  }
-
   return (
     <div>
-      {/* Modal confirmación reset */}
-      {confirmReset&&(
-        <div style={{position:"fixed",inset:0,background:"#0008",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>
-          <div style={{background:"#fff",borderRadius:16,padding:28,width:400,maxWidth:"92vw",boxShadow:"0 8px 32px #0004"}}>
-            <div style={{fontSize:32,textAlign:"center",marginBottom:12}}>⚠️</div>
-            <h3 style={{margin:"0 0 8px",color:"#1e293b",textAlign:"center"}}>Resetear datos de Osiris</h3>
-            <p style={{fontSize:13,color:"#64748b",textAlign:"center",marginBottom:20}}>
-              Esto reemplazará <strong>todos los datos actuales</strong> de Osiris (Royalty/Planta, Comercial, Fee Viveros, Fee Entrada y Total Pedidos) con los valores originales del código.<br/><br/>
-              Los datos que hayas editado manualmente se perderán.
-            </p>
-            <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-              <button onClick={()=>setConfirmReset(false)}
-                style={{padding:"9px 22px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>
-                Cancelar
-              </button>
-              <button onClick={handleReset}
-                style={{padding:"9px 22px",borderRadius:8,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>
-                Sí, resetear
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#0f2d4a,#1a5276)",borderRadius:14,padding:"16px 24px",marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
         <div style={{display:"flex",flexDirection:"column",gap:4}}>
@@ -1424,12 +1781,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
             <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",marginBottom:2}}>Total pendiente de cobro</div>
             <div style={{fontSize:24,fontWeight:800,color:"#fbbf24"}}>{$$(totPend)}</div>
           </div>
-          {can&&(
-            <button onClick={()=>setConfirmReset(true)}
-              style={{background:"rgba(220,38,38,0.25)",border:"1px solid rgba(220,38,38,0.5)",color:"#fca5a5",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>
-              🔄 Resetear datos Osiris
-            </button>
-          )}
+          <button onClick={()=>setSubApp(null)} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"rgba(255,255,255,0.8)",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>← Hub</button>
         </div>
       </div>
 
