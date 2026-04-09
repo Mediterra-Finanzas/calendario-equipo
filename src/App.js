@@ -300,16 +300,18 @@ export default function App(){
     if(!w){setLoginError("Selecciona tu nombre.");return;}
     const pinOk=getPinActivo(w);
     const pinTemp=pinsPersonalizados[w.nombre+"_temp"];
-    if(loginPin.trim()===pinOk||(pinTemp&&loginPin.trim()===pinTemp)){
-      if(pinTemp&&loginPin.trim()===pinTemp){
-        // Limpiar PIN temporal de Supabase
-        const nuevosPins={...pinsPersonalizados};
-        delete nuevosPins[w.nombre+"_temp"];
-        setPinsPersonalizados(nuevosPins);
+    const esTemp = pinTemp && loginPin.trim()===pinTemp;
+    const esOk = loginPin.trim()===pinOk;
+    if(esOk||esTemp){
+      setUsuarioActual(w);
+      setLoginError("");
+      if(esTemp){
+        // NO limpiar el _temp aquí — se necesita para verificar en handleCambiarPin
         setModalPin("cambiar");
       }
-      setUsuarioActual(w);setLoginError("");
-    }else{setLoginError("PIN incorrecto.");}
+    }else{
+      setLoginError("PIN incorrecto.");
+    }
   }
 
   async function handleResetPin(){
@@ -331,16 +333,27 @@ export default function App(){
 
   function handleCambiarPin(){
     setPinError("");
+    if(!usuarioActual)return;
     const po=getPinActivo(usuarioActual);
-    const pinTemp=pinsPersonalizados[usuarioActual?.nombre+"_temp"];
-    if(pinActual!==po&&pinActual!==pinTemp){setPinError("PIN actual incorrecto.");return;}
+    const pinTemp=pinsPersonalizados[usuarioActual.nombre+"_temp"];
+    // Aceptar PIN normal O PIN temporal como "PIN actual"
+    const pinActualValido = pinActual===po || (pinTemp && pinActual===pinTemp);
+    if(!pinActualValido){
+      // Debug: mostrar qué PIN se esperaba
+      console.log("PIN ingresado:", pinActual, "PIN correcto:", po, "PIN temp:", pinTemp);
+      setPinError("PIN actual incorrecto. Si usaste el PIN temporal, ingresalo en el campo PIN actual.");
+      return;
+    }
     if(pinNuevo.length<4){setPinError("Minimo 4 digitos.");return;}
     if(pinNuevo!==pinConfirm){setPinError("Los PINs no coinciden.");return;}
     const nuevosPins={...pinsPersonalizados,[usuarioActual.nombre]:pinNuevo};
     delete nuevosPins[usuarioActual.nombre+"_temp"];
     setPinsPersonalizados(nuevosPins);
+    // Guardar inmediatamente en Supabase
+    dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,
+      pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio});
     setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);
-    alert("PIN cambiado!");
+    alert("PIN cambiado exitosamente!");
   }
 
   function puedeEditar(tarea,esResp){
