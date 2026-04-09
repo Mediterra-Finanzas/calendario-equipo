@@ -162,7 +162,7 @@ function semanaActivaDefault(semanas){
 
 function MediterraLogo({size=80}){
   return(
-    <img src="/med" alt="Mediterra" style={{width:size,height:size,objectFit:"contain",display:"block",marginBottom:8}}/>
+    <img src="/med.png" alt="Mediterra" style={{width:size,height:size,objectFit:"contain",display:"block",marginBottom:8}}/>
   );
 }
 
