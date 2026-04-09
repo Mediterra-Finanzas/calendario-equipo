@@ -298,28 +298,49 @@ export default function App(){
   function handleLogin(){
     const w=WORKERS.find(x=>x.nombre===loginNombre);
     if(!w){setLoginError("Selecciona tu nombre.");return;}
-    const pt=pinsTempRef.current[w.nombre];const po=getPinActivo(w);
-    if(loginPin.trim()===po||(pt&&loginPin.trim()===pt)){
-      if(pt&&loginPin.trim()===pt){delete pinsTempRef.current[w.nombre];setModalPin("cambiar");}
+    const pinOk=getPinActivo(w);
+    const pinTemp=pinsPersonalizados[w.nombre+"_temp"];
+    if(loginPin.trim()===pinOk||(pinTemp&&loginPin.trim()===pinTemp)){
+      if(pinTemp&&loginPin.trim()===pinTemp){
+        // Limpiar PIN temporal de Supabase
+        const nuevosPins={...pinsPersonalizados};
+        delete nuevosPins[w.nombre+"_temp"];
+        setPinsPersonalizados(nuevosPins);
+        setModalPin("cambiar");
+      }
       setUsuarioActual(w);setLoginError("");
     }else{setLoginError("PIN incorrecto.");}
   }
 
   async function handleResetPin(){
     const w=WORKERS.find(x=>x.nombre===resetNombre);if(!w){setResetMsg("Selecciona tu nombre.");return;}
-    setResetEnviando(true);const temporal=String(Math.floor(1000+Math.random()*9000));pinsTempRef.current[w.nombre]=temporal;
-    try{await enviarEmail(w.email,w.nombre,"PIN temporal - Mediterra",`Tu PIN temporal es: ${temporal}\nIngresa y cambialo inmediatamente.`);setResetMsg("PIN enviado a "+w.email);}
-    catch{setResetMsg("Error al enviar.");}
+    setResetEnviando(true);
+    const temporal=String(Math.floor(1000+Math.random()*9000));
+    // Guardar PIN temporal en Supabase para que funcione en cualquier dispositivo
+    const nuevosPins={...pinsPersonalizados,[w.nombre+"_temp"]:temporal};
+    setPinsPersonalizados(nuevosPins);
+    await dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,
+      pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio});
+    try{
+      await enviarEmail(w.email,w.nombre,"PIN temporal - Mediterra",
+        `Tu PIN temporal es: ${temporal}\nIngresa con este PIN y cambialo inmediatamente.\n\nhttps://calendario-mediterra-2026.vercel.app`);
+      setResetMsg("PIN enviado a "+w.email);
+    }catch{setResetMsg("Error al enviar.");}
     setResetEnviando(false);
   }
 
   function handleCambiarPin(){
-    setPinError("");const po=getPinActivo(usuarioActual);const pt=pinsTempRef.current[usuarioActual?.nombre];
-    if(pinActual!==po&&pinActual!==pt){setPinError("PIN actual incorrecto.");return;}
+    setPinError("");
+    const po=getPinActivo(usuarioActual);
+    const pinTemp=pinsPersonalizados[usuarioActual?.nombre+"_temp"];
+    if(pinActual!==po&&pinActual!==pinTemp){setPinError("PIN actual incorrecto.");return;}
     if(pinNuevo.length<4){setPinError("Minimo 4 digitos.");return;}
     if(pinNuevo!==pinConfirm){setPinError("Los PINs no coinciden.");return;}
-    setPinsPersonalizados(prev=>({...prev,[usuarioActual.nombre]:pinNuevo}));
-    setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);alert("PIN cambiado!");
+    const nuevosPins={...pinsPersonalizados,[usuarioActual.nombre]:pinNuevo};
+    delete nuevosPins[usuarioActual.nombre+"_temp"];
+    setPinsPersonalizados(nuevosPins);
+    setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);
+    alert("PIN cambiado!");
   }
 
   function puedeEditar(tarea,esResp){
