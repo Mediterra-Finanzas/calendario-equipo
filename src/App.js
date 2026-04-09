@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import OsirisModule from "./OsirisModule";
 
 const EMAILJS_SERVICE  = "service_ahuerta";
 const EMAILJS_TEMPLATE = "template_c7yup8d";
@@ -113,7 +114,7 @@ const TAREAS_BASE=[
   {id:"s15",nombre:"Registro contable",                                    responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:2,diaLimite:7, dependeDe:null},
   {id:"s16",nombre:"Conciliaciones",                                       responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:3,diaLimite:7, dependeDe:null},
   {id:"s17",nombre:"Ingreso movimientos bancarios",                        responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:0,diaLimite:5, dependeDe:null},
-  {id:"s18",nombre:"Registro pagos de nominas",                            responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:3,diaLimite:8, dependeDe:"s6"},
+  {id:"s18",nombre:"Registro pagos de nominas",                        responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:3,diaLimite:8, dependeDe:"s6"},
   {id:"m1", nombre:"EERR real vs presupuesto + analisis de variaciones",   responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:18,dependeDe:"m11"},
   {id:"m2", nombre:"Identificacion de riesgos financieros",                responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:20,dependeDe:null},
   {id:"m3", nombre:"Preparacion planillas anticipo clientes",              responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:5, dependeDe:null},
@@ -135,8 +136,6 @@ const TAREAS_BASE=[
   {id:"m19",nombre:"Analisis de cuenta",                                   responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:8, dependeDe:null},
   {id:"m20",nombre:"Apoyo cierre",                                         responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
 ];
-
-// Storage key removido - usando Supabase
 
 function semanasDelMes(anio,mes){
   const semanas=[];const p=new Date(anio,mes,1);const u=new Date(anio,mes+1,0);
@@ -181,7 +180,6 @@ export default function App(){
   const [pinNuevo,setPinNuevo]=useState("");
   const [pinConfirm,setPinConfirm]=useState("");
   const [pinError,setPinError]=useState("");
-
 
   const [mes,setMes]=useState(hoy.getMonth());
   const [anio,setAnio]=useState(hoy.getFullYear());
@@ -237,6 +235,7 @@ export default function App(){
   const [enviandoNotif,setEnviandoNotif]=useState(false);
   const [nuevaTarea,setNuevaTarea]=useState({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:""});
   const [mostrarFormTarea,setMostrarFormTarea]=useState(false);
+  const [osirisData,setOsirisData]=useState({});
 
   function recKey(id){return `${id}_${mes}_${anio}`;}
 
@@ -270,6 +269,7 @@ export default function App(){
           if(d.pinsPersonalizados)setPinsPersonalizados(d.pinsPersonalizados);
           if(d.recsDone)setRecsDone(d.recsDone);
           if(d.recsComentarios)setRecsComentarios(d.recsComentarios);
+          if(d.osirisData)setOsirisData(d.osirisData);
           if(d.mes!==undefined)setMes(d.mes);
           if(d.anio!==undefined)setAnio(d.anio);
         }
@@ -279,19 +279,19 @@ export default function App(){
     cargar();
   },[]); // eslint-disable-line
 
-  const guardar=useCallback((est,com,tc,sup,te,pins,rd,rc,usrs,m,a)=>{
+  const guardar=useCallback((est,com,tc,sup,te,pins,rd,rc,usrs,m,a,od)=>{
     setGuardado("guardando");
     dbSave({estados:est,comentarios:com,tareasConfig:tc,supervisores:sup,tareasExtra:te,
-      pinsPersonalizados:pins,recsDone:rd,recsComentarios:rc,usuarios:usrs,mes:m,anio:a})
+      pinsPersonalizados:pins,recsDone:rd,recsComentarios:rc,usuarios:usrs,mes:m,anio:a,osirisData:od})
       .then(()=>{setGuardado("ok");setTimeout(()=>setGuardado("idle"),2000);})
       .catch(()=>{setGuardado("error");setTimeout(()=>setGuardado("idle"),3000);});
   },[]);
 
   useEffect(()=>{
     if(cargando)return;
-    const t=setTimeout(()=>guardar(estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio),800);
+    const t=setTimeout(()=>guardar(estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,osirisData),800);
     return()=>clearTimeout(t);
-  },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,cargando,guardar]);
+  },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,osirisData,cargando,guardar]);
 
   function getPinActivo(w){return pinsPersonalizados[w.nombre]||w.pin;}
 
@@ -306,7 +306,6 @@ export default function App(){
       setUsuarioActual(w);
       setLoginError("");
       if(esTemp){
-        // NO limpiar el _temp aquí — se necesita para verificar en handleCambiarPin
         setModalPin("cambiar");
       }
     }else{
@@ -318,11 +317,10 @@ export default function App(){
     const w=WORKERS.find(x=>x.nombre===resetNombre);if(!w){setResetMsg("Selecciona tu nombre.");return;}
     setResetEnviando(true);
     const temporal=String(Math.floor(1000+Math.random()*9000));
-    // Guardar PIN temporal en Supabase para que funcione en cualquier dispositivo
     const nuevosPins={...pinsPersonalizados,[w.nombre+"_temp"]:temporal};
     setPinsPersonalizados(nuevosPins);
     await dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,
-      pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio});
+      pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio,osirisData});
     try{
       await enviarEmail(w.email,w.nombre,"PIN temporal - Mediterra",
         `Tu PIN temporal es: ${temporal}\nIngresa con este PIN y cambialo inmediatamente.\n\nhttps://calendario-mediterra-2026.vercel.app`);
@@ -336,10 +334,8 @@ export default function App(){
     if(!usuarioActual)return;
     const po=getPinActivo(usuarioActual);
     const pinTemp=pinsPersonalizados[usuarioActual.nombre+"_temp"];
-    // Aceptar PIN normal O PIN temporal como "PIN actual"
     const pinActualValido = pinActual===po || (pinTemp && pinActual===pinTemp);
     if(!pinActualValido){
-      // Debug: mostrar qué PIN se esperaba
       console.log("PIN ingresado:", pinActual, "PIN correcto:", po, "PIN temp:", pinTemp);
       setPinError("PIN actual incorrecto. Si usaste el PIN temporal, ingresalo en el campo PIN actual.");
       return;
@@ -349,9 +345,8 @@ export default function App(){
     const nuevosPins={...pinsPersonalizados,[usuarioActual.nombre]:pinNuevo};
     delete nuevosPins[usuarioActual.nombre+"_temp"];
     setPinsPersonalizados(nuevosPins);
-    // Guardar inmediatamente en Supabase
     dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,
-      pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio});
+      pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio,osirisData});
     setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);
     alert("PIN cambiado exitosamente!");
   }
@@ -481,7 +476,6 @@ export default function App(){
     return{v,a,r,g,total,pct:total>0?Math.round((v/total)*100):0};
   }
 
-  // Gestion usuarios
   function agregarUsuario(){
     if(!formUsuario.nombre.trim()||!formUsuario.email.trim()||!formUsuario.pin.trim()){alert("Nombre, email y PIN son obligatorios.");return;}
     if(usuarios.find(u=>u.nombre===formUsuario.nombre)){alert("Ya existe un usuario con ese nombre.");return;}
@@ -833,7 +827,7 @@ export default function App(){
 
       {/* Tabs */}
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-        {[["semanal","Semanales"],["mensual","Mensuales"],["resumen","Resumen"],["recordatorios","Recordatorios"],
+        {[["semanal","Semanales"],["mensual","Mensuales"],["resumen","Resumen"],["recordatorios","Recordatorios"],["osiris","🌿 Osiris"],
           ...(esAdmin(usuarioActual.nombre)?[["configurar","Configurar"]]:[])
         ].map(([t,l])=>(
           <button key={t} onClick={()=>setTab(t)}
@@ -999,6 +993,17 @@ export default function App(){
           </div>
         );
       })()}
+
+      {/* OSIRIS */}
+      {tab==="osiris"&&(
+        <OsirisModule
+          usuarioActual={usuarioActual}
+          esAdmin={esAdmin}
+          esSoloConsulta={esSoloConsulta}
+          osirisData={osirisData}
+          setOsirisData={setOsirisData}
+        />
+      )}
 
       {/* CONFIGURAR */}
       {tab==="configurar"&&esAdmin(usuarioActual.nombre)&&(
