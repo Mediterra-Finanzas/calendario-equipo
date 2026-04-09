@@ -262,20 +262,20 @@ const ROYALTY_PLANTA_INIT = [
 
 // Royalty Comercial — ahora con há, US$/há, año/trim cobro, nFactura, pagado
 const ROYALTY_COMERCIAL_INIT = [
-  {id:"rc1", cliente:"Agroextiende",  pais:"Peru",  trimCobro:2,añoCobro:2026,ha:750,  nPlantas:350000,usdHa:3000,  nFact:"F-020",pagado:false},
-  {id:"rc2", cliente:"Allpa",         pais:"Peru",  trimCobro:2,añoCobro:2026,ha:300,  nPlantas:325475,usdHa:3000,  nFact:"F-021",pagado:false},
-  {id:"rc3", cliente:"San Clemente",  pais:"Peru",  trimCobro:2,añoCobro:2026,ha:380,  nPlantas:338850,usdHa:3000,nFact:"F-022",pagado:false},
-  {id:"rc4", cliente:"Mainland",      pais:"Mexico",trimCobro:3,añoCobro:2026,ha:470,  nPlantas:289250,usdHa:3000,  nFact:"",     pagado:false},
-  {id:"rc5", cliente:"Giddings",      pais:"Mexico",trimCobro:3,añoCobro:2026,ha:135,  nPlantas:108906,usdHa:3000,  nFact:"",     pagado:false},
-  {id:"rc6", cliente:"Agroextiende",  pais:"Peru",  trimCobro:2,añoCobro:2027,ha:750,  nPlantas:350000,usdHa:3000,  nFact:"",     pagado:false},
-  {id:"rc7", cliente:"Allpa",         pais:"Peru",  trimCobro:2,añoCobro:2027,ha:300,  nPlantas:325475,usdHa:3000,nFact:"",     pagado:false},
-  {id:"rc8", cliente:"Frusan",        pais:"Peru",  trimCobro:2,añoCobro:2027,ha:400,  nPlantas:559185,usdHa:3000,nFact:"",    pagado:false},
-  {id:"rc9", cliente:"Hass Peru",     pais:"Peru",  trimCobro:2,añoCobro:2027,ha:420,  nPlantas:267169,usdHa:3000,  nFact:"",     pagado:false},
-  {id:"rc10",cliente:"Pura Berries",  pais:"Peru",  trimCobro:2,añoCobro:2027,ha:315,  nPlantas:259735,usdHa:3000,nFact:"",     pagado:false},
-  {id:"rc11",cliente:"Vanguard",      pais:"Peru",  trimCobro:2,añoCobro:2027,ha:2500, nPlantas:1555705,usdHa:3000,  nFact:"",     pagado:false},
-  {id:"rc12",cliente:"San Clemente",  pais:"Peru",  trimCobro:2,añoCobro:2027,ha:490,  nPlantas:338850,usdHa:3000,  nFact:"",     pagado:false},
-  {id:"rc13",cliente:"Mainland",      pais:"Mexico",trimCobro:3,añoCobro:2027,ha:1100, nPlantas:401000,usdHa:3000,nFact:"",     pagado:false},
-  {id:"rc14",cliente:"Giddings",      pais:"Mexico",trimCobro:3,añoCobro:2027,ha:120,  nPlantas:108906,usdHa:3000,nFact:"",     pagado:false},
+  {id:"rc1", cliente:"Agroextiende",  pais:"Peru",  trimCobro:2,añoCobro:2026,ha:0,  nPlantas:350000,usdHa:3000,  nFact:"F-020",pagado:false},
+  {id:"rc2", cliente:"Allpa",         pais:"Peru",  trimCobro:2,añoCobro:2026,ha:0,  nPlantas:325475,usdHa:3000,  nFact:"F-021",pagado:false},
+  {id:"rc3", cliente:"San Clemente",  pais:"Peru",  trimCobro:2,añoCobro:2026,ha:0,  nPlantas:338850,usdHa:3000,nFact:"F-022",pagado:false},
+  {id:"rc4", cliente:"Mainland",      pais:"Mexico",trimCobro:3,añoCobro:2026,ha:0,  nPlantas:289250,usdHa:3000,  nFact:"",     pagado:false},
+  {id:"rc5", cliente:"Giddings",      pais:"Mexico",trimCobro:3,añoCobro:2026,ha:0,  nPlantas:108906,usdHa:3000,  nFact:"",     pagado:false},
+  {id:"rc6", cliente:"Agroextiende",  pais:"Peru",  trimCobro:2,añoCobro:2027,ha:0,  nPlantas:350000,usdHa:3000,  nFact:"",     pagado:false},
+  {id:"rc7", cliente:"Allpa",         pais:"Peru",  trimCobro:2,añoCobro:2027,ha:0,  nPlantas:325475,usdHa:3000,nFact:"",     pagado:false},
+  {id:"rc8", cliente:"Frusan",        pais:"Peru",  trimCobro:2,añoCobro:2027,ha:0,  nPlantas:559185,usdHa:3000,nFact:"",    pagado:false},
+  {id:"rc9", cliente:"Hass Peru",     pais:"Peru",  trimCobro:2,añoCobro:2027,ha:0,  nPlantas:267169,usdHa:3000,  nFact:"",     pagado:false},
+  {id:"rc10",cliente:"Pura Berries",  pais:"Peru",  trimCobro:2,añoCobro:2027,ha:0,  nPlantas:259735,usdHa:3000,nFact:"",     pagado:false},
+  {id:"rc11",cliente:"Vanguard",      pais:"Peru",  trimCobro:2,añoCobro:2027,ha:0, nPlantas:1555705,usdHa:3000,  nFact:"",     pagado:false},
+  {id:"rc12",cliente:"San Clemente",  pais:"Peru",  trimCobro:2,añoCobro:2027,ha:0,  nPlantas:338850,usdHa:3000,  nFact:"",     pagado:false},
+  {id:"rc13",cliente:"Mainland",      pais:"Mexico",trimCobro:3,añoCobro:2027,ha:0, nPlantas:401000,usdHa:3000,nFact:"",     pagado:false},
+  {id:"rc14",cliente:"Giddings",      pais:"Mexico",trimCobro:3,añoCobro:2027,ha:0,  nPlantas:108906,usdHa:3000,nFact:"",     pagado:false},
 ];
 
 const FEE_ENTRADA_INIT = [
@@ -851,8 +851,8 @@ function RoyaltyComercial({data,setData,can}) {
                   <div style={{color:C.gris}}>{r.añoCobro}</div>
                 </td>
                 <td style={{padding:"7px 10px",textAlign:"right",fontWeight:600,color:C.teal}}>{N(r.nPlantas||0)}</td>
-                <td style={{padding:"7px 10px",textAlign:"right",fontWeight:600}}><Cell val={r.ha} onChange={v=>upd(r.id,"ha",parseFloat(v))} type="number" can={can}/></td>
-                <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.usdHa} onChange={v=>upd(r.id,"usdHa",parseFloat(v))} type="number" can={can}/></td>
+                <td style={{padding:"7px 10px",textAlign:"right",fontWeight:600,background:(!r.ha||r.ha===0)&&can?"#fffbeb":"transparent"}}><Cell val={r.ha||""} onChange={v=>upd(r.id,"ha",parseFloat(v))} type="number" can={can} ph="Ingrese Há"/></td>
+                <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.usdHa||3000} onChange={v=>upd(r.id,"usdHa",parseFloat(v)||3000)} type="number" can={can}/></td>
                 <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.mo}}>{$$(r.montoFact)}</td>
                 <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.verde}}>
                   {$$(r.montoCobro)}<div style={{fontSize:9,color:C.gris}}>{(pct(r.pais)*100).toFixed(0)}%</div>
