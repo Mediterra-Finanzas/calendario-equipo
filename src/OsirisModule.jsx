@@ -1300,17 +1300,63 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
     {id:"feeViveros",       label:"🌱 Fee Viveros",       badge:0},
   ];
 
+  const [confirmReset,setConfirmReset]=useState(false);
+
+  function handleReset() {
+    setOsirisData({
+      royaltyPlanta:    ROYALTY_PLANTA_INIT,
+      feeEntrada:       FEE_ENTRADA_INIT,
+      royaltyComercial: ROYALTY_COMERCIAL_INIT,
+      feeViveros:       FEE_VIVEROS_INIT,
+      totalPedidos:     TOTAL_PEDIDOS_INIT,
+    });
+    setConfirmReset(false);
+    alert("✅ Datos de Osiris reseteados a los valores del código.");
+  }
+
   return (
     <div>
+      {/* Modal confirmación reset */}
+      {confirmReset&&(
+        <div style={{position:"fixed",inset:0,background:"#0008",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>
+          <div style={{background:"#fff",borderRadius:16,padding:28,width:400,maxWidth:"92vw",boxShadow:"0 8px 32px #0004"}}>
+            <div style={{fontSize:32,textAlign:"center",marginBottom:12}}>⚠️</div>
+            <h3 style={{margin:"0 0 8px",color:"#1e293b",textAlign:"center"}}>Resetear datos de Osiris</h3>
+            <p style={{fontSize:13,color:"#64748b",textAlign:"center",marginBottom:20}}>
+              Esto reemplazará <strong>todos los datos actuales</strong> de Osiris (Royalty/Planta, Comercial, Fee Viveros, Fee Entrada y Total Pedidos) con los valores originales del código.<br/><br/>
+              Los datos que hayas editado manualmente se perderán.
+            </p>
+            <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+              <button onClick={()=>setConfirmReset(false)}
+                style={{padding:"9px 22px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>
+                Cancelar
+              </button>
+              <button onClick={handleReset}
+                style={{padding:"9px 22px",borderRadius:8,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>
+                Sí, resetear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#0f2d4a,#1a5276)",borderRadius:14,padding:"16px 24px",marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
         <div style={{display:"flex",flexDirection:"column",gap:4}}>
           <OsirisLogo height={56}/>
           <div style={{fontSize:11,color:"rgba(255,255,255,0.55)",marginTop:2,letterSpacing:1}}>Gestión de Ingresos y Cobros</div>
         </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",marginBottom:2}}>Total pendiente de cobro</div>
-          <div style={{fontSize:24,fontWeight:800,color:"#fbbf24"}}>{$$(totPend)}</div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
+          <div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",marginBottom:2}}>Total pendiente de cobro</div>
+            <div style={{fontSize:24,fontWeight:800,color:"#fbbf24"}}>{$$(totPend)}</div>
+          </div>
+          {can&&(
+            <button onClick={()=>setConfirmReset(true)}
+              style={{background:"rgba(220,38,38,0.25)",border:"1px solid rgba(220,38,38,0.5)",color:"#fca5a5",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>
+              🔄 Resetear datos Osiris
+            </button>
+          )}
         </div>
       </div>
 
