@@ -553,7 +553,36 @@ export default function App(){
           if(d.pinsPersonalizados)setPinsPersonalizados(d.pinsPersonalizados);
           if(d.recsDone)setRecsDone(d.recsDone);
           if(d.recsComentarios)setRecsComentarios(d.recsComentarios);
-          if(d.osirisData)setOsirisData(d.osirisData);
+          if(d.osirisData){
+            // Merge inteligente: usa datos de Supabase pero completa campos nuevos del código
+            const saved=d.osirisData;
+            setOsirisData(prev=>{
+              // Para cada sección, fusiona registros guardados con los del código
+              // Si hay datos guardados los usa; si falta algún campo nuevo lo agrega
+              function mergeSection(savedArr, initArr, idField="id"){
+                if(!savedArr||savedArr.length===0) return initArr;
+                // Agrega registros nuevos del código que no existan en Supabase
+                const ids=new Set(savedArr.map(r=>r[idField]));
+                const nuevos=initArr.filter(r=>!ids.has(r[idField]));
+                // Fusiona campos nuevos a registros existentes (sin sobrescribir lo editado)
+                const merged=savedArr.map(r=>{
+                  const base=initArr.find(b=>b[idField]===r[idField]);
+                  return base?{...base,...r}:r;
+                });
+                return[...merged,...nuevos];
+              }
+              return{
+                ...prev,
+                royaltyPlanta:    mergeSection(saved.royaltyPlanta,    []),
+                feeEntrada:       mergeSection(saved.feeEntrada,       []),
+                royaltyComercial: mergeSection(saved.royaltyComercial, []),
+                feeViveros:       mergeSection(saved.feeViveros,       []),
+                totalPedidos:     mergeSection(saved.totalPedidos,     []),
+                // Contratos: si no existen en Supabase, usa los del código
+                contratos: saved.contratos||prev.contratos||[],
+              };
+            });
+          }
           if(d.mes!==undefined)setMes(d.mes);
           if(d.anio!==undefined)setAnio(d.anio);
         }
