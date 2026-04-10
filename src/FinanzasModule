@@ -681,7 +681,16 @@ const TABS = [
 
 export default function FinanzasModule({ onBack, onLogout }) {
   const [tab, setTab] = useState("dashboard");
-  const Comp = TABS.find(t=>t.id===tab)?.comp || Dashboard;
+
+  const renderTab = () => {
+    switch(tab) {
+      case "banco":    return <SaldoBanco/>;
+      case "flujo":    return <FlujoEmpresas/>;
+      case "resumen":  return <ResumenGrupo/>;
+      case "creditos": return <Creditos/>;
+      default:         return <Dashboard/>;
+    }
+  };
 
   return (
     <div style={{fontFamily:"'IBM Plex Sans','Segoe UI',system-ui,sans-serif",
@@ -717,7 +726,7 @@ export default function FinanzasModule({ onBack, onLogout }) {
         ))}
       </div>
 
-      <Comp/>
+      {renderTab()}
     </div>
   );
 }
