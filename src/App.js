@@ -585,8 +585,17 @@ export default function App(){
   // Para acceso a módulos: si es admin siempre tiene acceso a todo sin depender del array modulos
   const modulosDeUsuarioSeguro = (u) => {
     if(!u) return [];
+    // Admin siempre accede a todo
     if(u.rol==="admin") return MODULOS_DISPONIBLES.map(m=>m.id);
-    return Array.isArray(u.modulos) ? u.modulos : ["tareas"];
+    // Para no-admin, unión de modulos guardados + los que tienen tab_permisos configurados
+    const mods = Array.isArray(u.modulos) ? [...u.modulos] : ["tareas"];
+    // Si tiene permisos de pestañas configurados para un módulo, también tiene acceso a ese módulo
+    if(u.tab_permisos) {
+      Object.keys(u.tab_permisos).forEach(modId => {
+        if(!mods.includes(modId)) mods.push(modId);
+      });
+    }
+    return mods;
   };
 
   const WORKERS=usuarios.filter(u=>!u.desactivado);
@@ -657,8 +666,12 @@ export default function App(){
           if(d.usuarios)setUsuarios(prev=>{
             const merged=WORKERS_BASE.map(wb=>{
               const saved=d.usuarios.find(u=>u.nombre===wb.nombre);
-              // modulos y rol de WORKERS_BASE son fuente de verdad — no pisar con versión guardada
-              return saved?{...wb,...saved,modulos:wb.modulos,rol:wb.rol}:wb;
+              if(!saved) return wb;
+              // Unión de módulos: siempre incluir los del WORKERS_BASE (más los guardados)
+              const modsBase = Array.isArray(wb.modulos) ? wb.modulos : ["tareas"];
+              const modsSaved = Array.isArray(saved.modulos) ? saved.modulos : [];
+              const modsUnion = [...new Set([...modsBase,...modsSaved])];
+              return {...saved, modulos:modsUnion, rol:wb.rol};
             });
             const extras=d.usuarios.filter(u=>!WORKERS_BASE.find(wb=>wb.nombre===u.nombre));
             return[...merged,...extras];
