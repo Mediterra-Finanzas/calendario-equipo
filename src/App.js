@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import OsirisModule from "./OsirisModule";
-import FinanzasModule from "./FinanzasModule";
+import OsirisModule from "./OsirisModule.jsx";
+import FinanzasModule from "./FinanzasModule.jsx";
 
 const EMAILJS_SERVICE  = "service_ahuerta";
 const EMAILJS_TEMPLATE = "template_c7yup8d";
@@ -181,9 +181,7 @@ function MediterraLogo({size=80}){
 // ── Helper: qué módulos puede ver este usuario ──────────────
 function modulosDeUsuario(usuario){
   if(!usuario) return [];
-  // Admin siempre ve todo
   if(usuario.rol === "admin") return MODULOS_DISPONIBLES.map(m=>m.id);
-  // Usar array modulos[] del usuario
   return Array.isArray(usuario.modulos) ? usuario.modulos : ["tareas"];
 }
 
@@ -194,9 +192,9 @@ function OsirisLogoSmall() {
   );
 }
 
-// ══════════════════════════════════════════════════════════
-// PANEL DE PERMISOS — solo visible para admin en el Hub
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+// PANEL DE PERMISOS
+// ══════════════════════════════════════════════════════════════════════
 function PanelPermisos({ usuarios, setUsuarios, onClose }) {
 
   function toggleModulo(nombreU, modId) {
@@ -204,7 +202,6 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
       if (u.nombre !== nombreU) return u;
       const mods = Array.isArray(u.modulos) ? [...u.modulos] : ["tareas"];
       if (mods.includes(modId)) {
-        // No dejar vacío — al menos un módulo
         if (mods.length === 1) return u;
         return { ...u, modulos: mods.filter(m => m !== modId) };
       } else {
@@ -227,7 +224,6 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
   return (
     <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",padding:16}}>
       <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:760,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px #0006"}}>
-        {/* Header panel */}
         <div style={{background:"linear-gradient(135deg,#1e3a5f,#2563eb)",borderRadius:"20px 20px 0 0",padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
             <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",letterSpacing:2,marginBottom:2}}>ADMINISTRACIÓN</div>
@@ -237,7 +233,6 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
         </div>
 
         <div style={{padding:"24px 28px"}}>
-          {/* Leyenda módulos */}
           <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
             <div style={{fontSize:12,color:"#64748b",fontWeight:600,alignSelf:"center"}}>Módulos:</div>
             {MODULOS_DISPONIBLES.map(m=>(
@@ -247,7 +242,6 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
             ))}
           </div>
 
-          {/* Tabla usuarios activos */}
           <div style={{fontSize:12,color:"#94a3b8",fontWeight:700,marginBottom:8,letterSpacing:1}}>USUARIOS ACTIVOS</div>
           <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>
             {activos.map(u => {
@@ -255,7 +249,6 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
               return (
                 <div key={u.nombre} style={{background:"#f8fafc",borderRadius:12,padding:"14px 18px",border:"1px solid #e2e8f0"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
-                    {/* Info usuario */}
                     <div style={{flex:1,minWidth:160}}>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
                         <span style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>{u.nombre}</span>
@@ -266,7 +259,6 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
                       <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{u.cargo}</div>
                     </div>
 
-                    {/* Checkboxes módulos */}
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                       <span style={{fontSize:11,color:"#64748b",fontWeight:600}}>Acceso a:</span>
                       {MODULOS_DISPONIBLES.map(m=>{
@@ -285,7 +277,6 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
                       })}
                     </div>
 
-                    {/* Rol + desactivar */}
                     <div style={{display:"flex",gap:8,alignItems:"center"}}>
                       <select value={u.rol} onChange={e=>setRol(u.nombre,e.target.value)}
                         style={{padding:"5px 8px",borderRadius:8,border:"1px solid #d1d5db",fontSize:11,cursor:"pointer",background:"#fff"}}>
@@ -305,7 +296,6 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
             })}
           </div>
 
-          {/* Usuarios inactivos */}
           {inactivos.length>0&&(
             <>
               <div style={{fontSize:12,color:"#94a3b8",fontWeight:700,marginBottom:8,letterSpacing:1}}>USUARIOS INACTIVOS</div>
@@ -333,9 +323,9 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
   );
 }
 
-// ══════════════════════════════════════════════════════════
-// PANTALLA HUB — Gestión Grupo Mediterra
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+// PANTALLA HUB
+// ══════════════════════════════════════════════════════════════════════
 function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCambiarPin, esSoloConsulta, usuarios, setUsuarios }) {
   const hoy = new Date();
   const fechaStr = hoy.toLocaleDateString("es-CL", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
@@ -348,7 +338,6 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
         <PanelPermisos usuarios={usuarios} setUsuarios={setUsuarios} onClose={()=>setMostrarPermisos(false)}/>
       )}
 
-      {/* Header */}
       <div style={{padding:"24px 32px 0", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12}}>
         <div style={{display:"flex", alignItems:"center", gap:14}}>
           <MediterraLogo size={52}/>
@@ -375,7 +364,6 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
         </div>
       </div>
 
-      {/* Título central */}
       <div style={{textAlign:"center", padding:"48px 24px 32px"}}>
         <div style={{fontSize:13, color:"rgba(255,255,255,0.5)", letterSpacing:3, textTransform:"uppercase", marginBottom:10}}>Selecciona un módulo</div>
         <h1 style={{margin:0, fontSize:28, fontWeight:900, color:"#fff", lineHeight:1.2}}>¿Qué deseas gestionar hoy?</h1>
@@ -384,7 +372,6 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
         )}
       </div>
 
-      {/* Tarjetas de módulos — SOLO los que el usuario tiene permiso */}
       <div style={{display:"flex", gap:24, justifyContent:"center", flexWrap:"wrap", padding:"0 32px", maxWidth:900, margin:"0 auto"}}>
         {MODULOS_DISPONIBLES.filter(m => modulosPermitidos.includes(m.id)).map(modulo => (
           <button key={modulo.id} onClick={() => onSelectModulo(modulo.id)}
@@ -420,7 +407,6 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
           </button>
         ))}
 
-        {/* Próximamente — solo para admin */}
         {usuario.rol === "admin" && (
           <div style={{
             background: "rgba(255,255,255,0.04)",
@@ -438,7 +424,6 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
         )}
       </div>
 
-      {/* Footer */}
       <div style={{textAlign:"center", marginTop:56, fontSize:10, color:"rgba(255,255,255,0.2)", letterSpacing:2}}>
         © {new Date().getFullYear()} GRUPO MEDITERRA · TODOS LOS DERECHOS RESERVADOS
       </div>
@@ -446,15 +431,14 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
   );
 }
 
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 // APP PRINCIPAL
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
 export default function App(){
   const hoy=new Date();
 
-  // ── Auth ────────────────────────────────────────────────
   const [usuarioActual,setUsuarioActual]=useState(null);
-  const [moduloActivo,setModuloActivo]=useState(null); // null = hub
+  const [moduloActivo,setModuloActivo]=useState(null);
   const [loginNombre,setLoginNombre]=useState("");
   const [loginPin,setLoginPin]=useState("");
   const [loginError,setLoginError]=useState("");
@@ -468,12 +452,10 @@ export default function App(){
   const [pinConfirm,setPinConfirm]=useState("");
   const [pinError,setPinError]=useState("");
 
-  // ── Navegación tareas ───────────────────────────────────
   const [mes,setMes]=useState(hoy.getMonth());
   const [anio,setAnio]=useState(hoy.getFullYear());
   const semanas=semanasDelMes(anio,mes);
 
-  // ── Usuarios ────────────────────────────────────────────
   const [usuarios,setUsuarios]=useState(WORKERS_BASE);
   const [tabUsuarios,setTabUsuarios]=useState("lista");
   const [usuarioEditando,setUsuarioEditando]=useState(null);
@@ -486,7 +468,6 @@ export default function App(){
   const esAdmin=(nombre)=>getRol(nombre)==="admin";
   const esSoloConsulta=(nombre)=>getRol(nombre)==="consulta";
 
-  // ── Tareas ──────────────────────────────────────────────
   const [tareasExtra,setTareasExtra]=useState([]);
   const [tareasConfig,setTareasConfig]=useState(()=>{
     const c={};TAREAS_BASE.forEach(t=>{c[t.id]={supervisor:t.supervisor,diaLimiteSem:t.diaLimiteSem,diaLimite:t.diaLimite,frecuencia:t.frecuencia,bloqueada:false,dependeDe:t.dependeDe||null};});return c;
@@ -525,12 +506,10 @@ export default function App(){
   const [nuevaTarea,setNuevaTarea]=useState({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:""});
   const [mostrarFormTarea,setMostrarFormTarea]=useState(false);
 
-  // ── Osiris ──────────────────────────────────────────────
   const [osirisData,setOsirisData]=useState({});
 
   function recKey(id){return `${id}_${mes}_${anio}`;}
 
-  // ── Carga inicial ───────────────────────────────────────
   useEffect(()=>{
     const s=semanasDelMes(anio,mes);
     setSemanaActiva(semanaActivaDefault(s));
@@ -562,17 +541,12 @@ export default function App(){
           if(d.recsDone)setRecsDone(d.recsDone);
           if(d.recsComentarios)setRecsComentarios(d.recsComentarios);
           if(d.osirisData){
-            // Merge inteligente: usa datos de Supabase pero completa campos nuevos del código
             const saved=d.osirisData;
             setOsirisData(prev=>{
-              // Para cada sección, fusiona registros guardados con los del código
-              // Si hay datos guardados los usa; si falta algún campo nuevo lo agrega
               function mergeSection(savedArr, initArr, idField="id"){
                 if(!savedArr||savedArr.length===0) return initArr;
-                // Agrega registros nuevos del código que no existan en Supabase
                 const ids=new Set(savedArr.map(r=>r[idField]));
                 const nuevos=initArr.filter(r=>!ids.has(r[idField]));
-                // Fusiona campos nuevos a registros existentes (sin sobrescribir lo editado)
                 const merged=savedArr.map(r=>{
                   const base=initArr.find(b=>b[idField]===r[idField]);
                   return base?{...base,...r}:r;
@@ -586,7 +560,6 @@ export default function App(){
                 royaltyComercial: mergeSection(saved.royaltyComercial, []),
                 feeViveros:       mergeSection(saved.feeViveros,       []),
                 totalPedidos:     mergeSection(saved.totalPedidos,     []),
-                // Contratos: si no existen en Supabase, usa los del código
                 contratos: saved.contratos||prev.contratos||[],
               };
             });
@@ -614,7 +587,6 @@ export default function App(){
     return()=>clearTimeout(t);
   },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,osirisData,cargando,guardar]);
 
-  // ── Auth helpers ────────────────────────────────────────
   function getPinActivo(w){return pinsPersonalizados[w.nombre]||w.pin;}
 
   function handleLogin(){
@@ -663,7 +635,6 @@ export default function App(){
     alert("PIN cambiado exitosamente!");
   }
 
-  // ── Tareas helpers ──────────────────────────────────────
   function puedeEditar(tarea,esResp){
     if(!usuarioActual)return false;
     if(esSoloConsulta(usuarioActual.nombre))return false;
@@ -767,7 +738,6 @@ export default function App(){
     return{v,a,r,g,total,pct:total>0?Math.round((v/total)*100):0};
   }
 
-  // ── Gestión usuarios ────────────────────────────────────
   function agregarUsuario(){
     if(!formUsuario.nombre.trim()||!formUsuario.email.trim()||!formUsuario.pin.trim()){alert("Nombre, email y PIN son obligatorios.");return;}
     if(usuarios.find(u=>u.nombre===formUsuario.nombre)){alert("Ya existe un usuario con ese nombre.");return;}
@@ -818,7 +788,6 @@ export default function App(){
   const estadoGuardadoUI={idle:null,guardando:{icon:"💾",text:"Guardando..."},ok:{icon:"✅",text:"Guardado"},error:{icon:"❌",text:"Error"}}[guardado];
   const recsActivos=getRecordatoriosActivos(usuarioActual?.nombre||"",anio,mes,esAdmin(usuarioActual?.nombre||"")).filter(r=>!recsDone[recKey(r.id)]);
 
-  // ── Tabla helper ────────────────────────────────────────
   function TablaFilas({tareas,getKey,getSemana}){
     const todas=tareas.filter(t=>!isBloqueada(t.id));
     const filtradas=filtroPersona?todas.filter(t=>t.responsable===filtroPersona||getSupervisor(t.id)===filtroPersona):todas;
@@ -888,9 +857,9 @@ export default function App(){
     </tr></thead>
   );
 
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   // RENDER: LOGIN
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   if(cargando)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"sans-serif",color:"#64748b"}}>Cargando...</div>;
 
   if(!usuarioActual)return(
@@ -942,9 +911,9 @@ export default function App(){
 
   const modulosPermitidos = modulosDeUsuario(usuarioActual);
 
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   // RENDER: HUB
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   if(!moduloActivo)return(
     <>
       <HubScreen
@@ -957,7 +926,6 @@ export default function App(){
         usuarios={usuarios}
         setUsuarios={setUsuarios}
       />
-      {/* Modal cambiar PIN desde Hub */}
       {modalPin==="cambiar"&&(
         <div style={{position:"fixed",inset:0,background:"#0008",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}>
           <div style={{background:"#fff",borderRadius:16,padding:28,width:360,maxWidth:"90vw",boxShadow:"0 8px 32px #0003"}}>
@@ -980,9 +948,9 @@ export default function App(){
     </>
   );
 
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   // RENDER: MÓDULO OSIRIS
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   if(moduloActivo==="osiris")return(
     <div style={{fontFamily:"sans-serif",background:"#f8fafc",minHeight:"100vh",padding:"20px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
@@ -1015,9 +983,9 @@ export default function App(){
     </div>
   );
 
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   // RENDER: MÓDULO FINANZAS
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   if(moduloActivo==="finanzas")return(
     <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh",padding:"20px"}}>
       <FinanzasModule
@@ -1032,9 +1000,9 @@ export default function App(){
     </div>
   );
 
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   // RENDER: MÓDULO TAREAS
-  // ══════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   const tareasSemanales=todasTareas().filter(t=>getFrecuencia(t.id)!=="Mensual");
   const tareasMenusuales=todasTareas().filter(t=>getFrecuencia(t.id)==="Mensual");
   const rolBadge=(nombre)=>{
