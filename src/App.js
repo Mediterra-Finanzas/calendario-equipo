@@ -406,6 +406,12 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
           >
             {modulo.id === "osiris"
               ? <div style={{marginBottom:6}}><OsirisLogoSmall/></div>
+              : modulo.id === "finanzas"
+              ? <div style={{marginBottom:12}}>
+                  <img src="/med.png" alt="Mediterra"
+                    style={{height:44,objectFit:"contain",display:"block"}}
+                    onError={e=>{e.target.style.display="none";}}/>
+                </div>
               : <div style={{fontSize:40, marginBottom:14}}>{modulo.icon}</div>
             }
             {modulo.id !== "osiris" && <div style={{fontSize:17, fontWeight:800, color:"#fff", marginBottom:4}}>{modulo.label}</div>}
