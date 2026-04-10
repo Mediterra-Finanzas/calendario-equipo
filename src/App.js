@@ -553,6 +553,11 @@ export default function App(){
 
   const [usuarioActual,setUsuarioActual]=useState(null);
   const [moduloActivo,setModuloActivo]=useState(null);
+
+  // Siempre usar el objeto más fresco del array usuarios (se actualiza desde Supabase)
+  const usuarioFresco = usuarioActual
+    ? (usuarios.find(u=>u.nombre===usuarioActual.nombre) || usuarioActual)
+    : null;
   const [loginNombre,setLoginNombre]=useState("");
   const [loginPin,setLoginPin]=useState("");
   const [loginError,setLoginError]=useState("");
@@ -1063,13 +1068,13 @@ export default function App(){
   );
 
   // Calcular permisos de pestaña para el usuario actual en Finanzas
-  const tabPermisosFinanzas = getTabPermisosModulo(usuarioActual, "finanzas");
+  const tabPermisosFinanzas = getTabPermisosModulo(usuarioFresco, "finanzas");
 
   // Módulo activo
   if(moduloActivo==="finanzas") return (
     <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh",padding:"20px"}}>
       <FinanzasModule
-        usuarioActual={usuarioActual}
+        usuarioActual={usuarioFresco}
         esAdmin={esAdmin}
         esSoloConsulta={esSoloConsulta}
         tabPermisos={tabPermisosFinanzas}
@@ -1082,7 +1087,7 @@ export default function App(){
   if(moduloActivo==="osiris") return (
     <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh"}}>
       <OsirisModule
-        usuarioActual={usuarioActual}
+        usuarioActual={usuarioFresco}
         esAdmin={esAdmin}
         esSoloConsulta={esSoloConsulta}
         onBack={()=>setModuloActivo(null)}
@@ -1094,14 +1099,14 @@ export default function App(){
   );
 
   if(moduloActivo==="tareas") {
-    const modulosPermitidos = modulosDeUsuario(usuarioActual);
-    const tabPermTareas = getTabPermisosModulo(usuarioActual, "tareas");
-    const puedeVerSemanal  = getTabPerm(usuarioActual,"tareas","semanal")  !== "sin_acceso";
-    const puedeVerMensual  = getTabPerm(usuarioActual,"tareas","mensual")  !== "sin_acceso";
-    const puedeVerConfig   = getTabPerm(usuarioActual,"tareas","config")   !== "sin_acceso";
-    const puedeEditSemanal = getTabPerm(usuarioActual,"tareas","semanal")  === "editar";
-    const puedeEditMensual = getTabPerm(usuarioActual,"tareas","mensual")  === "editar";
-    const puedeEditConfig  = getTabPerm(usuarioActual,"tareas","config")   === "editar";
+    const modulosPermitidos = modulosDeUsuario(usuarioFresco);
+    const tabPermTareas = getTabPermisosModulo(usuarioFresco, "tareas");
+    const puedeVerSemanal  = getTabPerm(usuarioFresco,"tareas","semanal")  !== "sin_acceso";
+    const puedeVerMensual  = getTabPerm(usuarioFresco,"tareas","mensual")  !== "sin_acceso";
+    const puedeVerConfig   = getTabPerm(usuarioFresco,"tareas","config")   !== "sin_acceso";
+    const puedeEditSemanal = getTabPerm(usuarioFresco,"tareas","semanal")  === "editar";
+    const puedeEditMensual = getTabPerm(usuarioFresco,"tareas","mensual")  === "editar";
+    const puedeEditConfig  = getTabPerm(usuarioFresco,"tareas","config")   === "editar";
 
     return (
       <div style={{fontFamily:"sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
@@ -1344,10 +1349,10 @@ export default function App(){
   }
 
   // Hub principal
-  const modulosPermitidos = modulosDeUsuario(usuarioActual);
+  const modulosPermitidos = modulosDeUsuario(usuarioFresco);
   return (
     <HubScreen
-      usuario={usuarioActual}
+      usuario={usuarioFresco}
       modulosPermitidos={modulosPermitidos}
       onSelectModulo={id=>setModuloActivo(id)}
       onLogout={()=>setUsuarioActual(null)}
