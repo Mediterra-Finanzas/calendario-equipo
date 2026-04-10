@@ -1092,6 +1092,7 @@ export default function App(){
   const tabPermisosFinanzas = getTabPermisosModulo(usuarioFresco, "finanzas");
 
   // Módulo activo
+  console.log("RENDER - moduloActivo:",moduloActivo,"usuarioActual:",usuarioActual?.nombre,"cargando:",cargando);
   if(moduloActivo==="finanzas") return (
     <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh",padding:"20px"}}>
       <FinanzasModule
@@ -1375,7 +1376,7 @@ export default function App(){
     <HubScreen
       usuario={usuarioFresco || usuarioActual}
       modulosPermitidos={modulosPermitidos}
-      onSelectModulo={id=>setModuloActivo(id)}
+      onSelectModulo={id=>{console.log("MODULO SELECCIONADO:",id,"usuario:",usuarioActual?.nombre,"moduloActivo antes:",moduloActivo);setModuloActivo(id);}}
       onLogout={()=>setUsuarioActual(null)}
       onCambiarPin={()=>setModalPin("cambiar")}
       esSoloConsulta={esSoloConsulta}
