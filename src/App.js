@@ -97,11 +97,11 @@ const SEMAFORO={
 const ORDEN_SEM=["gris","verde","amarillo","rojo","na"];
 
 const WORKERS_BASE=[
-  {nombre:"Milagros Becerra",cargo:"Sec. Administrativa",     email:"Mbecerra@grupomediterra.cl",pin:"4827",rol:"editor", modulos:["tareas"],           esCFO:false},
-  {nombre:"Carol Machuca",   cargo:"Analista Finanzas",       email:"cmachuca@grupomediterra.cl",pin:"3159",rol:"editor", modulos:["tareas","osiris"],   esCFO:false},
-  {nombre:"Michelle Garcia", cargo:"Contadora General",       email:"mgarcia@grupomediterra.cl", pin:"7413",rol:"editor", modulos:["tareas"],           esCFO:false},
-  {nombre:"Pablo Duran",     cargo:"Asistente Contable",      email:"pduran@grupomediterra.cl",  pin:"2986",rol:"editor", modulos:["tareas"],           esCFO:false},
-  {nombre:"Angelo Huerta",   cargo:"Gerencia Adm. y Finanzas",email:"ahuerta@grupomediterra.cl", pin:"6054",rol:"admin",  modulos:["tareas","osiris"],   esCFO:true},
+  {nombre:"Milagros Becerra",cargo:"Sec. Administrativa",     email:"Mbecerra@grupomediterra.cl",pin:"4827",rol:"editor", modulos:["tareas"],                    esCFO:false},
+  {nombre:"Carol Machuca",   cargo:"Analista Finanzas",       email:"cmachuca@grupomediterra.cl",pin:"3159",rol:"editor", modulos:["tareas","osiris","finanzas"], esCFO:false},
+  {nombre:"Michelle Garcia", cargo:"Contadora General",       email:"mgarcia@grupomediterra.cl", pin:"7413",rol:"editor", modulos:["tareas"],                    esCFO:false},
+  {nombre:"Pablo Duran",     cargo:"Asistente Contable",      email:"pduran@grupomediterra.cl",  pin:"2986",rol:"editor", modulos:["tareas"],                    esCFO:false},
+  {nombre:"Angelo Huerta",   cargo:"Gerencia Adm. y Finanzas",email:"ahuerta@grupomediterra.cl", pin:"6054",rol:"admin",  modulos:["tareas","osiris","finanzas"], esCFO:true},
 ];
 
 const CATEGORIAS={
@@ -446,43 +446,43 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
   const [mostrarPermisos, setMostrarPermisos] = useState(false);
 
   return (
-    <div style={{minHeight:"100vh", background:"linear-gradient(160deg,#0f172a 0%,#1e3a5f 50%,#0f2d4a 100%)", fontFamily:"sans-serif", padding:"0 0 40px"}}>
+    <div style={{minHeight:"100vh", background:"#ffffff", fontFamily:"sans-serif", padding:"0 0 40px"}}>
 
       {mostrarPermisos && (
         <PanelPermisos usuarios={usuarios} setUsuarios={setUsuarios} onClose={()=>setMostrarPermisos(false)}/>
       )}
 
-      <div style={{padding:"24px 32px 0", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12}}>
+      <div style={{padding:"24px 32px 0", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12, borderBottom:"1px solid #e2e8f0", paddingBottom:16}}>
         <div style={{display:"flex", alignItems:"center", gap:14}}>
           <MediterraLogo size={52}/>
           <div>
-            <div style={{fontSize:10, letterSpacing:4, color:"#7ecfca", fontWeight:700, textTransform:"uppercase"}}>MEDITERRA</div>
-            <div style={{fontSize:18, fontWeight:800, color:"#fff", lineHeight:1.2}}>Gestión Grupo Mediterra</div>
+            <div style={{fontSize:10, letterSpacing:4, color:"#0f766e", fontWeight:700, textTransform:"uppercase"}}>MEDITERRA</div>
+            <div style={{fontSize:18, fontWeight:800, color:"#1e293b", lineHeight:1.2}}>Gestión Grupo Mediterra</div>
           </div>
         </div>
         <div style={{display:"flex", gap:8, alignItems:"center", flexWrap:"wrap"}}>
-          <div style={{fontSize:11, color:"rgba(255,255,255,0.5)", textAlign:"right"}}>
+          <div style={{fontSize:11, color:"#64748b", textAlign:"right"}}>
             <div style={{textTransform:"capitalize"}}>{fechaStr}</div>
-            <div>Hola, <strong style={{color:"#fff"}}>{usuario.nombre.split(" ")[0]}</strong> · {usuario.cargo}</div>
+            <div>Hola, <strong style={{color:"#1e293b"}}>{usuario.nombre.split(" ")[0]}</strong> · {usuario.cargo}</div>
           </div>
           {usuario.rol === "admin" && (
             <button onClick={()=>setMostrarPermisos(true)}
-              style={{background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", color:"#fff", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600}}>
+              style={{background:"#f1f5f9", border:"1px solid #e2e8f0", color:"#1e293b", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600}}>
               ⚙️ Permisos
             </button>
           )}
           {!esSoloConsulta(usuario.nombre) &&
-            <button onClick={onCambiarPin} style={{background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", color:"#fff", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12}}>🔑 PIN</button>
+            <button onClick={onCambiarPin} style={{background:"#f1f5f9", border:"1px solid #e2e8f0", color:"#1e293b", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12}}>🔑 PIN</button>
           }
-          <button onClick={onLogout} style={{background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", color:"#fff", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12}}>Salir</button>
+          <button onClick={onLogout} style={{background:"#fee2e2", border:"1px solid #fca5a5", color:"#991b1b", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12}}>Salir</button>
         </div>
       </div>
 
-      <div style={{textAlign:"center", padding:"48px 24px 32px"}}>
-        <div style={{fontSize:13, color:"rgba(255,255,255,0.5)", letterSpacing:3, textTransform:"uppercase", marginBottom:10}}>Selecciona un módulo</div>
-        <h1 style={{margin:0, fontSize:28, fontWeight:900, color:"#fff", lineHeight:1.2}}>¿Qué deseas gestionar hoy?</h1>
+      <div style={{textAlign:"center", padding:"40px 24px 28px"}}>
+        <div style={{fontSize:13, color:"#94a3b8", letterSpacing:3, textTransform:"uppercase", marginBottom:10}}>Selecciona un módulo</div>
+        <h1 style={{margin:0, fontSize:28, fontWeight:900, color:"#1e293b", lineHeight:1.2}}>¿Qué deseas gestionar hoy?</h1>
         {modulosPermitidos.length === 0 && (
-          <p style={{color:"rgba(255,255,255,0.4)", fontSize:14, marginTop:16}}>No tienes módulos asignados. Contacta al administrador.</p>
+          <p style={{color:"#94a3b8", fontSize:14, marginTop:16}}>No tienes módulos asignados. Contacta al administrador.</p>
         )}
       </div>
 
@@ -497,13 +497,13 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
               cursor: "pointer",
               width: 280,
               textAlign: "left",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
               transition: "transform 0.15s, box-shadow 0.15s",
               position: "relative",
               overflow: "hidden",
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform="translateY(-4px)"; e.currentTarget.style.boxShadow="0 16px 48px rgba(0,0,0,0.5)"; }}
-            onMouseLeave={e => { e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="0 8px 32px rgba(0,0,0,0.4)"; }}
+            onMouseEnter={e => { e.currentTarget.style.transform="translateY(-4px)"; e.currentTarget.style.boxShadow="0 12px 40px rgba(0,0,0,0.25)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="0 4px 24px rgba(0,0,0,0.15)"; }}
           >
             {modulo.id === "osiris"
               ? <div style={{marginBottom:6}}><OsirisLogoSmall/></div>
@@ -523,22 +523,22 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
 
         {usuario.rol === "admin" && (
           <div style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "2px dashed rgba(255,255,255,0.12)",
+            background: "#f8fafc",
+            border: "2px dashed #e2e8f0",
             borderRadius: 20,
             padding: "32px 36px",
             width: 280,
             textAlign: "left",
-            opacity: 0.6,
+            opacity: 0.7,
           }}>
             <div style={{fontSize:40, marginBottom:14}}>➕</div>
-            <div style={{fontSize:17, fontWeight:800, color:"rgba(255,255,255,0.4)", marginBottom:4}}>Nuevo módulo</div>
-            <div style={{fontSize:12, color:"rgba(255,255,255,0.3)"}}>Próximamente disponible</div>
+            <div style={{fontSize:17, fontWeight:800, color:"#94a3b8", marginBottom:4}}>Nuevo módulo</div>
+            <div style={{fontSize:12, color:"#cbd5e1"}}>Próximamente disponible</div>
           </div>
         )}
       </div>
 
-      <div style={{textAlign:"center", marginTop:56, fontSize:10, color:"rgba(255,255,255,0.2)", letterSpacing:2}}>
+      <div style={{textAlign:"center", marginTop:56, fontSize:10, color:"#cbd5e1", letterSpacing:2}}>
         © {new Date().getFullYear()} GRUPO MEDITERRA · TODOS LOS DERECHOS RESERVADOS
       </div>
     </div>
@@ -642,7 +642,11 @@ export default function App(){
         const d=await dbLoad();
         if(d){
           if(d.usuarios)setUsuarios(prev=>{
-            const merged=WORKERS_BASE.map(wb=>{const saved=d.usuarios.find(u=>u.nombre===wb.nombre);return saved?{...wb,...saved}:wb;});
+            const merged=WORKERS_BASE.map(wb=>{
+              const saved=d.usuarios.find(u=>u.nombre===wb.nombre);
+              // modulos y rol de WORKERS_BASE son fuente de verdad — no pisar con versión guardada
+              return saved?{...wb,...saved,modulos:wb.modulos,rol:wb.rol}:wb;
+            });
             const extras=d.usuarios.filter(u=>!WORKERS_BASE.find(wb=>wb.nombre===u.nombre));
             return[...merged,...extras];
           });
