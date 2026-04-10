@@ -1,293 +1,397 @@
 /* eslint-disable no-unused-vars */
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 
 // ═══════════════════════════════════════════════════════════════════
-// DATOS PROYECTADOS — Flujo de Caja Proyectado GM Abril 2026
+// TIEMPO: Mar-26 → Jun-31 (65 meses)
 // ═══════════════════════════════════════════════════════════════════
+const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+function generarMeses() {
+  const out = [];
+  let y = 2026, m = 2;
+  while (!(y === 2031 && m === 6)) {
+    out.push({ label:`${MN[m]}-${String(y).slice(2)}`, y, m, idx:out.length });
+    m++; if (m > 11) { m = 0; y++; }
+  }
+  out.push({ label:'Jun-31', y:2031, m:5, idx:out.length });
+  return out;
+}
+
+const MESES_INFO = generarMeses();
+const MESES_65   = MESES_INFO.map(x => x.label);
+function seasonOf(mo) { return mo.m >= 6 ? mo.y : mo.y - 1; }
+
+const SEASONS = (() => {
+  const map = {};
+  MESES_INFO.forEach(mo => {
+    const sy  = seasonOf(mo);
+    const key = `${sy}-${sy+1}`;
+    if (!map[key]) map[key] = { key, sy, label:`Temporada ${sy}-${sy+1}`, indices:[], months:[] };
+    map[key].indices.push(mo.idx);
+    map[key].months.push(mo.label);
+  });
+  return Object.values(map);
+})();
+const SEASON_KEYS = SEASONS.map(s => s.key);
+
+const SEMANAS_MES = {
+  "Mar-26":["S11","S12","S13"],"Apr-26":["S14","S15","S16","S17"],
+  "May-26":["S18","S19","S20","S21"],"Jun-26":["S22","S23","S24","S25"],
+  "Jul-26":["S27","S28","S29","S30"],"Aug-26":["S31","S32","S33","S34"],
+  "Sep-26":["S36","S37","S38","S39"],"Oct-26":["S40","S41","S42","S43"],
+  "Nov-26":["S44","S45","S46","S47"],"Dec-26":["S48","S49","S50","S51"],
+  "Jan-27":["S01","S02","S03","S04"],"Feb-27":["S05","S06","S07","S08"],
+  "Mar-27":["S09","S10","S11","S12"],"Apr-27":["S13","S14","S15","S16"],
+  "May-27":["S17","S18","S19","S20"],"Jun-27":["S21","S22","S23","S24"],
+  "Jul-27":["S27","S28","S29","S30"],"Aug-27":["S31","S32","S33","S34"],
+  "Sep-27":["S36","S37","S38","S39"],"Oct-27":["S40","S41","S42","S43"],
+  "Nov-27":["S44","S45","S46","S47"],"Dec-27":["S48","S49","S50","S51"],
+};
+
+const Z65  = () => Array(65).fill(0);
+function ext(arr) { const r=[...(arr||[])]; while(r.length<65) r.push(0); return r; }
+function mIdx(label) { return MESES_65.indexOf(label); }
+
+// ═══════════════════════════════════════════════════════════════════
+// SUPABASE
+// ═══════════════════════════════════════════════════════════════════
 const SUPA_URL = "https://bywovqayuzodbzwsriet.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5d292cWF5dXpvZGJ6d3NyaWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODU1MDgsImV4cCI6MjA5MTI2MTUwOH0.s2x2O_CxE6rl8dBqFuyfQdMyRqSyjJQWXJXesmVGXtk";
 
-const MESES_24 = ["Mar-26","Apr-26","May-26","Jun-26","Jul-26","Aug-26","Sep-26","Oct-26","Nov-26","Dec-26","Jan-27","Feb-27","Mar-27","Apr-27","May-27","Jun-27","Jul-27","Aug-27","Sep-27","Oct-27","Nov-27","Dec-27","Jan-28","Feb-28"];
+async function dbLoad() {
+  try {
+    const r = await fetch(`${SUPA_URL}/rest/v1/finanzas_real?id=eq.main&select=value`,
+      { headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}` }});
+    const d = await r.json();
+    return d?.[0]?.value ? JSON.parse(d[0].value) : {};
+  } catch { return {}; }
+}
+async function dbSave(data) {
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/finanzas_real`, {
+      method:"POST",
+      headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}`,
+        "Content-Type":"application/json", "Prefer":"resolution=merge-duplicates" },
+      body: JSON.stringify({ id:"main", value:JSON.stringify(data) })
+    });
+    return true;
+  } catch { return false; }
+}
 
-// Semanas por mes (para el formulario de ingreso real)
-const SEMANAS = {
-  "Mar-26":["16-Mar","23-Mar","30-Mar"],
-  "Apr-26":["06-Apr","13-Apr","20-Apr","27-Apr"],
-  "May-26":["04-May","11-May","18-May","25-May"],
-  "Jun-26":["01-Jun","08-Jun","15-Jun","22-Jun","29-Jun"],
-  "Jul-26":["06-Jul","13-Jul","20-Jul","27-Jul"],
-  "Aug-26":["03-Aug","10-Aug","17-Aug","24-Aug","31-Aug"],
-  "Sep-26":["07-Sep","14-Sep","21-Sep","28-Sep"],
-  "Oct-26":["05-Oct","12-Oct","19-Oct","26-Oct"],
-  "Nov-26":["02-Nov","09-Nov","16-Nov","23-Nov","30-Nov"],
-  "Dec-26":["07-Dec","14-Dec","21-Dec","28-Dec"],
-  "Jan-27":["04-Jan","11-Jan","18-Jan","25-Jan"],
-  "Feb-27":["01-Feb","08-Feb","15-Feb","22-Feb"],
-  "Mar-27":["01-Mar","08-Mar","15-Mar","22-Mar","29-Mar"],
-};
+// ═══════════════════════════════════════════════════════════════════
+// PARÁMETROS ALLEGRIA FOODS
+// ═══════════════════════════════════════════════════════════════════
+const FRUTAS      = ['cerezas','ciruelas','arandanos'];
+const FRUTA_LABEL = { cerezas:'Cerezas', ciruelas:'Ciruelas', arandanos:'Arándanos' };
+const FRUTA_EMOJI = { cerezas:'🍒', ciruelas:'🟣', arandanos:'🫐' };
 
-// Estructura completa por empresa con líneas de detalle
-const EMPRESAS = {
+function defaultFruta() {
+  return {
+    kg:0, fob_usd_kg:0, desc_exp_pct:8,
+    anticipos_cliente:[],
+    mes_liquidacion:'',
+    anticipos_productor:[],
+    mes_saldo_productor:'',
+    mat_usd_kg:0,
+    srv_usd_kg:0,
+  };
+}
+
+function defaultParams() {
+  const p = {};
+  SEASON_KEYS.forEach(sk => {
+    p[sk] = {};
+    FRUTAS.forEach(f => { p[sk][f] = defaultFruta(); });
+  });
+  return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MOTOR FÓRMULAS — Allegria Foods
+// ═══════════════════════════════════════════════════════════════════
+function calcAllegria(params) {
+  const ing  = { cerezas:Z65(), ciruelas:Z65(), arandanos:Z65() };
+  const cost = { cerezas:Z65(), ciruelas:Z65(), arandanos:Z65() };
+  SEASON_KEYS.forEach(sk => {
+    if (!params?.[sk]) return;
+    FRUTAS.forEach(f => {
+      const p   = params[sk]?.[f];
+      if (!p) return;
+      const kg  = Number(p.kg)||0;
+      const fob = Number(p.fob_usd_kg)||0;
+      const desc= (Number(p.desc_exp_pct)||0)/100;
+      const mat = Number(p.mat_usd_kg)||0;
+      const srv = Number(p.srv_usd_kg)||0;
+      if (kg===0||fob===0) return;
+
+      let totalAntIng = 0;
+      (p.anticipos_cliente||[]).forEach(a => {
+        const i = mIdx(a.mes); if(i<0) return;
+        const v = (Number(a.usd_kg)||0)*kg;
+        ing[f][i] += v; totalAntIng += v;
+      });
+      if (p.mes_liquidacion) {
+        const i = mIdx(p.mes_liquidacion);
+        if (i>=0) ing[f][i] += Math.max(0, kg*fob - totalAntIng);
+      }
+
+      const precioNetoProd = Math.max(0, fob*(1-desc) - mat - srv);
+      let totalAntProd = 0;
+      (p.anticipos_productor||[]).forEach(a => {
+        const i = mIdx(a.mes); if(i<0) return;
+        const v = (Number(a.usd_kg)||0)*kg;
+        cost[f][i] += v; totalAntProd += v;
+      });
+      if (p.mes_saldo_productor) {
+        const i = mIdx(p.mes_saldo_productor);
+        if (i>=0) { const s = kg*precioNetoProd - totalAntProd; if(s>0) cost[f][i] += s; }
+      }
+    });
+  });
+  return { ing, cost };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EMPRESAS ESTÁTICAS
+// ═══════════════════════════════════════════════════════════════════
+const EMPRESAS_STATIC = {
   "Mediterra": {
-    emoji:"🏢", color:"#1d4ed8", saldo_ini:3601,
-    desc:"Holding · Inversiones Mediterra SpA",
+    emoji:"🏢", color:"#1d4ed8", saldo_ini:3601, desc:"Holding · Inversiones Mediterra SpA",
     sections:[
       { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Fee Administración / Otros Ingresos", proy:[0,80000,80000,80000,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500]},
-        {label:"Cuentas por Cobrar",                  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Fee Administración / Otros Ingresos", proy:ext([0,80000,80000,80000,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500])},
+        {label:"Cuentas por Cobrar", proy:Z65()},
       ]},
       { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
-        {label:"Remuneración Administración",  proy:[50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000,50000]},
-        {label:"Fee Administración",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Arriendo Oficina",             proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Legales",               proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Viajes Nacionales",     proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Viajes Internacionales",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Alojamiento",                  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Remuneración Administración", proy:ext(Array(24).fill(50000))},
+        {label:"Fee Administración", proy:Z65()},
+        {label:"Arriendo Oficina", proy:Z65()},
+        {label:"Gastos Legales", proy:Z65()},
+        {label:"Gastos Viajes Nacionales", proy:Z65()},
+        {label:"Gastos Viajes Internacionales", proy:Z65()},
+        {label:"Alojamiento", proy:Z65()},
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
-        {label:"Pago Préstamos - Total",  proy:[32000,32000,32000,131300,32000,32000,101300,32000,32000,101300,32000,32000,101300,32000,32000,101300,0,0,0,0,0,0,0,0]},
-        {label:"Leyes Sociales Laborales",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Pago F-29",               proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Pago Préstamos - Total", proy:ext([32000,32000,32000,131300,32000,32000,101300,32000,32000,101300,32000,32000,101300,32000,32000,101300,0,0,0,0,0,0,0,0])},
+        {label:"Leyes Sociales Laborales", proy:Z65()},
+        {label:"Pago F-29", proy:Z65()},
       ]},
     ],
-    flujo:[-82000,-2000,-2000,-101300,5500,5500,-63800,5500,5500,-63800,5500,5500,-63800,5500,5500,-63800,37500,37500,37500,37500,37500,37500,37500,37500],
-    acum:[-78399,-80399,-82399,-183699,-178199,-172699,-236499,-230999,-225499,-289299,-283799,-278299,-342099,-336599,-331099,-394899,-357399,-319899,-282399,-244899,-207399,-169899,-132399,-94899],
-  },
-  "Allegria Foods": {
-    emoji:"🍒", color:"#b91c1c", saldo_ini:17433,
-    desc:"Exportación frutas · Chile",
-    sections:[
-      { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Anticipo Cerezas",        proy:[0,0,0,0,0,0,0,0,0,700500,1152750,1152750,3513057,0,0,700500,0,0,0,0,1482000,0,0,1152750]},
-        {label:"Liquidación Cerezas",     proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Arándanos Perú",          proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Liquidación Ciruelas",    proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Ingresos por Paltas",     proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Ingreso Allegria Service",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Cuentas por Cobrar",      proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-      ]},
-      { cat:"egr_var", label:"Costos Variables", signo:-1, lines:[
-        {label:"Costo Fruta Exportación",    proy:[0,0,0,316534,0,0,316534,0,0,316534,0,0,949602,0,0,316534,0,0,0,0,632535,0,0,0]},
-        {label:"Materiales",                 proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Servicios de Packing",       proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Comisión Exportadora",       proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Seguros Exportación",        proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Servicios Terceros/Bodegas", proy:[0,0,0,316534,0,0,211728,0,0,0,0,0,0,0,0,316534,0,0,0,0,0,0,0,0]},
-      ]},
-      { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
-        {label:"Remuneración Administración",  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Arriendo Vehículos",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Legales",               proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Fee Administración",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Viajes Nacionales",     proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Viajes Internacionales",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-      ]},
-      { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
-        {label:"Pago Préstamos Bullet (Nov-26)", proy:[0,0,0,0,0,0,0,0,0,499864,0,783199,0,0,0,0,0,0,0,0,111001,0,0,0]},
-        {label:"Leyes Sociales Laborales",       proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-      ]},
-    ],
-    flujo:[0,0,0,-633068,-223335,-223335,-609815,-223335,-223335,-1421822,-475920,304002,2066742,-258072,-543715,-1095359,56000,40850,-639000,477000,377000,-437000,-792000,170500],
-    acum:[17433,17433,17433,-615635,-838970,-1062305,-1672120,-1895455,-2118790,-3540612,-4016532,-3712530,-1645788,-1903860,-2447575,-3542934,-3486934,-3446084,-4085084,-3608084,-3231084,-3668084,-4460084,-4289584],
   },
   "Allegria Service": {
-    emoji:"🏭", color:"#92400e", saldo_ini:5519,
-    desc:"Procesamiento · Packing",
+    emoji:"🏭", color:"#92400e", saldo_ini:5519, desc:"Procesamiento · Packing",
     sections:[
       { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Proceso de Cerezas",  proy:[0,0,0,0,0,0,0,0,0,240000,240000,0,1048000,0,0,240000,0,0,0,0,240000,0,0,240000]},
-        {label:"Procesos de Ciruelas",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Cuentas por Cobrar",  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Proceso de Cerezas",   proy:ext([0,0,0,0,0,0,0,0,0,240000,240000,0,1048000,0,0,240000,0,0,0,0,240000,0,0,240000])},
+        {label:"Procesos de Ciruelas", proy:Z65()},
+        {label:"Cuentas por Cobrar",   proy:Z65()},
       ]},
       { cat:"egr_var", label:"Costos Variables", signo:-1, lines:[
-        {label:"Costo Directo Variable de Proceso",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Costo Directo Variable de Proceso", proy:Z65()},
       ]},
       { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
-        {label:"Remuneración Administración",  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Fee Administración",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Legales",               proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Remuneración Administración", proy:Z65()},
+        {label:"Fee Administración", proy:Z65()},
+        {label:"Gastos Legales", proy:Z65()},
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
-        {label:"Pago Leasing BCI",         proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Leyes Sociales Laborales", proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Pago Leasing BCI", proy:Z65()},
+        {label:"Leyes Sociales Laborales", proy:Z65()},
       ]},
     ],
-    flujo:[0,0,0,0,0,0,0,0,0,240000,240000,0,1048000,0,0,240000,0,0,0,0,240000,0,0,240000],
-    acum:[5519,5519,5519,5519,5519,5519,5519,5519,5519,245519,485519,485519,1533519,1533519,1533519,1773519,1773519,1773519,1773519,1773519,2013519,2013519,2013519,2253519],
   },
   "Frisku Foods": {
-    emoji:"🚢", color:"#0e7490", saldo_ini:132828,
-    desc:"Carga contenedores · Logística",
+    emoji:"🚢", color:"#0e7490", saldo_ini:132828, desc:"Carga contenedores · Logística",
     sections:[
       { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Ingreso Carga Contenedores",proy:[0,0,0,0,50500,35350,101000,50500,35350,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Otros Ingresos",            proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Cuentas por Cobrar",        proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Ingreso Carga Contenedores", proy:ext([0,0,0,0,50500,35350,101000,50500,35350,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])},
+        {label:"Otros Ingresos", proy:Z65()},
+        {label:"Cuentas por Cobrar", proy:Z65()},
       ]},
       { cat:"egr_var", label:"Costos Variables", signo:-1, lines:[
-        {label:"Costo Directo Variable",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Costo Directo Variable", proy:Z65()},
       ]},
       { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
-        {label:"Remuneración Administración",  proy:[25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274,25274]},
-        {label:"Fee Administración",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Legales",               proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Remuneración Administración", proy:ext(Array(24).fill(25274))},
+        {label:"Fee Administración", proy:Z65()},
+        {label:"Gastos Legales", proy:Z65()},
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
-        {label:"Banco Security (cuotas)",  proy:[0,109857,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Banco BICE (bullet)",      proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Leyes Sociales Laborales", proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Banco Security (cuotas)", proy:ext([0,109857,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])},
+        {label:"Banco BICE (bullet)", proy:Z65()},
+        {label:"Leyes Sociales Laborales", proy:Z65()},
       ]},
     ],
-    flujo:[-25274,-135131,-25274,-25274,25226,10076,75726,25226,10076,-25274,-25274,-25274,-25274,-25274,-25274,-25274,-25274,-25274,-25274,-25274,-25274,-25274,-25274,-25274],
-    acum:[107554,-27577,-52852,-78126,-52900,-42824,32902,58128,68204,42930,17656,-7618,-32892,-58166,-83440,-108714,-133988,-159262,-184536,-209810,-235084,-260358,-285632,-310906],
   },
   "Frisku Peru": {
-    emoji:"🇵🇪", color:"#6d28d9", saldo_ini:1251,
-    desc:"Operaciones · Perú",
+    emoji:"🇵🇪", color:"#6d28d9", saldo_ini:1251, desc:"Operaciones · Perú",
     sections:[
       { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Otros Ingresos Operacionales",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Cuentas por Cobrar",          proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Otros Ingresos Operacionales", proy:Z65()},
+        {label:"Cuentas por Cobrar", proy:Z65()},
       ]},
       { cat:"egr_var", label:"Costos Variables", signo:-1, lines:[
-        {label:"Costos Variables Operacionales",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Costos Variables Operacionales", proy:Z65()},
       ]},
       { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
-        {label:"Remuneración Administración",  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Fee Administración",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Legales",               proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Remuneración Administración", proy:Z65()},
+        {label:"Fee Administración", proy:Z65()},
+        {label:"Gastos Legales", proy:Z65()},
       ]},
     ],
-    flujo:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    acum:[1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251,1251],
   },
   "Allpa Farms": {
-    emoji:"🌸", color:"#dc2626", saldo_ini:1828,
-    desc:"Farming cerezas · Chile",
+    emoji:"🌸", color:"#dc2626", saldo_ini:1828, desc:"Farming cerezas · Chile",
     sections:[
       { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Ingreso Exportación Cerezas",proy:[0,0,0,0,0,0,0,0,152312,304624,0,0,913872,0,0,304624,0,0,0,0,320000,576000,0,0]},
-        {label:"Ingreso Cerezas Nacionales", proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Otros Ingresos",             proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Cuentas por Cobrar",         proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Ingreso Exportación Cerezas", proy:ext([0,0,0,0,0,0,0,0,152312,304624,0,0,913872,0,0,304624,0,0,0,0,320000,576000,0,0])},
+        {label:"Ingreso Cerezas Nacionales",  proy:Z65()},
+        {label:"Otros Ingresos",              proy:Z65()},
+        {label:"Cuentas por Cobrar",          proy:Z65()},
       ]},
       { cat:"egr_var", label:"Costos Variables", signo:-1, lines:[
-        {label:"Remuneración Cosecha",          proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Contratista Cosecha",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Transporte",                    proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Remuneración Operacional",      proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Electricidad",                  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Servicio de Terceros",          proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Flete Nacional",                proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Mantención Máquinas y Equipos", proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Mantención Vehículos",          proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Mantención de Campo",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Remuneración Cosecha",          proy:Z65()},
+        {label:"Contratista Cosecha",           proy:Z65()},
+        {label:"Transporte",                    proy:Z65()},
+        {label:"Remuneración Operacional",      proy:Z65()},
+        {label:"Electricidad",                  proy:Z65()},
+        {label:"Servicio de Terceros",          proy:Z65()},
+        {label:"Flete Nacional",                proy:Z65()},
+        {label:"Mantención Máquinas y Equipos", proy:Z65()},
+        {label:"Mantención Vehículos",          proy:Z65()},
+        {label:"Mantención de Campo",           proy:Z65()},
       ]},
       { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
-        {label:"Remuneración Administración",  proy:[0,0,0,0,0,0,0,0,0,0,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400]},
-        {label:"Asesoría Técnica",             proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Arriendo Oficina",             proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Fee Administración",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,371696,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Remuneración Administración", proy:ext([0,0,0,0,0,0,0,0,0,0,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400])},
+        {label:"Asesoría Técnica",   proy:Z65()},
+        {label:"Arriendo Oficina",   proy:Z65()},
+        {label:"Fee Administración", proy:ext([0,0,0,0,0,0,0,0,0,0,0,0,371696,0,0,0,0,0,0,0,0,0,0,0])},
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
-        {label:"Banco de Chile (hipotecario)",proy:[0,0,0,476021,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Leyes Sociales Laborales",   proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Banco de Chile (hipotecario)", proy:ext([0,0,0,476021,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])},
+        {label:"Leyes Sociales Laborales",    proy:Z65()},
       ]},
     ],
-    flujo:[0,0,0,-476021,0,0,0,0,152312,304624,-14400,-14400,527876,-14400,-14400,290224,-14400,-14400,-14400,-14400,305600,561600,-14400,-14400],
-    acum:[1828,1828,1828,-474193,-474193,-474193,-474193,-474193,-321881,-17257,-31657,-46057,481819,467419,453019,743243,728843,714443,700043,685643,991243,1552843,1538443,1524043],
   },
   "Allpa Farms Perú": {
-    emoji:"🫐", color:"#7c3aed", saldo_ini:208000,
-    desc:"Farming arándanos · Perú",
+    emoji:"🫐", color:"#7c3aed", saldo_ini:208000, desc:"Farming arándanos · Perú",
     sections:[
       { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Exportación Arándanos",    proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Venta Arándanos Nacional", proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Otros Ingresos",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Cuentas por Cobrar",       proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Exportación Arándanos",    proy:Z65()},
+        {label:"Venta Arándanos Nacional", proy:Z65()},
+        {label:"Otros Ingresos",           proy:Z65()},
+        {label:"Cuentas por Cobrar",       proy:Z65()},
       ]},
       { cat:"egr_var", label:"Costos Variables", signo:-1, lines:[
-        {label:"Costo Fruta Exportación",      proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Materiales",                   proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Servicios de Packing",         proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Seguros Exportación",          proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Servicios Terceros Exportación",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Arriendo Bodegas",             proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Costo Fruta Exportación",        proy:Z65()},
+        {label:"Materiales",                     proy:Z65()},
+        {label:"Servicios de Packing",           proy:Z65()},
+        {label:"Seguros Exportación",            proy:Z65()},
+        {label:"Servicios Terceros Exportación", proy:Z65()},
+        {label:"Arriendo Bodegas",               proy:Z65()},
       ]},
       { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
-        {label:"Remuneración Administración",  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Fee Administración",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Legales",               proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Remuneración Administración", proy:Z65()},
+        {label:"Fee Administración",          proy:Z65()},
+        {label:"Gastos Legales",              proy:Z65()},
       ]},
     ],
-    flujo:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-    acum:[208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000,208000],
   },
   "Integrity Farms": {
-    emoji:"🌾", color:"#15803d", saldo_ini:604,
-    desc:"Administración agrícola (US$2.000/há)",
+    emoji:"🌾", color:"#15803d", saldo_ini:604, desc:"Administración agrícola (US$2.000/há)",
     sections:[
       { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Ingreso Administración (us$2.000/ha)",proy:[0,172000,0,0,0,0,0,0,0,0,172000,0,172000,0,172000,0,0,0,0,0,172000,0,172000,0]},
-        {label:"Otros Ingresos",                     proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Cuentas por Cobrar",                 proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Ingreso Administración (us$2.000/ha)", proy:ext([0,172000,0,0,0,0,0,0,0,0,172000,0,172000,0,172000,0,0,0,0,0,172000,0,172000,0])},
+        {label:"Otros Ingresos",     proy:Z65()},
+        {label:"Cuentas por Cobrar", proy:Z65()},
       ]},
       { cat:"egr_var", label:"Costos Variables", signo:-1, lines:[
-        {label:"Costo Directo Variable",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Costo Directo Variable", proy:Z65()},
       ]},
       { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
-        {label:"Remuneración Administración",  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Arriendo Vehículos",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Arriendo Oficina",             proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Fee Administración",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Viajes Nacionales",     proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Remuneración Administración", proy:Z65()},
+        {label:"Arriendo Vehículos",          proy:Z65()},
+        {label:"Arriendo Oficina",            proy:Z65()},
+        {label:"Fee Administración",          proy:Z65()},
+        {label:"Gastos Viajes Nacionales",    proy:Z65()},
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
-        {label:"Pago Préstamos - Total",  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Leyes Sociales Laborales",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Pago Préstamos - Total",   proy:Z65()},
+        {label:"Leyes Sociales Laborales", proy:Z65()},
       ]},
     ],
-    flujo:[0,172000,0,0,0,0,0,0,0,0,172000,0,172000,0,172000,0,0,0,0,0,172000,0,172000,0],
-    acum:[604,172604,172604,172604,172604,172604,172604,172604,172604,172604,344604,344604,516604,516604,688604,688604,688604,688604,688604,688604,860604,860604,1032604,1032604],
   },
   "Osiris": {
-    emoji:"🌱", color:"#0f766e", saldo_ini:40188,
-    desc:"Royalties · Fee Viveros · Osiris Plant Mgmt",
+    emoji:"🌱", color:"#0f766e", saldo_ini:40188, desc:"Royalties · Fee Viveros · Osiris Plant Mgmt",
     sections:[
       { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Royalty por Planta",  proy:[0,0,0,0,0,0,0,0,1100000,0,0,0,2200000,0,0,1100000,0,0,0,0,1100000,1100000,0,0]},
-        {label:"Royalty Comercial",   proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Fee Vivero",          proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Cuentas por Cobrar",  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Royalty por Planta",  proy:ext([0,0,0,0,0,0,0,0,1100000,0,0,0,2200000,0,0,1100000,0,0,0,0,1100000,1100000,0,0])},
+        {label:"Royalty Comercial",   proy:Z65()},
+        {label:"Fee Vivero",          proy:Z65()},
+        {label:"Cuentas por Cobrar",  proy:Z65()},
       ]},
       { cat:"egr_var", label:"Costos Variables", signo:-1, lines:[
-        {label:"Costo Directo Variable",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Costo Directo Variable", proy:Z65()},
       ]},
       { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
-        {label:"Remuneración Administración",  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Arriendo Vehículos",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Arriendo Oficina",             proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Legales",               proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Fee Administración",           proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Viajes Nacionales",     proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Gastos Viajes Internacionales",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Alojamiento",                  proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Remuneración Administración",   proy:Z65()},
+        {label:"Arriendo Vehículos",            proy:Z65()},
+        {label:"Arriendo Oficina",              proy:Z65()},
+        {label:"Gastos Legales",                proy:Z65()},
+        {label:"Fee Administración",            proy:Z65()},
+        {label:"Gastos Viajes Nacionales",      proy:Z65()},
+        {label:"Gastos Viajes Internacionales", proy:Z65()},
+        {label:"Alojamiento",                   proy:Z65()},
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
-        {label:"Banco Security (cuotas)", proy:[9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,0,0,0,0,0,9178,0,0,0,0,0,0,0,0]},
-        {label:"BCI (bullet Jun-26)",     proy:[0,0,0,355425,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-        {label:"Leyes Sociales Laborales",proy:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+        {label:"Banco Security (cuotas)", proy:ext([9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,0,0,0,0,0,9178,0,0,0,0,0,0,0,0])},
+        {label:"BCI (bullet Jun-26)",     proy:ext([0,0,0,355425,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])},
+        {label:"Leyes Sociales Laborales",proy:Z65()},
       ]},
     ],
-    flujo:[-18356,-18356,-18356,-729206,-18356,-18356,-729206,-18356,1081644,-729206,0,0,1489150,0,0,370794,0,0,-710850,0,1100000,1100000,-710850,0],
-    acum:[21832,3476,-14881,-744087,-762443,-780799,-1510005,-1528362,-446718,-1175924,-1175924,-1175924,313226,313226,313226,684020,684020,684020,-26830,-26830,1073170,2173170,1462320,1462320],
   },
 };
 
-// Créditos
+function buildAllegria(params) {
+  const { ing, cost } = calcAllegria(params);
+  return {
+    emoji:"🍒", color:"#b91c1c", saldo_ini:17433, desc:"Exportación frutas · Chile", hasFormula:true,
+    sections:[
+      { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
+        {label:"Anticipo / Liquidación Cerezas",   proy:[...ing.cerezas],   formula:true},
+        {label:"Anticipo / Liquidación Ciruelas",  proy:[...ing.ciruelas],  formula:true},
+        {label:"Anticipo / Liquidación Arándanos", proy:[...ing.arandanos], formula:true},
+        {label:"Otros Ingresos",                   proy:Z65()},
+        {label:"Cuentas por Cobrar",               proy:Z65()},
+      ]},
+      { cat:"egr_var", label:"Costos Variables (Fruta)", signo:-1, lines:[
+        {label:"Costo Fruta Cerezas",   proy:[...cost.cerezas],   formula:true},
+        {label:"Costo Fruta Ciruelas",  proy:[...cost.ciruelas],  formula:true},
+        {label:"Costo Fruta Arándanos", proy:[...cost.arandanos], formula:true},
+      ]},
+      { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
+        {label:"Remuneración Administración",   proy:Z65()},
+        {label:"Arriendo Vehículos",            proy:Z65()},
+        {label:"Gastos Legales",                proy:Z65()},
+        {label:"Fee Administración",            proy:Z65()},
+        {label:"Gastos Viajes Nacionales",      proy:Z65()},
+        {label:"Gastos Viajes Internacionales", proy:Z65()},
+      ]},
+      { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
+        {label:"Pago Préstamos Bullet",    proy:ext([0,0,0,0,0,0,0,0,0,499864,0,783199,0,0,0,0,0,0,0,0,111001,0,0,0])},
+        {label:"Leyes Sociales Laborales", proy:Z65()},
+      ]},
+    ],
+  };
+}
+
+function buildEmpresas(params) {
+  return { ...EMPRESAS_STATIC, "Allegria Foods": buildAllegria(params) };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CRÉDITOS
+// ═══════════════════════════════════════════════════════════════════
 const CREDITOS = [
   {n:1,empresa:"Allegria Foods",acreedor:"Zelun",tipo_inst:"Privado",monto:120000,f_venc:"2026-11-30",tipo_cr:"Bullet",tasa:"",cuota:120000},
   {n:2,empresa:"Allegria Foods",acreedor:"Yiannis",tipo_inst:"Privado",monto:117000,f_venc:"2026-11-30",tipo_cr:"Bullet",tasa:"",cuota:117000},
@@ -331,7 +435,6 @@ const CREDITOS = [
   {n:40,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:17325,f_venc:"2027-12-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:17325},
   {n:41,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:550000,f_venc:"2028-01-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:550000},
 ];
-
 const CREDITOS_TRIM = {
   quarters:["Q1 2026","Q2 2026","Q3 2026","Q4 2026","Q1 2027","Q2 2027","Q3 2027","Q4 2027","Q1 2028","Q2 2028","Q3 2028","Q4 2028"],
   pagos:   [21815,1064994,983763,1517473,922750,1348929,677657,972750,1016426,800196,0,0],
@@ -339,110 +442,59 @@ const CREDITOS_TRIM = {
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// COLORES
+// COLORES Y HELPERS
 // ═══════════════════════════════════════════════════════════════════
 const C = {
-  bg:"#071810",
-  bg2:"#0a2218",
-  card:"#0d2b1e",
-  card2:"#112e20",
-  border:"#1a4d32",
-  border2:"#236640",
-  text:"#e2f5ec",
-  muted:"#6aad8a",
-  muted2:"#4a8066",
-  green:"#22c55e",
-  red:"#f87171",
-  blue:"#60a5fa",
-  yellow:"#fbbf24",
-  orange:"#fb923c",
-  accent:"#16a34a",
-  accentL:"#22c55e",
+  bg:"#071810", bg2:"#0a2218", card:"#0d2b1e", card2:"#112e20",
+  border:"#1a4d32", border2:"#236640",
+  text:"#e2f5ec", muted:"#6aad8a", muted2:"#4a8066",
+  green:"#22c55e", red:"#f87171", blue:"#60a5fa",
+  yellow:"#fbbf24", orange:"#fb923c", accent:"#16a34a", accentL:"#22c55e",
 };
-
-// ═══════════════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════════════
 const $$ = n => {
-  if (n == null || n === "") return "—";
-  const abs=Math.abs(n), s=n<0?"-":"";
+  if(n==null||n==="") return "—";
+  const abs=Math.abs(n),s=n<0?"-":"";
   if(abs>=1_000_000) return `${s}$${(abs/1e6).toFixed(2)}M`;
   if(abs>=1_000)     return `${s}$${(abs/1e3).toFixed(0)}K`;
   return `${s}$${abs.toLocaleString()}`;
 };
 const fmtDate = s => {
   if(!s) return "—";
-  try { const d=new Date(s); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; }
-  catch{ return s.slice(0,10); }
+  try{const d=new Date(s);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;}
+  catch{return s.slice(0,10);}
 };
-const cf = v => v >= 0 ? C.green : C.red;
+const cf = v => v>=0 ? C.green : C.red;
+const CAT_COLOR={ing_op:C.green,ing_nop:"#34d399",egr_var:C.red,egr_fijo:"#f87171",egr_nop:"#fca5a5",imp:C.orange};
+const CAT_SIGNO={ing_op:"+",ing_nop:"+",egr_var:"−",egr_fijo:"−",egr_nop:"−",imp:"−"};
 
-const CAT_COLOR = {
-  ing_op: C.green, ing_nop: "#34d399",
-  egr_var: C.red, egr_fijo: "#f87171", egr_nop: "#fca5a5", imp: C.orange,
-};
-const CAT_SIGNO = { ing_op:"+", ing_nop:"+", egr_var:"−", egr_fijo:"−", egr_nop:"−", imp:"−" };
-
-// ═══════════════════════════════════════════════════════════════════
-// SUPABASE
-// ═══════════════════════════════════════════════════════════════════
-async function dbLoad() {
-  try {
-    const r = await fetch(`${SUPA_URL}/rest/v1/finanzas_real?id=eq.main&select=value`,
-      { headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}` }});
-    const d = await r.json();
-    return d?.[0]?.value ? JSON.parse(d[0].value) : {};
-  } catch { return {}; }
+function Card({children,style={}}) {
+  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px 18px",...style}}>{children}</div>;
 }
-async function dbSave(data) {
-  try {
-    await fetch(`${SUPA_URL}/rest/v1/finanzas_real`, {
-      method:"POST",
-      headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}`,
-        "Content-Type":"application/json", "Prefer":"resolution=merge-duplicates" },
-      body: JSON.stringify({ id:"main", value:JSON.stringify(data) })
-    });
-    return true;
-  } catch { return false; }
+function SectionTitle({children}) {
+  return <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:12}}>{children}</div>;
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// COMPONENTES UI BASE
-// ═══════════════════════════════════════════════════════════════════
-function Card({ children, style={} }) {
-  return <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12,
-    padding:"16px 18px", ...style }}>{children}</div>;
-}
-function SectionTitle({ children }) {
-  return <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase",
-    letterSpacing:"0.8px", marginBottom:12 }}>{children}</div>;
-}
-function KPI({ label, value, color=C.green, small=false }) {
+function KPI({label,value,color=C.green}) {
   return (
-    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 16px" }}>
-      <div style={{ fontSize:10, color:C.muted, textTransform:"uppercase", letterSpacing:"0.5px", marginBottom:4 }}>{label}</div>
-      <div style={{ fontSize:small?15:18, fontWeight:800, color }}>{value}</div>
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 16px"}}>
+      <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>{label}</div>
+      <div style={{fontSize:18,fontWeight:800,color}}>{value}</div>
     </div>
   );
 }
-function Btn({ onClick, active, children, color=C.accent }) {
+function Btn({onClick,active,children,color=C.accent,small=false}) {
   return (
     <button onClick={onClick}
-      style={{ padding:"6px 14px", borderRadius:8, cursor:"pointer", fontWeight:600, fontSize:11,
-        border:`1px solid ${active?color:C.border}`,
-        background:active?`${color}33`:"transparent",
-        color:active?color:C.muted }}>
+      style={{padding:small?"4px 10px":"6px 14px",borderRadius:8,cursor:"pointer",fontWeight:600,fontSize:small?10:11,
+        border:`1px solid ${active?color:C.border}`,background:active?`${color}33`:"transparent",color:active?color:C.muted}}>
       {children}
     </button>
   );
 }
-
-// Mini line chart
-function LineChart({ months, values, color=C.accentL, h=72 }) {
-  const W=460, pad={l:52,r:8,t:6,b:18};
-  const iw=W-pad.l-pad.r, ih=h-pad.t-pad.b;
-  const min=Math.min(...values), max=Math.max(...values), range=max-min||1;
-  const tx=i=>pad.l+(i/(values.length-1))*iw;
+function LineChart({months,values,color=C.accentL,h=72}) {
+  const W=460,pad={l:52,r:8,t:6,b:18};
+  const iw=W-pad.l-pad.r,ih=h-pad.t-pad.b;
+  const min=Math.min(...values),max=Math.max(...values),range=max-min||1;
+  const tx=i=>pad.l+(i/(Math.max(values.length-1,1)))*iw;
   const ty=v=>pad.t+ih-((v-min)/range)*ih;
   const pts=values.map((v,i)=>[tx(i),ty(v)]);
   const poly=pts.map(([x,y])=>`${x},${y}`).join(" ");
@@ -450,144 +502,123 @@ function LineChart({ months, values, color=C.accentL, h=72 }) {
   const zy=ty(0);
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${h}`} style={{display:"block"}}>
-      <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <defs><linearGradient id="lgf" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor={color} stopOpacity="0.25"/>
         <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
       </linearGradient></defs>
       <line x1={pad.l} x2={W-pad.r} y1={zy} y2={zy} stroke={C.border2} strokeWidth={1} strokeDasharray="3,3"/>
-      <path d={area} fill="url(#g1)"/>
+      <path d={area} fill="url(#lgf)"/>
       <polyline points={poly} fill="none" stroke={color} strokeWidth={1.8} strokeLinejoin="round"/>
-      {pts.map(([x,y],i)=>{
-        const isL=i===pts.length-1;
-        if(!isL&&i%4!==0) return null;
-        return <circle key={i} cx={x} cy={y} r={isL?3:2} fill={cf(values[i])}/>;
-      })}
-      {months.map((m,i)=>{
-        if(i%4!==0&&i!==months.length-1) return null;
-        return <text key={i} x={tx(i)} y={h-1} textAnchor="middle" fontSize={7} fill={C.muted}>{m}</text>;
-      })}
-      {[0,1].map(p=>(
-        <text key={p} x={pad.l-3} y={pad.t+ih-p*ih+3} textAnchor="end" fontSize={7} fill={C.muted}>
-          {$$(Math.round(min+p*range))}
-        </text>
-      ))}
+      {pts.map(([x,y],i)=>{const isL=i===pts.length-1;if(!isL&&i%8!==0)return null;return <circle key={i} cx={x} cy={y} r={isL?3:2} fill={cf(values[i])}/>;}) }
+      {months.map((m,i)=>{if(i%8!==0&&i!==months.length-1)return null;return <text key={i} x={tx(i)} y={h-1} textAnchor="middle" fontSize={6} fill={C.muted}>{m}</text>;})}
+      {[0,1].map(p=>(<text key={p} x={pad.l-3} y={pad.t+ih-p*ih+3} textAnchor="end" fontSize={7} fill={C.muted}>{$$(Math.round(min+p*range))}</text>))}
     </svg>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// MODAL INGRESO REAL
+// TAB PARÁMETROS
 // ═══════════════════════════════════════════════════════════════════
-function ModalIngreso({ empresa, mes, semana, realData, onSave, onClose }) {
-  const emp = EMPRESAS[empresa];
-  const allLines = emp.sections.flatMap(s =>
-    s.lines.map(l => ({ cat: s.cat, label: l.label, signo: s.signo }))
+function AnticipList({items,onChange,label}) {
+  const addRow=()=>onChange([...(items||[]),{mes:"",usd_kg:0}]);
+  const updRow=(i,field,val)=>{const n=[...(items||[])];n[i]={...n[i],[field]:val};onChange(n);};
+  const delRow=i=>onChange((items||[]).filter((_,j)=>j!==i));
+  return (
+    <div>
+      {label&&<div style={{fontSize:10,color:C.muted,marginBottom:5,fontWeight:700}}>{label}</div>}
+      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+        {(items||[]).map((row,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+            <select value={row.mes||""} onChange={e=>updRow(i,"mes",e.target.value)}
+              style={{padding:"4px 7px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:row.mes?C.text:C.muted,fontSize:11,outline:"none"}}>
+              <option value="">— mes —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+            <input type="number" value={row.usd_kg||""} placeholder="0"
+              onChange={e=>updRow(i,"usd_kg",parseFloat(e.target.value)||0)}
+              style={{width:80,padding:"4px 7px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11,outline:"none",textAlign:"right"}}/>
+            <span style={{fontSize:10,color:C.muted}}>US$/kg</span>
+            <button onClick={()=>delRow(i)} style={{background:"transparent",border:"none",color:C.red,cursor:"pointer",fontSize:14}}>×</button>
+          </div>
+        ))}
+        <button onClick={addRow} style={{alignSelf:"flex-start",padding:"4px 10px",background:`${C.accent}22`,
+          border:`1px solid ${C.accent}55`,borderRadius:6,color:C.accentL,cursor:"pointer",fontSize:11,fontWeight:600}}>
+          + Agregar mes
+        </button>
+      </div>
+    </div>
   );
-  const existing = realData?.[empresa]?.[mes]?.[semana] || {};
-  const [vals, setVals] = useState(() => {
-    const init = {};
-    allLines.forEach(l => { init[l.label] = existing[l.label] ?? ""; });
-    return init;
+}
+
+function ParamsFruta({seasonKey,fruta,params,setParams}) {
+  const p=params?.[seasonKey]?.[fruta]||defaultFruta();
+  const upd=(field,val)=>setParams(prev=>{
+    const next=JSON.parse(JSON.stringify(prev));
+    if(!next[seasonKey]) next[seasonKey]={};
+    if(!next[seasonKey][fruta]) next[seasonKey][fruta]=defaultFruta();
+    next[seasonKey][fruta][field]=val;
+    return next;
   });
-  const [saving, setSaving] = useState(false);
-
-  const totalIng = allLines
-    .filter(l => l.signo > 0)
-    .reduce((a,l) => a + (Number(vals[l.label])||0), 0);
-  const totalEgr = allLines
-    .filter(l => l.signo < 0)
-    .reduce((a,l) => a + (Number(vals[l.label])||0), 0);
-  const flujoNeto = totalIng - totalEgr;
-
-  const handleSave = async () => {
-    setSaving(true);
-    const clean = {};
-    allLines.forEach(l => { if(Number(vals[l.label])||0) clean[l.label] = Number(vals[l.label]); });
-    await onSave(empresa, mes, semana, clean);
-    setSaving(false);
-    onClose();
-  };
-
-  const inputStyle = {
-    width:"100%", padding:"7px 10px", background:C.card2,
-    border:`1px solid ${C.border}`, borderRadius:6,
-    color:C.text, fontSize:12, boxSizing:"border-box",
-    fontFamily:"inherit", outline:"none", textAlign:"right",
-  };
+  const kg=Number(p.kg)||0,fob=Number(p.fob_usd_kg)||0;
+  const desc=(Number(p.desc_exp_pct)||0)/100;
+  const mat=Number(p.mat_usd_kg)||0,srv=Number(p.srv_usd_kg)||0;
+  const totalIng=kg*fob;
+  const precioNet=Math.max(0,fob*(1-desc)-mat-srv);
+  const totalCost=kg*precioNet;
+  const antIngTot=(p.anticipos_cliente||[]).reduce((s,a)=>s+(Number(a.usd_kg)||0)*kg,0);
+  const antCostTot=(p.anticipos_productor||[]).reduce((s,a)=>s+(Number(a.usd_kg)||0)*kg,0);
+  const iSt={width:90,padding:"5px 7px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11,outline:"none",textAlign:"right"};
+  const selSt={padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,outline:"none"};
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:400,
-      display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",overflowY:"auto"}}>
-      <div style={{background:C.bg2,border:`1px solid ${emp.color}55`,borderRadius:16,
-        width:560,maxWidth:"95vw",boxShadow:"0 24px 64px rgba(0,0,0,0.7)"}}>
-        <div style={{padding:"18px 22px",borderBottom:`1px solid ${C.border}`,
-          display:"flex",alignItems:"center",gap:12}}>
-          <span style={{fontSize:26}}>{emp.emoji}</span>
-          <div style={{flex:1}}>
-            <div style={{fontSize:14,fontWeight:800,color:C.text}}>{empresa}</div>
-            <div style={{fontSize:11,color:C.muted}}>Semana {semana} · {mes}</div>
-          </div>
-          <button onClick={onClose}
-            style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:20,lineHeight:1}}>×</button>
-        </div>
-
-        <div style={{padding:"16px 22px",maxHeight:"60vh",overflowY:"auto"}}>
-          {emp.sections.map(sec => (
-            <div key={sec.cat} style={{marginBottom:18}}>
-              <div style={{fontSize:10,fontWeight:700,color:CAT_COLOR[sec.cat]||C.muted,
-                textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:8,
-                display:"flex",alignItems:"center",gap:6}}>
-                <span style={{width:16,height:16,borderRadius:4,background:`${CAT_COLOR[sec.cat]}22`,
-                  border:`1px solid ${CAT_COLOR[sec.cat]}55`,display:"inline-flex",alignItems:"center",
-                  justifyContent:"center",fontSize:9,flexShrink:0}}>{CAT_SIGNO[sec.cat]}</span>
-                {sec.label}
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                {sec.lines.map(line => (
-                  <div key={line.label} style={{display:"grid",gridTemplateColumns:"1fr 130px",gap:8,alignItems:"center"}}>
-                    <div style={{fontSize:11,color:C.text,paddingLeft:4}}>{line.label}</div>
-                    <input
-                      type="number" min="0" placeholder="0"
-                      value={vals[line.label]}
-                      onChange={e=>setVals(p=>({...p,[line.label]:e.target.value}))}
-                      style={inputStyle}
-                      onFocus={e=>e.target.style.border=`1px solid ${emp.color}88`}
-                      onBlur={e=>e.target.style.border=`1px solid ${C.border}`}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{padding:"14px 22px",borderTop:`1px solid ${C.border}`}}>
-          <div style={{display:"flex",gap:16,marginBottom:14,fontSize:12}}>
-            <div style={{flex:1,background:C.card2,borderRadius:8,padding:"8px 12px",border:`1px solid ${C.border}`}}>
-              <div style={{fontSize:9,color:C.muted,marginBottom:2}}>INGRESOS</div>
-              <div style={{fontWeight:800,color:C.green}}>{$$(totalIng)}</div>
-            </div>
-            <div style={{flex:1,background:C.card2,borderRadius:8,padding:"8px 12px",border:`1px solid ${C.border}`}}>
-              <div style={{fontSize:9,color:C.muted,marginBottom:2}}>EGRESOS</div>
-              <div style={{fontWeight:800,color:C.red}}>{$$(totalEgr)}</div>
-            </div>
-            <div style={{flex:1,background:C.card2,borderRadius:8,padding:"8px 12px",border:`1px solid ${C.border}`}}>
-              <div style={{fontSize:9,color:C.muted,marginBottom:2}}>FLUJO NETO</div>
-              <div style={{fontWeight:800,color:cf(flujoNeto)}}>{$$(flujoNeto)}</div>
+    <div style={{background:C.card2,borderRadius:12,padding:16,border:`1px solid ${C.border}`}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+        <span style={{fontSize:22}}>{FRUTA_EMOJI[fruta]}</span>
+        <span style={{fontWeight:800,fontSize:14,color:C.text}}>{FRUTA_LABEL[fruta]}</span>
+        {totalIng>0&&<span style={{fontSize:11,background:`${C.green}22`,color:C.green,borderRadius:20,padding:"2px 10px",fontWeight:700,marginLeft:"auto"}}>
+          Ing: {$$(totalIng)} · Costo: {$$(totalCost)} · Margen: {$$(totalIng-totalCost)}
+        </span>}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:12,marginBottom:14}}>
+        {[["KG a exportar","kg","",""],["FOB US$/kg","fob_usd_kg","$",""],["Desc. exportadora","desc_exp_pct","","%"],["Materiales US$/kg","mat_usd_kg","$",""],["Servicios US$/kg","srv_usd_kg","$",""]].map(([lbl,field,pre,suf])=>(
+          <div key={field}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>{lbl}</div>
+            <div style={{display:"flex",alignItems:"center",gap:3}}>
+              {pre&&<span style={{fontSize:11,color:C.muted}}>{pre}</span>}
+              <input type="number" value={p[field]||""} placeholder="0" onChange={e=>upd(field,parseFloat(e.target.value)||0)} style={iSt}/>
+              {suf&&<span style={{fontSize:11,color:C.muted}}>{suf}</span>}
             </div>
           </div>
-          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-            <button onClick={onClose}
-              style={{padding:"8px 20px",borderRadius:8,border:`1px solid ${C.border}`,
-                background:"transparent",color:C.muted,cursor:"pointer",fontSize:13}}>
-              Cancelar
-            </button>
-            <button onClick={handleSave} disabled={saving}
-              style={{padding:"8px 22px",borderRadius:8,border:"none",
-                background:saving?"#555":emp.color,color:"#fff",
-                cursor:"pointer",fontSize:13,fontWeight:700}}>
-              {saving?"Guardando…":"💾 Guardar"}
-            </button>
+        ))}
+        {precioNet>0&&kg>0&&(
+          <div style={{gridColumn:"1/-1",background:`${C.yellow}11`,border:`1px solid ${C.yellow}33`,borderRadius:8,padding:"8px 12px",fontSize:11,color:C.yellow}}>
+            Precio neto productor: <strong>${precioNet.toFixed(3)}/kg</strong> = FOB×{(100-(Number(p.desc_exp_pct||0))).toFixed(0)}% − mat − srv
+          </div>
+        )}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div style={{background:`${C.green}0d`,border:`1px solid ${C.green}33`,borderRadius:10,padding:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:10}}>📥 Cobros al cliente</div>
+          <AnticipList label="Anticipos (US$/kg por mes)" items={p.anticipos_cliente} onChange={v=>upd("anticipos_cliente",v)}/>
+          <div style={{marginTop:10}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Mes liquidación final</div>
+            <select value={p.mes_liquidacion||""} onChange={e=>upd("mes_liquidacion",e.target.value)} style={{...selSt,color:p.mes_liquidacion?C.text:C.muted}}>
+              <option value="">— mes —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+            {antIngTot>0&&totalIng>0&&<div style={{fontSize:10,color:C.muted,marginTop:4}}>Anticipos: {$$(antIngTot)} · Liquidación: {$$(Math.max(0,totalIng-antIngTot))}</div>}
+          </div>
+        </div>
+        <div style={{background:`${C.red}0d`,border:`1px solid ${C.red}33`,borderRadius:10,padding:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.red,marginBottom:10}}>📤 Pagos al productor</div>
+          <AnticipList label="Anticipos productor (US$/kg)" items={p.anticipos_productor} onChange={v=>upd("anticipos_productor",v)}/>
+          <div style={{marginTop:10}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Mes saldo productor</div>
+            <select value={p.mes_saldo_productor||""} onChange={e=>upd("mes_saldo_productor",e.target.value)} style={{...selSt,color:p.mes_saldo_productor?C.text:C.muted}}>
+              <option value="">— mes —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+            {antCostTot>0&&totalCost>0&&<div style={{fontSize:10,color:C.muted,marginTop:4}}>Anticipos: {$$(antCostTot)} · Saldo: {$$(Math.max(0,totalCost-antCostTot))}</div>}
           </div>
         </div>
       </div>
@@ -595,371 +626,381 @@ function ModalIngreso({ empresa, mes, semana, realData, onSave, onClose }) {
   );
 }
 
+function TabParametros({params,setParams}) {
+  const [selSeason,setSelSeason]=useState(SEASON_KEYS[0]);
+  const [selFruta,setSelFruta]=useState('cerezas');
+  const resumen=useMemo(()=>SEASONS.flatMap(s=>FRUTAS.map(f=>{
+    const p=params?.[s.key]?.[f];
+    const kg=Number(p?.kg)||0,fob=Number(p?.fob_usd_kg)||0;
+    const desc=(Number(p?.desc_exp_pct)||0)/100,mat=Number(p?.mat_usd_kg)||0,srv=Number(p?.srv_usd_kg)||0;
+    const ing=kg*fob,cost=kg*Math.max(0,fob*(1-desc)-mat-srv);
+    if(kg===0&&fob===0) return null;
+    return {season:s.label,fruta:f,kg,fob,ing,cost,margen:ing-cost};
+  }).filter(Boolean)),[params]);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <Card>
+        <SectionTitle>⚡ Parámetros Allegria Foods — por Temporada y Fruta</SectionTitle>
+        <div style={{fontSize:11,color:C.muted,marginBottom:14}}>Los cambios se reflejan en tiempo real en el Flujo de Allegria Foods.</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+          {SEASONS.map(s=><Btn key={s.key} active={selSeason===s.key} onClick={()=>setSelSeason(s.key)} color={C.accent}>{s.label}</Btn>)}
+        </div>
+        <div style={{display:"flex",gap:6,marginBottom:16}}>
+          {FRUTAS.map(f=>(
+            <button key={f} onClick={()=>setSelFruta(f)}
+              style={{padding:"6px 18px",borderRadius:20,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,
+                background:selFruta===f?"#b91c1c":"rgba(255,255,255,0.06)",color:selFruta===f?"#fff":C.muted}}>
+              {FRUTA_EMOJI[f]} {FRUTA_LABEL[f]}
+            </button>
+          ))}
+        </div>
+        <ParamsFruta key={`${selSeason}-${selFruta}`} seasonKey={selSeason} fruta={selFruta} params={params} setParams={setParams}/>
+      </Card>
+      {resumen.length>0&&(
+        <Card>
+          <SectionTitle>Resumen Proyectado — Todas las Temporadas</SectionTitle>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <thead><tr style={{background:"rgba(0,0,0,0.2)"}}>
+                {["Temporada","Fruta","KG","FOB","Ingreso","Costo Neto","Margen"].map(h=>(
+                  <th key={h} style={{padding:"8px 12px",fontWeight:600,fontSize:10,color:C.muted,textTransform:"uppercase",
+                    borderBottom:`1px solid ${C.border}`,textAlign:["KG","FOB","Ingreso","Costo Neto","Margen"].includes(h)?"right":"left"}}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {resumen.map((r,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${C.border}22`}}>
+                    <td style={{padding:"7px 12px",color:C.muted,fontSize:11}}>{r.season}</td>
+                    <td style={{padding:"7px 12px",fontWeight:600,color:C.text}}>{FRUTA_EMOJI[r.fruta]} {FRUTA_LABEL[r.fruta]}</td>
+                    <td style={{padding:"7px 12px",textAlign:"right",color:C.text}}>{r.kg.toLocaleString()}</td>
+                    <td style={{padding:"7px 12px",textAlign:"right",color:C.yellow}}>${r.fob.toFixed(2)}</td>
+                    <td style={{padding:"7px 12px",textAlign:"right",fontWeight:700,color:C.green}}>{$$(r.ing)}</td>
+                    <td style={{padding:"7px 12px",textAlign:"right",color:C.red}}>{$$(r.cost)}</td>
+                    <td style={{padding:"7px 12px",textAlign:"right",fontWeight:700,color:cf(r.margen)}}>{$$(r.margen)}</td>
+                  </tr>
+                ))}
+                <tr style={{background:"rgba(255,255,255,0.04)",borderTop:`2px solid ${C.border}`}}>
+                  <td colSpan={4} style={{padding:"8px 12px",fontWeight:800,color:C.text}}>TOTAL</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",fontWeight:800,color:C.green}}>{$$(resumen.reduce((s,r)=>s+r.ing,0))}</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",fontWeight:800,color:C.red}}>{$$(resumen.reduce((s,r)=>s+r.cost,0))}</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",fontWeight:800,color:cf(resumen.reduce((s,r)=>s+r.margen,0))}}>{$$(resumen.reduce((s,r)=>s+r.margen,0))}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════
-// SECCIÓN: FLUJO POR EMPRESA
+// FLUJO POR EMPRESA
 // ═══════════════════════════════════════════════════════════════════
-function FlujoEmpresa({ empNombre, realData, onSaveReal, canEdit }) {
-  const emp = EMPRESAS[empNombre];
-  const [mesIdx,    setMesIdx]    = useState(0);
-  const [vista,     setVista]     = useState("tabla");
-  const [openSec,   setOpenSec]   = useState({});
-  const [modal,     setModal]     = useState(null);
+function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
+  const emp=empresas[empNombre];
+  const [vista,setVista]=useState("mensual");
+  const [openSeason,setOpenSeason]=useState({[SEASON_KEYS[0]]:true,[SEASON_KEYS[1]]:true});
+  const [showReal,setShowReal]=useState(false);
+  const [modalSem,setModalSem]=useState(null);
+  const toggleSeason=key=>setOpenSeason(p=>({...p,[key]:!p[key]}));
 
-  const realMensual = {};
-  MESES_24.forEach(mes => {
-    const semsData = realData?.[empNombre]?.[mes] || {};
-    const lines = {};
-    Object.values(semsData).forEach(semVals => {
-      Object.entries(semVals).forEach(([lbl, v]) => {
-        lines[lbl] = (lines[lbl]||0) + (Number(v)||0);
-      });
+  const realMensual=useMemo(()=>{
+    const rm={};
+    MESES_65.forEach(mes=>{
+      const sd=realData?.[empNombre]?.[mes]||{};
+      const lines={};
+      Object.values(sd).forEach(sv=>{Object.entries(sv).forEach(([lbl,v])=>{lines[lbl]=(lines[lbl]||0)+(Number(v)||0);});});
+      rm[mes]=lines;
     });
-    realMensual[mes] = lines;
-  });
+    return rm;
+  },[realData,empNombre]);
 
-  const realFlujo = MESES_24.map(mes => {
-    const lines = realMensual[mes] || {};
-    if(Object.keys(lines).length===0) return null;
-    let flujo = 0;
-    emp.sections.forEach(sec => {
-      sec.lines.forEach(l => { flujo += (lines[l.label]||0) * sec.signo; });
-    });
-    return flujo;
-  });
+  const {flujoArr,acumArr}=useMemo(()=>{
+    const fa=MESES_65.map((_,i)=>{let f=0;emp.sections.forEach(sec=>sec.lines.forEach(l=>{f+=(l.proy[i]||0)*sec.signo;}));return f;});
+    let a=emp.saldo_ini;
+    const aa=fa.map(f=>{a+=f;return a;});
+    return {flujoArr:fa,acumArr:aa};
+  },[emp]);
 
-  let acc = emp.saldo_ini;
-  const realAcum = MESES_24.map((mes,i) => {
-    if(realFlujo[i]===null) return null;
-    acc += realFlujo[i];
-    return acc;
-  });
+  function ModalIngreso({mes,semana,onSave,onClose}) {
+    const allLines=emp.sections.flatMap(s=>s.lines.map(l=>({cat:s.cat,label:l.label,signo:s.signo})));
+    const existing=realData?.[empNombre]?.[mes]?.[semana]||{};
+    const [vals,setVals]=useState(()=>{const init={};allLines.forEach(l=>{init[l.label]=existing[l.label]??"";});return init;});
+    const [saving,setSaving]=useState(false);
+    const totalIng=allLines.filter(l=>l.signo>0).reduce((a,l)=>a+(Number(vals[l.label])||0),0);
+    const totalEgr=allLines.filter(l=>l.signo<0).reduce((a,l)=>a+(Number(vals[l.label])||0),0);
+    async function handleSave(){
+      setSaving(true);
+      const clean={};allLines.forEach(l=>{if(Number(vals[l.label])||0)clean[l.label]=Number(vals[l.label]);});
+      await onSave(empNombre,mes,semana,clean);setSaving(false);onClose();
+    }
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:500,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:20,overflowY:"auto"}}>
+        <div style={{background:C.bg2,border:`1px solid ${emp.color}55`,borderRadius:16,width:520,maxWidth:"95vw",boxShadow:"0 24px 64px rgba(0,0,0,0.7)"}}>
+          <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:22}}>{emp.emoji}</span>
+            <div style={{flex:1}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>{empNombre}</div><div style={{fontSize:11,color:C.muted}}>{semana} · {mes}</div></div>
+            <button onClick={onClose} style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>×</button>
+          </div>
+          <div style={{padding:"14px 20px",maxHeight:"60vh",overflowY:"auto"}}>
+            {emp.sections.map(sec=>(
+              <div key={sec.cat} style={{marginBottom:14}}>
+                <div style={{fontSize:10,fontWeight:700,color:CAT_COLOR[sec.cat]||C.muted,textTransform:"uppercase",marginBottom:6}}>{CAT_SIGNO[sec.cat]} {sec.label}</div>
+                {sec.lines.map(line=>(
+                  <div key={line.label} style={{display:"grid",gridTemplateColumns:"1fr 110px",gap:8,alignItems:"center",marginBottom:4}}>
+                    <div style={{fontSize:11,color:C.text}}>{line.label}</div>
+                    <input type="number" min="0" placeholder="0" value={vals[line.label]}
+                      onChange={e=>setVals(p=>({...p,[line.label]:e.target.value}))}
+                      style={{padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11,textAlign:"right",outline:"none"}}/>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div style={{padding:"12px 20px",borderTop:`1px solid ${C.border}`}}>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              {[["ING",totalIng,C.green],["EGR",totalEgr,C.red],["NETO",totalIng-totalEgr,cf(totalIng-totalEgr)]].map(([l,v,c])=>(
+                <div key={l} style={{flex:1,background:C.card2,borderRadius:8,padding:"7px 10px",border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:9,color:C.muted}}>{l}</div>
+                  <div style={{fontWeight:800,color:c,fontSize:12}}>{$$(v)}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <button onClick={onClose} style={{padding:"7px 16px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12}}>Cancelar</button>
+              <button onClick={handleSave} disabled={saving}
+                style={{padding:"7px 16px",borderRadius:8,border:"none",background:saving?"#555":emp.color,color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                {saving?"Guardando…":"💾 Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const mes = MESES_24[mesIdx];
-  const hasReal = realFlujo.some(v=>v!==null);
+  function renderTabla() {
+    return (
+      <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`}}>
+        <table style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
+          <thead>
+            <tr style={{background:"#071810"}}>
+              <th style={{padding:"8px 14px",textAlign:"left",color:C.muted,fontSize:10,position:"sticky",left:0,background:"#071810",zIndex:3,minWidth:200,borderRight:`1px solid ${C.border}`}}>
+                Línea
+              </th>
+              {SEASONS.map(s=>{
+                const cols=!openSeason[s.key]?1:vista==="semanal"?s.months.reduce((a,m)=>a+(SEMANAS_MES[m]||[m]).length,0):s.months.length;
+                return (
+                  <th key={s.key} colSpan={cols} onClick={()=>toggleSeason(s.key)}
+                    style={{padding:"7px 10px",textAlign:"center",background:openSeason[s.key]?"#0d2b1e":"#071810",
+                      borderLeft:`2px solid ${C.border2}`,cursor:"pointer",fontSize:10,fontWeight:700,color:"#fff",whiteSpace:"nowrap"}}>
+                    {openSeason[s.key]?"▾":"▸"} {s.label}
+                  </th>
+                );
+              })}
+            </tr>
+            <tr style={{background:"#0a1f14"}}>
+              <th style={{position:"sticky",left:0,background:"#0a1f14",zIndex:3,borderRight:`1px solid ${C.border}`}}/>
+              {SEASONS.map(s=>{
+                if(!openSeason[s.key]) return <th key={s.key} style={{padding:"4px 8px",color:C.muted,fontSize:9,borderLeft:`2px solid ${C.border2}`,textAlign:"center",background:"#0a1f14"}}>{s.months.length}m</th>;
+                const cols=vista==="semanal"
+                  ?s.months.flatMap(m=>(SEMANAS_MES[m]||[]).map(sw=>({label:sw,mes:m,idx:mIdx(m)})))
+                  :s.months.map(m=>({label:m,mes:m,idx:mIdx(m)}));
+                return cols.map((col,ci)=>(
+                  <th key={`${s.key}-${col.label}-${ci}`}
+                    style={{padding:"5px 6px",textAlign:"center",color:C.muted,fontSize:9,fontWeight:600,whiteSpace:"nowrap",
+                      minWidth:vista==="semanal"?50:68,background:"#0a1f14",
+                      borderLeft:ci===0?`2px solid ${C.border2}`:`1px solid ${C.border}22`}}>
+                    {col.label}
+                  </th>
+                ));
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {emp.sections.map(sec=>(
+              <React.Fragment key={sec.cat}>
+                <tr style={{background:"rgba(0,0,0,0.25)"}}>
+                  <td style={{padding:"5px 14px",position:"sticky",left:0,background:"rgba(7,24,16,0.97)",borderRight:`1px solid ${C.border}`,zIndex:1}}>
+                    <span style={{fontSize:10,fontWeight:700,color:CAT_COLOR[sec.cat]||C.muted,textTransform:"uppercase",letterSpacing:"0.5px"}}>{CAT_SIGNO[sec.cat]} {sec.label}</span>
+                  </td>
+                  {SEASONS.map(s=>{
+                    const span=!openSeason[s.key]?1:vista==="semanal"?s.months.reduce((a,m)=>a+(SEMANAS_MES[m]||[m]).length,0):s.months.length;
+                    return <td key={s.key} colSpan={span} style={{borderLeft:`2px solid ${C.border2}`}}/>;
+                  })}
+                </tr>
+                {sec.lines.map(line=>(
+                  <tr key={line.label} style={{borderBottom:`1px solid ${C.border}11`}}>
+                    <td style={{padding:"5px 14px",color:line.formula?C.yellow:C.text,fontSize:11,position:"sticky",left:0,background:"#071810",zIndex:1,borderRight:`1px solid ${C.border}`,whiteSpace:"nowrap",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis"}}>
+                      {line.formula&&<span style={{fontSize:9,marginRight:3}}>⚡</span>}{line.label}
+                    </td>
+                    {SEASONS.map(s=>{
+                      if(!openSeason[s.key]) {
+                        const total=s.indices.reduce((a,i)=>a+(line.proy[i]||0),0);
+                        return <td key={s.key} style={{padding:"5px 8px",textAlign:"right",color:total!==0?(sec.signo>0?C.green:C.red):C.muted2,fontSize:10,fontWeight:total!==0?600:400,borderLeft:`2px solid ${C.border2}`}}>{total!==0?$$(total):"—"}</td>;
+                      }
+                      const cols=vista==="semanal"
+                        ?s.months.flatMap(m=>(SEMANAS_MES[m]||[]).map(sw=>({mes:m,idx:mIdx(m),nSems:(SEMANAS_MES[m]||[m]).length})))
+                        :s.months.map(m=>({mes:m,idx:mIdx(m),nSems:1}));
+                      return cols.map((col,ci)=>{
+                        const val=(line.proy[col.idx]||0)/col.nSems;
+                        const real=vista==="mensual"?(realMensual[col.mes]?.[line.label]||null):null;
+                        return (
+                          <td key={`${col.mes}-${ci}`} style={{padding:"4px 5px",textAlign:"right",fontSize:9,borderLeft:ci===0?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>
+                            {val!==0?<span style={{color:sec.signo>0?C.green:C.red,fontWeight:600}}>{$$(val)}</span>:<span style={{color:C.muted2,fontSize:8}}>—</span>}
+                            {real!=null&&real!==0&&vista==="mensual"&&<div style={{fontSize:7,color:C.yellow}}>R:{$$(real)}</div>}
+                          </td>
+                        );
+                      });
+                    })}
+                  </tr>
+                ))}
+                <tr style={{background:"rgba(255,255,255,0.02)"}}>
+                  <td style={{padding:"5px 14px",fontWeight:700,color:CAT_COLOR[sec.cat],fontSize:10,position:"sticky",left:0,background:"#0a1f14",borderRight:`1px solid ${C.border}`,zIndex:1}}>Total {sec.label}</td>
+                  {SEASONS.map(s=>{
+                    if(!openSeason[s.key]){const total=s.indices.reduce((a,i)=>a+sec.lines.reduce((b,l)=>b+(l.proy[i]||0),0),0);return <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:CAT_COLOR[sec.cat],fontSize:10,borderLeft:`2px solid ${C.border2}`}}>{total!==0?$$(total):"—"}</td>;}
+                    const cols=vista==="semanal"?s.months.flatMap(m=>(SEMANAS_MES[m]||[]).map(sw=>({mes:m,idx:mIdx(m),nSems:(SEMANAS_MES[m]||[m]).length}))):s.months.map(m=>({mes:m,idx:mIdx(m),nSems:1}));
+                    return cols.map((col,ci)=>{
+                      const total=sec.lines.reduce((a,l)=>a+(l.proy[col.idx]||0)/col.nSems,0);
+                      return <td key={`sub-${col.mes}-${ci}`} style={{padding:"5px 5px",textAlign:"right",fontWeight:700,color:CAT_COLOR[sec.cat],fontSize:9,borderLeft:ci===0?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>{total!==0?$$(total):"—"}</td>;
+                    });
+                  })}
+                </tr>
+              </React.Fragment>
+            ))}
+            {/* FLUJO NETO */}
+            <tr style={{background:"rgba(34,197,94,0.07)",borderTop:`2px solid ${C.border2}`}}>
+              <td style={{padding:"7px 14px",fontWeight:800,color:C.accentL,fontSize:11,position:"sticky",left:0,background:"#071810",borderRight:`1px solid ${C.border}`,zIndex:1}}>FLUJO NETO</td>
+              {SEASONS.map(s=>{
+                if(!openSeason[s.key]){const total=s.indices.reduce((a,i)=>a+flujoArr[i],0);return <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,fontSize:11,color:cf(total),borderLeft:`2px solid ${C.border2}`}}>{$$(total)}</td>;}
+                const cols=vista==="semanal"?s.months.flatMap(m=>(SEMANAS_MES[m]||[]).map(sw=>({mes:m,idx:mIdx(m),nSems:(SEMANAS_MES[m]||[m]).length}))):s.months.map(m=>({mes:m,idx:mIdx(m),nSems:1}));
+                return cols.map((col,ci)=>{const val=flujoArr[col.idx]/col.nSems;return <td key={`flujo-${col.mes}-${ci}`} style={{padding:"6px 5px",textAlign:"right",fontWeight:800,fontSize:10,color:cf(val),borderLeft:ci===0?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>{$$(val)}</td>;});
+              })}
+            </tr>
+            {/* SALDO ACUM */}
+            <tr style={{background:"rgba(96,165,250,0.06)"}}>
+              <td style={{padding:"7px 14px",fontWeight:800,color:C.blue,fontSize:11,position:"sticky",left:0,background:"#071810",borderRight:`1px solid ${C.border}`,zIndex:1}}>SALDO ACUM.</td>
+              {SEASONS.map(s=>{
+                if(!openSeason[s.key]){const last=s.indices[s.indices.length-1];return <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,fontSize:11,color:cf(acumArr[last]),borderLeft:`2px solid ${C.border2}`}}>{$$(acumArr[last])}</td>;}
+                const cols=vista==="semanal"?s.months.flatMap(m=>(SEMANAS_MES[m]||[]).map(sw=>({mes:m,idx:mIdx(m)}))):s.months.map(m=>({mes:m,idx:mIdx(m)}));
+                return cols.map((col,ci)=><td key={`acum-${col.mes}-${ci}`} style={{padding:"6px 5px",textAlign:"right",fontWeight:700,fontSize:10,color:cf(acumArr[col.idx]),borderLeft:ci===0?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>{$$(acumArr[col.idx])}</td>);
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{background:`${emp.color}15`,border:`1px solid ${emp.color}44`,
-        borderRadius:12,padding:"14px 18px",display:"flex",alignItems:"center",
-        gap:14,flexWrap:"wrap"}}>
+      <div style={{background:`${emp.color}15`,border:`1px solid ${emp.color}44`,borderRadius:12,padding:"14px 18px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
         <span style={{fontSize:28}}>{emp.emoji}</span>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:900,color:C.text}}>{empNombre}</div>
           <div style={{fontSize:11,color:C.muted}}>{emp.desc}</div>
+          {emp.hasFormula&&<div style={{fontSize:10,color:C.yellow,marginTop:2}}>⚡ Ingresos y costos calculados automáticamente desde Parámetros</div>}
         </div>
         <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-          {[
-            {l:"Saldo inicial",   v:emp.saldo_ini,                            c:C.blue},
-            {l:"Flujo proy. 24m", v:emp.flujo.reduce((a,b)=>a+b,0),          c:cf(emp.flujo.reduce((a,b)=>a+b,0))},
-            {l:"Saldo final proy",v:emp.acum[emp.acum.length-1],              c:cf(emp.acum[emp.acum.length-1])},
-          ].map(k=>(
+          {[{l:"Saldo inicial",v:emp.saldo_ini,c:C.blue},{l:"Flujo total",v:flujoArr.reduce((a,b)=>a+b,0),c:cf(flujoArr.reduce((a,b)=>a+b,0))},{l:"Saldo Jun-31",v:acumArr[acumArr.length-1],c:cf(acumArr[acumArr.length-1])}].map(k=>(
             <div key={k.l} style={{textAlign:"right"}}>
-              <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:"0.4px"}}>{k.l}</div>
+              <div style={{fontSize:9,color:C.muted,textTransform:"uppercase"}}>{k.l}</div>
               <div style={{fontSize:13,fontWeight:800,color:k.c}}>{$$(k.v)}</div>
             </div>
           ))}
         </div>
       </div>
-
-      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-        <Btn active={vista==="tabla"}   onClick={()=>setVista("tabla")}   color={emp.color}>📋 Resumen Mensual</Btn>
-        <Btn active={vista==="detalle"} onClick={()=>setVista("detalle")} color={emp.color}>📂 Detalle por Línea</Btn>
-        {canEdit&&<Btn active={vista==="semanas"} onClick={()=>setVista("semanas")} color={emp.color}>✏️ Ingresar Real</Btn>}
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <Btn active={vista==="mensual"} onClick={()=>setVista("mensual")} color={emp.color}>📅 Mensual</Btn>
+        <Btn active={vista==="semanal"} onClick={()=>setVista("semanal")} color={emp.color}>📊 Semanal</Btn>
+        <div style={{marginLeft:8,display:"flex",gap:5,flexWrap:"wrap"}}>
+          <span style={{fontSize:10,color:C.muted,alignSelf:"center"}}>Temporadas:</span>
+          {SEASONS.map(s=><Btn key={s.key} small active={!!openSeason[s.key]} onClick={()=>toggleSeason(s.key)} color={C.muted}>{openSeason[s.key]?"▾":"▸"} T{s.sy}</Btn>)}
+        </div>
+        {canEdit&&(
+          <button onClick={()=>setShowReal(v=>!v)}
+            style={{marginLeft:"auto",padding:"6px 14px",borderRadius:8,border:`1px solid ${showReal?emp.color:C.border}`,
+              background:showReal?`${emp.color}22`:"transparent",color:showReal?emp.color:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>
+            ✏️ Ingresar Real
+          </button>
+        )}
       </div>
-
-      {vista==="tabla"&&(
-        <div>
-          {hasReal&&(
-            <Card style={{marginBottom:12}}>
-              <SectionTitle>Saldo Acumulado — Proyectado vs Real</SectionTitle>
-              <LineChart months={MESES_24} values={emp.acum} color={`${emp.color}`}/>
-              <div style={{fontSize:10,color:C.muted,marginTop:6}}>
-                {realAcum.filter(v=>v!==null).length} meses con datos reales ingresados
-              </div>
-            </Card>
-          )}
-          <Card style={{padding:0,overflow:"hidden"}}>
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                <thead>
-                  <tr style={{background:"rgba(255,255,255,0.03)"}}>
-                    {["Mes","Ing. Op.","Egr. Var.","Egr. Fijo","Egr. NoOp","Flujo Proy.","Saldo Acum.","Real Flujo","Real Acum."].map(h=>(
-                      <th key={h} style={{padding:"9px 12px",fontWeight:600,fontSize:10,color:C.muted,
-                        textTransform:"uppercase",letterSpacing:"0.4px",
-                        borderBottom:`1px solid ${C.border}`,textAlign:h==="Mes"?"left":"right",
-                        whiteSpace:"nowrap"}}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {MESES_24.map((m,i)=>{
-                    const secTotales = {};
-                    emp.sections.forEach(s => {
-                      secTotales[s.cat] = s.lines.reduce((a,l)=>a+l.proy[i],0);
-                    });
-                    const rf = realFlujo[i];
-                    const ra = realAcum[i];
-                    const hasR = rf!==null;
-                    return(
-                      <tr key={i} onClick={()=>setMesIdx(i)} style={{cursor:"pointer",
-                        borderBottom:`1px solid ${C.border}22`,
-                        background:i===mesIdx?`${emp.color}18`:hasR?`${C.green}08`:i%2===0?"transparent":"rgba(255,255,255,0.01)"}}>
-                        <td style={{padding:"8px 12px",fontWeight:i===mesIdx?800:600,
-                          color:i===mesIdx?emp.color:C.text}}>{m}</td>
-                        <td style={{padding:"8px 12px",textAlign:"right",color:secTotales.ing_op>0?C.green:C.muted,fontSize:11}}>
-                          {secTotales.ing_op>0?$$(secTotales.ing_op):"—"}
-                        </td>
-                        <td style={{padding:"8px 12px",textAlign:"right",color:secTotales.egr_var>0?C.red:C.muted,fontSize:11}}>
-                          {secTotales.egr_var>0?$$(secTotales.egr_var):"—"}
-                        </td>
-                        <td style={{padding:"8px 12px",textAlign:"right",color:secTotales.egr_fijo>0?C.red:C.muted,fontSize:11}}>
-                          {secTotales.egr_fijo>0?$$(secTotales.egr_fijo):"—"}
-                        </td>
-                        <td style={{padding:"8px 12px",textAlign:"right",color:secTotales.egr_nop>0?C.red:C.muted,fontSize:11}}>
-                          {secTotales.egr_nop>0?$$(secTotales.egr_nop):"—"}
-                        </td>
-                        <td style={{padding:"8px 12px",textAlign:"right",fontWeight:700,color:cf(emp.flujo[i])}}>
-                          {$$(emp.flujo[i])}
-                        </td>
-                        <td style={{padding:"8px 12px",textAlign:"right",fontWeight:600,color:cf(emp.acum[i])}}>
-                          {$$(emp.acum[i])}
-                        </td>
-                        <td style={{padding:"8px 12px",textAlign:"right",fontWeight:hasR?700:400,
-                          color:hasR?cf(rf):C.muted2}}>
-                          {hasR?$$(rf):"—"}
-                        </td>
-                        <td style={{padding:"8px 12px",textAlign:"right",fontWeight:hasR?600:400,
-                          color:hasR?cf(ra):C.muted2}}>
-                          {hasR?$$(ra):"—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {vista==="detalle"&&(
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{fontSize:11,color:C.muted,marginRight:4}}>Mes:</span>
-            {MESES_24.map((m,i)=>(
-              <button key={m} onClick={()=>setMesIdx(i)}
-                style={{padding:"4px 9px",borderRadius:6,fontSize:10,fontWeight:600,cursor:"pointer",
-                  border:`1px solid ${mesIdx===i?emp.color:C.border}`,
-                  background:mesIdx===i?`${emp.color}33`:"transparent",
-                  color:mesIdx===i?emp.color:C.muted}}>
-                {m}
-              </button>
-            ))}
+      {renderTabla()}
+      {showReal&&canEdit&&(
+        <Card>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <SectionTitle>Datos reales por semana</SectionTitle>
+            <button onClick={()=>setShowReal(false)} style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:16}}>×</button>
           </div>
-
-          {emp.sections.map(sec=>{
-            const isOpen = openSec[sec.cat]!==false;
-            const proy_total = sec.lines.reduce((a,l)=>a+l.proy[mesIdx],0);
-            const lines_real = realMensual[mes] || {};
-            const real_total = sec.lines.reduce((a,l)=>a+(lines_real[l.label]||0),0);
-            const hasRealSec = real_total > 0;
-            return(
-              <div key={sec.cat} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
-                <button onClick={()=>setOpenSec(p=>({...p,[sec.cat]:!isOpen}))}
-                  style={{width:"100%",padding:"12px 16px",background:"transparent",border:"none",
-                    cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
-                  <span style={{width:24,height:24,borderRadius:6,background:`${CAT_COLOR[sec.cat]}22`,
-                    border:`1px solid ${CAT_COLOR[sec.cat]}55`,display:"flex",alignItems:"center",
-                    justifyContent:"center",fontSize:11,color:CAT_COLOR[sec.cat],fontWeight:800,flexShrink:0}}>
-                    {CAT_SIGNO[sec.cat]}
-                  </span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:12,fontWeight:700,color:C.text}}>{sec.label}</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {SEASONS.flatMap(s=>s.months).map(mes=>{
+              const sd=realData?.[empNombre]?.[mes]||{};
+              return (
+                <div key={mes} style={{background:C.card2,borderRadius:8,padding:"10px 14px"}}>
+                  <div style={{fontWeight:700,fontSize:12,color:C.text,marginBottom:8}}>{mes}</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {(SEMANAS_MES[mes]||["S-única"]).map(sem=>{
+                      const has=sd[sem]&&Object.keys(sd[sem]).length>0;
+                      return (
+                        <button key={sem} onClick={()=>setModalSem({mes,semana:sem})}
+                          style={{padding:"5px 12px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:has?700:400,
+                            border:`1px solid ${has?emp.color:C.border}`,background:has?`${emp.color}22`:"transparent",color:has?emp.color:C.muted}}>
+                          {sem}{has&&" ✓"}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div style={{display:"flex",gap:16,alignItems:"center"}}>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:9,color:C.muted}}>PROYECTADO</div>
-                      <div style={{fontSize:12,fontWeight:700,color:CAT_COLOR[sec.cat]}}>{proy_total!==0?$$(proy_total):"—"}</div>
-                    </div>
-                    {hasRealSec&&(
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontSize:9,color:C.muted}}>REAL</div>
-                        <div style={{fontSize:12,fontWeight:700,color:C.yellow}}>{$$(real_total)}</div>
-                      </div>
-                    )}
-                    <span style={{color:C.muted,fontSize:12}}>{isOpen?"▾":"▸"}</span>
-                  </div>
-                </button>
-
-                {isOpen&&(
-                  <div style={{borderTop:`1px solid ${C.border}`}}>
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                      <thead>
-                        <tr style={{background:"rgba(0,0,0,0.2)"}}>
-                          <th style={{padding:"6px 16px",textAlign:"left",fontWeight:600,color:C.muted,fontSize:10}}>Línea</th>
-                          <th style={{padding:"6px 14px",textAlign:"right",fontWeight:600,color:C.muted,fontSize:10}}>Proyectado</th>
-                          <th style={{padding:"6px 14px",textAlign:"right",fontWeight:600,color:C.muted,fontSize:10}}>Real</th>
-                          <th style={{padding:"6px 14px",textAlign:"right",fontWeight:600,color:C.muted,fontSize:10}}>Desv.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sec.lines.map(line=>{
-                          const pv = line.proy[mesIdx];
-                          const rv = lines_real[line.label] || 0;
-                          const desv = rv > 0 ? (rv - pv) * sec.signo : null;
-                          return(
-                            <tr key={line.label} style={{borderTop:`1px solid ${C.border}22`}}>
-                              <td style={{padding:"8px 16px",color:C.text}}>{line.label}</td>
-                              <td style={{padding:"8px 14px",textAlign:"right",color:pv!==0?CAT_COLOR[sec.cat]:C.muted2}}>
-                                {pv!==0?$$(pv):"—"}
-                              </td>
-                              <td style={{padding:"8px 14px",textAlign:"right",fontWeight:rv>0?700:400,
-                                color:rv>0?C.yellow:C.muted2}}>
-                                {rv>0?$$(rv):"—"}
-                              </td>
-                              <td style={{padding:"8px 14px",textAlign:"right"}}>
-                                {desv!==null?(
-                                  <span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,
-                                    background:desv>=0?"#22c55e22":"#f8717122",color:desv>=0?C.green:C.red}}>
-                                    {desv>=0?"+":""}{$$(desv)}
-                                  </span>
-                                ):"—"}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        <tr style={{background:"rgba(255,255,255,0.03)",borderTop:`1px solid ${C.border}`}}>
-                          <td style={{padding:"8px 16px",fontWeight:800,color:C.text}}>Total {sec.label}</td>
-                          <td style={{padding:"8px 14px",textAlign:"right",fontWeight:800,color:CAT_COLOR[sec.cat]}}>
-                            {proy_total!==0?$$(proy_total):"—"}
-                          </td>
-                          <td style={{padding:"8px 14px",textAlign:"right",fontWeight:800,color:C.yellow}}>
-                            {real_total>0?$$(real_total):"—"}
-                          </td>
-                          <td style={{padding:"8px 14px"}}/>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {vista==="semanas"&&canEdit&&(
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{fontSize:11,color:C.muted}}>
-            Selecciona un mes y semana para ingresar los valores reales.
+                </div>
+              );
+            })}
           </div>
-          {Object.keys(SEMANAS).map(mes=>{
-            const semsData = realData?.[empNombre]?.[mes] || {};
-            const totalMesIng = Object.values(semsData).reduce((a,s)=>{
-              const ingSecs = emp.sections.filter(sec=>sec.signo>0);
-              return a + ingSecs.flatMap(sec=>sec.lines).reduce((b,l)=>b+(s[l.label]||0),0);
-            },0);
-            const totalMesEgr = Object.values(semsData).reduce((a,s)=>{
-              const egrSecs = emp.sections.filter(sec=>sec.signo<0);
-              return a + egrSecs.flatMap(sec=>sec.lines).reduce((b,l)=>b+(s[l.label]||0),0);
-            },0);
-            return(
-              <Card key={mes}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                  <div style={{fontWeight:800,fontSize:13,color:C.text}}>{mes}</div>
-                  {(totalMesIng||totalMesEgr)?<div style={{display:"flex",gap:12,fontSize:11}}>
-                    <span style={{color:C.green}}>Ing: {$$(totalMesIng)}</span>
-                    <span style={{color:C.red}}>Egr: {$$(totalMesEgr)}</span>
-                  </div>:null}
-                </div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  {(SEMANAS[mes]||[]).map(sem=>{
-                    const semData = semsData[sem];
-                    const hasSem = semData && Object.keys(semData).length>0;
-                    const semIng = hasSem ? emp.sections.filter(s=>s.signo>0)
-                      .flatMap(s=>s.lines).reduce((a,l)=>a+(semData[l.label]||0),0) : 0;
-                    const semEgr = hasSem ? emp.sections.filter(s=>s.signo<0)
-                      .flatMap(s=>s.lines).reduce((a,l)=>a+(semData[l.label]||0),0) : 0;
-                    return(
-                      <button key={sem}
-                        onClick={()=>setModal({mes,semana:sem})}
-                        style={{padding:"8px 12px",borderRadius:8,cursor:"pointer",fontSize:11,
-                          fontWeight:hasSem?700:500,
-                          border:`1px solid ${hasSem?emp.color:C.border}`,
-                          background:hasSem?`${emp.color}22`:"transparent",
-                          color:hasSem?emp.color:C.muted,
-                          textAlign:"left",lineHeight:1.4}}>
-                        <div>{sem}</div>
-                        {hasSem&&<div style={{fontSize:9,color:C.muted,marginTop:2}}>
-                          {semIng>0&&<span style={{color:C.green}}>↑{$$(semIng)} </span>}
-                          {semEgr>0&&<span style={{color:C.red}}>↓{$$(semEgr)}</span>}
-                        </div>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+        </Card>
       )}
-
-      {modal&&(
-        <ModalIngreso
-          empresa={empNombre}
-          mes={modal.mes}
-          semana={modal.semana}
-          realData={realData}
-          onSave={onSaveReal}
-          onClose={()=>setModal(null)}
-        />
-      )}
+      <Card>
+        <SectionTitle>Saldo Acumulado — Mar-26 → Jun-31</SectionTitle>
+        <LineChart months={MESES_65} values={acumArr} color={emp.color}/>
+      </Card>
+      {modalSem&&<ModalIngreso mes={modalSem.mes} semana={modalSem.semana} onSave={onSaveReal} onClose={()=>setModalSem(null)}/>}
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// SECCIÓN: DASHBOARD
+// DASHBOARD
 // ═══════════════════════════════════════════════════════════════════
-function Dashboard({ realData }) {
-  const saldo_actual = 411252;
-  const GM_FLUJO  = [-125631,16513,-45631,-1964870,-210966,-226116,-1327095,120956,-189044,-1421822,-475920,890998,2066742,-258072,-543715,-1095359,56000,40850,-639000,477000,377000,-437000,-792000,170500];
-  const GM_ACUM   = [-125631,-109118,-154748,-2119618,-2330584,-2556700,-3883795,-3762839,-3951883,-5373705,-5849625,-4958627,-2891884,-3149956,-3693670,-4789029,-4733029,-4692179,-5331179,-4854179,-4477179,-4914179,-5706179,-5535679];
-
-  const empTotals = Object.entries(EMPRESAS).map(([n,e])=>({
-    n, totalIng: e.sections.filter(s=>s.signo>0).flatMap(s=>s.lines)
-      .reduce((a,l)=>a+l.proy.reduce((b,v)=>b+v,0),0)
-  })).filter(e=>e.totalIng>0).sort((a,b)=>b.totalIng-a.totalIng);
-  const maxIng = empTotals[0]?.totalIng||1;
-
+function Dashboard({empresas}) {
+  const gmAcum=useMemo(()=>{
+    let acc=Object.values(empresas).reduce((s,e)=>s+e.saldo_ini,0);
+    return MESES_65.map((_,i)=>{let f=0;Object.values(empresas).forEach(e=>e.sections.forEach(sec=>sec.lines.forEach(l=>{f+=(l.proy[i]||0)*sec.signo;})));acc+=f;return acc;});
+  },[empresas]);
+  const empTotals=Object.entries(empresas).map(([n,e])=>({n,totalIng:e.sections.filter(s=>s.signo>0).flatMap(s=>s.lines).reduce((a,l)=>a+l.proy.reduce((b,v)=>b+v,0),0)})).filter(e=>e.totalIng>0).sort((a,b)=>b.totalIng-a.totalIng);
+  const maxIng=empTotals[0]?.totalIng||1;
   return (
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>
-        <KPI label="Saldo Caja Actual"        value={$$(saldo_actual)}          color={C.green}/>
-        <KPI label="Créditos Totales Q1-2026" value={$$(8355763)}               color={C.red}/>
-        <KPI label="Mínimo Acum. Proyectado"  value={$$(Math.min(...GM_ACUM))}  color={C.red}/>
-        <KPI label="Saldo Final Feb-28"       value={$$(GM_ACUM[GM_ACUM.length-1])} color={cf(GM_ACUM[GM_ACUM.length-1])}/>
+        <KPI label="Saldo Caja Actual"      value={$$(411252)}                  color={C.green}/>
+        <KPI label="Créditos Totales Q1-26" value={$$(8355763)}                 color={C.red}/>
+        <KPI label="Mínimo Acum. (65m)"     value={$$(Math.min(...gmAcum))}     color={C.red}/>
+        <KPI label="Saldo Final Jun-31"     value={$$(gmAcum[gmAcum.length-1])} color={cf(gmAcum[gmAcum.length-1])}/>
       </div>
-
       <Card>
-        <SectionTitle>Flujo Acumulado Consolidado — 24 Meses</SectionTitle>
-        <LineChart months={MESES_24} values={GM_ACUM} color={C.accentL}/>
-        <div style={{marginTop:8,padding:"8px 12px",background:"rgba(248,113,113,0.08)",
-          border:`1px solid ${C.red}33`,borderRadius:8,fontSize:11,color:C.muted}}>
-          ⚠️ Caja acumulada negativa en el período. Mínimo: <strong style={{color:C.red}}>{$$(Math.min(...GM_ACUM))}</strong>
+        <SectionTitle>Flujo Acumulado Consolidado — Mar-26 → Jun-31 (6 Temporadas)</SectionTitle>
+        <LineChart months={MESES_65} values={gmAcum} color={C.accentL}/>
+        <div style={{marginTop:8,padding:"8px 12px",background:"rgba(248,113,113,0.08)",border:`1px solid ${C.red}33`,borderRadius:8,fontSize:11,color:C.muted}}>
+          ⚠️ Mínimo proyectado: <strong style={{color:C.red}}>{$$(Math.min(...gmAcum))}</strong>
         </div>
       </Card>
-
       <Card>
-        <SectionTitle>Ingresos Proyectados 24m por Empresa</SectionTitle>
+        <SectionTitle>Ingresos Proyectados 65m por Empresa</SectionTitle>
         {empTotals.map(({n,totalIng})=>{
-          const e=EMPRESAS[n];
-          return(
+          const e=empresas[n];
+          return (
             <div key={n} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
               <div style={{width:148,fontSize:11,color:C.text,flexShrink:0}}>{e.emoji} {n}</div>
               <div style={{flex:1,background:C.card2,borderRadius:4,height:12,overflow:"hidden"}}>
-                <div style={{width:`${(totalIng/maxIng)*100}%`,height:"100%",
-                  background:e.color,borderRadius:4,opacity:0.75}}/>
+                <div style={{width:`${(totalIng/maxIng)*100}%`,height:"100%",background:e.color,borderRadius:4,opacity:0.75}}/>
               </div>
               <div style={{width:80,textAlign:"right",fontSize:11,fontWeight:700,color:C.green,flexShrink:0}}>{$$(totalIng)}</div>
             </div>
@@ -971,113 +1012,83 @@ function Dashboard({ realData }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// SECCIÓN: CRÉDITOS
+// CRÉDITOS
 // ═══════════════════════════════════════════════════════════════════
-function Creditos() {
-  const [busq, setBusq] = useState("");
-  const [filtEmp, setFiltEmp] = useState("Todas");
-  const empresas = ["Todas",...new Set(CREDITOS.map(c=>c.empresa))];
-  const filtered = CREDITOS.filter(c=>{
+function Creditos({empresas}) {
+  const [busq,setBusq]=useState("");
+  const [filtEmp,setFiltEmp]=useState("Todas");
+  const empList=["Todas",...new Set(CREDITOS.map(c=>c.empresa))];
+  const filtered=CREDITOS.filter(c=>{
     if(filtEmp!=="Todas"&&c.empresa!==filtEmp) return false;
     if(busq&&![c.empresa,c.acreedor].some(s=>s.toLowerCase().includes(busq.toLowerCase()))) return false;
     return true;
   });
-  const deudaEmp={};
-  CREDITOS.forEach(c=>{if(!deudaEmp[c.empresa])deudaEmp[c.empresa]=0; deudaEmp[c.empresa]+=c.monto;});
+  const deudaEmp={};CREDITOS.forEach(c=>{if(!deudaEmp[c.empresa])deudaEmp[c.empresa]=0;deudaEmp[c.empresa]+=c.monto;});
   const deudaList=Object.entries(deudaEmp).sort((a,b)=>b[1]-a[1]);
   const maxD=deudaList[0]?.[1]||1;
-
-  return(
+  return (
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-        <KPI label="Deuda Total Q1-2026"  value={$$(CREDITOS_TRIM.saldos[0])} color={C.red}/>
-        <KPI label="Pagos Q1-2026"        value={$$(CREDITOS_TRIM.pagos[0])}  color={C.yellow}/>
-        <KPI label="N° Créditos"          value={CREDITOS.length}             color={C.blue}/>
+        <KPI label="Deuda Total Q1-2026" value={$$(CREDITOS_TRIM.saldos[0])} color={C.red}/>
+        <KPI label="Pagos Q1-2026"       value={$$(CREDITOS_TRIM.pagos[0])}  color={C.yellow}/>
+        <KPI label="N° Créditos"         value={CREDITOS.length}             color={C.blue}/>
       </div>
-
       <Card>
         <SectionTitle>Deuda por Empresa</SectionTitle>
-        {deudaList.map(([n,monto])=>{
-          const e=EMPRESAS[n]||{emoji:"🏢",color:C.blue};
-          return(
-            <div key={n} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
-              <div style={{width:148,fontSize:11,color:C.text,flexShrink:0}}>{e.emoji} {n}</div>
-              <div style={{flex:1,background:C.card2,borderRadius:4,height:12,overflow:"hidden"}}>
-                <div style={{width:`${(monto/maxD)*100}%`,height:"100%",background:C.red,borderRadius:4,opacity:0.6}}/>
-              </div>
-              <div style={{width:80,textAlign:"right",fontSize:11,fontWeight:700,color:C.red,flexShrink:0}}>{$$(monto)}</div>
-            </div>
-          );
-        })}
-      </Card>
-
-      <Card style={{padding:0,overflow:"hidden"}}>
-        <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`}}>
-          <SectionTitle>Saldo Deuda por Trimestre</SectionTitle>
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr style={{background:"rgba(0,0,0,0.2)"}}>
-                {["Trimestre","Pagos","Saldo Deuda"].map(h=>(
-                  <th key={h} style={{padding:"7px 12px",fontWeight:600,fontSize:10,color:C.muted,
-                    textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,
-                    textAlign:h==="Trimestre"?"left":"right"}}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {CREDITOS_TRIM.quarters.map((q,i)=>(
-                  <tr key={q} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":"rgba(255,255,255,0.01)"}}>
-                    <td style={{padding:"7px 12px",fontWeight:600,color:C.text}}>{q}</td>
-                    <td style={{padding:"7px 12px",textAlign:"right",color:C.yellow,fontWeight:600}}>{$$(CREDITOS_TRIM.pagos[i])}</td>
-                    <td style={{padding:"7px 12px",textAlign:"right",fontWeight:700,color:C.red}}>{$$(CREDITOS_TRIM.saldos[i])}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {deudaList.map(([n,monto])=>{const e=empresas[n]||{emoji:"🏢",color:C.blue};return (
+          <div key={n} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
+            <div style={{width:148,fontSize:11,color:C.text,flexShrink:0}}>{e.emoji} {n}</div>
+            <div style={{flex:1,background:C.card2,borderRadius:4,height:12,overflow:"hidden"}}><div style={{width:`${(monto/maxD)*100}%`,height:"100%",background:C.red,borderRadius:4,opacity:0.6}}/></div>
+            <div style={{width:80,textAlign:"right",fontSize:11,fontWeight:700,color:C.red,flexShrink:0}}>{$$(monto)}</div>
           </div>
+        );})}
+      </Card>
+      <Card style={{padding:"12px 16px"}}>
+        <SectionTitle>Saldo Deuda por Trimestre</SectionTitle>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr style={{background:"rgba(0,0,0,0.2)"}}>
+              {["Trimestre","Pagos","Saldo Deuda"].map(h=><th key={h} style={{padding:"7px 12px",fontWeight:600,fontSize:10,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,textAlign:h==="Trimestre"?"left":"right"}}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {CREDITOS_TRIM.quarters.map((q,i)=>(
+                <tr key={q} style={{borderBottom:`1px solid ${C.border}22`}}>
+                  <td style={{padding:"7px 12px",fontWeight:600,color:C.text}}>{q}</td>
+                  <td style={{padding:"7px 12px",textAlign:"right",color:C.yellow,fontWeight:600}}>{$$(CREDITOS_TRIM.pagos[i])}</td>
+                  <td style={{padding:"7px 12px",textAlign:"right",fontWeight:700,color:C.red}}>{$$(CREDITOS_TRIM.saldos[i])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
-
       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="🔍 Buscar…"
-          style={{padding:"7px 12px",background:C.card2,border:`1px solid ${C.border}`,
-            borderRadius:8,color:C.text,fontSize:12,outline:"none",flexGrow:1,minWidth:160}}/>
+          style={{padding:"7px 12px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none",flexGrow:1,minWidth:160}}/>
         <select value={filtEmp} onChange={e=>setFiltEmp(e.target.value)}
-          style={{padding:"7px 12px",background:C.card2,border:`1px solid ${C.border}`,
-            borderRadius:8,color:C.text,fontSize:12,outline:"none"}}>
-          {empresas.map(e=><option key={e}>{e}</option>)}
+          style={{padding:"7px 12px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none"}}>
+          {empList.map(e=><option key={e}>{e}</option>)}
         </select>
-        <span style={{fontSize:11,color:C.muted}}>{filtered.length} créditos</span>
       </div>
-
       <Card style={{padding:0,overflow:"hidden"}}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
             <thead><tr style={{background:"rgba(0,0,0,0.2)"}}>
-              {["#","Empresa","Acreedor","Tipo","Monto","Cuota","Vencimiento","Tasa"].map(h=>(
-                <th key={h} style={{padding:"8px 12px",fontWeight:600,fontSize:10,color:C.muted,
-                  textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,
-                  textAlign:["Monto","Cuota","Tasa"].includes(h)?"right":"left",whiteSpace:"nowrap"}}>{h}</th>
-              ))}
+              {["#","Empresa","Acreedor","Tipo","Monto","Cuota","Vencimiento","Tasa"].map(h=><th key={h} style={{padding:"8px 12px",fontWeight:600,fontSize:10,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,textAlign:["Monto","Cuota","Tasa"].includes(h)?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}
             </tr></thead>
             <tbody>
               {filtered.map(c=>{
                 const vencProx=new Date(c.f_venc)<=new Date("2026-12-31");
-                const e=EMPRESAS[c.empresa]||{emoji:"🏢",color:C.blue};
-                return(
-                  <tr key={c.n} style={{borderBottom:`1px solid ${C.border}22`,
-                    background:vencProx?"rgba(251,191,36,0.05)":"transparent"}}>
+                const e=empresas[c.empresa]||{emoji:"🏢",color:C.blue};
+                return (
+                  <tr key={c.n} style={{borderBottom:`1px solid ${C.border}22`,background:vencProx?"rgba(251,191,36,0.05)":"transparent"}}>
                     <td style={{padding:"7px 12px",color:C.muted}}>{c.n}</td>
                     <td style={{padding:"7px 12px",fontWeight:600,color:e.color,whiteSpace:"nowrap"}}>{e.emoji} {c.empresa}</td>
                     <td style={{padding:"7px 12px",color:C.text}}>{c.acreedor}</td>
-                    <td style={{padding:"7px 12px"}}>
-                      <span style={{fontSize:9,padding:"2px 7px",borderRadius:20,
-                        background:C.card2,border:`1px solid ${C.border}`,color:C.muted}}>{c.tipo_cr}</span>
-                    </td>
+                    <td style={{padding:"7px 12px"}}><span style={{fontSize:9,padding:"2px 7px",borderRadius:20,background:C.card2,border:`1px solid ${C.border}`,color:C.muted}}>{c.tipo_cr}</span></td>
                     <td style={{padding:"7px 12px",textAlign:"right",fontWeight:700,color:C.red}}>{$$(c.monto)}</td>
                     <td style={{padding:"7px 12px",textAlign:"right",color:C.yellow}}>{$$(c.cuota)}</td>
-                    <td style={{padding:"7px 12px",whiteSpace:"nowrap",color:vencProx?C.orange:C.muted}}>
-                      {fmtDate(c.f_venc)}{vencProx&&" ⚠️"}
-                    </td>
+                    <td style={{padding:"7px 12px",whiteSpace:"nowrap",color:vencProx?C.orange:C.muted}}>{fmtDate(c.f_venc)}{vencProx&&" ⚠️"}</td>
                     <td style={{padding:"7px 12px",textAlign:"right",color:C.muted}}>{c.tasa||"—"}</td>
                   </tr>
                 );
@@ -1093,110 +1104,89 @@ function Creditos() {
 // ═══════════════════════════════════════════════════════════════════
 // MÓDULO PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════
-export default function FinanzasModule({ onBack, onLogout, usuarioActual }) {
-  const [tab,      setTab]      = useState("dashboard");
-  const [empTab,   setEmpTab]   = useState("Mediterra");
-  const [realData, setRealData] = useState({});
-  const [loading,  setLoading]  = useState(true);
-  const [saved,    setSaved]    = useState(null);
+export default function FinanzasModule({onBack,onLogout,usuarioActual}) {
+  const [tab,setTab]=useState("dashboard");
+  const [empTab,setEmpTab]=useState("Mediterra");
+  const [realData,setRealData]=useState({});
+  const [params,setParams]=useState(defaultParams);
+  const [loading,setLoading]=useState(true);
+  const [saved,setSaved]=useState(null);
 
-  const canEdit = ["Angelo Huerta","Carol Machuca"].includes(usuarioActual?.nombre||"");
+  const canEdit=["Angelo Huerta","Carol Machuca"].includes(usuarioActual?.nombre||"");
+  const empresas=useMemo(()=>buildEmpresas(params),[params]);
 
   useEffect(()=>{
-    dbLoad().then(d=>{ setRealData(d||{}); setLoading(false); });
+    dbLoad().then(d=>{
+      if(d?.finanzas_real) setRealData(d.finanzas_real);
+      else if(d&&!d.finanzas_real&&!d.allegria_params) setRealData(d);
+      if(d?.allegria_params) setParams(prev=>({...defaultParams(),...d.allegria_params}));
+      setLoading(false);
+    });
   },[]);
 
-  const handleSaveReal = useCallback(async (empresa, mes, semana, vals) => {
-    const next = JSON.parse(JSON.stringify(realData));
+  const handleSaveReal=useCallback(async(empresa,mes,semana,vals)=>{
+    const next=JSON.parse(JSON.stringify(realData));
     if(!next[empresa]) next[empresa]={};
     if(!next[empresa][mes]) next[empresa][mes]={};
-    next[empresa][mes][semana] = vals;
+    next[empresa][mes][semana]=vals;
     setRealData(next);
-    const ok = await dbSave(next);
-    setSaved(ok?"✅ Guardado":"⚠️ Error al guardar");
+    const ok=await dbSave({finanzas_real:next,allegria_params:params});
+    setSaved(ok?"✅ Guardado":"⚠️ Error");
     setTimeout(()=>setSaved(null),3000);
-  },[realData]);
+  },[realData,params]);
 
-  const TABS_LIST = [
-    {id:"dashboard", label:"📊 Dashboard"},
-    {id:"flujo",     label:"📈 Flujo Empresas"},
-    {id:"creditos",  label:"💳 Créditos"},
-  ];
+  useEffect(()=>{
+    if(loading) return;
+    const t=setTimeout(()=>dbSave({finanzas_real:realData,allegria_params:params}),800);
+    return ()=>clearTimeout(t);
+  },[params,loading]); // eslint-disable-line
 
-  if(loading) return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60vh",color:C.muted,fontSize:14}}>
-      Cargando datos...
-    </div>
-  );
+  const TABS=[{id:"dashboard",label:"📊 Dashboard"},{id:"flujo",label:"📈 Flujo Empresas"},{id:"creditos",label:"💳 Créditos"},{id:"params",label:"⚡ Parámetros"}];
+
+  if(loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60vh",color:C.muted,fontSize:14,background:C.bg}}>Cargando datos financieros...</div>;
 
   return (
-    <div style={{fontFamily:"'IBM Plex Sans','Segoe UI',system-ui,sans-serif",
-      color:C.text, minHeight:"100vh", background:C.bg}}>
-
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-        marginBottom:20,flexWrap:"wrap",gap:8,paddingBottom:14,
-        borderBottom:`1px solid ${C.border}`}}>
+    <div style={{fontFamily:"'IBM Plex Sans','Segoe UI',system-ui,sans-serif",color:C.text,minHeight:"100vh",background:C.bg,paddingBottom:40}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:8,paddingBottom:14,borderBottom:`1px solid ${C.border}`}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <button onClick={onBack}
-            style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${C.border}`,
-              color:C.text,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>
-            ← Hub
-          </button>
-          <img src="/med.png" alt="Mediterra" style={{height:30,objectFit:"contain"}}
-            onError={e=>{e.target.style.display="none";}}/>
+          <button onClick={onBack} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${C.border}`,color:C.text,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>← Hub</button>
+          <img src="/med.png" alt="Mediterra" style={{height:30,objectFit:"contain"}} onError={e=>{e.target.style.display="none";}}/>
           <div>
             <div style={{fontSize:13,fontWeight:900,color:C.text}}>Finanzas · Grupo Mediterra</div>
-            <div style={{fontSize:10,color:C.muted}}>Flujo de Caja — Modelo Abril 2026 · USD</div>
+            <div style={{fontSize:10,color:C.muted}}>Mar-2026 → Jun-2031 · 65 meses · 6 Temporadas · USD</div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {saved&&<span style={{fontSize:11,color:C.muted,background:C.card2,
-            borderRadius:20,padding:"3px 10px"}}>{saved}</span>}
-          <button onClick={onLogout}
-            style={{background:"rgba(248,113,113,0.15)",border:"none",color:C.red,
-              borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>
-            Salir
-          </button>
+          {saved&&<span style={{fontSize:11,color:C.muted,background:C.card2,borderRadius:20,padding:"3px 10px"}}>{saved}</span>}
+          <button onClick={onLogout} style={{background:"rgba(248,113,113,0.15)",border:"none",color:C.red,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>Salir</button>
         </div>
       </div>
-
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:20}}>
-        {TABS_LIST.map(t=>(
-          <Btn key={t.id} active={tab===t.id} onClick={()=>setTab(t.id)} color={C.accent}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{padding:"7px 16px",borderRadius:8,cursor:"pointer",fontWeight:600,fontSize:12,
+              border:`1px solid ${tab===t.id?C.accent:C.border}`,background:tab===t.id?`${C.accent}33`:"transparent",color:tab===t.id?C.accentL:C.muted}}>
             {t.label}
-          </Btn>
+          </button>
         ))}
       </div>
-
-      {tab==="dashboard"&&<Dashboard realData={realData}/>}
-
+      {tab==="dashboard"&&<Dashboard empresas={empresas}/>}
       {tab==="flujo"&&(
         <div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-            {Object.keys(EMPRESAS).map(n=>{
-              const e=EMPRESAS[n];
-              return(
-                <button key={n} onClick={()=>setEmpTab(n)}
-                  style={{padding:"6px 11px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
-                    border:`1px solid ${empTab===n?e.color:C.border}`,
-                    background:empTab===n?`${e.color}22`:"transparent",
-                    color:empTab===n?e.color:C.muted}}>
-                  {e.emoji} {n}
-                </button>
-              );
-            })}
+            {Object.keys(empresas).map(n=>{const e=empresas[n];return (
+              <button key={n} onClick={()=>setEmpTab(n)}
+                style={{padding:"6px 12px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
+                  border:`1px solid ${empTab===n?e.color:C.border}`,background:empTab===n?`${e.color}22`:"transparent",color:empTab===n?e.color:C.muted}}>
+                {e.emoji} {n}{n==="Allegria Foods"&&<span style={{fontSize:9,marginLeft:3,color:C.yellow}}>⚡</span>}
+              </button>
+            );})}
           </div>
-          <FlujoEmpresa
-            key={empTab}
-            empNombre={empTab}
-            realData={realData}
-            onSaveReal={handleSaveReal}
-            canEdit={canEdit}
-          />
+          <FlujoEmpresa key={empTab} empNombre={empTab} empresas={empresas} realData={realData} onSaveReal={handleSaveReal} canEdit={canEdit}/>
         </div>
       )}
-
-      {tab==="creditos"&&<Creditos/>}
+      {tab==="creditos"&&<Creditos empresas={empresas}/>}
+      {tab==="params"&&<TabParametros params={params} setParams={setParams}/>}
     </div>
   );
 }
