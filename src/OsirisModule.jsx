@@ -1,5 +1,5 @@
 // ============================================================
-// OsirisModule.jsx — v3 — Módulo Osiris Plant · Mediterra
+// OsirisModule.jsx — v4 — Módulo Osiris Plant · Mediterra
 // ============================================================
 import { useState, useCallback, useMemo } from "react";
 
@@ -200,12 +200,10 @@ const TOTAL_PEDIDOS_INIT = [
 ];
 
 const ROYALTY_PLANTA_INIT = [
-  // ── 2024 ────────────────────────────────────────────────────────────────────
   {id:"rp_h1",  cliente:"Collipulli",      pais:"Chile",  año:2024,trim:3,nPlantas:270,    usdPlanta:1.00,nOC:"",nFact:"",pagado:true, fechaPago:"2024-07-17",vivero:"Synergia Chile"},
   {id:"rp_h2",  cliente:"SQM",             pais:"Chile",  año:2024,trim:3,nPlantas:420,    usdPlanta:1.00,nOC:"",nFact:"",pagado:true, fechaPago:"2024-12-05",vivero:"Synergia Chile"},
   {id:"rp_h3",  cliente:"Agroextiende",    pais:"Peru",   año:2024,trim:3,nPlantas:600,    usdPlanta:1.00,nOC:"",nFact:"",pagado:true, fechaPago:"2024-12-23",vivero:"Synergia Chile"},
   {id:"rp_h4",  cliente:"Agroextiende",    pais:"Peru",   año:2024,trim:4,nPlantas:50000,  usdPlanta:1.00,nOC:"",nFact:"",pagado:true, fechaPago:"2024-12-23",vivero:"Synergia Chile"},
-  // ── 2025 ────────────────────────────────────────────────────────────────────
   {id:"rp_h5",  cliente:"Gourmet",         pais:"Peru",   año:2025,trim:1,nPlantas:400,    usdPlanta:1.00,nOC:"",nFact:"",pagado:true, fechaPago:"2025-03-01",vivero:"Synergia Chile"},
   {id:"rp_h6",  cliente:"Pura Berries",    pais:"Peru",   año:2025,trim:1,nPlantas:1500,   usdPlanta:1.00,nOC:"",nFact:"",pagado:true, fechaPago:"2025-04-01",vivero:"Synergia Chile"},
   {id:"rp_h7",  cliente:"Mainland",        pais:"Mexico", año:2025,trim:2,nPlantas:16000,  usdPlanta:1.00,nOC:"",nFact:"",pagado:true, fechaPago:"2025-04-11",vivero:"Synergia Mexico"},
@@ -233,7 +231,6 @@ const ROYALTY_PLANTA_INIT = [
   {id:"rp_h29", cliente:"La Calera",       pais:"Peru",   año:2025,trim:1,nPlantas:3500,   usdPlanta:1.00,nOC:"",nFact:"",pagado:true, fechaPago:"2025-12-01",vivero:"Synergia Chile"},
   {id:"rp_h30", cliente:"Vanguard",        pais:"Peru",   año:2026,trim:1,nPlantas:422776, usdPlanta:0.85,nOC:"",nFact:"",      pagado:true, fechaPago:"2026-01-01",vivero:"Synergia Chile"},
   {id:"rp_h31", cliente:"Vanguard",        pais:"Peru",   año:2026,trim:1,nPlantas:298944, usdPlanta:0.85,nOC:"",nFact:"",      pagado:true, fechaPago:"2026-02-01",vivero:"Synergia Chile"},
-  // ── 2026 pendientes ─────────────────────────────────────────────────────────
   {id:"rp1",  cliente:"Mainland",        pais:"Mexico",año:2026,trim:1,nPlantas:150000,usdPlanta:0.49,nOC:"",nFact:"",      pagado:true, fechaPago:"2026-02-01",vivero:"Synergia Mexico"},
   {id:"rp4",  cliente:"Integrity/Talsa", pais:"Peru",  año:2026,trim:1,nPlantas:2100,  usdPlanta:0.85,nOC:"",nFact:"F-001",pagado:false,fechaPago:"2026-03-01",vivero:"Synergia Chile"},
   {id:"rp5",  cliente:"Mainland",        pais:"Mexico",año:2026,trim:1,nPlantas:150000,usdPlanta:0.01,nOC:"",nFact:"",      pagado:true, fechaPago:"2026-03-13",vivero:"Synergia Mexico"},
@@ -253,14 +250,10 @@ const ROYALTY_PLANTA_INIT = [
   {id:"rp19", cliente:"Mainland",        pais:"Mexico",año:2026,trim:3,nPlantas:1000,  usdPlanta:0.85,nOC:"",nFact:"",      pagado:false,fechaPago:"2026-09-01",vivero:"Synergia Mexico"},
   {id:"rp20", cliente:"Danper",          pais:"Peru",  año:2026,trim:4,nPlantas:884271,usdPlanta:0.85,nOC:"",nFact:"",      pagado:false,fechaPago:"2026-10-01",vivero:"Synergia Chile"},
   {id:"rp21", cliente:"Frusan",          pais:"Peru",  año:2026,trim:4,nPlantas:285405,usdPlanta:1.00,nOC:"",nFact:"",      pagado:false,fechaPago:"2026-12-01",vivero:"Synergia Chile"},
-  // ── 2027 ────────────────────────────────────────────────────────────────────
   {id:"rp22", cliente:"Frunatural",      pais:"Mexico",año:2027,trim:1,nPlantas:136500,usdPlanta:1.00,nOC:"",nFact:"",pagado:false,fechaPago:"2027-02-01",vivero:"Synergia Mexico"},
   {id:"rp23", cliente:"Frunatural",      pais:"Mexico",año:2027,trim:2,nPlantas:72000, usdPlanta:1.00,nOC:"",nFact:"",pagado:false,fechaPago:"2027-05-01",vivero:"Synergia Mexico"},
 ];
 
-
-
-// Royalty Comercial — ahora con há, US$/há, año/trim cobro, nFactura, pagado
 const ROYALTY_COMERCIAL_INIT = [
   {id:"rc1", cliente:"Agroextiende",  pais:"Peru",  trimCobro:2,añoCobro:2026,ha:0,  nPlantas:350000,usdHa:3000,  nFact:"F-020",pagado:false},
   {id:"rc2", cliente:"Allpa",         pais:"Peru",  trimCobro:2,añoCobro:2026,ha:0,  nPlantas:325475,usdHa:3000,  nFact:"F-021",pagado:false},
@@ -284,116 +277,10 @@ const FEE_ENTRADA_INIT = [
 ];
 
 const FEE_VIVEROS_INIT = [
-  // ── 2022 ────────────────────────────────────────────────────────────────────
   {id:"fv_h1",  vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"IQP2022-005",         nPlantas:16000,  regalia:0.25,totalOsiris:4000,    tipoPago:"Anticipo", montoFact:2400,     fechaFact:"2022-01-01",nFact:"N°1",  pagado:true},
   {id:"fv_h2",  vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"IQP2022-005",         nPlantas:16000,  regalia:0.25,totalOsiris:4000,    tipoPago:"Entrega",  montoFact:1600,     fechaFact:"2022-01-01",nFact:"N°5",  pagado:true},
   {id:"fv_h3",  vivero:"Synergiabio",empresa:"Fruits Giddings SA de CV",  pais:"AMexico",proforma:"IQP2022-112-M",       nPlantas:90900,  regalia:0.25,totalOsiris:22725,   tipoPago:"Anticipo", montoFact:13635,    fechaFact:"2022-01-01",nFact:"N°1",  pagado:true},
   {id:"fv_h4",  vivero:"Synergiabio",empresa:"Fruits Giddings SA de CV",  pais:"AMexico",proforma:"IQP2022-112-M",       nPlantas:90900,  regalia:0.25,totalOsiris:22725,   tipoPago:"Entrega",  montoFact:9090,     fechaFact:"2022-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h5",  vivero:"Synergiabio",empresa:"Fruits Giddings SA de CV",  pais:"AMexico",proforma:"IQP2022-112-M",       nPlantas:5440,   regalia:0.25,totalOsiris:1360,    tipoPago:"Entrega",  montoFact:1360,     fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h6",  vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"IQP2022-005-M",       nPlantas:227250, regalia:0.45,totalOsiris:102262.5,tipoPago:"Anticipo", montoFact:51131.25, fechaFact:"2022-01-01",nFact:"N°1",  pagado:true},
-  {id:"fv_h7",  vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"IQP2022-005-M",       nPlantas:227250, regalia:0.45,totalOsiris:102262.5,tipoPago:"Entrega",  montoFact:46018.13, fechaFact:"2022-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h8",  vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"IQP2022-005-M",       nPlantas:227250, regalia:0.45,totalOsiris:102262.5,tipoPago:"Entrega",  montoFact:5113.13,  fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h9",  vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAINLF-2022-02",      nPlantas:12000,  regalia:0.45,totalOsiris:5400,    tipoPago:"Anticipo", montoFact:2700,     fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h10", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAINLF-2022-02",      nPlantas:12000,  regalia:0.45,totalOsiris:5400,    tipoPago:"Entrega",  montoFact:2700,     fechaFact:"2022-01-01",nFact:"N°2",  pagado:true},
-  {id:"fv_h11", vivero:"Synergiabio",empresa:"AGV Innovation & Varieties",pais:"AMexico",proforma:"AGVINV-2023-03",      nPlantas:32500,  regalia:0.45,totalOsiris:14625,   tipoPago:"Anticipo", montoFact:8775,     fechaFact:"2023-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h12", vivero:"Synergiabio",empresa:"Expoberries SA de CV",      pais:"AMexico",proforma:"EXPBER-2023-01",      nPlantas:1728,   regalia:0.45,totalOsiris:777.6,   tipoPago:"Anticipo", montoFact:466.56,   fechaFact:"2023-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h13", vivero:"Synergiabio",empresa:"Expoberries SA de CV",      pais:"AMexico",proforma:"EXPBER-2023-01",      nPlantas:1728,   regalia:0.45,totalOsiris:777.6,   tipoPago:"Entrega",  montoFact:311.04,   fechaFact:"2023-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h14", vivero:"Synergiabio",empresa:"Berries Paradise SAPI de CV",pais:"AMexico",proforma:"BPARAD-2023-01",    nPlantas:3900,   regalia:0.45,totalOsiris:1755,    tipoPago:"Anticipo", montoFact:1045.98,  fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h15", vivero:"Synergiabio",empresa:"Berries Paradise SAPI de CV",pais:"AMexico",proforma:"BPARAD-2023-01",    nPlantas:3900,   regalia:0.45,totalOsiris:1755,    tipoPago:"Entrega",  montoFact:709.02,   fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h16", vivero:"Synergiabio",empresa:"Fruits Giddings SA de CV",  pais:"AMexico",proforma:"GIDMEX-2024-01",     nPlantas:12672,  regalia:0.45,totalOsiris:5702.4,  tipoPago:"Entrega",  montoFact:5702.4,   fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h17", vivero:"Synergiabio",empresa:"AGV Innovation & Varieties",pais:"AMexico",proforma:"AGVINV-2023-01",     nPlantas:32500,  regalia:0.45,totalOsiris:14625,   tipoPago:"Anticipo", montoFact:8775,     fechaFact:"2023-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h18", vivero:"Synergiabio",empresa:"AGV Innovation & Varieties",pais:"AMexico",proforma:"AGVINV-2023-01",     nPlantas:32500,  regalia:0.45,totalOsiris:14625,   tipoPago:"Entrega",  montoFact:5850,     fechaFact:"2023-01-01",nFact:"N°37", pagado:true},
-  {id:"fv_h19", vivero:"Synergiabio",empresa:"JDB PRO INC",               pais:"AMexico",proforma:"CWESTP-2023-01",     nPlantas:3300,   regalia:0.45,totalOsiris:1485,    tipoPago:"Anticipo", montoFact:742.5,    fechaFact:"2023-01-01",nFact:"N°37", pagado:true},
-  {id:"fv_h20", vivero:"Synergiabio",empresa:"JDB PRO INC",               pais:"AMexico",proforma:"CWESTP-2023-01",     nPlantas:3300,   regalia:0.45,totalOsiris:1485,    tipoPago:"Entrega",  montoFact:742.5,    fechaFact:"2024-12-01",nFact:"N°45", pagado:true},
-  {id:"fv_h21", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-2024-02",     nPlantas:75000,  regalia:0.45,totalOsiris:33750,   tipoPago:"Anticipo", montoFact:18562.5,  fechaFact:"2024-12-01",nFact:"N°45", pagado:true},
-  {id:"fv_h22", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-2024-02",     nPlantas:75000,  regalia:0.45,totalOsiris:33750,   tipoPago:"Entrega",  montoFact:12929.63, fechaFact:"2025-05-01",nFact:"N°69", pagado:true},
-  {id:"fv_h23", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-2024-02",     nPlantas:75000,  regalia:0.45,totalOsiris:33750,   tipoPago:"Entrega",  montoFact:2156.63,  fechaFact:"2025-07-01",nFact:"N°78", pagado:true},
-  {id:"fv_h24", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-2024-03",     nPlantas:2000,   regalia:0.45,totalOsiris:900,     tipoPago:"Anticipo", montoFact:495,      fechaFact:"2024-12-01",nFact:"N°45", pagado:true},
-  {id:"fv_h25", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-2024-03",     nPlantas:2000,   regalia:0.45,totalOsiris:900,     tipoPago:"Entrega",  montoFact:192.38,   fechaFact:"2025-07-01",nFact:"N°78", pagado:true},
-  {id:"fv_h26", vivero:"Synergiabio",empresa:"Berries Paradise SAPI de CV",pais:"AMexico",proforma:"BPARADMX-2024-02", nPlantas:384,    regalia:0.45,totalOsiris:172.8,   tipoPago:"Anticipo", montoFact:103.68,   fechaFact:"2024-12-01",nFact:"N°45", pagado:true},
-  {id:"fv_h27", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-2024-03",     nPlantas:2000,   regalia:0.45,totalOsiris:900,     tipoPago:"Entrega",  montoFact:162,      fechaFact:"2025-09-01",nFact:"N°83", pagado:true},
-  {id:"fv_h28", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-2024-03",     nPlantas:2000,   regalia:0.45,totalOsiris:900,     tipoPago:"Entrega",  montoFact:51.3,     fechaFact:"2026-03-31",nFact:"N°116",pagado:true},
-  {id:"fv_h29", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-2024-01",     nPlantas:11500,  regalia:0.45,totalOsiris:5175,    tipoPago:"Anticipo", montoFact:2846.25,  fechaFact:"2024-12-01",nFact:"N°45", pagado:true},
-  {id:"fv_h30", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-2024-01",     nPlantas:11500,  regalia:0.45,totalOsiris:5175,    tipoPago:"Entrega",  montoFact:2328.75,  fechaFact:"2024-12-01",nFact:"N°45", pagado:true},
-  {id:"fv_h31", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-MX-2024-04",  nPlantas:50000,  regalia:0.45,totalOsiris:22500,   tipoPago:"Anticipo", montoFact:12375,    fechaFact:"2025-05-01",nFact:"N°69", pagado:true},
-  {id:"fv_h32", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-MX-2024-04",  nPlantas:50000,  regalia:0.45,totalOsiris:22500,   tipoPago:"Entrega",  montoFact:3246.08,  fechaFact:"2025-07-01",nFact:"N°78", pagado:true},
-  {id:"fv_h33", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-MX-2024-04",  nPlantas:50000,  regalia:0.45,totalOsiris:22500,   tipoPago:"Entrega",  montoFact:3587.63,  fechaFact:"2025-09-01",nFact:"N°83", pagado:true},
-  {id:"fv_h34", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-MX-2025-01",  nPlantas:150000, regalia:0.45,totalOsiris:67500,   tipoPago:"Anticipo", montoFact:9281.25,  fechaFact:"2025-07-01",nFact:"N°78", pagado:true},
-  {id:"fv_h35", vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"AMexico",proforma:"MAIFAR-MX-2025-02",  nPlantas:250000, regalia:0.45,totalOsiris:112500,  tipoPago:"Anticipo", montoFact:61875,    fechaFact:"2025-09-01",nFact:"N°83", pagado:true},
-  {id:"fv_h36", vivero:"Synergiabio",empresa:"KJ Orchard CO Ltd",         pais:"Corea",  proforma:"KJORCH-2023-01",      nPlantas:1728,   regalia:0.45,totalOsiris:777.6,   tipoPago:"Entrega",  montoFact:777.6,    fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h37", vivero:"Synergiabio",empresa:"KJ Orchard CO Ltd",         pais:"Corea",  proforma:"KJORCH-2023-02",      nPlantas:12096,  regalia:0.10,totalOsiris:1209.6,  tipoPago:"Anticipo", montoFact:723.58,   fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h38", vivero:"Synergiabio",empresa:"KJ Orchard CO Ltd",         pais:"Corea",  proforma:"KJORCH-2023-02",      nPlantas:12096,  regalia:0.10,totalOsiris:1209.6,  tipoPago:"Entrega",  montoFact:483.84,   fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h39", vivero:"Synergiabio",empresa:"KJ Orchard CO Ltd",         pais:"Corea",  proforma:"KJORCH-CL-2025-01",   nPlantas:12096,  regalia:0.10,totalOsiris:1209.6,  tipoPago:"Anticipo", montoFact:725.76,   fechaFact:"2025-08-01",nFact:"N°14", pagado:true},
-  {id:"fv_h40", vivero:"Synergiabio",empresa:"Agricola Moquegua",         pais:"Peru",   proforma:"IQP2022-002",         nPlantas:13320,  regalia:0.25,totalOsiris:3330,    tipoPago:"Anticipo", montoFact:1998,     fechaFact:"2022-01-01",nFact:"N°1",  pagado:true},
-  {id:"fv_h41", vivero:"Synergiabio",empresa:"Agricola Moquegua",         pais:"Peru",   proforma:"IQP2022-002",         nPlantas:13320,  regalia:0.25,totalOsiris:3330,    tipoPago:"Entrega",  montoFact:1332,     fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h42", vivero:"Synergiabio",empresa:"Giddings Berries Peru SAC", pais:"Peru",   proforma:"IQP2022-004",         nPlantas:3000,   regalia:0.25,totalOsiris:750,     tipoPago:"Anticipo", montoFact:450,      fechaFact:"2022-01-01",nFact:"N°1",  pagado:true},
-  {id:"fv_h43", vivero:"Synergiabio",empresa:"Giddings Berries Peru SAC", pais:"Peru",   proforma:"IQP2022-004",         nPlantas:2750,   regalia:0.25,totalOsiris:687.5,   tipoPago:"Entrega",  montoFact:275,      fechaFact:"2022-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h44", vivero:"Synergiabio",empresa:"Agricola Cerro Prieto SA",  pais:"Peru",   proforma:"IQP2022-006",         nPlantas:9200,   regalia:0.25,totalOsiris:2300,    tipoPago:"Anticipo", montoFact:1380,     fechaFact:"2022-01-01",nFact:"N°1",  pagado:true},
-  {id:"fv_h45", vivero:"Synergiabio",empresa:"Agricola Cerro Prieto SA",  pais:"Peru",   proforma:"IQP2022-006",         nPlantas:9200,   regalia:0.25,totalOsiris:2300,    tipoPago:"Entrega",  montoFact:920,      fechaFact:"2022-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h46", vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"IQP2022-007",         nPlantas:8800,   regalia:0.25,totalOsiris:2200,    tipoPago:"Anticipo", montoFact:1320,     fechaFact:"2022-01-01",nFact:"N°1",  pagado:true},
-  {id:"fv_h47", vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"IQP2022-007",         nPlantas:8800,   regalia:0.25,totalOsiris:2200,    tipoPago:"Entrega",  montoFact:880,      fechaFact:"2022-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h48", vivero:"Synergiabio",empresa:"Agroberries Peru SAC",      pais:"Peru",   proforma:"IQP2022-111",         nPlantas:4000,   regalia:0.25,totalOsiris:1000,    tipoPago:"Anticipo", montoFact:600,      fechaFact:"2022-01-01",nFact:"N°1",  pagado:true},
-  {id:"fv_h49", vivero:"Synergiabio",empresa:"Agroberries Peru SAC",      pais:"Peru",   proforma:"IQP2022-111",         nPlantas:4000,   regalia:0.25,totalOsiris:1000,    tipoPago:"Entrega",  montoFact:400,      fechaFact:"2022-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h50", vivero:"Synergiabio",empresa:"Hass Peru SA",              pais:"Peru",   proforma:"IQP2022-125",         nPlantas:200,    regalia:0.45,totalOsiris:90,      tipoPago:"Anticipo", montoFact:54,       fechaFact:"2022-01-01",nFact:"N°2",  pagado:true},
-  {id:"fv_h51", vivero:"Synergiabio",empresa:"Agricola Don Ricardo SAC",  pais:"Peru",   proforma:"IQP2022-124",         nPlantas:1000,   regalia:0.45,totalOsiris:450,     tipoPago:"Anticipo", montoFact:270,      fechaFact:"2022-01-01",nFact:"N°2",  pagado:true},
-  {id:"fv_h52", vivero:"Synergiabio",empresa:"Agricola Don Ricardo SAC",  pais:"Peru",   proforma:"IQP2022-124",         nPlantas:1000,   regalia:0.45,totalOsiris:450,     tipoPago:"Entrega",  montoFact:180,      fechaFact:"2022-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h53", vivero:"Synergiabio",empresa:"Hass Peru SA",              pais:"Peru",   proforma:"HASSPE-2022-01",      nPlantas:2000,   regalia:0.45,totalOsiris:900,     tipoPago:"Anticipo", montoFact:540,      fechaFact:"2022-01-01",nFact:"N°2",  pagado:true},
-  {id:"fv_h54", vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"DANPER-2022-01",      nPlantas:6000,   regalia:0.45,totalOsiris:2700,    tipoPago:"Anticipo", montoFact:1479.6,   fechaFact:"2022-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h55", vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"DANPER-2022-01",      nPlantas:6000,   regalia:0.45,totalOsiris:2700,    tipoPago:"Entrega",  montoFact:977.4,    fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h56", vivero:"Synergiabio",empresa:"Agroberries Peru SAC",      pais:"Peru",   proforma:"AGBERR-2022-01",      nPlantas:8000,   regalia:0.45,totalOsiris:3600,    tipoPago:"Anticipo", montoFact:1980,     fechaFact:"2022-01-01",nFact:"N°2",  pagado:true},
-  {id:"fv_h57", vivero:"Synergiabio",empresa:"Agroberries Peru SAC",      pais:"Peru",   proforma:"AGBERR-2022-01",      nPlantas:8000,   regalia:0.45,totalOsiris:3600,    tipoPago:"Entrega",  montoFact:1620,     fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h58", vivero:"Synergiabio",empresa:"Agricola Moquegua",         pais:"Peru",   proforma:"MOQUEH-2022-02",      nPlantas:325000, regalia:0.45,totalOsiris:146250,  tipoPago:"Anticipo", montoFact:29250,    fechaFact:"2022-01-01",nFact:"N°2",  pagado:true},
-  {id:"fv_h59", vivero:"Synergiabio",empresa:"Agricola Moquegua",         pais:"Peru",   proforma:"MOQUEH-2022-02",      nPlantas:325000, regalia:0.45,totalOsiris:146250,  tipoPago:"Anticipo", montoFact:50748.75, fechaFact:"2022-01-01",nFact:"N°4",  pagado:true},
-  {id:"fv_h60", vivero:"Synergiabio",empresa:"Agricola Moquegua",         pais:"Peru",   proforma:"MOQUEH-2022-02",      nPlantas:325000, regalia:0.45,totalOsiris:146250,  tipoPago:"Entrega",  montoFact:34734.38, fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h61", vivero:"Synergiabio",empresa:"Agricola Moquegua",         pais:"Peru",   proforma:"MOQUEH-2022-02",      nPlantas:325000, regalia:0.45,totalOsiris:146250,  tipoPago:"Entrega",  montoFact:31516.88, fechaFact:"2026-01-01",nFact:"N°19", pagado:true},
-  {id:"fv_h62", vivero:"Synergiabio",empresa:"Agricola Cerro Prieto SA",  pais:"Peru",   proforma:"CPRIET-2023-01",      nPlantas:2000,   regalia:0.45,totalOsiris:900,     tipoPago:"Anticipo", montoFact:540,      fechaFact:"2023-01-01",nFact:"N°4",  pagado:true},
-  {id:"fv_h63", vivero:"Synergiabio",empresa:"Agricola Cerro Prieto SA",  pais:"Peru",   proforma:"CPRIET-2023-01",      nPlantas:2000,   regalia:0.45,totalOsiris:900,     tipoPago:"Entrega",  montoFact:360,      fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h64", vivero:"Synergiabio",empresa:"Frusan Agro SAC",           pais:"Peru",   proforma:"FSFNDO-2023-01",      nPlantas:6000,   regalia:0.45,totalOsiris:2700,    tipoPago:"Anticipo", montoFact:1620,     fechaFact:"2023-01-01",nFact:"N°4",  pagado:true},
-  {id:"fv_h65", vivero:"Synergiabio",empresa:"AGV Innovation & Varieties",pais:"Peru",   proforma:"AGVINV-2023-02",      nPlantas:26000,  regalia:0.45,totalOsiris:11700,   tipoPago:"Anticipo", montoFact:7008.3,   fechaFact:"2023-01-01",nFact:"N°5",  pagado:true},
-  {id:"fv_h66", vivero:"Synergiabio",empresa:"AGV Innovation & Varieties",pais:"Peru",   proforma:"AGVINV-2023-02",      nPlantas:26000,  regalia:0.45,totalOsiris:11700,   tipoPago:"Entrega",  montoFact:4680,     fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h67", vivero:"Synergiabio",empresa:"Hass Peru SA",              pais:"Peru",   proforma:"HASSPE-2023-01",      nPlantas:5000,   regalia:0.45,totalOsiris:2250,    tipoPago:"Anticipo", montoFact:2250,     fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h68", vivero:"Synergiabio",empresa:"Berry Harvest SA",          pais:"Peru",   proforma:"HARVES-2023-01",      nPlantas:4000,   regalia:0.45,totalOsiris:1800,    tipoPago:"Anticipo", montoFact:1800,     fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h69", vivero:"Synergiabio",empresa:"Frusan Agro SAC",           pais:"Peru",   proforma:"FRUSAN-2023-01",      nPlantas:6000,   regalia:0.45,totalOsiris:2700,    tipoPago:"Entrega",  montoFact:1080,     fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h70", vivero:"Synergiabio",empresa:"Hass Peru SA",              pais:"Peru",   proforma:"HASSPE-2024-01",      nPlantas:367,    regalia:0.45,totalOsiris:165.15,  tipoPago:"Anticipo", montoFact:165.15,   fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h71", vivero:"Synergiabio",empresa:"Berry Harvest SA",          pais:"Peru",   proforma:"HARVES-2024-01",      nPlantas:409,    regalia:0.45,totalOsiris:184.05,  tipoPago:"Anticipo", montoFact:184.05,   fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h72", vivero:"Synergiabio",empresa:"Pura Berries",              pais:"Peru",   proforma:"PURABE-CL-2024-04",   nPlantas:259735, regalia:0.45,totalOsiris:116880.75,tipoPago:"Entrega", montoFact:46752.3,  fechaFact:"2026-01-01",nFact:"N°19", pagado:true},
-  {id:"fv_h73", vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"DANPER-2024-01",      nPlantas:7296,   regalia:0.45,totalOsiris:3283.2,  tipoPago:"Entrega",  montoFact:3283.2,   fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h74", vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"DANPER-2024-02",      nPlantas:1024,   regalia:0.45,totalOsiris:460.8,   tipoPago:"Anticipo", montoFact:276.48,   fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h75", vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"DANPER-CL-2025-01",   nPlantas:24000,  regalia:0.45,totalOsiris:10800,   tipoPago:"Entrega",  montoFact:4725,     fechaFact:"2026-01-01",nFact:"N°19", pagado:true},
-  {id:"fv_h76", vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"DANPER-CL-2025-0036", nPlantas:1000,   regalia:0.45,totalOsiris:450,     tipoPago:"Anticipo", montoFact:270,      fechaFact:"2026-01-01",nFact:"N°19", pagado:true},
-  {id:"fv_h77", vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"DANPER-CL-2025-0036", nPlantas:1000,   regalia:0.45,totalOsiris:450,     tipoPago:"Entrega",  montoFact:180,      fechaFact:"2026-01-01",nFact:"N°19", pagado:true},
-  {id:"fv_h78", vivero:"Synergiabio",empresa:"Gourmet Peru",              pais:"Peru",   proforma:"GOURME-CL-2025-01",   nPlantas:400,    regalia:0.45,totalOsiris:180,     tipoPago:"Entrega",  montoFact:180,      fechaFact:"2026-01-01",nFact:"N°19", pagado:true},
-  {id:"fv_h79", vivero:"Synergiabio",empresa:"Gourmet Peru",              pais:"Peru",   proforma:"2025/0068",           nPlantas:250,    regalia:0.45,totalOsiris:112.5,   tipoPago:"Entrega",  montoFact:112.5,    fechaFact:"2026-01-01",nFact:"N°19", pagado:true},
-  {id:"fv_h80", vivero:"Synergiabio",empresa:"Vanguard",                  pais:"Peru",   proforma:"OLIVOS-CL-2024-01",   nPlantas:1555705,regalia:0.45,totalOsiris:700067.25,tipoPago:"Anticipo",montoFact:350033.63,fechaFact:"2025-01-01",nFact:"N°11", pagado:true},
-  {id:"fv_h81", vivero:"Synergiabio",empresa:"SQM",                       pais:"Chile",  proforma:"SQMSDH-2024-01",      nPlantas:420,    regalia:0.45,totalOsiris:189,     tipoPago:"Entrega",  montoFact:189,      fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h82", vivero:"Synergiabio",empresa:"Hector Esquivel",           pais:"Chile",  proforma:"HEHSPA-CL-2024-01",   nPlantas:12000,  regalia:0.45,totalOsiris:5400,    tipoPago:"Anticipo", montoFact:4090.5,   fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h83", vivero:"Synergiabio",empresa:"Collipulli",                pais:"Chile",  proforma:"ASELVA-2024-01",      nPlantas:270,    regalia:0.45,totalOsiris:121.5,   tipoPago:"Entrega",  montoFact:121.5,    fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h84", vivero:"Synergiabio",empresa:"Allpa Farms",               pais:"Peru",   proforma:"ALLPAF-2024-01",      nPlantas:294000, regalia:0.45,totalOsiris:132300,  tipoPago:"Anticipo", montoFact:51332.4,  fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h85", vivero:"Synergiabio",empresa:"Allpa Farms",               pais:"Peru",   proforma:"ALLPAF-2024-01",      nPlantas:294000, regalia:0.45,totalOsiris:132300,  tipoPago:"Entrega",  montoFact:80967.6,  fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h86", vivero:"Synergiabio",empresa:"Allpa Farms",               pais:"Peru",   proforma:"ALLPAF-2024-01",      nPlantas:26000,  regalia:0.45,totalOsiris:11700,   tipoPago:"Entrega",  montoFact:11700,    fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h87", vivero:"Synergiabio",empresa:"Frusan Agro SAC",           pais:"Peru",   proforma:"FRUSAN-CL-2024-01",   nPlantas:5960,   regalia:0.45,totalOsiris:2682,    tipoPago:"Anticipo", montoFact:1609.2,   fechaFact:"2024-10-01",nFact:"N°9",  pagado:true},
-  {id:"fv_h88", vivero:"Synergiabio",empresa:"Frusan Agro SAC",           pais:"Peru",   proforma:"FRUSAN-CL-2024-01",   nPlantas:5960,   regalia:0.45,totalOsiris:2682,    tipoPago:"Entrega",  montoFact:893.11,   fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h89", vivero:"Synergiabio",empresa:"Hass Peru SA",              pais:"Peru",   proforma:"HASSPE-CL-2024-02",   nPlantas:75835,  regalia:0.45,totalOsiris:34125.75,tipoPago:"Anticipo", montoFact:20475.45, fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h90", vivero:"Agromillora", empresa:"AgroExtiende",             pais:"Peru",   proforma:"2025-2705",           nPlantas:420000, regalia:1.15,totalOsiris:483000,  tipoPago:"Anticipo", montoFact:34650.42, fechaFact:"2026-03-31",nFact:"N°115",pagado:true},
-  {id:"fv_h91", vivero:"Synergiabio",empresa:"Agroextiende",              pais:"Peru",   proforma:"AGROEX-CL-2024-03",   nPlantas:800,    regalia:0.45,totalOsiris:360,     tipoPago:"Entrega",  montoFact:360,      fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h92", vivero:"Synergiabio",empresa:"Agroextiende",              pais:"Peru",   proforma:"AGROEX-2024-01",      nPlantas:50000,  regalia:0.45,totalOsiris:22500,   tipoPago:"Anticipo", montoFact:11250,    fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h93", vivero:"Synergiabio",empresa:"Agroextiende",              pais:"Peru",   proforma:"AGROEX-2024-01",      nPlantas:50000,  regalia:0.45,totalOsiris:22500,   tipoPago:"Entrega",  montoFact:11250,    fechaFact:"2025-09-30",nFact:"N°14", pagado:true},
-  {id:"fv_h94", vivero:"Synergiabio",empresa:"Agroextiende",              pais:"Peru",   proforma:"AGROEX-2024-02",      nPlantas:150000, regalia:0.45,totalOsiris:67500,   tipoPago:"Anticipo", montoFact:33750,    fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h95", vivero:"Synergiabio",empresa:"Agroextiende",              pais:"Peru",   proforma:"AGROEX-2024-02",      nPlantas:150000, regalia:0.45,totalOsiris:67500,   tipoPago:"Entrega",  montoFact:33750,    fechaFact:"2025-09-30",nFact:"N°14", pagado:true},
-  {id:"fv_h96", vivero:"Synergiabio",empresa:"Agroextiende",              pais:"Peru",   proforma:"AGROEX-CL-2024-04",   nPlantas:200000, regalia:0.45,totalOsiris:90000,   tipoPago:"Anticipo", montoFact:31500,    fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h97", vivero:"Synergiabio",empresa:"Agroextiende",              pais:"Peru",   proforma:"AGROEX-CL-2024-04",   nPlantas:200000, regalia:0.45,totalOsiris:90000,   tipoPago:"Entrega",  montoFact:45000,    fechaFact:"2025-09-30",nFact:"N°14", pagado:true},
-  {id:"fv_h98", vivero:"Synergiabio",empresa:"Hector Esquivel",           pais:"Chile",  proforma:"HEHSPA-CL-2024-01",   nPlantas:12000,  regalia:0.45,totalOsiris:5400,    tipoPago:"Entrega",  montoFact:1309.5,   fechaFact:"2026-01-01",nFact:"N°19", pagado:true},
-  {id:"fv_h99", vivero:"Synergiabio",empresa:"Pura Berries",              pais:"Peru",   proforma:"PURABE-CL-2024-04",   nPlantas:259735, regalia:0.45,totalOsiris:116880.75,tipoPago:"Anticipo",montoFact:70128.45, fechaFact:"2025-03-01",nFact:"N°12", pagado:true},
-  {id:"fv_h100",vivero:"Synergiabio",empresa:"Corp. Agricola Olmos",      pais:"Peru",   proforma:"AOLMOS-CL-2025-01",   nPlantas:190950, regalia:0.45,totalOsiris:85927.5, tipoPago:"Anticipo", montoFact:51556.5,  fechaFact:"2025-05-01",nFact:"N°13", pagado:true},
-  {id:"fv_h101",vivero:"Synergiabio",empresa:"Frusan Agro SAC",           pais:"Peru",   proforma:"HUARME-CL-2024-02",   nPlantas:305185, regalia:0.45,totalOsiris:137333.25,tipoPago:"Anticipo",montoFact:72099.96, fechaFact:"2025-08-01",nFact:"N°14", pagado:true},
-  {id:"fv_h102",vivero:"Synergiabio",empresa:"Corp. Agricola Olmos",      pais:"Peru",   proforma:"AOLMOS-CL-2025-01",   nPlantas:190950, regalia:0.45,totalOsiris:85927.5, tipoPago:"Entrega",  montoFact:34371,    fechaFact:"2025-12-01",nFact:"N°18", pagado:true},
-  {id:"fv_h103",vivero:"Synergiabio",empresa:"Hass Peru SA",              pais:"Peru",   proforma:"HASSPE-CL-2024-02",   nPlantas:75835,  regalia:0.45,totalOsiris:34125.75,tipoPago:"Entrega",  montoFact:13650.3,  fechaFact:"2025-12-01",nFact:"N°18", pagado:true},
-  {id:"fv_h104",vivero:"Synergiabio",empresa:"Danper Trujillo SAC",       pais:"Peru",   proforma:"DANPER-CL-2025-0148", nPlantas:884271, regalia:0.45,totalOsiris:397921.95,tipoPago:"Anticipo",montoFact:238753.17,fechaFact:"2025-12-01",nFact:"N°18", pagado:true},
-  {id:"fv_h105",vivero:"Synergiabio",empresa:"Mainland Farms SA",         pais:"Mexico", proforma:"MAIFAR-MX-2025-01",   nPlantas:150000, regalia:0.45,totalOsiris:67500,   tipoPago:"Entrega",  montoFact:15387.98, fechaFact:"2026-03-31",nFact:"N°116",pagado:true},
-  {id:"fv_h106",vivero:"Synergiabio",empresa:"Dole Mexico",               pais:"Mexico", proforma:"BLUFAR-MX-2025-01",   nPlantas:2100,   regalia:0.45,totalOsiris:945,     tipoPago:"Anticipo", montoFact:519.75,   fechaFact:"2025-09-01",nFact:"N°83", pagado:true},
-  {id:"fv_h107",vivero:"Synergiabio",empresa:"Dole Mexico",               pais:"Mexico", proforma:"BLUFAR-MX-2025-01",   nPlantas:2100,   regalia:0.45,totalOsiris:945,     tipoPago:"Entrega",  montoFact:425.25,   fechaFact:"2026-03-31",nFact:"N°116",pagado:true},
-  {id:"fv_h108",vivero:"Synergiabio",empresa:"Gourmet Mexico",            pais:"Mexico", proforma:"GBFFAR-MX-2026-01",   nPlantas:950,    regalia:0.45,totalOsiris:427.5,   tipoPago:"Entrega",  montoFact:427.5,    fechaFact:"2026-03-31",nFact:"N°116",pagado:true},
-  // ── 2026 pendientes ─────────────────────────────────────────────────────────
   {id:"fv1",  vivero:"Synergiabio",empresa:"Frusan Agro SAC",    pais:"Peru",   proforma:"HUARME-CL-2024-02",  nPlantas:305185, regalia:0.45,totalOsiris:137333.25,tipoPago:"Entrega",  montoFact:132660.23,fechaFact:"2026-03-31",nFact:"F-030",pagado:false},
   {id:"fv2",  vivero:"Synergiabio",empresa:"Vanguard",           pais:"Peru",   proforma:"OLIVOS-CL-2024-01",  nPlantas:1555705,regalia:0.45,totalOsiris:700067.25,tipoPago:"Entrega",  montoFact:180827.37,fechaFact:"2026-03-31",nFact:"F-031",pagado:false},
   {id:"fv3",  vivero:"Agromillora",empresa:"AgroExtiende",       pais:"Peru",   proforma:"2025-2705",          nPlantas:420000, regalia:1.15,totalOsiris:483000,   tipoPago:"Anticipo", montoFact:34650.42, fechaFact:"2026-03-31",nFact:"F-032",pagado:false},
@@ -412,7 +299,6 @@ const FEE_VIVEROS_INIT = [
   {id:"fv16", vivero:"Synergiabio",empresa:"Frusan Agro SAC",    pais:"Peru",   proforma:"HUARME-CL-2026-0046",nPlantas:285405, regalia:0.45,totalOsiris:128432.25,tipoPago:"Entrega", montoFact:51372.9,  fechaFact:"2026-12-31",nFact:"",    pagado:false},
   {id:"fv17", vivero:"Synergiabio",empresa:"Frusan Agro SAC",    pais:"Peru",   proforma:"HUARME-CL-2026-0046",nPlantas:285405, regalia:0.45,totalOsiris:128432.25,tipoPago:"Entrega", montoFact:9632.42,  fechaFact:"2027-03-31",nFact:"",    pagado:false},
 ];
-
 
 // ══════════════════════════════════════════════════════════
 // TOTAL PEDIDOS
@@ -438,7 +324,6 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
   const porPais={};filtrado.forEach(r=>{porPais[r.pais]=(porPais[r.pais]||0)+(Number(r.nPlantas)||0);});
 
   function upd(id,campo,valor) {
-    // Si se confirma, crear fila en Royalty/Planta automáticamente
     if(campo==="estado"&&valor==="Confirmado") {
       const row=data.find(r=>r.id===id);
       if(row) {
@@ -480,7 +365,6 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
 
   return (
     <div>
-      {/* KPIs */}
       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
         <div style={{background:C.tealBg,borderRadius:12,padding:"12px 18px",flex:1,minWidth:140}}>
           <div style={{fontSize:11,color:C.teal,fontWeight:600}}>Total Plantas</div>
@@ -503,7 +387,6 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
         {can&&<button onClick={()=>setModal(true)} style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,alignSelf:"center"}}>+ Agregar</button>}
       </div>
 
-      {/* Filtros */}
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar cliente / proforma..."
           style={{padding:"6px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,minWidth:200}}/>
@@ -529,7 +412,6 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
         </select>
       </div>
 
-      {/* Tabla */}
       <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
           <Th cols={[
@@ -566,7 +448,6 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
         </table>
       </div>
 
-      {/* Modal */}
       {modal&&(
         <div style={{position:"fixed",inset:0,background:"#0006",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{background:"#fff",borderRadius:16,padding:28,width:460,maxWidth:"92vw",boxShadow:"0 8px 32px #0003"}}>
@@ -594,11 +475,6 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
                 </select>
               </div>
             </div>
-            {form.estado==="Confirmado"&&(
-              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,padding:"8px 12px",marginTop:12,fontSize:12,color:"#15803d"}}>
-                ✅ Al guardar se creará automáticamente una fila en Royalty/Planta
-              </div>
-            )}
             <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:20}}>
               <button onClick={()=>setModal(false)} style={{padding:"8px 18px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:14}}>Cancelar</button>
               <button onClick={agregar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.azul,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>Guardar</button>
@@ -647,7 +523,7 @@ function RoyaltyPlanta({data,setData,can}) {
   return (
     <div>
       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-        {[[$$( totFact),"Monto a Facturar",C.azul,C.azulBg],[$$(totCobro),"Monto a Cobrar",C.verde,C.verdeBg],[$$(totPend),"Por Cobrar",C.am,C.amBg],[filtrado.length,"Registros",C.gris,C.grisBg]].map(([v,l,c,bg])=>(
+        {[[$$(totFact),"Monto a Facturar",C.azul,C.azulBg],[$$(totCobro),"Monto a Cobrar",C.verde,C.verdeBg],[$$(totPend),"Por Cobrar",C.am,C.amBg],[filtrado.length,"Registros",C.gris,C.grisBg]].map(([v,l,c,bg])=>(
           <div key={l} style={{background:bg,borderRadius:12,padding:"12px 18px",flex:1,minWidth:130}}>
             <div style={{fontSize:11,color:c,fontWeight:600}}>{l}</div>
             <div style={{fontSize:20,fontWeight:800,color:c}}>{v}</div>
@@ -730,12 +606,6 @@ function RoyaltyPlanta({data,setData,can}) {
                 </div>
               ))}
             </div>
-            {form.nPlantas&&form.usdPlanta&&(
-              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,padding:"10px 14px",marginTop:12,fontSize:12,color:"#15803d"}}>
-                💰 Facturar: <strong>{$$((parseFloat(form.nPlantas)||0)*(parseFloat(form.usdPlanta)||0))}</strong>
-                &nbsp;→ Cobrar: <strong>{$$((parseFloat(form.nPlantas)||0)*(parseFloat(form.usdPlanta)||0)*pct(form.pais))}</strong> ({(pct(form.pais)*100).toFixed(0)}%)
-              </div>
-            )}
             <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:20}}>
               <button onClick={()=>setModal(false)} style={{padding:"8px 18px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:14}}>Cancelar</button>
               <button onClick={agregar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.azul,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>Guardar</button>
@@ -787,7 +657,6 @@ function RoyaltyComercial({data,setData,can}) {
 
   return (
     <div>
-      {/* Alertas de facturación próxima */}
       {alertas.length>0&&(
         <div style={{marginBottom:16}}>
           {alertas.map(r=>(
@@ -805,7 +674,6 @@ function RoyaltyComercial({data,setData,can}) {
         </div>
       )}
 
-      {/* KPIs */}
       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
         {[[$$(totFact),"Total a Facturar",C.mo,C.moBg],[$$(totCobro),"Total a Cobrar",C.verde,C.verdeBg],[filtrado.length,"Registros",C.gris,C.grisBg]].map(([v,l,c,bg])=>(
           <div key={l} style={{background:bg,borderRadius:12,padding:"12px 18px",flex:1,minWidth:130}}>
@@ -817,7 +685,7 @@ function RoyaltyComercial({data,setData,can}) {
       </div>
 
       <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:12,color:"#15803d"}}>
-        💡 Monto Facturar = Há a cobrar × US$/Há (por defecto US$3.000/Há) &nbsp;·&nbsp; Monto Cobrar = <strong>85% Perú/Chile · 90% México</strong> &nbsp;·&nbsp; Se avisa 1 mes antes del trimestre de cobro
+        💡 Monto Facturar = Há a cobrar × US$/Há (por defecto US$3.000/Há) &nbsp;·&nbsp; Monto Cobrar = <strong>85% Perú/Chile · 90% México</strong>
       </div>
 
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
@@ -885,12 +753,6 @@ function RoyaltyComercial({data,setData,can}) {
                 </div>
               ))}
             </div>
-            {form.ha&&form.usdHa&&(
-              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,padding:"10px 14px",marginTop:12,fontSize:12,color:"#15803d"}}>
-                💰 Facturar: <strong>{$$((parseFloat(form.ha)||0)*(parseFloat(form.usdHa)||0))}</strong>
-                &nbsp;→ Cobrar: <strong>{$$((parseFloat(form.ha)||0)*(parseFloat(form.usdHa)||0)*pct(form.pais))}</strong>
-              </div>
-            )}
             <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:20}}>
               <button onClick={()=>setModal(false)} style={{padding:"8px 18px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
               <button onClick={agregar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.azul,color:"#fff",cursor:"pointer",fontWeight:600}}>Guardar</button>
@@ -1068,38 +930,28 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
   const rpCalc=rpData.map(r=>{const mf=(Number(r.nPlantas)||0)*(Number(r.usdPlanta)||0);return{...r,montoFact:mf,montoCobro:mf*pct(r.pais)};});
   const rcCalc=rcData.map(r=>{const mf=(Number(r.ha)||0)*(Number(r.usdHa)||0);const fA=fechaAvisoTrim(r.añoCobro,r.trimCobro);const fI=fechaInicioTrim(r.añoCobro,r.trimCobro);return{...r,montoFact:mf,montoCobro:mf*pct(r.pais),alertaActiva:hoy>=fA&&hoy<fI&&!r.nFact};});
 
-  // ── Royalty/Planta ──
-  // Pendiente de facturar = sin N° factura
   const totRP_pendFact = rpCalc.filter(r=>!r.nFact||r.nFact.trim()==="").reduce((s,r)=>s+r.montoFact,0);
-  // Facturado = tiene N° factura
   const totRP_facturado= rpCalc.filter(r=>r.nFact&&r.nFact.trim()!=="").reduce((s,r)=>s+r.montoFact,0);
-  // Por cobrar = facturado pero no pagado
   const totRP_porCobrar= rpCalc.filter(r=>!r.pagado).reduce((s,r)=>s+r.montoCobro,0);
-  // Cobrado = pagado
   const totRP_cobrado  = rpCalc.filter(r=>r.pagado).reduce((s,r)=>s+r.montoCobro,0);
 
-  // ── Fee Entrada ──
   const totFE_facturado= feData.filter(r=>r.nFact&&r.nFact.trim()!=="").reduce((s,r)=>s+(r.montoUSD||0),0);
   const totFE_porCobrar= feData.filter(r=>!r.pagado).reduce((s,r)=>s+(r.montoUSD||0),0);
 
-  // ── Royalty Comercial ──
   const totRC_pendFact = rcCalc.filter(r=>!r.nFact||r.nFact.trim()==="").reduce((s,r)=>s+r.montoFact,0);
   const totRC_facturado= rcCalc.filter(r=>r.nFact&&r.nFact.trim()!=="").reduce((s,r)=>s+r.montoFact,0);
   const totRC_porCobrar= rcCalc.filter(r=>!r.pagado).reduce((s,r)=>s+r.montoCobro,0);
 
-  // ── Fee Viveros ──
   const totFV_pendFact = fvData.filter(r=>!r.nFact||r.nFact.trim()==="").reduce((s,r)=>s+(Number(r.montoFact)||0),0);
   const totFV_facturado= fvData.filter(r=>r.nFact&&r.nFact.trim()!=="").reduce((s,r)=>s+(Number(r.montoFact)||0),0);
   const totFV_porCobrar= fvData.filter(r=>!r.pagado).reduce((s,r)=>s+(Number(r.montoFact)||0),0);
 
-  // ── Totales globales ──
   const grandPendFact  = totRP_pendFact + totFE_porCobrar + totRC_pendFact + totFV_pendFact;
   const grandFacturado = totRP_facturado + totFE_facturado + totRC_facturado + totFV_facturado;
   const grandPorCobrar = totRP_porCobrar + totFE_porCobrar + totRC_porCobrar + totFV_porCobrar;
 
   const totPlantas=tpData.reduce((s,r)=>s+(Number(r.nPlantas)||0),0);
   const sinConfirmar=tpData.filter(r=>r.estado==="Por confirmar").length;
-
   const alertasRC=rcCalc.filter(r=>r.alertaActiva);
 
   const pedidosPorAño={};tpData.forEach(r=>{pedidosPorAño[r.año]=(pedidosPorAño[r.año]||0)+(Number(r.nPlantas)||0);});
@@ -1110,7 +962,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
 
   const proximos=rpCalc.filter(r=>{if(!r.fechaPago||r.pagado)return false;const f=new Date(r.fechaPago);const d=(f-hoy)/(1000*60*60*24);return d>=0&&d<=60;}).sort((a,b)=>new Date(a.fechaPago)-new Date(b.fechaPago));
 
-  // Calendario de cobros futuros por mes/año
   const MESES_CORTO=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
   const calendarioCobros={};
   function addCobro(fecha,tipo,monto){
@@ -1140,8 +991,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:20}}>
-
-      {/* CALENDARIO DE COBROS FUTUROS */}
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
         <h3 style={{margin:"0 0 16px",color:C.sl,fontSize:15,display:"flex",alignItems:"center",gap:8}}>
           📅 Calendario de Ingresos por Cobrar
@@ -1150,7 +999,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
 
         {Object.entries(calPorAño).sort().map(([año,rows])=>(
           <div key={año} style={{marginBottom:24}}>
-            {/* Encabezado año */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,
               background:"linear-gradient(135deg,#1e3a5f,#2563eb)",borderRadius:10,padding:"10px 16px"}}>
               <div style={{fontWeight:800,fontSize:16,color:"#fff"}}>{año}</div>
@@ -1163,7 +1011,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
               </div>
             </div>
 
-            {/* Tabla meses */}
             <div style={{overflowX:"auto"}}>
               <table style={{borderCollapse:"collapse",width:"100%",fontSize:12}}>
                 <thead>
@@ -1186,7 +1033,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
                       <td style={{padding:"9px 12px",textAlign:"right",fontWeight:700,color:C.sl,background:"#f0f9ff",fontSize:13}}>{$$(r.total)}</td>
                     </tr>
                   ))}
-                  {/* Fila total año */}
                   <tr style={{borderTop:"2px solid #e2e8f0",background:"#f0f9ff"}}>
                     <td style={{padding:"9px 12px",fontWeight:800,color:C.sl}}>Total {año}</td>
                     <td style={{padding:"9px 12px",textAlign:"right",fontWeight:700,color:C.azul}}>{totalAnual[año].rp>0?$$(totalAnual[año].rp):"—"}</td>
@@ -1203,7 +1049,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
         {calKeys.length===0&&<div style={{textAlign:"center",color:C.gris,fontSize:13,padding:24}}>No hay cobros futuros registrados.</div>}
       </div>
 
-      {/* Alertas Royalty Comercial */}
       {alertasRC.length>0&&(
         <div>
           {alertasRC.map(r=>(
@@ -1218,12 +1063,11 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
         </div>
       )}
 
-      {/* KPIs globales */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:12}}>
         {[
-          ["\u23F8 Total pendiente de facturar", $$(grandPendFact),  C.azul, C.azulBg],
-          ["\uD83D\uDCC4 Total facturado",      $$(grandFacturado), C.mo,   C.moBg],
-          ["\u23F3 Total por cobrar",            $$(grandPorCobrar), C.am,   C.amBg],
+          ["⏸ Total pendiente de facturar", $$(grandPendFact),  C.azul, C.azulBg],
+          ["📄 Total facturado",      $$(grandFacturado), C.mo,   C.moBg],
+          ["⏳ Total por cobrar",            $$(grandPorCobrar), C.am,   C.amBg],
         ].map(([l,v,c,bg])=>(
           <div key={l} style={{background:bg,borderRadius:12,padding:"16px 18px",border:`1px solid ${c}33`}}>
             <div style={{fontSize:11,color:c,fontWeight:700,marginBottom:4}}>{l}</div>
@@ -1232,7 +1076,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
         ))}
       </div>
 
-      {/* KPIs por modulo */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(175px,1fr))",gap:10}}>
         {[
           ["Total Plantas",          N(totPlantas),       C.teal,  C.tealBg],
@@ -1257,7 +1100,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
         ))}
       </div>
 
-      {/* Pedidos por año */}
       <div style={{background:"#fff",borderRadius:14,padding:20}}>
         <h4 style={{margin:"0 0 14px",color:C.sl,fontSize:14}}>🌱 Plantas pedidas por año</h4>
         <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
@@ -1270,7 +1112,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
         </div>
       </div>
 
-      {/* Top clientes RP */}
       {topCli.length>0&&(
         <div style={{background:"#fff",borderRadius:14,padding:20}}>
           <h4 style={{margin:"0 0 14px",color:C.sl,fontSize:14}}>📊 Royalty/Planta por cobrar — Top clientes</h4>
@@ -1288,7 +1129,6 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
         </div>
       )}
 
-      {/* Próximos cobros */}
       {proximos.length>0&&(
         <div style={{background:"#fff",borderRadius:14,padding:20}}>
           <h4 style={{margin:"0 0 14px",color:C.sl,fontSize:14}}>🗓️ Próximos cobros Royalty/Planta (60 días)</h4>
@@ -1326,14 +1166,13 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
   );
 }
 
-// ── Logo Osiris ───────────────────────────────────────────
+// ── Logos ─────────────────────────────────────────────────
 function OsirisLogo({height=52}) {
   return (
     <img src="/osiris-logo.jpg" alt="Osiris Plant Management"
       style={{height:height, objectFit:"contain", display:"block"}}/>
   );
 }
-
 
 // ════════════════════════════════════════════════════════════
 // DATOS CONTRATOS INIT
@@ -1397,7 +1236,6 @@ function ControlContratos({data,setData,can}){
     if(sel===id){setVista("tabla");setSel(null);}
   }
 
-  // Campos helpers
   function Campo({label,campo,tipo="text",opts=null,r,fullWidth=false}){
     return(
       <div style={fullWidth?{gridColumn:"1/-1"}:{}}>
@@ -1428,7 +1266,6 @@ function ControlContratos({data,setData,can}){
     );
   }
 
-  // ── VISTA DETALLE ──────────────────────────────────────────
   if(vista==="detalle"&&actual){
     const r=actual;
     return(
@@ -1447,7 +1284,6 @@ function ControlContratos({data,setData,can}){
           {can&&<button onClick={()=>eliminar(r.id)} style={{background:"#fee2e2",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:600}}>🗑 Eliminar</button>}
         </div>
 
-        {/* Tabs secciones */}
         <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
           {SECCIONES_CT.map(s=>(
             <button key={s.id} onClick={()=>setSec(s.id)}
@@ -1460,7 +1296,6 @@ function ControlContratos({data,setData,can}){
         </div>
 
         <div style={{background:"#fff",borderRadius:14,padding:24,boxShadow:"0 2px 10px #0001"}}>
-
           {sec==="empresa"&&(
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:16}}>
               <Campo label="Razón Social" campo="razonSocial" r={r}/>
@@ -1470,7 +1305,6 @@ function ControlContratos({data,setData,can}){
               <Campo label="Ciudad" campo="ciudad" r={r}/>
             </div>
           )}
-
           {sec==="contrato"&&(
             <div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:16,marginBottom:20}}>
@@ -1480,7 +1314,6 @@ function ControlContratos({data,setData,can}){
                 <Campo label="Fecha Término" campo="fechaTermino" tipo="date" r={r}/>
                 <Campo label="Ver Digital (URL)" campo="verDigital" r={r}/>
               </div>
-              {/* Firmas */}
               <div style={{background:"#f8fafc",borderRadius:12,padding:16,marginBottom:16}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:12}}>Estado de Firmas</div>
                 <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
@@ -1495,7 +1328,6 @@ function ControlContratos({data,setData,can}){
                   ))}
                 </div>
               </div>
-              {/* Anexos */}
               <div style={{background:"#f8fafc",borderRadius:12,padding:16,marginBottom:16}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:12}}>Anexos del contrato</div>
                 <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
@@ -1510,7 +1342,6 @@ function ControlContratos({data,setData,can}){
                   ))}
                 </div>
               </div>
-              {/* Notas */}
               <div>
                 <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:6}}>Notas / Observaciones</div>
                 {can
@@ -1521,14 +1352,12 @@ function ControlContratos({data,setData,can}){
               </div>
             </div>
           )}
-
           {sec==="rep"&&(
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
               <Campo label="Nombre Representante Legal" campo="nombreRep" r={r}/>
               <Campo label="Personería" campo="personeria" r={r}/>
             </div>
           )}
-
           {sec==="ubicacion"&&(
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:16}}>
               <Campo label="Nombre Predio" campo="nombrePredio" r={r}/>
@@ -1539,7 +1368,6 @@ function ControlContratos({data,setData,can}){
               <Campo label="Coordenadas GPS" campo="coordenadas" r={r}/>
             </div>
           )}
-
           {sec==="factura"&&(
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:16}}>
               <div>
@@ -1578,7 +1406,6 @@ function ControlContratos({data,setData,can}){
     );
   }
 
-  // ── VISTA NUEVO ────────────────────────────────────────────
   if(vista==="nuevo"){
     return(
       <div>
@@ -1587,7 +1414,6 @@ function ControlContratos({data,setData,can}){
           <h2 style={{margin:0,fontSize:16,fontWeight:800,color:C.sl}}>Nuevo Contrato</h2>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          {/* Empresa */}
           <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
             <div style={{fontSize:13,fontWeight:700,color:C.azul,marginBottom:14}}>🏢 Antecedentes Empresa</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
@@ -1598,7 +1424,6 @@ function ControlContratos({data,setData,can}){
               <CampoNuevo label="Ciudad" campo="ciudad"/>
             </div>
           </div>
-          {/* Contrato */}
           <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
             <div style={{fontSize:13,fontWeight:700,color:C.mo,marginBottom:14}}>📄 Datos del Contrato</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
@@ -1616,7 +1441,6 @@ function ControlContratos({data,setData,can}){
               ))}
             </div>
           </div>
-          {/* Rep + Ubicacion */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
             <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
               <div style={{fontSize:13,fontWeight:700,color:C.teal,marginBottom:14}}>👤 Representante</div>
@@ -1632,7 +1456,6 @@ function ControlContratos({data,setData,can}){
               </div>
             </div>
           </div>
-          {/* Facturación */}
           <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
             <div style={{fontSize:13,fontWeight:700,color:C.am,marginBottom:14}}>💰 Facturación</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
@@ -1663,7 +1486,6 @@ function ControlContratos({data,setData,can}){
     );
   }
 
-  // ── VISTA TABLA ────────────────────────────────────────────
   return(
     <div>
       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
@@ -1727,10 +1549,37 @@ function ControlContratos({data,setData,can}){
 }
 
 // ══════════════════════════════════════════════════════════
-// COMPONENTE PRINCIPAL — con hub interno
+// BREADCRUMB — componente de navegación visual
 // ══════════════════════════════════════════════════════════
-export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osirisData,setOsirisData}) {
-  const [subApp,setSubApp]=useState(null); // null=hub | "ingresos" | "contratos"
+function Breadcrumb({items}) {
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:C.gris,flexWrap:"wrap"}}>
+      {items.map((item,i)=>(
+        <span key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+          {i>0&&<span style={{color:"rgba(255,255,255,0.3)",fontSize:10}}>›</span>}
+          {item.onClick
+            ? <button onClick={item.onClick}
+                style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",
+                  color:"rgba(255,255,255,0.8)",borderRadius:6,padding:"3px 10px",cursor:"pointer",
+                  fontSize:11,fontWeight:600,transition:"all 0.15s"}}
+                onMouseEnter={e=>{e.target.style.background="rgba(255,255,255,0.2)";e.target.style.color="#fff";}}
+                onMouseLeave={e=>{e.target.style.background="rgba(255,255,255,0.1)";e.target.style.color="rgba(255,255,255,0.8)";}}>
+                {item.label}
+              </button>
+            : <span style={{color:"rgba(255,255,255,0.5)",fontSize:11}}>{item.label}</span>
+          }
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL — Hub Osiris mejorado
+// ══════════════════════════════════════════════════════════
+export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osirisData,setOsirisData,onBack,onLogout}) {
+  // subApp: null = hub Osiris | "ingresos" | "contratos"
+  const [subApp,setSubApp]=useState(null);
   const [subTab,setSubTab]=useState("resumen");
 
   const ctData=osirisData?.contratos        ??CONTRATOS_INIT;
@@ -1754,7 +1603,6 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
     feData.filter(r=>!r.pagado).reduce((s,r)=>s+(Number(r.montoUSD)||0),0)+
     fvData.filter(r=>!r.pagado).reduce((s,r)=>s+(Number(r.montoFact)||0),0);
 
-  // Alertas RC para badge en sub-tab
   const hoy=new Date();hoy.setHours(0,0,0,0);
   const alertasRC=rcData.filter(r=>{const fA=fechaAvisoTrim(r.añoCobro,r.trimCobro);const fI=fechaInicioTrim(r.añoCobro,r.trimCobro);return hoy>=fA&&hoy<fI&&!r.nFact;}).length;
   const sinConfirmar=tpData.filter(r=>r.estado==="Por confirmar").length;
@@ -1768,72 +1616,197 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
     {id:"feeViveros",       label:"🌱 Fee Viveros",       badge:0},
   ];
 
-  // ── HUB INTERNO ───────────────────────────────────────────
-  if(subApp===null) return(
-    <div style={{fontFamily:"sans-serif"}}>
-      <div style={{background:"linear-gradient(135deg,#0f2d4a,#1a5276)",borderRadius:14,padding:"20px 28px",marginBottom:28,display:"flex",alignItems:"center",gap:16}}>
-        <OsirisLogo height={52}/>
-        <div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.45)",letterSpacing:2,marginBottom:2}}>MÓDULO</div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>Selecciona una aplicación</div>
+  // ── Barra de navegación compartida ────────────────────────
+  function NavBar({breadcrumbItems}) {
+    return (
+      <div style={{
+        background:"linear-gradient(135deg,#0f2d4a,#1a5276)",
+        borderRadius:14,
+        padding:"14px 20px",
+        marginBottom:18,
+        display:"flex",
+        justifyContent:"space-between",
+        alignItems:"center",
+        flexWrap:"wrap",
+        gap:12,
+      }}>
+        <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+          <OsirisLogo height={44}/>
+          <div style={{borderLeft:"1px solid rgba(255,255,255,0.2)",paddingLeft:14}}>
+            <Breadcrumb items={breadcrumbItems}/>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {subApp&&(
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.5)",textAlign:"right",marginRight:4}}>
+              <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:1,marginBottom:1}}>Por cobrar</div>
+              <div style={{fontSize:14,fontWeight:800,color:"#fbbf24"}}>{$$(totPend)}</div>
+            </div>
+          )}
+          <button
+            onClick={()=>{setSubApp(null);}}
+            style={{
+              background:"rgba(255,255,255,0.12)",
+              border:"1px solid rgba(255,255,255,0.25)",
+              color:"#fff",borderRadius:8,
+              padding:"7px 14px",cursor:"pointer",
+              fontSize:12,fontWeight:600,
+              display:"flex",alignItems:"center",gap:5,
+            }}>
+            🏠 Osiris Hub
+          </button>
+          <button
+            onClick={onBack}
+            style={{
+              background:"rgba(255,255,255,0.08)",
+              border:"1px solid rgba(255,255,255,0.15)",
+              color:"rgba(255,255,255,0.7)",borderRadius:8,
+              padding:"7px 14px",cursor:"pointer",
+              fontSize:12,
+            }}>
+            ← Mediterra
+          </button>
+          <button
+            onClick={onLogout||onBack}
+            style={{
+              background:"rgba(248,113,113,0.18)",
+              border:"1px solid rgba(248,113,113,0.3)",
+              color:"#fca5a5",borderRadius:8,
+              padding:"7px 14px",cursor:"pointer",
+              fontSize:12,
+            }}>
+            Salir
+          </button>
         </div>
       </div>
+    );
+  }
+
+  // ── HUB INTERNO OSIRIS ─────────────────────────────────────
+  if(subApp===null) return(
+    <div style={{fontFamily:"sans-serif",padding:"0 0 40px"}}>
+      <NavBar breadcrumbItems={[
+        {label:"Mediterra", onClick:onBack},
+        {label:"Osiris Plant Management"},
+      ]}/>
+
+      {/* Tarjetas de módulos */}
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{fontSize:11,color:"rgba(255,255,255,0.35)",letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>
+          Módulos disponibles
+        </div>
+        <h2 style={{margin:0,fontSize:20,fontWeight:900,color:"#fff"}}>¿Qué deseas gestionar?</h2>
+      </div>
+
       <div style={{display:"flex",gap:20,justifyContent:"center",flexWrap:"wrap",padding:"0 8px"}}>
+        {/* Ingresos */}
         <button onClick={()=>setSubApp("ingresos")}
-          style={{background:"linear-gradient(135deg,#0f2d4a,#0f766e)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:20,padding:"32px 36px",cursor:"pointer",width:280,textAlign:"left",boxShadow:"0 8px 32px rgba(0,0,0,0.3)",transition:"transform 0.15s",position:"relative"}}
-          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-4px)"}
-          onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+          style={{
+            background:"linear-gradient(135deg,#0f2d4a,#0f766e)",
+            border:"1px solid rgba(255,255,255,0.15)",
+            borderRadius:20,padding:"32px 36px",
+            cursor:"pointer",width:280,textAlign:"left",
+            boxShadow:"0 8px 32px rgba(0,0,0,0.3)",
+            transition:"transform 0.15s,box-shadow 0.15s",
+            position:"relative",
+          }}
+          onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow="0 16px 48px rgba(0,0,0,0.4)";}}
+          onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 8px 32px rgba(0,0,0,0.3)";}}>
           <div style={{fontSize:40,marginBottom:12}}>💰</div>
           <div style={{fontSize:18,fontWeight:800,color:"#fff",marginBottom:6}}>Ingresos Osiris</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)"}}>Royalties, Fee Viveros, Total Pedidos y Resumen de cobros</div>
-          <div style={{position:"absolute",bottom:16,right:18,fontSize:20,color:"rgba(255,255,255,0.3)"}}>→</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>
+            Royalties, Fee Viveros, Total Pedidos y Resumen de cobros
+          </div>
+          {/* badges */}
+          <div style={{display:"flex",gap:6,marginTop:14,flexWrap:"wrap"}}>
+            {sinConfirmar>0&&(
+              <span style={{background:"rgba(251,191,36,0.25)",color:"#fbbf24",borderRadius:20,
+                padding:"2px 10px",fontSize:10,fontWeight:700,border:"1px solid rgba(251,191,36,0.4)"}}>
+                {sinConfirmar} por confirmar
+              </span>
+            )}
+            {alertasRC>0&&(
+              <span style={{background:"rgba(239,68,68,0.25)",color:"#f87171",borderRadius:20,
+                padding:"2px 10px",fontSize:10,fontWeight:700,border:"1px solid rgba(239,68,68,0.4)"}}>
+                ⚠️ {alertasRC} alerta{alertasRC>1?"s":""}
+              </span>
+            )}
+          </div>
+          <div style={{position:"absolute",bottom:18,right:18,fontSize:20,color:"rgba(255,255,255,0.3)"}}>→</div>
         </button>
+
+        {/* Contratos */}
         <button onClick={()=>setSubApp("contratos")}
-          style={{background:"linear-gradient(135deg,#1e1b4b,#4338ca)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:20,padding:"32px 36px",cursor:"pointer",width:280,textAlign:"left",boxShadow:"0 8px 32px rgba(0,0,0,0.3)",transition:"transform 0.15s",position:"relative"}}
-          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-4px)"}
-          onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+          style={{
+            background:"linear-gradient(135deg,#1e1b4b,#4338ca)",
+            border:"1px solid rgba(255,255,255,0.15)",
+            borderRadius:20,padding:"32px 36px",
+            cursor:"pointer",width:280,textAlign:"left",
+            boxShadow:"0 8px 32px rgba(0,0,0,0.3)",
+            transition:"transform 0.15s,box-shadow 0.15s",
+            position:"relative",
+          }}
+          onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow="0 16px 48px rgba(0,0,0,0.4)";}}
+          onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 8px 32px rgba(0,0,0,0.3)";}}>
           <div style={{fontSize:40,marginBottom:12}}>📋</div>
           <div style={{fontSize:18,fontWeight:800,color:"#fff",marginBottom:6}}>Control Contratos</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)"}}>Gestión de contratos, firmas, anexos y condiciones comerciales</div>
-          <div style={{position:"absolute",bottom:16,right:18,fontSize:20,color:"rgba(255,255,255,0.3)"}}>→</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>
+            Gestión de contratos, firmas, anexos y condiciones comerciales
+          </div>
+          <div style={{display:"flex",gap:6,marginTop:14}}>
+            <span style={{background:"rgba(99,102,241,0.3)",color:"#a5b4fc",borderRadius:20,
+              padding:"2px 10px",fontSize:10,fontWeight:700,border:"1px solid rgba(99,102,241,0.4)"}}>
+              {ctData.length} contratos
+            </span>
+            <span style={{background:`rgba(22,163,74,0.25)`,color:"#4ade80",borderRadius:20,
+              padding:"2px 10px",fontSize:10,fontWeight:700,border:`1px solid rgba(22,163,74,0.4)`}}>
+              {ctData.filter(c=>c.firmadoLicenciado&&c.firmadoOsiris).length} firmados
+            </span>
+          </div>
+          <div style={{position:"absolute",bottom:18,right:18,fontSize:20,color:"rgba(255,255,255,0.3)"}}>→</div>
         </button>
+      </div>
+
+      {/* KPI resumen en el hub */}
+      <div style={{marginTop:32,display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap",padding:"0 8px"}}>
+        {[
+          ["💵 Por cobrar",     $$(totPend),          "#fbbf24"],
+          ["📦 Pedidos",        tpData.length,         "#60a5fa"],
+          ["🌿 Royalty filas",  rpData.length,         "#34d399"],
+          ["🌱 Fee Vivero",     fvData.filter(r=>!r.pagado).length+" pend.", "#f87171"],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",
+            borderRadius:12,padding:"12px 20px",textAlign:"center",minWidth:120}}>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{l}</div>
+            <div style={{fontSize:16,fontWeight:800,color:c}}>{v}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
 
   // ── CONTROL CONTRATOS ──────────────────────────────────────
   if(subApp==="contratos") return(
-    <div>
-      <div style={{background:"linear-gradient(135deg,#1e1b4b,#4338ca)",borderRadius:14,padding:"14px 20px",marginBottom:18,display:"flex",alignItems:"center",gap:14}}>
-        <button onClick={()=>setSubApp(null)} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>← Hub</button>
-        <div style={{flex:1}}>
-          <div style={{fontSize:15,fontWeight:800,color:"#fff"}}>📋 Control Contratos</div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.5)"}}>Gestión de contratos Osiris</div>
-        </div>
-        <div style={{fontSize:13,color:"rgba(255,255,255,0.6)"}}>{ctData.length} contratos</div>
-      </div>
+    <div style={{fontFamily:"sans-serif",padding:"0 0 40px"}}>
+      <NavBar breadcrumbItems={[
+        {label:"Mediterra", onClick:onBack},
+        {label:"Osiris Hub", onClick:()=>setSubApp(null)},
+        {label:"Control Contratos"},
+      ]}/>
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
         <ControlContratos data={ctData} setData={setCt} can={can}/>
       </div>
     </div>
   );
 
+  // ── INGRESOS OSIRIS ────────────────────────────────────────
   return (
-    <div>
-      {/* Header */}
-      <div style={{background:"linear-gradient(135deg,#0f2d4a,#1a5276)",borderRadius:14,padding:"16px 24px",marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
-        <div style={{display:"flex",flexDirection:"column",gap:4}}>
-          <OsirisLogo height={56}/>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.55)",marginTop:2,letterSpacing:1}}>Gestión de Ingresos y Cobros</div>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
-          <div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",marginBottom:2}}>Total pendiente de cobro</div>
-            <div style={{fontSize:24,fontWeight:800,color:"#fbbf24"}}>{$$(totPend)}</div>
-          </div>
-          <button onClick={()=>setSubApp(null)} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"rgba(255,255,255,0.8)",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>← Hub</button>
-        </div>
-      </div>
+    <div style={{fontFamily:"sans-serif",padding:"0 0 40px"}}>
+      <NavBar breadcrumbItems={[
+        {label:"Mediterra", onClick:onBack},
+        {label:"Osiris Hub", onClick:()=>setSubApp(null)},
+        {label:"Ingresos Osiris"},
+      ]}/>
 
       {/* Sub-tabs */}
       <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
