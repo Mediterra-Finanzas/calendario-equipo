@@ -912,37 +912,146 @@ function RealLineInput({label,value,onChange}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// FLUJO POR EMPRESA
+// CELDA EDITABLE INLINE — click para editar valor proyectado
 // ═══════════════════════════════════════════════════════════════════
-function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
+function CeldaEditable({val, onSave, color, canEdit, real=null}) {
+  const [editing, setEditing] = useState(false);
+  const [tmp, setTmp] = useState("");
+
+  if(!canEdit) return (
+    <span style={{color:val!==0?color:"#4a7aaa",fontWeight:val!==0?600:400,fontSize:9}}>
+      {val!==0?$$(val):"—"}
+      {real!=null&&real!==0&&<div style={{fontSize:7,color:C.yellow}}>R:{$$(real)}</div>}
+    </span>
+  );
+
+  if(editing) return (
+    <input
+      type="number" value={tmp} autoFocus
+      onChange={e=>setTmp(e.target.value)}
+      onBlur={()=>{onSave(parseFloat(tmp)||0);setEditing(false);}}
+      onKeyDown={e=>{
+        if(e.key==="Enter"){onSave(parseFloat(tmp)||0);setEditing(false);}
+        if(e.key==="Escape"){setEditing(false);}
+      }}
+      style={{width:72,padding:"2px 4px",background:C.bg,border:`1px solid ${C.accentL}`,
+        borderRadius:4,color:C.accentL,fontSize:9,textAlign:"right",outline:"none"}}
+    />
+  );
+
+  return (
+    <span
+      onClick={()=>{setTmp(String(val||""));setEditing(true);}}
+      title="Click para editar"
+      style={{color:val!==0?color:C.muted2,fontWeight:val!==0?600:400,fontSize:9,
+        cursor:"pointer",borderBottom:`1px dashed ${C.border2}`,paddingBottom:1}}>
+      {val!==0?$$(val):"—"}
+      {real!=null&&real!==0&&<div style={{fontSize:7,color:C.yellow}}>R:{$$(real)}</div>}
+    </span>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FLUJO POR EMPRESA — v2: totales mes/temporada + edición + saldo banco
+// ═══════════════════════════════════════════════════════════════════
+function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBancos,onSaveProy}) {
   const emp=empresas[empNombre];
   const [vista,setVista]=useState("mensual");
   const [openSeason,setOpenSeason]=useState({[SEASON_KEYS[0]]:true,[SEASON_KEYS[1]]:true});
   const [openMonth,setOpenMonth]=useState({});
   const [showReal,setShowReal]=useState(false);
   const [modalSem,setModalSem]=useState(null);
+  // Overrides de proyección editados por el usuario: { lineLabel: { idx: valor } }
+  const [proyOverrides, setProyOverrides] = useState({});
 
   const toggleSeason=key=>setOpenSeason(p=>({...p,[key]:!p[key]}));
   const toggleMonth=mes=>setOpenMonth(p=>({...p,[mes]:!p[mes]}));
   const isMonthOpen=mes=>openMonth[mes]!==false;
+
+  // ── Saldo banco USD de esta empresa ────────────────────────────
+  const saldoBancoUSD = useMemo(()=>{
+    if(!saldosBancos) return null;
+    let total = 0, found = false;
+    Object.entries(saldosBancos).forEach(([key, rec])=>{
+      // key formato: "Empresa||Banco||moneda"
+      const parts = key.split("||");
+      if(parts[0]===empNombre && parts[2]==="usd" && rec?.monto!=null) {
+        total += Number(rec.monto)||0;
+        found = true;
+      }
+    });
+    return found ? total : null;
+  },[saldosBancos, empNombre]);
+
+  // ── Valor proyectado efectivo (base + override) ────────────────
+  const getProy = useCallback((lineLabel, idx) => {
+    if(proyOverrides[lineLabel]?.[idx] !== undefined)
+      return proyOverrides[lineLabel][idx];
+    // buscar en emp.sections
+    for(const sec of emp.sections){
+      const l = sec.lines.find(x=>x.label===lineLabel);
+      if(l) return l.proy[idx]||0;
+    }
+    return 0;
+  },[proyOverrides, emp]);
+
+  // Guardar override y persistir en Supabase
+  const handleEditProy = useCallback((lineLabel, idx, nuevoVal) => {
+    setProyOverrides(prev=>{
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[lineLabel]) next[lineLabel]={};
+      next[lineLabel][idx] = nuevoVal;
+      // Persistir async
+      if(onSaveProy) onSaveProy(empNombre, lineLabel, idx, nuevoVal);
+      return next;
+    });
+  },[empNombre, onSaveProy]);
+
+  // Cargar overrides desde realData cuando cambia la empresa
+  useEffect(()=>{
+    const ov = realData?.[empNombre]?._proyOverrides || {};
+    setProyOverrides(ov);
+  },[realData, empNombre]);
 
   const realMensual=useMemo(()=>{
     const rm={};
     MESES_65.forEach(mes=>{
       const sd=realData?.[empNombre]?.[mes]||{};
       const lines={};
-      Object.values(sd).forEach(sv=>{Object.entries(sv).forEach(([lbl,v])=>{lines[lbl]=(lines[lbl]||0)+(Number(v)||0);});});
+      Object.values(sd).forEach(sv=>{
+        if(typeof sv==="object"&&!Array.isArray(sv)){
+          Object.entries(sv).forEach(([lbl,v])=>{lines[lbl]=(lines[lbl]||0)+(Number(v)||0);});
+        }
+      });
       rm[mes]=lines;
     });
     return rm;
   },[realData,empNombre]);
 
-  const {flujoArr,acumArr}=useMemo(()=>{
-    const fa=MESES_65.map((_,i)=>{let f=0;emp.sections.forEach(sec=>sec.lines.forEach(l=>{f+=(l.proy[i]||0)*sec.signo;}));return f;});
-    let a=emp.saldo_ini;
-    const aa=fa.map(f=>{a+=f;return a;});
-    return {flujoArr:fa,acumArr:aa};
-  },[emp]);
+  // Flujo con overrides aplicados
+  const {flujoArr, acumArr} = useMemo(()=>{
+    const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
+    const fa = MESES_65.map((_,i)=>{
+      let f=0;
+      emp.sections.forEach(sec=>sec.lines.forEach(l=>{
+        const v = proyOverrides[l.label]?.[i] !== undefined
+          ? proyOverrides[l.label][i]
+          : (l.proy[i]||0);
+        f += v * sec.signo;
+      }));
+      return f;
+    });
+    let a = saldoIni;
+    const aa = fa.map(f=>{a+=f;return a;});
+    return {flujoArr:fa, acumArr:aa};
+  },[emp, proyOverrides, saldoBancoUSD]);
+
+  // Flujo neto por mes (para totales mensuales en vista semanal)
+  const flujoMes = useMemo(()=>{
+    const fm={};
+    MESES_65.forEach((mes,i)=>{ fm[mes]=flujoArr[i]; });
+    return fm;
+  },[flujoArr]);
 
   const colStructure=useMemo(()=>{
     return SEASONS.map(s=>{
@@ -964,28 +1073,43 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
         } else {
           sems.forEach((sw,si)=>{
             cols.push({type:"week",mes:m,semana:sw,idx:mIdx(m),nSems,
-              label:sw,isFirstInSeason:mi===0&&si===0,
-              isFirstInMonth:si===0});
+              label:sw,isFirstInSeason:mi===0&&si===0,isFirstInMonth:si===0});
           });
+          // Columna total mensual al final
+          cols.push({type:"month_total",mes:m,idx:mIdx(m),nSems,
+            label:`Σ ${m}`,isFirstInSeason:false,isMonthHeader:false,isTotalMes:true});
         }
       });
       return {season:s,collapsed:false,cols};
     });
   },[openSeason,openMonth,vista,emp]); // eslint-disable-line
 
+  // ── helper: valor efectivo de una línea en una col ─────────────
+  function getValCol(line, col) {
+    const rawMes = getProy(line.label, col.idx);
+    if(col.type==="month_collapsed" || col.type==="month" || col.type==="month_total") {
+      return rawMes;
+    }
+    // semana: valor mensual / nSems
+    return rawMes / col.nSems;
+  }
+
   function renderTabla() {
+    const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
+
     return (
       <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`}}>
         <table style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
           <thead>
+            {/* Fila 1: temporadas */}
             <tr style={{background:C.bg}}>
               <th style={{padding:"8px 14px",textAlign:"left",color:C.muted,fontSize:10,
-                position:"sticky",left:0,background:C.bg,zIndex:3,minWidth:200,
+                position:"sticky",left:0,background:C.bg,zIndex:3,minWidth:210,
                 borderRight:`1px solid ${C.border}`}}>
-                Línea
+                Línea {canEdit&&<span style={{fontSize:8,color:C.accentL,marginLeft:4}}>✏️ editable</span>}
               </th>
               {colStructure.map(({season:s,collapsed,cols})=>{
-                const span=collapsed?1:cols.length||1;
+                const span=collapsed?1:Math.max(cols.length,1);
                 return (
                   <th key={s.key} colSpan={span} onClick={()=>toggleSeason(s.key)}
                     style={{padding:"7px 10px",textAlign:"center",
@@ -997,6 +1121,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
                 );
               })}
             </tr>
+            {/* Fila 2 (semanal): headers de mes */}
             {vista==="semanal"&&(
               <tr style={{background:C.bg2}}>
                 <th style={{position:"sticky",left:0,background:C.bg2,zIndex:3,borderRight:`1px solid ${C.border}`}}/>
@@ -1021,21 +1146,29 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
                 })}
               </tr>
             )}
+            {/* Fila 3: semanas / meses */}
             <tr style={{background:C.bg}}>
               <th style={{position:"sticky",left:0,background:C.bg,zIndex:3,borderRight:`1px solid ${C.border}`}}/>
               {colStructure.map(({season:s,collapsed,cols})=>{
-                if(collapsed) return <th key={s.key} style={{padding:"4px 8px",color:C.muted,fontSize:9,borderLeft:`2px solid ${C.border2}`,textAlign:"center",background:C.bg}}>{s.months.length}m</th>;
+                if(collapsed) return (
+                  <th key={s.key} style={{padding:"4px 8px",color:C.muted,fontSize:9,
+                    borderLeft:`2px solid ${C.border2}`,textAlign:"center",background:C.bg}}>
+                    {s.months.length}m
+                  </th>
+                );
                 return cols.map((col,ci)=>{
                   const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                  const isTot=col.isTotalMes;
                   return (
                     <th key={`${s.key}-${col.label}-${ci}`}
                       style={{padding:"4px 6px",textAlign:"center",
-                        color:col.type==="month_collapsed"?C.accentL:C.muted,
-                        fontSize:col.type==="month_collapsed"?9:8,
-                        fontWeight:col.type==="month_collapsed"?700:500,
+                        color:isTot?C.yellow:col.type==="month_collapsed"?C.accentL:C.muted,
+                        fontSize:isTot?8:col.type==="month_collapsed"?9:8,
+                        fontWeight:isTot?800:col.type==="month_collapsed"?700:500,
                         whiteSpace:"nowrap",
-                        minWidth:vista==="semanal"?46:68,background:C.bg,
-                        borderLeft:(col.isFirstInSeason)?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}55`:`1px solid ${C.border}11`,
+                        minWidth:isTot?70:vista==="semanal"?46:68,
+                        background:isTot?`${C.yellow}18`:C.bg,
+                        borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}55`:`1px solid ${C.border}11`,
                         cursor:col.type==="month_collapsed"?"pointer":"default"}}
                       onClick={col.type==="month_collapsed"?()=>toggleMonth(col.mes):undefined}>
                       {col.type==="month_collapsed"?`▸ ${col.label}`:col.label}
@@ -1046,8 +1179,47 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
             </tr>
           </thead>
           <tbody>
+            {/* FILA SALDO BANCO ──────────────────────────────────── */}
+            <tr style={{background:`${C.blue}18`,borderBottom:`2px solid ${C.border2}`}}>
+              <td style={{padding:"7px 14px",position:"sticky",left:0,
+                background:`${C.blue}18`,borderRight:`1px solid ${C.border}`,zIndex:1}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.blue}}>🏦 Saldo Banco (USD)</div>
+                <div style={{fontSize:9,color:C.muted}}>
+                  {saldoBancoUSD!=null
+                    ? "desde Saldos Bancos · cuentas USD"
+                    : `saldo inicial base: ${$$(emp.saldo_ini)}`}
+                </div>
+              </td>
+              {colStructure.map(({season:s,collapsed,cols})=>{
+                if(collapsed) return (
+                  <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,
+                    fontSize:11,color:C.blue,borderLeft:`2px solid ${C.border2}`}}>
+                    {$$(saldoIni)}
+                  </td>
+                );
+                return cols.map((col,ci)=>{
+                  const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                  const isTot=col.isTotalMes;
+                  return (
+                    <td key={`banco-${col.mes}-${ci}`}
+                      style={{padding:"6px 5px",textAlign:"right",fontWeight:isTot?800:700,
+                        fontSize:isTot?10:9,color:isTot?C.yellow:C.blue,
+                        background:`${C.blue}12`,
+                        borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                      {/* Solo mostrar en primera col de cada mes o total */}
+                      {(col.isFirstInSeason||col.isFirstInMonth||isTot)
+                        ? $$(saldoIni)
+                        : ""}
+                    </td>
+                  );
+                });
+              })}
+            </tr>
+
+            {/* SECCIONES Y LÍNEAS ───────────────────────────────── */}
             {emp.sections.map(sec=>(
               <React.Fragment key={sec.cat}>
+                {/* Header sección */}
                 <tr style={{background:`${C.bg}cc`}}>
                   <td style={{padding:"5px 14px",position:"sticky",left:0,
                     background:C.bg,borderRight:`1px solid ${C.border}`,zIndex:1}}>
@@ -1057,81 +1229,120 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
                     </span>
                   </td>
                   {colStructure.map(({season:s,collapsed,cols})=>{
-                    const span=collapsed?1:cols.length||1;
-                    return <td key={s.key} colSpan={span} style={{borderLeft:`2px solid ${C.border2}`,background:C.bg}}/>;
+                    const span=collapsed?1:Math.max(cols.length,1);
+                    return <td key={s.key} colSpan={span}
+                      style={{borderLeft:`2px solid ${C.border2}`,background:C.bg}}/>;
                   })}
                 </tr>
+
+                {/* Líneas editables */}
                 {sec.lines.map(line=>(
                   <tr key={line.label} style={{borderBottom:`1px solid ${C.border}11`}}>
                     <td style={{padding:"5px 14px",color:line.formula?C.yellow:C.text,fontSize:11,
                       position:"sticky",left:0,background:C.card,zIndex:1,
                       borderRight:`1px solid ${C.border}`,whiteSpace:"nowrap",
                       maxWidth:220,overflow:"hidden",textOverflow:"ellipsis"}}>
-                      {line.formula&&<span style={{fontSize:9,marginRight:3}}>⚡</span>}{line.label}
+                      {line.formula&&<span style={{fontSize:9,marginRight:3}}>⚡</span>}
+                      {proyOverrides[line.label]&&<span style={{fontSize:8,color:C.accentL,marginRight:3}} title="Valor editado">●</span>}
+                      {line.label}
                     </td>
                     {colStructure.map(({season:s,collapsed,cols})=>{
                       if(collapsed){
-                        const total=s.indices.reduce((a,i)=>a+(line.proy[i]||0),0);
-                        return <td key={s.key} style={{padding:"5px 8px",textAlign:"right",
-                          color:total!==0?(sec.signo>0?C.green:C.red):C.muted2,
-                          fontSize:10,fontWeight:total!==0?600:400,
-                          borderLeft:`2px solid ${C.border2}`,background:C.card}}>
-                          {total!==0?$$(total):"—"}
-                        </td>;
+                        const total=s.indices.reduce((a,i)=>a+getProy(line.label,i),0);
+                        return (
+                          <td key={s.key} style={{padding:"5px 8px",textAlign:"right",
+                            color:total!==0?(sec.signo>0?C.green:C.red):C.muted2,
+                            fontSize:10,fontWeight:total!==0?600:400,
+                            borderLeft:`2px solid ${C.border2}`,background:C.card}}>
+                            {/* Total temporada para esta línea */}
+                            <div style={{fontSize:8,color:C.muted,marginBottom:1}}>Total T</div>
+                            {total!==0?$$(total):"—"}
+                          </td>
+                        );
                       }
                       return cols.map((col,ci)=>{
-                        let val;
-                        if(col.type==="month_collapsed"){
-                          val=line.proy[col.idx]||0;
-                        } else {
-                          val=(line.proy[col.idx]||0)/col.nSems;
-                        }
+                        const isTot=col.isTotalMes;
+                        const valMes=getProy(line.label,col.idx);
+                        const val=isTot ? valMes : (col.type==="month_collapsed" ? valMes : valMes/col.nSems);
                         const real=vista==="mensual"?(realMensual[col.mes]?.[line.label]||null):null;
                         const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                        const isEditable=canEdit&&!line.formula&&!isTot&&col.type!=="month_collapsed";
                         return (
-                          <td key={`${col.mes}-${col.label}-${ci}`}
+                          <td key={`${col.mes}-${col.label}-${line.label}-${ci}`}
                             style={{padding:"4px 5px",textAlign:"right",fontSize:9,
-                              background:C.card,
+                              background:isTot?`${C.yellow}12`:C.card,
                               borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
-                            {val!==0
-                              ?<span style={{color:sec.signo>0?C.green:C.red,fontWeight:600}}>{$$(val)}</span>
-                              :<span style={{color:C.muted2,fontSize:8}}>—</span>}
-                            {real!=null&&real!==0&&vista==="mensual"&&<div style={{fontSize:7,color:C.yellow}}>R:{$$(real)}</div>}
+                            {isTot ? (
+                              // Columna total mes: siempre solo muestra, no edita
+                              <span style={{color:val!==0?(sec.signo>0?C.green:C.red):C.muted2,
+                                fontWeight:val!==0?700:400,fontSize:9}}>
+                                {val!==0?$$(val):"—"}
+                              </span>
+                            ) : col.type==="month_collapsed" ? (
+                              <CeldaEditable
+                                val={val}
+                                color={sec.signo>0?C.green:C.red}
+                                canEdit={canEdit&&!line.formula}
+                                real={real}
+                                onSave={v=>handleEditProy(line.label,col.idx,v)}
+                              />
+                            ) : (
+                              <CeldaEditable
+                                val={val}
+                                color={sec.signo>0?C.green:C.red}
+                                canEdit={isEditable}
+                                real={real}
+                                onSave={v=>{
+                                  // Al editar una semana, guardar el valor mensual total (v * nSems)
+                                  handleEditProy(line.label,col.idx,v*col.nSems);
+                                }}
+                              />
+                            )}
                           </td>
                         );
                       });
                     })}
                   </tr>
                 ))}
-                <tr style={{background:`${C.bg2}`}}>
+
+                {/* Subtotal sección */}
+                <tr style={{background:C.bg2}}>
                   <td style={{padding:"5px 14px",fontWeight:700,color:CAT_COLOR[sec.cat],fontSize:10,
                     position:"sticky",left:0,background:C.bg2,borderRight:`1px solid ${C.border}`,zIndex:1}}>
-                    Total {sec.label}
+                    Σ {sec.label}
                   </td>
                   {colStructure.map(({season:s,collapsed,cols})=>{
                     if(collapsed){
-                      const total=s.indices.reduce((a,i)=>a+sec.lines.reduce((b,l)=>b+(l.proy[i]||0),0),0);
-                      return <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontWeight:700,
-                        color:CAT_COLOR[sec.cat],fontSize:10,borderLeft:`2px solid ${C.border2}`,background:C.bg2}}>
-                        {total!==0?$$(total):"—"}
-                      </td>;
+                      const total=s.indices.reduce((a,i)=>a+sec.lines.reduce((b,l)=>b+getProy(l.label,i),0),0);
+                      return (
+                        <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontWeight:800,
+                          color:CAT_COLOR[sec.cat],fontSize:10,borderLeft:`2px solid ${C.border2}`,background:C.bg2}}>
+                          <div style={{fontSize:8,color:C.muted,marginBottom:1}}>Total T</div>
+                          {total!==0?$$(total):"—"}
+                        </td>
+                      );
                     }
                     return cols.map((col,ci)=>{
-                      const nSems=col.type==="month_collapsed"?1:col.nSems;
-                      const total=sec.lines.reduce((a,l)=>a+(l.proy[col.idx]||0)/nSems,0);
+                      const isTot=col.isTotalMes;
+                      const nSems=col.type==="month_collapsed"||isTot?1:col.nSems;
+                      const total=sec.lines.reduce((a,l)=>a+getProy(l.label,col.idx)/nSems,0);
                       const isFirst=col.isFirstInSeason||col.isFirstInMonth;
-                      return <td key={`sub-${col.mes}-${col.label}-${ci}`}
-                        style={{padding:"4px 5px",textAlign:"right",fontWeight:700,
-                          color:CAT_COLOR[sec.cat],fontSize:9,background:C.bg2,
-                          borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
-                        {total!==0?$$(total):"—"}
-                      </td>;
+                      return (
+                        <td key={`sub-${col.mes}-${col.label}-${ci}`}
+                          style={{padding:"4px 5px",textAlign:"right",fontWeight:isTot?800:700,
+                            color:CAT_COLOR[sec.cat],fontSize:isTot?10:9,
+                            background:isTot?`${C.yellow}18`:C.bg2,
+                            borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                          {total!==0?$$(total):"—"}
+                        </td>
+                      );
                     });
                   })}
                 </tr>
               </React.Fragment>
             ))}
-            {/* FLUJO NETO */}
+
+            {/* FLUJO NETO ──────────────────────────────────────── */}
             <tr style={{background:`${C.accent}18`,borderTop:`2px solid ${C.border2}`}}>
               <td style={{padding:"7px 14px",fontWeight:800,color:C.accentL,fontSize:11,
                 position:"sticky",left:0,background:C.card,borderRight:`1px solid ${C.border}`,zIndex:1}}>
@@ -1140,22 +1351,33 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
               {colStructure.map(({season:s,collapsed,cols})=>{
                 if(collapsed){
                   const total=s.indices.reduce((a,i)=>a+flujoArr[i],0);
-                  return <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,
-                    fontSize:11,color:cf(total),borderLeft:`2px solid ${C.border2}`}}>{$$(total)}</td>;
+                  return (
+                    <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,
+                      fontSize:11,color:cf(total),borderLeft:`2px solid ${C.border2}`}}>
+                      <div style={{fontSize:8,color:C.muted,marginBottom:1}}>Total T</div>
+                      {$$(total)}
+                    </td>
+                  );
                 }
                 return cols.map((col,ci)=>{
-                  const nSems=col.type==="month_collapsed"?1:col.nSems;
+                  const isTot=col.isTotalMes;
+                  const nSems=col.type==="month_collapsed"||isTot?1:col.nSems;
                   const val=flujoArr[col.idx]/nSems;
                   const isFirst=col.isFirstInSeason||col.isFirstInMonth;
-                  return <td key={`flujo-${col.mes}-${col.label}-${ci}`}
-                    style={{padding:"6px 5px",textAlign:"right",fontWeight:800,fontSize:10,color:cf(val),
-                      borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
-                    {$$(val)}
-                  </td>;
+                  return (
+                    <td key={`flujo-${col.mes}-${col.label}-${ci}`}
+                      style={{padding:"6px 5px",textAlign:"right",fontWeight:isTot?900:800,
+                        fontSize:isTot?10:9,color:cf(val),
+                        background:isTot?`${C.yellow}18`:"transparent",
+                        borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                      {$$(val)}
+                    </td>
+                  );
                 });
               })}
             </tr>
-            {/* SALDO ACUM */}
+
+            {/* SALDO ACUMULADO ─────────────────────────────────── */}
             <tr style={{background:`${C.blue}11`}}>
               <td style={{padding:"7px 14px",fontWeight:800,color:C.blue,fontSize:11,
                 position:"sticky",left:0,background:C.card,borderRight:`1px solid ${C.border}`,zIndex:1}}>
@@ -1164,19 +1386,26 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
               {colStructure.map(({season:s,collapsed,cols})=>{
                 if(collapsed){
                   const last=s.indices[s.indices.length-1];
-                  return <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,
-                    fontSize:11,color:cf(acumArr[last]),borderLeft:`2px solid ${C.border2}`}}>
-                    {$$(acumArr[last])}
-                  </td>;
+                  return (
+                    <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,
+                      fontSize:11,color:cf(acumArr[last]),borderLeft:`2px solid ${C.border2}`}}>
+                      <div style={{fontSize:8,color:C.muted,marginBottom:1}}>Fin T</div>
+                      {$$(acumArr[last])}
+                    </td>
+                  );
                 }
                 return cols.map((col,ci)=>{
+                  const isTot=col.isTotalMes;
                   const isFirst=col.isFirstInSeason||col.isFirstInMonth;
-                  return <td key={`acum-${col.mes}-${col.label}-${ci}`}
-                    style={{padding:"6px 5px",textAlign:"right",fontWeight:700,fontSize:10,
-                      color:cf(acumArr[col.idx]),
-                      borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
-                    {$$(acumArr[col.idx])}
-                  </td>;
+                  return (
+                    <td key={`acum-${col.mes}-${col.label}-${ci}`}
+                      style={{padding:"6px 5px",textAlign:"right",fontWeight:isTot?900:700,
+                        fontSize:isTot?10:9,color:cf(acumArr[col.idx]),
+                        background:isTot?`${C.yellow}18`:"transparent",
+                        borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                      {$$(acumArr[col.idx])}
+                    </td>
+                  );
                 });
               })}
             </tr>
@@ -1186,28 +1415,36 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
     );
   }
 
+  const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {/* Header empresa */}
       <div style={{background:`${emp.color}15`,border:`1px solid ${emp.color}44`,borderRadius:12,
         padding:"14px 18px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
         <span style={{fontSize:28}}>{emp.emoji}</span>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:900,color:C.text}}>{empNombre}</div>
           <div style={{fontSize:11,color:C.muted}}>{emp.desc}</div>
-          {emp.hasFormula&&<div style={{fontSize:10,color:C.yellow,marginTop:2}}>⚡ Ingresos y costos calculados automáticamente desde Parámetros</div>}
+          {emp.hasFormula&&<div style={{fontSize:10,color:C.yellow,marginTop:2}}>⚡ Calculado desde Parámetros</div>}
         </div>
-        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-          {[{l:"Saldo inicial",v:emp.saldo_ini,c:C.blue},
-            {l:"Flujo total",v:flujoArr.reduce((a,b)=>a+b,0),c:cf(flujoArr.reduce((a,b)=>a+b,0))},
-            {l:"Saldo Jun-31",v:acumArr[acumArr.length-1],c:cf(acumArr[acumArr.length-1])}
+        <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+          {[
+            {l:"Saldo Banco USD", v:saldoBancoUSD!=null?saldoBancoUSD:emp.saldo_ini, c:C.blue,
+              sub:saldoBancoUSD!=null?"desde Saldos Bancos":"saldo base"},
+            {l:"Flujo total",     v:flujoArr.reduce((a,b)=>a+b,0), c:cf(flujoArr.reduce((a,b)=>a+b,0))},
+            {l:"Saldo Jun-31",   v:acumArr[acumArr.length-1], c:cf(acumArr[acumArr.length-1])},
           ].map(k=>(
             <div key={k.l} style={{textAlign:"right"}}>
               <div style={{fontSize:9,color:C.muted,textTransform:"uppercase"}}>{k.l}</div>
+              {k.sub&&<div style={{fontSize:8,color:C.muted2}}>{k.sub}</div>}
               <div style={{fontSize:13,fontWeight:800,color:k.c}}>{$$(k.v)}</div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Controles */}
       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <Btn active={vista==="mensual"} onClick={()=>setVista("mensual")} color={emp.color}>📅 Mensual</Btn>
         <Btn active={vista==="semanal"} onClick={()=>setVista("semanal")} color={emp.color}>📊 Semanal</Btn>
@@ -1220,16 +1457,40 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
           ))}
         </div>
         {canEdit&&(
-          <button onClick={()=>setShowReal(v=>!v)}
-            style={{marginLeft:"auto",padding:"6px 14px",borderRadius:8,
-              border:`1px solid ${showReal?emp.color:C.border}`,
-              background:showReal?`${emp.color}22`:"transparent",
-              color:showReal?emp.color:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>
-            ✏️ Ingresar Real
-          </button>
+          <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+            {Object.keys(proyOverrides).length>0&&(
+              <button onClick={()=>{
+                  setProyOverrides({});
+                  if(onSaveProy) onSaveProy(empNombre,"_clear_all",0,0);
+                }}
+                style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${C.red}`,
+                  background:`${C.red}18`,color:C.red,cursor:"pointer",fontSize:11,fontWeight:600}}>
+                ↺ Restablecer proyección
+              </button>
+            )}
+            <button onClick={()=>setShowReal(v=>!v)}
+              style={{padding:"6px 14px",borderRadius:8,
+                border:`1px solid ${showReal?emp.color:C.border}`,
+                background:showReal?`${emp.color}22`:"transparent",
+                color:showReal?emp.color:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>
+              ✏️ Ingresar Real
+            </button>
+          </div>
         )}
       </div>
+
+      {canEdit&&(
+        <div style={{background:`${C.accentL}15`,border:`1px solid ${C.accentL}33`,borderRadius:8,
+          padding:"7px 14px",fontSize:11,color:C.accentL}}>
+          💡 Haz click en cualquier valor proyectado para editarlo. Los cambios se guardan automáticamente.
+          {Object.keys(proyOverrides).length>0&&
+            <span style={{marginLeft:8,color:C.yellow}}>● {Object.keys(proyOverrides).length} línea(s) con valores modificados</span>}
+        </div>
+      )}
+
       {renderTabla()}
+
+      {/* Panel ingreso real */}
       {showReal&&canEdit&&(
         <Card>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -1264,10 +1525,12 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit}) {
           </div>
         </Card>
       )}
+
       <Card>
         <SectionTitle>Saldo Acumulado — Mar-26 → Jun-31</SectionTitle>
         <LineChart months={MESES_65} values={acumArr} color={emp.color}/>
       </Card>
+
       {modalSem&&(
         <ModalIngreso
           emp={emp}
@@ -1818,6 +2081,28 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
     setTimeout(()=>setSaved(null),3000);
   },[realData,params,saldosBancos]);
 
+  // Persistir overrides de proyección editados por usuario
+  const handleSaveProy=useCallback((empresa,lineLabel,idx,val)=>{
+    setRealData(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(!next[empresa]) next[empresa]={};
+      if(lineLabel==="_clear_all"){
+        delete next[empresa]._proyOverrides;
+      } else {
+        if(!next[empresa]._proyOverrides) next[empresa]._proyOverrides={};
+        if(!next[empresa]._proyOverrides[lineLabel]) next[empresa]._proyOverrides[lineLabel]={};
+        next[empresa]._proyOverrides[lineLabel][String(idx)]=val;
+      }
+      setTimeout(()=>{
+        dbSave({finanzas_real:next,allegria_params:params,saldos_bancos:saldosBancos})
+          .then(ok=>{ setSaved(ok?"✅ Proyección guardada":"⚠️ Error"); setTimeout(()=>setSaved(null),2000); });
+      },0);
+      return next;
+    });
+  // eslint-disable-next-line
+  },[params,saldosBancos]);
+
+
   const handleSaveSaldos=useCallback(async(next)=>{
     setSaldosBancos(next);
     const ok=await dbSave({finanzas_real:realData,allegria_params:params,saldos_bancos:next});
@@ -1921,7 +2206,8 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
             );})}
           </div>
           <FlujoEmpresa key={empTab} empNombre={empTab} empresas={empresas}
-            realData={realData} onSaveReal={handleSaveReal} canEdit={puedoEdit("flujo")}/>
+            realData={realData} onSaveReal={handleSaveReal} canEdit={puedoEdit("flujo")}
+            saldosBancos={saldosBancos} onSaveProy={handleSaveProy}/>
         </div>
       )}
 
