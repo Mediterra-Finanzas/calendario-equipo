@@ -2562,35 +2562,30 @@ function SaldosBancos({saldos,onSave,canEdit}) {
   const totalesEmpresa = useMemo(()=>{
     const t={};
     EMPRESAS_LIST.forEach(emp=>{
-      let sum=0, hasSaldo=false, fxPendiente=false;
+      let sum=0;
       CUENTAS_FIJAS.filter(c=>c.emp===emp).forEach(c=>{
         const s=saldos?.[c.key];
         if(!s||s.monto==null) return;
-        hasSaldo=true;
-        // Si FX cargado: convertir en vivo. Si no: usar el usd guardado en Supabase
+        // Si FX cargado: convertir en vivo
         if(fx) {
           const usdVal=toUSD(s.monto,c.moneda,fx);
-          if(usdVal!=null) sum+=usdVal; else fxPendiente=true;
+          if(usdVal!=null) sum+=usdVal;
         } else if(s.usd!=null) {
-          sum+=s.usd;
+          // Usar valor USD guardado en Supabase como fallback
+          sum+=Number(s.usd)||0;
         } else if(c.moneda==="usd") {
-          sum+=Number(s.monto)||0; // USD directo sin conversión
-        } else {
-          fxPendiente=true;
+          // USD directo sin conversión
+          sum+=Number(s.monto)||0;
         }
+        // CLP/EUR/PEN sin FX y sin usd guardado: no suma (evita mostrar valor incorrecto)
       });
-      t[emp]={usd: hasSaldo ? sum : null, fxPendiente};
+      t[emp]=sum; // siempre número, 0 si no hay saldo
     });
     return t;
   },[saldos,fx]);
 
   const totalUSD = useMemo(()=>{
-    let s=0, hasSaldo=false;
-    Object.values(totalesEmpresa).forEach(({usd})=>{
-      if(usd==null) return;
-      s+=usd; hasSaldo=true;
-    });
-    return hasSaldo ? s : null;
+    return Object.values(totalesEmpresa).reduce((a,b)=>a+b,0);
   },[totalesEmpresa]);
 
   const hasDirty=Object.keys(dirty).length>0;
@@ -2644,43 +2639,45 @@ function SaldosBancos({saldos,onSave,canEdit}) {
 
       {/* ── Dashboard resumen por empresa ─────────────────────── */}
       <Card>
-        <SectionTitle>Resumen por empresa · en USD</SectionTitle>
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {EMPRESAS_LIST.map(emp=>{
-            const e=EMPRESAS_STATIC[emp]||{emoji:"🏢",color:C.muted};
-            const usd=totalesEmpresa[emp]?.usd;
-            const maxVal=Math.max(...EMPRESAS_LIST.map(n=>totalesEmpresa[n]?.usd||0),1);
-            const pct=usd!=null?Math.max(0,(usd/maxVal)*100):0;
-            if(usd==null) return null;
-            return(
-              <div key={emp} style={{display:"grid",gridTemplateColumns:"180px 1fr 110px",gap:10,alignItems:"center"}}>
-                <div style={{fontSize:11,color:C.text,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                  {e.emoji} {emp}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+          <SectionTitle>Resumen por empresa · USD</SectionTitle>
+          {fxLoading&&<span style={{fontSize:10,color:C.yellow}}>⟳ Actualizando FX…</span>}
+          {fxError&&<span style={{fontSize:10,color:C.orange}}>⚠️ Sin FX en vivo — usando valores guardados</span>}
+        </div>
+        {(()=>{
+          const maxVal=Math.max(...EMPRESAS_LIST.map(n=>totalesEmpresa[n]||0),1);
+          return(
+            <div style={{display:"flex",flexDirection:"column",gap:7}}>
+              {EMPRESAS_LIST.map(emp=>{
+                const e=EMPRESAS_STATIC[emp]||{emoji:"🏢",color:C.muted};
+                const usd=totalesEmpresa[emp]||0;
+                const pct=Math.max(0,(usd/maxVal)*100);
+                return(
+                  <div key={emp} style={{display:"grid",gridTemplateColumns:"190px 1fr 120px",gap:10,alignItems:"center"}}>
+                    <div style={{fontSize:11,color:C.text,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {e.emoji} {emp}
+                    </div>
+                    <div style={{background:C.card2,borderRadius:4,height:10,overflow:"hidden"}}>
+                      <div style={{width:`${pct}%`,height:"100%",background:usd>0?e.color:C.muted2,borderRadius:4,opacity:0.8,transition:"width 0.4s"}}/>
+                    </div>
+                    <div style={{textAlign:"right",fontSize:12,fontWeight:usd>0?700:400,color:usd>0?cf(usd):C.muted}}>
+                      {usd>0?"$"+usd.toLocaleString("es-CL",{maximumFractionDigits:0}):usd<0?"-$"+Math.abs(usd).toLocaleString("es-CL",{maximumFractionDigits:0}):"—"}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{borderTop:`2px solid ${C.border2}`,marginTop:4,paddingTop:8,
+                display:"grid",gridTemplateColumns:"190px 1fr 120px",gap:10,alignItems:"center"}}>
+                <div style={{fontSize:12,fontWeight:900,color:C.text}}>TOTAL GRUPO</div>
+                <div/>
+                <div style={{textAlign:"right",fontSize:15,fontWeight:900,color:cf(totalUSD)}}>
+                  {totalUSD>=0?"$":"-$"}{Math.abs(totalUSD).toLocaleString("es-CL",{maximumFractionDigits:0})}
+                  <span style={{fontSize:9,color:C.muted,marginLeft:4}}>USD</span>
                 </div>
-                <div style={{background:C.card2,borderRadius:4,height:10,overflow:"hidden"}}>
-                  <div style={{width:`${pct}%`,height:"100%",background:e.color,borderRadius:4,opacity:0.8,transition:"width 0.4s"}}/>
-                </div>
-                <div style={{textAlign:"right",fontSize:12,fontWeight:700,color:cf(usd)}}>
-                  {usd>=0?"$":"-$"}{Math.abs(usd).toLocaleString("es-CL",{maximumFractionDigits:0})}
-                </div>
-              </div>
-            );
-          }).filter(Boolean)}
-          {/* Línea total */}
-          {totalUSD!=null&&(
-            <div style={{borderTop:`2px solid ${C.border2}`,marginTop:6,paddingTop:8,
-              display:"grid",gridTemplateColumns:"180px 1fr 110px",gap:10,alignItems:"center"}}>
-              <div style={{fontSize:12,fontWeight:900,color:C.text}}>TOTAL GRUPO</div>
-              <div/>
-              <div style={{textAlign:"right",fontSize:14,fontWeight:900,color:cf(totalUSD)}}>
-                {totalUSD>=0?"$":"-$"}{Math.abs(totalUSD).toLocaleString("es-CL",{maximumFractionDigits:0})}
-                <span style={{fontSize:9,color:C.muted,marginLeft:4}}>USD</span>
               </div>
             </div>
-          )}
-        </div>
-        {fxLoading&&<div style={{fontSize:10,color:C.yellow,marginTop:8}}>⟳ Actualizando paridades FX…</div>}
-        {fxError&&<div style={{fontSize:10,color:C.red,marginTop:8}}>⚠️ Sin paridad FX — mostrando valores guardados</div>}
+          );
+        })()}
       </Card>
 
       {canEdit&&(
@@ -2711,7 +2708,7 @@ function SaldosBancos({saldos,onSave,canEdit}) {
           const cuentas=porEmpresa[emp]||[];
           const empColor=EMPRESAS_STATIC[emp]?.color||C.muted;
           const empEmoji=EMPRESAS_STATIC[emp]?.emoji||"🏢";
-          const empUSD=totalesEmpresa[emp]?.usd;
+          const empUSD=totalesEmpresa[emp]||0;
           const isOpen=!collapsed[emp];
           const dirtyCount=cuentas.filter(c=>dirty[c.key]).length;
 
@@ -2724,11 +2721,9 @@ function SaldosBancos({saldos,onSave,canEdit}) {
                 <span style={{fontSize:20}}>{empEmoji}</span>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:800,color:empColor}}>{emp}</div>
-                  {empUSD!=null&&(
-                    <div style={{fontSize:11,color:cf(empUSD),marginTop:1}}>
-                      Total: ${empUSD.toLocaleString("es-CL",{maximumFractionDigits:0})} USD
-                    </div>
-                  )}
+                  <div style={{fontSize:11,color:empUSD>0?cf(empUSD):C.muted,marginTop:1}}>
+                    {empUSD>0?`$${empUSD.toLocaleString("es-CL",{maximumFractionDigits:0})} USD`:"Sin saldo USD"}
+                  </div>
                 </div>
                 {dirtyCount>0&&(
                   <span style={{fontSize:10,background:`${C.yellow}33`,color:C.yellow,
