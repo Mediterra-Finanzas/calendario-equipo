@@ -418,6 +418,7 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
             {l:"Cliente",w:130},{l:"País",w:80},{l:"Proforma",w:150},
             {l:"Año",c:true,w:60},{l:"Trim.",c:true,w:55},{l:"N° Plantas",c:true,w:110},
             {l:"Estado",c:true,w:160},
+            ...(can?[{l:"",c:true,w:40}]:[]),
           ]}/>
           <tbody>
             {filtrado.map((r,i)=>(
@@ -441,6 +442,10 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
                   <BadgeEstado val={r.estado} opts={["Por confirmar","Confirmado"]} onChange={v=>upd(r.id,"estado",v)} can={can}/>
                   {r.estado==="Confirmado"&&<div style={{fontSize:9,color:C.verde,marginTop:2}}>→ en Royalty/Planta</div>}
                 </td>
+                {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                  <button onClick={()=>{if(window.confirm(`¿Eliminar "${r.cliente}"?`))setData(prev=>prev.filter(x=>x.id!==r.id));}}
+                    style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:700}}>×</button>
+                </td>}
               </tr>
             ))}
             {filtrado.length===0&&<tr><td colSpan={7} style={{textAlign:"center",padding:32,color:C.gris}}>Sin registros</td></tr>}
@@ -564,6 +569,7 @@ function RoyaltyPlanta({data,setData,can}) {
             {l:"N° OC",c:true,w:90},{l:"N° Factura",c:true,w:100},
             {l:"Fact. Est.",c:true,w:130},{l:"Cobro",c:true,w:110},
             {l:"Fecha pago",c:true,w:100},{l:"Vivero",w:110},
+            ...(can?[{l:"",c:true,w:40}]:[]),
           ]}/>
           <tbody>
             {filtrado.map((r,i)=>(
@@ -586,6 +592,10 @@ function RoyaltyPlanta({data,setData,can}) {
                 <td style={{padding:"7px 10px",textAlign:"center"}}><BadgePago pagado={r.pagado} onChange={v=>upd(r.id,"pagado",v)} can={can}/></td>
                 <td style={{padding:"7px 10px",textAlign:"center",fontSize:11,color:C.gris}}><Cell val={r.fechaPago} onChange={v=>upd(r.id,"fechaPago",v)} type="date" can={can}/></td>
                 <td style={{padding:"7px 10px",fontSize:11}}><Cell val={r.vivero} onChange={v=>upd(r.id,"vivero",v)} opts={VIVEROS} can={can}/></td>
+                {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                  <button onClick={()=>{if(window.confirm(`¿Eliminar registro de "${r.cliente}"?`))setData(prev=>prev.filter(x=>x.id!==r.id));}}
+                    style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:700}}>×</button>
+                </td>}
               </tr>
             ))}
             {filtrado.length===0&&<tr><td colSpan={13} style={{textAlign:"center",padding:32,color:C.gris}}>Sin registros</td></tr>}
@@ -707,6 +717,7 @@ function RoyaltyComercial({data,setData,can}) {
             {l:"Mto. Facturar",c:true,w:115},{l:"Mto. Cobrar",c:true,w:115},
             {l:"N° Factura",c:true,w:100},{l:"Fact. Est.",c:true,w:130},{l:"Cobro",c:true,w:110},
             {l:"Alerta",c:true,w:80},
+            ...(can?[{l:"",c:true,w:40}]:[]),
           ]}/>
           <tbody>
             {filtrado.map((r,i)=>(
@@ -733,6 +744,10 @@ function RoyaltyComercial({data,setData,can}) {
                     ? <span style={{fontSize:18}}>⚠️</span>
                     : <span style={{fontSize:10,color:C.gris}}>{r.diasAviso>0?`${r.diasAviso}d`:"—"}</span>}
                 </td>
+                {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                  <button onClick={()=>{if(window.confirm(`¿Eliminar royalty comercial de "${r.cliente}"?`))setData(prev=>prev.filter(x=>x.id!==r.id));}}
+                    style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:700}}>×</button>
+                </td>}
               </tr>
             ))}
             {filtrado.length===0&&<tr><td colSpan={12} style={{textAlign:"center",padding:32,color:C.gris}}>Sin registros</td></tr>}
@@ -787,7 +802,7 @@ function FeeEntrada({data,setData,can}) {
       </div>
       <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
-          <Th cols={[{l:"Cliente",w:130},{l:"País",w:80},{l:"N° Factura",c:true,w:110},{l:"Fact. Est.",c:true,w:130},{l:"Fecha pago",c:true,w:100},{l:"Monto US$",c:true,w:100},{l:"Cobro",c:true,w:110},{l:"Detalle",w:140}]}/>
+          <Th cols={[{l:"Cliente",w:130},{l:"País",w:80},{l:"N° Factura",c:true,w:110},{l:"Fact. Est.",c:true,w:130},{l:"Fecha pago",c:true,w:100},{l:"Monto US$",c:true,w:100},{l:"Cobro",c:true,w:110},{l:"Detalle",w:140},...(can?[{l:"",c:true,w:40}]:[])]}/>
           <tbody>
             {data.map((r,i)=>(
               <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
@@ -799,6 +814,10 @@ function FeeEntrada({data,setData,can}) {
                 <td style={{padding:"8px 12px",textAlign:"right",fontWeight:700,color:C.verde}}><Cell val={r.montoUSD} onChange={v=>upd(r.id,"montoUSD",parseFloat(v))} type="number" can={can}/></td>
                 <td style={{padding:"8px 12px",textAlign:"center"}}><BadgePago pagado={r.pagado} onChange={v=>upd(r.id,"pagado",v)} can={can}/></td>
                 <td style={{padding:"8px 12px",fontSize:11,color:C.gris}}><Cell val={r.detalle} onChange={v=>upd(r.id,"detalle",v)} can={can}/></td>
+                {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                  <button onClick={()=>{if(window.confirm(`¿Eliminar fee entrada de "${r.cliente}"?`))setData(prev=>prev.filter(x=>x.id!==r.id));}}
+                    style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:700}}>×</button>
+                </td>}
               </tr>
             ))}
           </tbody>
@@ -876,7 +895,7 @@ function FeeViveros({data,setData,can}) {
       </div>
       <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
-          <Th cols={[{l:"Vivero",w:100},{l:"Empresa",w:150},{l:"País",w:70},{l:"Proforma",w:130},{l:"N° Plantas",c:true,w:90},{l:"Regalía",c:true,w:70},{l:"Total Osiris",c:true,w:110},{l:"Tipo",c:true,w:90},{l:"Mto. Facturar",c:true,w:115},{l:"Fecha Fact.",c:true,w:100},{l:"N° Factura",c:true,w:100},{l:"Fact. Est.",c:true,w:130},{l:"Cobro",c:true,w:110}]}/>
+          <Th cols={[{l:"Vivero",w:100},{l:"Empresa",w:150},{l:"País",w:70},{l:"Proforma",w:130},{l:"N° Plantas",c:true,w:90},{l:"Regalía",c:true,w:70},{l:"Total Osiris",c:true,w:110},{l:"Tipo",c:true,w:90},{l:"Mto. Facturar",c:true,w:115},{l:"Fecha Fact.",c:true,w:100},{l:"N° Factura",c:true,w:100},{l:"Fact. Est.",c:true,w:130},{l:"Cobro",c:true,w:110},...(can?[{l:"",c:true,w:40}]:[])]}/>
           <tbody>
             {filtrado.map((r,i)=>(
               <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
@@ -893,9 +912,13 @@ function FeeViveros({data,setData,can}) {
                 <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.nFact} onChange={v=>upd(r.id,"nFact",v)} can={can} ph="F-..."/></td>
                 <td style={{padding:"7px 10px",textAlign:"center"}}><BadgeFact nFact={r.nFact}/></td>
                 <td style={{padding:"7px 10px",textAlign:"center"}}><BadgePago pagado={r.pagado} onChange={v=>upd(r.id,"pagado",v)} can={can}/></td>
+                {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                  <button onClick={()=>{if(window.confirm(`¿Eliminar fee vivero de "${r.empresa}"?`))setData(prev=>prev.filter(x=>x.id!==r.id));}}
+                    style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:700}}>×</button>
+                </td>}
               </tr>
             ))}
-            {filtrado.length===0&&<tr><td colSpan={13} style={{textAlign:"center",padding:32,color:C.gris}}>Sin registros</td></tr>}
+            {filtrado.length===0&&<tr><td colSpan={can?14:13} style={{textAlign:"center",padding:32,color:C.gris}}>Sin registros</td></tr>}
           </tbody>
         </table>
       </div>
