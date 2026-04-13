@@ -6131,12 +6131,22 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
   const [subApp,setSubApp]=useState(null);
   const [subTab,setSubTab]=useState("resumen");
 
+  // Merge: combinar datos guardados en Supabase con los _INIT del Excel
+  // Si un registro existe en Supabase (mismo id), usa el de Supabase (tiene ediciones del usuario)
+  // Si solo existe en _INIT (registros nuevos del Excel), lo agrega
+  function mergeConInit(saved, init) {
+    if(!saved || saved.length===0) return init;
+    const savedIds = new Set(saved.map(r=>r.id));
+    const nuevosDeInit = init.filter(r=>!savedIds.has(r.id));
+    return [...saved, ...nuevosDeInit];
+  }
+
   const ctData=osirisData?.contratos        ??CONTRATOS_INIT;
-  const rpData=osirisData?.royaltyPlanta    ??ROYALTY_PLANTA_INIT;
-  const feData=osirisData?.feeEntrada       ??FEE_ENTRADA_INIT;
-  const rcData=osirisData?.royaltyComercial ??ROYALTY_COMERCIAL_INIT;
-  const fvData=osirisData?.feeViveros       ??FEE_VIVEROS_INIT;
-  const tpData=osirisData?.totalPedidos     ??TOTAL_PEDIDOS_INIT;
+  const rpData=mergeConInit(osirisData?.royaltyPlanta,    ROYALTY_PLANTA_INIT);
+  const feData=mergeConInit(osirisData?.feeEntrada,       FEE_ENTRADA_INIT);
+  const rcData=mergeConInit(osirisData?.royaltyComercial, ROYALTY_COMERCIAL_INIT);
+  const fvData=mergeConInit(osirisData?.feeViveros,       FEE_VIVEROS_INIT);
+  const tpData=mergeConInit(osirisData?.totalPedidos,     TOTAL_PEDIDOS_INIT);
 
   const setCt=useCallback(fn=>setOsirisData(prev=>({...prev,contratos:      typeof fn==="function"?fn(prev?.contratos      ??CONTRATOS_INIT)      :fn})),[setOsirisData]);
   const setRp=useCallback(fn=>setOsirisData(prev=>({...prev,royaltyPlanta:   typeof fn==="function"?fn(prev?.royaltyPlanta   ??ROYALTY_PLANTA_INIT)   :fn})),[setOsirisData]);
