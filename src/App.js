@@ -558,6 +558,7 @@ export default function App(){
   const [loginError,setLoginError]=useState("");
   const [pinsPersonalizados,setPinsPersonalizados]=useState({});
   const [modalPin,setModalPin]=useState(null);
+  const [workerPendiente,setWorkerPendiente]=useState(null); // usuario que entró con PIN temporal
   const [resetNombre,setResetNombre]=useState("");
   const [resetEnviando,setResetEnviando]=useState(false);
   const [resetMsg,setResetMsg]=useState("");
@@ -734,9 +735,15 @@ export default function App(){
     const esTemp=pinTemp&&loginPin.trim()===pinTemp;
     const esOk=loginPin.trim()===pinOk;
     if(esOk||esTemp){
-      setUsuarioActual(w);setLoginError("");
-      // Solo forzar cambio si entró con PIN temporal (no con PIN normal)
-      if(esTemp&&!esOk) setModalPin("cambiar");
+      setLoginError("");
+      if(esTemp&&!esOk){
+        // PIN temporal: guardar worker pendiente y mostrar cambio PIN ANTES de entrar
+        setWorkerPendiente(w);
+        setModalPin("cambiar");
+      } else {
+        // PIN normal: entrar directo
+        setUsuarioActual(w);
+      }
     }else{
       setLoginError("PIN incorrecto.");
     }
@@ -758,22 +765,29 @@ export default function App(){
 
   async function handleCambiarPin(){
     setPinError("");
-    if(!usuarioActual)return;
-    const po=getPinActivo(usuarioActual);
-    const pinTemp=pinsPersonalizados[usuarioActual.nombre+"_temp"];
-    // Validar contra PIN normal O PIN temporal
+    // Puede venir de login con PIN temporal (workerPendiente) o desde perfil (usuarioActual)
+    const worker = workerPendiente || usuarioActual;
+    if(!worker) return;
+    const po=getPinActivo(worker);
+    const pinTemp=pinsPersonalizados[worker.nombre+"_temp"];
+    // Validar contra PIN temporal (flujo reset) o PIN normal (flujo cambio desde perfil)
     const pinActualValido=pinActual===po||(pinTemp&&pinActual===pinTemp);
     if(!pinActualValido){setPinError("PIN actual incorrecto.");return;}
     if(pinNuevo.length<4){setPinError("Minimo 4 digitos.");return;}
     if(pinNuevo!==pinConfirm){setPinError("Los PINs no coinciden.");return;}
-    const nuevosPins={...pinsPersonalizados,[usuarioActual.nombre]:pinNuevo};
-    delete nuevosPins[usuarioActual.nombre+"_temp"];
+    const nuevosPins={...pinsPersonalizados,[worker.nombre]:pinNuevo};
+    delete nuevosPins[worker.nombre+"_temp"];
     setPinsPersonalizados(nuevosPins);
-    // Esperar confirmación de guardado antes de cerrar
+    // Esperar confirmación de guardado antes de continuar
     try {
       await dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,
         pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio,osirisData});
       setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);
+      // Si venía de login con temporal, ahora sí entrar a la app
+      if(workerPendiente){
+        setUsuarioActual(workerPendiente);
+        setWorkerPendiente(null);
+      }
       alert("PIN cambiado exitosamente!");
     } catch {
       setPinError("Error al guardar. Intenta de nuevo.");
@@ -1009,7 +1023,7 @@ export default function App(){
     </div>
   );
 
-  if(!usuarioActual) return (
+  if(!usuarioActual||workerPendiente) return (
     <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#0f172a,#1e3a5f)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",padding:20}}>
       <div style={{background:"#fff",borderRadius:20,padding:"36px 40px",maxWidth:420,width:"100%",boxShadow:"0 24px 64px rgba(0,0,0,0.5)"}}>
         <div style={{textAlign:"center",marginBottom:28}}>
