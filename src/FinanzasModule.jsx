@@ -2562,26 +2562,35 @@ function SaldosBancos({saldos,onSave,canEdit}) {
   const totalesEmpresa = useMemo(()=>{
     const t={};
     EMPRESAS_LIST.forEach(emp=>{
-      let sum=0, ok=true;
+      let sum=0, hasSaldo=false, fxPendiente=false;
       CUENTAS_FIJAS.filter(c=>c.emp===emp).forEach(c=>{
         const s=saldos?.[c.key];
         if(!s||s.monto==null) return;
-        const usdVal=toUSD(s.monto,c.moneda,fx);
-        if(usdVal==null){ok=false;return;}
-        sum+=usdVal;
+        hasSaldo=true;
+        // Si FX cargado: convertir en vivo. Si no: usar el usd guardado en Supabase
+        if(fx) {
+          const usdVal=toUSD(s.monto,c.moneda,fx);
+          if(usdVal!=null) sum+=usdVal; else fxPendiente=true;
+        } else if(s.usd!=null) {
+          sum+=s.usd;
+        } else if(c.moneda==="usd") {
+          sum+=Number(s.monto)||0; // USD directo sin conversión
+        } else {
+          fxPendiente=true;
+        }
       });
-      t[emp]={usd:ok?sum:null};
+      t[emp]={usd: hasSaldo ? sum : null, fxPendiente};
     });
     return t;
   },[saldos,fx]);
 
   const totalUSD = useMemo(()=>{
-    let s=0,ok=true;
+    let s=0, hasSaldo=false;
     Object.values(totalesEmpresa).forEach(({usd})=>{
-      if(usd==null){ok=false;return;}
-      s+=usd;
+      if(usd==null) return;
+      s+=usd; hasSaldo=true;
     });
-    return ok?s:null;
+    return hasSaldo ? s : null;
   },[totalesEmpresa]);
 
   const hasDirty=Object.keys(dirty).length>0;
@@ -2709,7 +2718,12 @@ function SaldosBancos({saldos,onSave,canEdit}) {
                         const saved=saldos?.[c.key];
                         const val=getVal(c.key);
                         const isDirty=!!dirty[c.key];
-                        const usdVal=(saved?.monto!=null&&fx)?toUSD(saved.monto,c.moneda,fx):null;
+                        // Si FX cargado: convertir en vivo. Si no: usar usd guardado o monto directo si es USD
+                        const usdVal = saved?.monto!=null
+                          ? fx
+                            ? toUSD(saved.monto,c.moneda,fx)
+                            : (saved.usd!=null ? saved.usd : c.moneda==="usd" ? Number(saved.monto) : null)
+                          : null;
                         const mon=MONEDAS.find(m=>m.id===c.moneda);
                         return (
                           <tr key={c.key} style={{borderBottom:`1px solid ${C.border}22`,
