@@ -749,12 +749,16 @@ export default function App(){
             const merged=WORKERS_BASE.map(wb=>{
               const saved=d.usuarios.find(u=>u.nombre===wb.nombre);
               if(!saved) return wb;
-              // Mantener rol y módulos del código base
-              // PERO preservar tab_permisos y desactivado guardados en Supabase
               return {
                 ...saved,
-                modulos: wb.modulos,
-                rol: wb.rol,
+                // Módulos: usar los guardados en Supabase (admin los configura),
+                // solo si no hay guardados usar los del código base
+                modulos: (saved.modulos && saved.modulos.length > 0)
+                  ? saved.modulos
+                  : wb.modulos,
+                // Rol: respetar lo guardado en Supabase
+                rol: saved.rol || wb.rol,
+                // Permisos por pestaña: siempre preservar lo guardado
                 tab_permisos: saved.tab_permisos || {},
                 desactivado: saved.desactivado || false,
               };
