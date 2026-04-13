@@ -4892,8 +4892,9 @@ function TotalPedidos({data,setData,rpData,setRpData,can,clientes=[]}) {
         <div style={{position:"fixed",inset:0,background:"#0006",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{background:"#fff",borderRadius:16,padding:28,width:460,maxWidth:"92vw",boxShadow:"0 8px 32px #0003"}}>
             <h3 style={{margin:"0 0 16px",color:C.sl}}>Nuevo Pedido</h3>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              {[["Cliente *","cliente","text"],["Proforma","proforma","text"],["Año","año","number"],["Trimestre","trim","number"],["N° Plantas","nPlantas","number"]].map(([l,c,t])=>(
+            <SelectorCliente form={form} setForm={setForm} clientes={clientes}/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:8}}>
+              {[["Proforma","proforma","text"],["Año","año","number"],["Trimestre","trim","number"],["N° Plantas","nPlantas","number"]].map(([l,c,t])=>(
                 <div key={c}>
                   <label style={{fontSize:11,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>{l}</label>
                   <input type={t} value={form[c]} onChange={e=>setForm(p=>({...p,[c]:e.target.value}))}
@@ -5042,8 +5043,9 @@ function RoyaltyPlanta({data,setData,can,clientes=[]}) {
         <div style={{position:"fixed",inset:0,background:"#0006",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{background:"#fff",borderRadius:16,padding:28,width:500,maxWidth:"92vw",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px #0003"}}>
             <h3 style={{margin:"0 0 16px",color:C.sl}}>Nuevo Royalty por Planta</h3>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              {[["Cliente *","cliente","text",null],["País","pais","select",PAISES],["Año","año","number",null],["Trimestre","trim","number",null],["N° Plantas","nPlantas","number",null],["US$/Planta","usdPlanta","number",null],["N° Orden de Compra","nOC","text",null],["N° Factura","nFact","text",null],["Fecha pago","fechaPago","date",null],["Vivero","vivero","select",VIVEROS]].map(([l,c,t,opts])=>(
+            <SelectorCliente form={form} setForm={setForm} clientes={clientes}/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:8}}>
+              {[["País","pais","select",PAISES],["Año","año","number",null],["Trimestre","trim","number",null],["N° Plantas","nPlantas","number",null],["US$/Planta","usdPlanta","number",null],["N° Orden de Compra","nOC","text",null],["N° Factura","nFact","text",null],["Fecha pago","fechaPago","date",null],["Vivero","vivero","select",VIVEROS]].map(([l,c,t,opts])=>(
                 <div key={c}>
                   <label style={{fontSize:11,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>{l}</label>
                   {opts?<select value={form[c]} onChange={e=>setForm(p=>({...p,[c]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}>{opts.map(o=><option key={o}>{o}</option>)}</select>
@@ -5196,8 +5198,9 @@ function RoyaltyComercial({data,setData,can,clientes=[]}) {
         <div style={{position:"fixed",inset:0,background:"#0006",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{background:"#fff",borderRadius:16,padding:28,width:440,maxWidth:"92vw",boxShadow:"0 8px 32px #0003"}}>
             <h3 style={{margin:"0 0 16px",color:C.sl}}>Nuevo Royalty Comercial</h3>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              {[["Cliente *","cliente","text",null],["País","pais","select",PAISES],["Trimestre inicio cobro","trimCobro","select",["1","2","3","4"]],["Año inicio cobro","añoCobro","number",null],["N° Plantas","nPlantas","number",null],["Há a cobrar","ha","number",null],["US$/Há (por def. $3.000)","usdHa","number",null],["N° Factura","nFact","text",null]].map(([l,c,t,opts])=>(
+            <SelectorCliente form={form} setForm={setForm} clientes={clientes}/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:8}}>
+              {[["País","pais","select",PAISES],["Trimestre inicio cobro","trimCobro","select",["1","2","3","4"]],["Año inicio cobro","añoCobro","number",null],["N° Plantas","nPlantas","number",null],["Há a cobrar","ha","number",null],["US$/Há (por def. $3.000)","usdHa","number",null],["N° Factura","nFact","text",null]].map(([l,c,t,opts])=>(
                 <div key={c}>
                   <label style={{fontSize:11,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>{l}</label>
                   {opts?<select value={form[c]} onChange={e=>setForm(p=>({...p,[c]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}>{opts.map(o=><option key={o}>{o}</option>)}</select>
@@ -6721,14 +6724,15 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const setFv=useCallback(fn=>setOsirisData(prev=>({...prev,feeViveros:      typeof fn==="function"?fn(prev?.feeViveros      ??FEE_VIVEROS_INIT)      :fn})),[setOsirisData]);
   const setTp=useCallback(fn=>setOsirisData(prev=>({...prev,totalPedidos:    typeof fn==="function"?fn(prev?.totalPedidos    ??TOTAL_PEDIDOS_INIT)    :fn})),[setOsirisData]);
 
-  // can base: no es consulta
-  const esEditorOAdmin = !esSoloConsulta(usuarioActual?.nombre||"") &&
-    (esAdmin(usuarioActual?.nombre||"") || (usuarioActual?.rol||"editor")!=="consulta");
-  // can por sección: respeta tab_permisos de osiris
+  // can base: cualquier rol excepto "consulta" puede editar
+  const rolActual = usuarioActual?.rol || "editor";
+  const esEditorOAdmin = rolActual !== "consulta";
+  // can por sección: respeta tab_permisos de osiris (default: editar para todos excepto consulta)
   const permContratos = tabPermisos?.contratos ?? (esEditorOAdmin ? "editar" : "ver");
   const permIngresos  = tabPermisos?.royalties  ?? (esEditorOAdmin ? "editar" : "ver");
   const canContratos  = permContratos === "editar";
-  const canIngresos   = permIngresos  === "editar";
+  // Si no hay tab_permisos configurado para royalties, un editor puede editar
+  const canIngresos   = permIngresos === "editar" || (esEditorOAdmin && !tabPermisos?.royalties);
   const canVerContratos = permContratos !== "sin_acceso";
   // can genérico usado en componentes internos (ingresos)
   const can = canIngresos;
