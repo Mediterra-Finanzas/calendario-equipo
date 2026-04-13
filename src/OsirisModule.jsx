@@ -4884,8 +4884,6 @@ function TotalPedidos({data,setData,rpData,setRpData,can,clientes=[]}) {
         )}
       />
       <div style={{overflowX:"auto"}}>
-    
-      <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
           <Th cols={[
             {l:"Cliente",w:130},{l:"País",w:80},{l:"Proforma",w:150},
@@ -5427,7 +5425,6 @@ function FeeViveros({data,setData,can,clientes=[]}) {
         )}
       />
       <div style={{overflowX:"auto"}}>
-          <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
           <Th cols={[{l:"Vivero",w:100},{l:"Empresa",w:150},{l:"País",w:70},{l:"Proforma",w:130},{l:"N° Plantas",c:true,w:90},{l:"Regalía",c:true,w:70},{l:"Total Osiris",c:true,w:110},{l:"Tipo",c:true,w:90},{l:"Mto. Facturar",c:true,w:115},{l:"Fecha Fact.",c:true,w:100},{l:"N° Factura",c:true,w:100},{l:"Fact. Est.",c:true,w:130},{l:"Cobro",c:true,w:110},...(can?[{l:"",c:true,w:40}]:[])]}/>
           <tbody>
