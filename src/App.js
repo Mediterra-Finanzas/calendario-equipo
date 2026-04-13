@@ -657,11 +657,17 @@ export default function App(){
             const merged=WORKERS_BASE.map(wb=>{
               const saved=d.usuarios.find(u=>u.nombre===wb.nombre);
               if(!saved) return wb;
-              // SIEMPRE usar modulos y rol del código fuente (WORKERS_BASE)
+              // Mantener rol y módulos del código base, pero respetar desactivado guardado
               return {...saved, modulos:wb.modulos, rol:wb.rol};
             });
+            // Usuarios extra agregados desde la app (no están en WORKERS_BASE)
             const extras=d.usuarios.filter(u=>!WORKERS_BASE.find(wb=>wb.nombre===u.nombre));
-            return[...merged,...extras];
+            // Aplicar estado desactivado guardado en Supabase
+            return[...merged,...extras].map(u=>{
+              const savedU=d.usuarios.find(s=>s.nombre===u.nombre);
+              if(savedU?.desactivado) return{...u,desactivado:true};
+              return u;
+            });
           });
           if(d.estados)setEstados(prev=>({...prev,...d.estados}));
           if(d.comentarios)setComentarios(d.comentarios);
@@ -729,7 +735,8 @@ export default function App(){
     const esOk=loginPin.trim()===pinOk;
     if(esOk||esTemp){
       setUsuarioActual(w);setLoginError("");
-      if(esTemp)setModalPin("cambiar");
+      // Solo forzar cambio si entró con PIN temporal (no con PIN normal)
+      if(esTemp&&!esOk) setModalPin("cambiar");
     }else{
       setLoginError("PIN incorrecto.");
     }
@@ -749,11 +756,12 @@ export default function App(){
     setResetEnviando(false);
   }
 
-  function handleCambiarPin(){
+  async function handleCambiarPin(){
     setPinError("");
     if(!usuarioActual)return;
     const po=getPinActivo(usuarioActual);
     const pinTemp=pinsPersonalizados[usuarioActual.nombre+"_temp"];
+    // Validar contra PIN normal O PIN temporal
     const pinActualValido=pinActual===po||(pinTemp&&pinActual===pinTemp);
     if(!pinActualValido){setPinError("PIN actual incorrecto.");return;}
     if(pinNuevo.length<4){setPinError("Minimo 4 digitos.");return;}
@@ -761,9 +769,15 @@ export default function App(){
     const nuevosPins={...pinsPersonalizados,[usuarioActual.nombre]:pinNuevo};
     delete nuevosPins[usuarioActual.nombre+"_temp"];
     setPinsPersonalizados(nuevosPins);
-    dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio,osirisData});
-    setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);
-    alert("PIN cambiado exitosamente!");
+    // Esperar confirmación de guardado antes de cerrar
+    try {
+      await dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,
+        pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio,osirisData});
+      setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);
+      alert("PIN cambiado exitosamente!");
+    } catch {
+      setPinError("Error al guardar. Intenta de nuevo.");
+    }
   }
 
   function puedeEditar(tarea,esResp){
