@@ -63,19 +63,33 @@ async function dbLoad() {
     const r = await fetch(`${SUPA_URL}/rest/v1/finanzas_real?id=eq.main&select=value`,
       { headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}` }});
     const d = await r.json();
-    return d?.[0]?.value ? JSON.parse(d[0].value) : {};
-  } catch { return {}; }
+    const parsed = d?.[0]?.value ? JSON.parse(d[0].value) : {};
+    console.log("[dbLoad] keys:", Object.keys(parsed), "saldos_bancos keys:", Object.keys(parsed.saldos_bancos||{}).length);
+    return parsed;
+  } catch(e) {
+    console.error("[dbLoad] error:", e);
+    return {};
+  }
 }
 async function dbSave(data) {
   try {
-    await fetch(`${SUPA_URL}/rest/v1/finanzas_real`, {
+    const body = JSON.stringify({ id:"main", value:JSON.stringify(data) });
+    const r = await fetch(`${SUPA_URL}/rest/v1/finanzas_real`, {
       method:"POST",
       headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}`,
         "Content-Type":"application/json", "Prefer":"resolution=merge-duplicates" },
-      body: JSON.stringify({ id:"main", value:JSON.stringify(data) })
+      body,
     });
+    if(!r.ok) {
+      const txt = await r.text().catch(()=>"");
+      console.error("[dbSave] HTTP",r.status, txt);
+      return false;
+    }
     return true;
-  } catch { return false; }
+  } catch(e) {
+    console.error("[dbSave] fetch error:", e);
+    return false;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2930,9 +2944,10 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   const handleSaveSaldos=useCallback(async(next)=>{
     setSaldosBancos(next);
     saldosBancosRef.current = next;
+    setSaved("💾 Guardando…");
     const ok=await persistAll({ saldos_bancos:next });
-    setSaved(ok?"✅ Guardado":"⚠️ Error");
-    setTimeout(()=>setSaved(null),3000);
+    setSaved(ok?"✅ Saldos guardados":"⚠️ Error al guardar — ver consola");
+    setTimeout(()=>setSaved(null),4000);
   },[persistAll]);
 
   useEffect(()=>{
