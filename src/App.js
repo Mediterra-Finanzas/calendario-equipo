@@ -804,6 +804,53 @@ export default function App(){
     cargar();
   },[]); // eslint-disable-line
 
+  // Refs para siempre tener valores frescos en guardado
+  const estadosRef       = React.useRef(estados);
+  const comentariosRef   = React.useRef(comentarios);
+  const tareasConfigRef  = React.useRef(tareasConfig);
+  const supervisoresRef  = React.useRef(supervisores);
+  const tareasExtraRef   = React.useRef(tareasExtra);
+  const pinsRef          = React.useRef(pinsPersonalizados);
+  const recsDoneRef      = React.useRef(recsDone);
+  const recsComRef       = React.useRef(recsComentarios);
+  const usuariosRef      = React.useRef(usuarios);
+  const mesRef           = React.useRef(mes);
+  const anioRef          = React.useRef(anio);
+  const osirisDataRef    = React.useRef(osirisData);
+  useEffect(()=>{ estadosRef.current      = estados;        },[estados]);
+  useEffect(()=>{ comentariosRef.current  = comentarios;    },[comentarios]);
+  useEffect(()=>{ tareasConfigRef.current = tareasConfig;   },[tareasConfig]);
+  useEffect(()=>{ supervisoresRef.current = supervisores;   },[supervisores]);
+  useEffect(()=>{ tareasExtraRef.current  = tareasExtra;    },[tareasExtra]);
+  useEffect(()=>{ pinsRef.current         = pinsPersonalizados; },[pinsPersonalizados]);
+  useEffect(()=>{ recsDoneRef.current     = recsDone;       },[recsDone]);
+  useEffect(()=>{ recsComRef.current      = recsComentarios;},[recsComentarios]);
+  useEffect(()=>{ usuariosRef.current     = usuarios;       },[usuarios]);
+  useEffect(()=>{ mesRef.current          = mes;            },[mes]);
+  useEffect(()=>{ anioRef.current         = anio;           },[anio]);
+  useEffect(()=>{ osirisDataRef.current   = osirisData;     },[osirisData]);
+
+  // Guardar siempre con los valores más recientes (sin stale closure)
+  const guardarAhora = useCallback(()=>{
+    setGuardado("guardando");
+    dbSave({
+      estados:      estadosRef.current,
+      comentarios:  comentariosRef.current,
+      tareasConfig: tareasConfigRef.current,
+      supervisores: supervisoresRef.current,
+      tareasExtra:  tareasExtraRef.current,
+      pinsPersonalizados: pinsRef.current,
+      recsDone:     recsDoneRef.current,
+      recsComentarios: recsComRef.current,
+      usuarios:     usuariosRef.current,
+      mes:          mesRef.current,
+      anio:         anioRef.current,
+      osirisData:   osirisDataRef.current,
+    })
+    .then(()=>{setGuardado("ok");setTimeout(()=>setGuardado("idle"),2000);})
+    .catch(()=>{setGuardado("error");setTimeout(()=>setGuardado("idle"),3000);});
+  },[]); // eslint-disable-line
+
   const guardar=useCallback((est,com,tc,sup,te,pins,rd,rc,usrs,m,a,od)=>{
     setGuardado("guardando");
     dbSave({estados:est,comentarios:com,tareasConfig:tc,supervisores:sup,tareasExtra:te,
@@ -812,11 +859,20 @@ export default function App(){
       .catch(()=>{setGuardado("error");setTimeout(()=>setGuardado("idle"),3000);});
   },[]);
 
+  // Auto-guardado general (debounce 800ms)
   useEffect(()=>{
     if(cargando)return;
     const t=setTimeout(()=>guardar(estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,osirisData),800);
     return()=>clearTimeout(t);
   },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,osirisData,cargando,guardar]);
+
+  // Guardado inmediato al cambiar usuarios (permisos, roles, activar/desactivar)
+  useEffect(()=>{
+    if(cargando) return;
+    // Guardar de inmediato con los valores más frescos
+    const t=setTimeout(()=>guardarAhora(), 300);
+    return()=>clearTimeout(t);
+  },[usuarios,cargando]); // eslint-disable-line
 
   function getPinActivo(w){return pinsPersonalizados[w.nombre]||w.pin;}
 
