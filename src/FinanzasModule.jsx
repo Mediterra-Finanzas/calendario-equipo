@@ -1715,6 +1715,14 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
   const toggleMonth=mes=>setOpenMonth(p=>({...p,[mes]:!p[mes]}));
   const isMonthOpen=mes=>openMonth[mes]!==false;
 
+  // ── Semana ISO actual (ej: "S16") ─────────────────────────────
+  const semanaHoy = useMemo(()=>{
+    const hoy = new Date();
+    const jan1 = new Date(hoy.getFullYear(),0,4);
+    const week = 1+Math.round(((hoy-jan1)/86400000-3+((jan1.getDay()+6)%7))/7);
+    return `S${String(week).padStart(2,"0")}`;
+  },[]);
+
   // ── Saldo banco USD: último registro por banco, anterior a hoy ──
   const saldoBancoUSD = useMemo(()=>{
     if(!saldosBancos) return null;
@@ -1937,30 +1945,34 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                 <div style={{fontSize:11,fontWeight:700,color:C.blue}}>🏦 Saldo Banco (USD)</div>
                 <div style={{fontSize:9,color:C.muted}}>
                   {saldoBancoUSD!=null
-                    ? "desde Saldos Bancos · cuentas USD"
-                    : `saldo inicial base: ${$$(emp.saldo_ini)}`}
+                    ? `${semanaHoy} · desde Saldos Bancos`
+                    : `sin saldo registrado`}
                 </div>
               </td>
               {colStructure.map(({season:s,collapsed,cols})=>{
                 if(collapsed) return (
-                  <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,
+                  <td key={s.key} style={{padding:"7px 8px",textAlign:"right",
                     fontSize:11,color:C.blue,borderLeft:`2px solid ${C.border2}`}}>
-                    {$$(saldoIni)}
+                    {""}
                   </td>
                 );
                 return cols.map((col,ci)=>{
                   const isFirst=col.isFirstInSeason||col.isFirstInMonth;
-                  const isTot=col.isTotalMes;
+                  // Mostrar saldo solo en la semana actual (semanaHoy)
+                  // Vista mensual: mostrar en el mes que contiene la semana actual
+                  // Vista semanal: mostrar solo en la columna de la semana actual
+                  const esMesActual = col.type==="month" && (SEMANAS_MES[col.mes]||[]).includes(semanaHoy);
+                  const esSemActual = col.type==="week" && col.semana===semanaHoy;
+                  const esMesColapsado = col.type==="month_collapsed" && (SEMANAS_MES[col.mes]||[]).includes(semanaHoy);
+                  const mostrar = (vista==="mensual" && esMesActual) ||
+                                  (vista==="semanal" && (esSemActual||esMesColapsado));
                   return (
                     <td key={`banco-${col.mes}-${ci}`}
-                      style={{padding:"6px 5px",textAlign:"right",fontWeight:isTot?800:700,
-                        fontSize:isTot?10:9,color:isTot?C.yellow:C.blue,
-                        background:`${C.blue}12`,
+                      style={{padding:"6px 5px",textAlign:"right",fontWeight:700,
+                        fontSize:9,color:C.blue,
+                        background:mostrar?`${C.blue}20`:`${C.blue}08`,
                         borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
-                      {/* Solo mostrar en primera col de cada mes o total */}
-                      {(col.isFirstInSeason||col.isFirstInMonth||isTot)
-                        ? $$(saldoIni)
-                        : ""}
+                      {mostrar && saldoBancoUSD!=null ? $$(saldoBancoUSD) : ""}
                     </td>
                   );
                 });
