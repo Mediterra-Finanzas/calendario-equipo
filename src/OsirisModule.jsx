@@ -6003,6 +6003,28 @@ const CONTRATOS_INIT=[
 // ════════════════════════════════════════════════════════════
 // MAESTRO DE CLIENTES — compartido entre Contratos e Ingresos
 // ════════════════════════════════════════════════════════════
+// CampoNuevo como componente EXTERNO — evita re-renders que causan pérdida de foco
+function CampoNuevo({label,campo,tipo="text",opts=null,fullWidth=false,form,setF}) {
+  const val = form?.[campo] ?? "";
+  return(
+    <div style={fullWidth?{gridColumn:"1/-1"}:{}}>
+      <label style={{fontSize:11,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>{label}</label>
+      {opts
+        ? <select value={val} onChange={e=>setF(campo,e.target.value)}
+            style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}>
+            {opts.map(o=><option key={o}>{o}</option>)}
+          </select>
+        : tipo==="checkbox"
+          ? <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:C.sl}}>
+              <input type="checkbox" checked={!!form?.[campo]} onChange={()=>setF(campo,!form?.[campo])}/> {label}
+            </label>
+          : <input type={tipo} value={val} onChange={e=>setF(campo,e.target.value)}
+              style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+      }
+    </div>
+  );
+}
+
 function MaestroClientes({clientes,setClientes,can}){
   const [editId,setEditId]=useState(null);
   const [form,setForm]=useState({razonSocial:"",nombreComercial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""});
@@ -6213,7 +6235,12 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
   const totalFirmados=data.filter(r=>r.firmadoLicenciado&&r.firmadoOsiris).length;
 
   function guardarNuevo(){
+    // Campos obligatorios
     if(!form.razonSocial.trim()){alert("Razón Social es obligatoria.");return;}
+    if(!form.pais){alert("El País es obligatorio.");return;}
+    if(!form.tipoContrato){alert("El Tipo de Contrato es obligatorio.");return;}
+    if(!form.fechaContrato){alert("La Fecha de Contrato es obligatoria.");return;}
+    if(!form.moneda){alert("La Moneda es obligatoria.");return;}
     setData(prev=>[...prev,{...form,id:`ct_${Date.now()}`}]);
     setVista("tabla");setForm(formVacio);setClienteSelId("");
   }
@@ -6251,23 +6278,7 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
     );
   }
 
-  function CampoNuevo({label,campo,tipo="text",opts=null,fullWidth=false}){
-    return(
-      <div style={fullWidth?{gridColumn:"1/-1"}:{}}>
-        <label style={{fontSize:11,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>{label}</label>
-        {opts
-          ? <select value={form[campo]} onChange={e=>setF(campo,e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}>
-              {opts.map(o=><option key={o}>{o}</option>)}
-            </select>
-          : tipo==="checkbox"
-            ? <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:C.sl}}>
-                <input type="checkbox" checked={form[campo]||false} onChange={()=>setF(campo,!form[campo])}/> {label}
-              </label>
-            : <input type={tipo} value={form[campo]} onChange={e=>setF(campo,e.target.value)} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
-        }
-      </div>
-    );
-  }
+
 
   if(vista==="detalle"&&actual){
     const r=actual;
@@ -6540,23 +6551,23 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
           <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
             <div style={{fontSize:13,fontWeight:700,color:C.azul,marginBottom:14}}>🏢 Antecedentes Empresa</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
-              <CampoNuevo label="Razón Social *" campo="razonSocial"/>
-              <CampoNuevo label="Nombre Comercial" campo="nombreComercial"/>
+              <CampoNuevo label="Razón Social *" campo="razonSocial" form={form} setF={setF}/>
+              <CampoNuevo label="Nombre Comercial" campo="nombreComercial" form={form} setF={setF}/>
               <CampoNuevo label="Tax ID / RUC" campo="taxID"/>
-              <CampoNuevo label="País" campo="pais" opts={PAISES}/>
-              <CampoNuevo label="Dirección" campo="direccion"/>
-              <CampoNuevo label="Ciudad" campo="ciudad"/>
+              <CampoNuevo label="País" campo="pais" opts={PAISES} form={form} setF={setF}/>
+              <CampoNuevo label="Dirección" campo="direccion" form={form} setF={setF}/>
+              <CampoNuevo label="Ciudad" campo="ciudad" form={form} setF={setF}/>
             </div>
           </div>
           <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
             <div style={{fontSize:13,fontWeight:700,color:C.mo,marginBottom:14}}>📄 Datos del Contrato</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
-              <CampoNuevo label="Tipo Contrato" campo="tipoContrato" opts={tiposContrato}/>
-              <CampoNuevo label="Moneda" campo="moneda" opts={MONEDAS}/>
-              <CampoNuevo label="Fecha Contrato" campo="fechaContrato" tipo="date"/>
-              <CampoNuevo label="Fecha Término" campo="fechaTermino" tipo="date"/>
-              <CampoNuevo label="Ver Digital (URL)" campo="verDigital"/>
-              <CampoNuevo label="📎 Link OneDrive contrato" campo="linkContrato"/>
+              <CampoNuevo label="Tipo Contrato" campo="tipoContrato" opts={tiposContrato} form={form} setF={setF}/>
+              <CampoNuevo label="Moneda" campo="moneda" opts={MONEDAS} form={form} setF={setF}/>
+              <CampoNuevo label="Fecha Contrato" campo="fechaContrato" tipo="date" form={form} setF={setF}/>
+              <CampoNuevo label="Fecha Término" campo="fechaTermino" tipo="date" form={form} setF={setF}/>
+              <CampoNuevo label="Ver Digital (URL)" campo="verDigital" form={form} setF={setF}/>
+              <CampoNuevo label="📎 Link OneDrive contrato" campo="linkContrato" form={form} setF={setF}/>
             </div>
             {/* Año de prueba */}
             <div style={{marginTop:14,background:"#fefce8",borderRadius:10,padding:"12px 14px",border:"1px solid #fde047"}}>
@@ -6642,14 +6653,14 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
             <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
               <div style={{fontSize:13,fontWeight:700,color:C.teal,marginBottom:14}}>👤 Representante</div>
-              <CampoNuevo label="Nombre" campo="nombreRep"/>
-              <div style={{marginTop:12}}><CampoNuevo label="Personería" campo="personeria"/></div>
+              <CampoNuevo label="Nombre" campo="nombreRep" form={form} setF={setF}/>
+              <div style={{marginTop:12}}><CampoNuevo label="Personería" campo="personeria" form={form} setF={setF}/></div>
             </div>
             <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
               <div style={{fontSize:13,fontWeight:700,color:C.verde,marginBottom:14}}>🌱 Ubicación Plantas</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                 {[["Nombre Predio","nombrePredio"],["Cuartel","cuartel"],["Región","region"],["Coordenadas","coordenadas"]].map(([l,c])=>(
-                  <div key={c}><CampoNuevo label={l} campo={c}/></div>
+                  <div key={c}><CampoNuevo label={l} campo={c} form={form} setF={setF}/></div>
                 ))}
               </div>
             </div>
@@ -6657,11 +6668,11 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
           <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
             <div style={{fontSize:13,fontWeight:700,color:C.am,marginBottom:14}}>💰 Facturación</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
-              <CampoNuevo label="Tipo Contract Fee" campo="tipoContractFee" opts={TIPOS_FEE}/>
-              <CampoNuevo label="Monto Contract Fee (USD)" campo="montoContractFee" tipo="number"/>
+              <CampoNuevo label="Tipo Contract Fee" campo="tipoContractFee" opts={TIPOS_FEE} form={form} setF={setF}/>
+              <CampoNuevo label="Monto Contract Fee (USD)" campo="montoContractFee" tipo="number" form={form} setF={setF}/>
               <CampoNuevo label="Royalty/Planta (USD)" campo="valorRoyaltyPlanta" tipo="number"/>
               <CampoNuevo label="Royalty Comercial (USD/Há)" campo="valorRoyaltyComercial" tipo="number"/>
-              <CampoNuevo label="Mes Facturación RC" campo="mesFacuracionRC" opts={["—",...MESES_ANO]}/>
+              <CampoNuevo label="Mes Facturación RC" campo="mesFacuracionRC" opts={["—",...MESES_ANO]} form={form} setF={setF}/>
               <div style={{display:"flex",alignItems:"flex-end"}}>
                 <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,fontWeight:600,color:C.sl}}>
                   <input type="checkbox" checked={form.royaltyInflacion||false} onChange={()=>setF("royaltyInflacion",!form.royaltyInflacion)}/>
