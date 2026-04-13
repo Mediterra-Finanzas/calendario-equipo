@@ -2642,6 +2642,47 @@ function SaldosBancos({saldos,onSave,canEdit}) {
         </div>
       </div>
 
+      {/* ── Dashboard resumen por empresa ─────────────────────── */}
+      <Card>
+        <SectionTitle>Resumen por empresa · en USD</SectionTitle>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {EMPRESAS_LIST.map(emp=>{
+            const e=EMPRESAS_STATIC[emp]||{emoji:"🏢",color:C.muted};
+            const usd=totalesEmpresa[emp]?.usd;
+            const maxVal=Math.max(...EMPRESAS_LIST.map(n=>totalesEmpresa[n]?.usd||0),1);
+            const pct=usd!=null?Math.max(0,(usd/maxVal)*100):0;
+            if(usd==null) return null;
+            return(
+              <div key={emp} style={{display:"grid",gridTemplateColumns:"180px 1fr 110px",gap:10,alignItems:"center"}}>
+                <div style={{fontSize:11,color:C.text,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {e.emoji} {emp}
+                </div>
+                <div style={{background:C.card2,borderRadius:4,height:10,overflow:"hidden"}}>
+                  <div style={{width:`${pct}%`,height:"100%",background:e.color,borderRadius:4,opacity:0.8,transition:"width 0.4s"}}/>
+                </div>
+                <div style={{textAlign:"right",fontSize:12,fontWeight:700,color:cf(usd)}}>
+                  {usd>=0?"$":"-$"}{Math.abs(usd).toLocaleString("es-CL",{maximumFractionDigits:0})}
+                </div>
+              </div>
+            );
+          }).filter(Boolean)}
+          {/* Línea total */}
+          {totalUSD!=null&&(
+            <div style={{borderTop:`2px solid ${C.border2}`,marginTop:6,paddingTop:8,
+              display:"grid",gridTemplateColumns:"180px 1fr 110px",gap:10,alignItems:"center"}}>
+              <div style={{fontSize:12,fontWeight:900,color:C.text}}>TOTAL GRUPO</div>
+              <div/>
+              <div style={{textAlign:"right",fontSize:14,fontWeight:900,color:cf(totalUSD)}}>
+                {totalUSD>=0?"$":"-$"}{Math.abs(totalUSD).toLocaleString("es-CL",{maximumFractionDigits:0})}
+                <span style={{fontSize:9,color:C.muted,marginLeft:4}}>USD</span>
+              </div>
+            </div>
+          )}
+        </div>
+        {fxLoading&&<div style={{fontSize:10,color:C.yellow,marginTop:8}}>⟳ Actualizando paridades FX…</div>}
+        {fxError&&<div style={{fontSize:10,color:C.red,marginTop:8}}>⚠️ Sin paridad FX — mostrando valores guardados</div>}
+      </Card>
+
       {canEdit&&(
         <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",
           background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 16px"}}>
