@@ -4696,7 +4696,22 @@ const FEE_VIVEROS_INIT = [
 // ══════════════════════════════════════════════════════════
 // TOTAL PEDIDOS
 // ══════════════════════════════════════════════════════════
-function TotalPedidos({data,setData,rpData,setRpData,can}) {
+// Helper: muestra razón social con tooltip/badge de nombre comercial si difiere
+function NombreCliente({nombre,clientes,onChange,can}) {
+  const cli = clientes.find(c=>c.razonSocial===nombre||c.nombreComercial===nombre);
+  const nc = cli?.nombreComercial && cli.nombreComercial!==nombre ? cli.nombreComercial : null;
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:2}}>
+      <Cell val={nombre} onChange={onChange} can={can}/>
+      {nc&&<span style={{fontSize:9,color:"#0f766e",background:"#f0fdfa",borderRadius:10,
+        padding:"1px 6px",fontWeight:600,border:"1px solid #99f6e4",whiteSpace:"nowrap"}}>
+        {nc}
+      </span>}
+    </div>
+  );
+}
+
+function TotalPedidos({data,setData,rpData,setRpData,can,clientes=[]}) {
   const [filtroAño,setFiltroAño]=useState("Todos");
   const [filtroPais,setFiltroPais]=useState("Todos");
   const [filtroEst,setFiltroEst]=useState("Todos");
@@ -4818,7 +4833,7 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
               <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",
                 background:r.estado==="Confirmado"?"#f0fdf4":r.estado==="Por confirmar"?"#fffbeb":i%2===0?"#fff":"#f8fafc"}}>
                 <td style={{padding:"8px 12px",fontWeight:600}}>
-                  <Cell val={r.cliente} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
+                  <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
                 </td>
                 <td style={{padding:"8px 12px",fontSize:11,color:C.gris}}>
                   <Cell val={r.pais} onChange={v=>upd(r.id,"pais",v)} opts={PAISES} can={can}/>
@@ -4887,7 +4902,7 @@ function TotalPedidos({data,setData,rpData,setRpData,can}) {
 // ══════════════════════════════════════════════════════════
 // ROYALTY POR PLANTA
 // ══════════════════════════════════════════════════════════
-function RoyaltyPlanta({data,setData,can}) {
+function RoyaltyPlanta({data,setData,can,clientes=[]}) {
   const [filtroAño,setFiltroAño]=useState("Todos");
   const [filtroFact,setFiltroFact]=useState("Todos");
   const [modal,setModal]=useState(false);
@@ -4968,7 +4983,7 @@ function RoyaltyPlanta({data,setData,can}) {
             {filtrado.map((r,i)=>(
               <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:r._fromPedido?"#f0fdf4":i%2===0?"#fff":"#f8fafc"}}>
                 <td style={{padding:"7px 10px",fontWeight:600}}>
-                  <Cell val={r.cliente} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
+                  <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
                   {r._fromPedido&&<div style={{fontSize:9,color:C.verde}}>📦 desde pedido</div>}
                 </td>
                 <td style={{padding:"7px 10px",fontSize:11,color:C.gris}}><Cell val={r.pais} onChange={v=>upd(r.id,"pais",v)} opts={PAISES} can={can}/></td>
@@ -5023,7 +5038,7 @@ function RoyaltyPlanta({data,setData,can}) {
 // ══════════════════════════════════════════════════════════
 // ROYALTY COMERCIAL
 // ══════════════════════════════════════════════════════════
-function RoyaltyComercial({data,setData,can}) {
+function RoyaltyComercial({data,setData,can,clientes=[]}) {
   const [filtroAño,setFiltroAño]=useState("Todos");
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({cliente:"",pais:"Peru",trimCobro:2,añoCobro:2026,nPlantas:"",ha:"",usdHa:3000,nFact:"",pagado:false});
@@ -5116,7 +5131,9 @@ function RoyaltyComercial({data,setData,can}) {
             {filtrado.map((r,i)=>(
               <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",
                 background:r.alertaActiva?"#fffbeb":i%2===0?"#fff":"#f8fafc"}}>
-                <td style={{padding:"7px 10px",fontWeight:600}}>{r.cliente}</td>
+                <td style={{padding:"7px 10px",fontWeight:600}}>
+                  <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
+                </td>
                 <td style={{padding:"7px 10px",fontSize:11,color:C.gris}}>{r.pais}</td>
                 <td style={{padding:"7px 10px",textAlign:"center",fontSize:11}}>
                   <div style={{fontWeight:600}}>{TRIM_LABELS[r.trimCobro]}</div>
@@ -5175,7 +5192,7 @@ function RoyaltyComercial({data,setData,can}) {
 // ══════════════════════════════════════════════════════════
 // FEE ENTRADA
 // ══════════════════════════════════════════════════════════
-function FeeEntrada({data,setData,can}) {
+function FeeEntrada({data,setData,can,clientes=[]}) {
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({cliente:"",pais:"Peru",nFact:"",pagado:false,fechaPago:"",montoUSD:30000,detalle:"Sin Devolución"});
   const upd=(id,c,v)=>setData(prev=>prev.map(r=>r.id===id?{...r,[c]:v}:r));
@@ -5199,7 +5216,9 @@ function FeeEntrada({data,setData,can}) {
           <tbody>
             {data.map((r,i)=>(
               <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
-                <td style={{padding:"8px 12px"}}><Cell val={r.cliente} onChange={v=>upd(r.id,"cliente",v)} can={can}/></td>
+                <td style={{padding:"8px 12px"}}>
+                  <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
+                </td>
                 <td style={{padding:"8px 12px"}}><Cell val={r.pais} onChange={v=>upd(r.id,"pais",v)} opts={["Peru","Mexico","Chile"]} can={can}/></td>
                 <td style={{padding:"8px 12px",textAlign:"center"}}><Cell val={r.nFact} onChange={v=>upd(r.id,"nFact",v)} can={can} ph="F-..."/></td>
                 <td style={{padding:"8px 12px",textAlign:"center"}}><BadgeFact nFact={r.nFact}/></td>
@@ -5246,7 +5265,7 @@ function FeeEntrada({data,setData,can}) {
 // ══════════════════════════════════════════════════════════
 // FEE VIVEROS
 // ══════════════════════════════════════════════════════════
-function FeeViveros({data,setData,can}) {
+function FeeViveros({data,setData,can,clientes=[]}) {
   const [filtroEst,setFiltroEst]=useState("Todos");
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({vivero:"Synergiabio",empresa:"",pais:"Peru",proforma:"",nPlantas:"",regalia:0.45,totalOsiris:"",tipoPago:"Entrega",montoFact:"",fechaFact:"",nFact:"",pagado:false});
@@ -5293,7 +5312,9 @@ function FeeViveros({data,setData,can}) {
             {filtrado.map((r,i)=>(
               <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
                 <td style={{padding:"7px 10px",fontSize:11}}><Cell val={r.vivero} onChange={v=>upd(r.id,"vivero",v)} opts={["Synergiabio","Agromillora"]} can={can}/></td>
-                <td style={{padding:"7px 10px",fontWeight:600}}><Cell val={r.empresa} onChange={v=>upd(r.id,"empresa",v)} can={can}/></td>
+                <td style={{padding:"7px 10px",fontWeight:600}}>
+                  <NombreCliente nombre={r.empresa} clientes={clientes} onChange={v=>upd(r.id,"empresa",v)} can={can}/>
+                </td>
                 <td style={{padding:"7px 10px",fontSize:11,color:C.gris}}>{r.pais}</td>
                 <td style={{padding:"7px 10px",fontSize:11,color:C.gris}}><Cell val={r.proforma} onChange={v=>upd(r.id,"proforma",v)} can={can}/></td>
                 <td style={{padding:"7px 10px",textAlign:"center",fontWeight:600}}>{N(r.nPlantas)}</td>
@@ -6514,7 +6535,7 @@ function Breadcrumb({items}) {
 // ══════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL — Hub Osiris mejorado
 // ══════════════════════════════════════════════════════════
-export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osirisData,setOsirisData,onBack,onLogout}) {
+export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPermisos={},osirisData,setOsirisData,onBack,onLogout}) {
   // subApp: null = hub Osiris | "ingresos" | "contratos"
   const [subApp,setSubApp]=useState(null);
   const [subTab,setSubTab]=useState("resumen");
@@ -6545,7 +6566,18 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
   const setFv=useCallback(fn=>setOsirisData(prev=>({...prev,feeViveros:      typeof fn==="function"?fn(prev?.feeViveros      ??FEE_VIVEROS_INIT)      :fn})),[setOsirisData]);
   const setTp=useCallback(fn=>setOsirisData(prev=>({...prev,totalPedidos:    typeof fn==="function"?fn(prev?.totalPedidos    ??TOTAL_PEDIDOS_INIT)    :fn})),[setOsirisData]);
 
-  const can=esAdmin(usuarioActual?.nombre||"");
+  // can base: no es consulta
+  const esEditorOAdmin = !esSoloConsulta(usuarioActual?.nombre||"") &&
+    (esAdmin(usuarioActual?.nombre||"") || (usuarioActual?.rol||"editor")!=="consulta");
+  // can por sección: respeta tab_permisos de osiris
+  const permContratos = tabPermisos?.contratos ?? (esEditorOAdmin ? "editar" : "ver");
+  const permIngresos  = tabPermisos?.royalties  ?? (esEditorOAdmin ? "editar" : "ver");
+  const canContratos  = permContratos === "editar";
+  const canIngresos   = permIngresos  === "editar";
+  const canVerContratos = permContratos !== "sin_acceso";
+  const canVerIngresos  = permIngresos  !== "sin_acceso";
+  // can genérico usado en componentes internos (ingresos)
+  const can = canIngresos;
 
   const totPend=
     rpData.map(r=>(Number(r.nPlantas)||0)*(Number(r.usdPlanta)||0)*pct(r.pais)*(r.pagado?0:1)).reduce((a,b)=>a+b,0)+
@@ -6745,7 +6777,10 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
         {label:"Control Contratos"},
       ]}/>
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
-        <ControlContratos data={ctData} setData={setCt} clientes={clientes} setClientes={setClientes} can={can}/>
+        {canVerContratos
+        ? <ControlContratos data={ctData} setData={setCt} clientes={clientes} setClientes={setClientes} can={canContratos}/>
+        : <div style={{textAlign:"center",padding:40,color:"#94a3b8"}}>Sin acceso a Contratos</div>
+      }
       </div>
     </div>
   );
@@ -6783,11 +6818,11 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
         {subTab==="resumen"          &&<Resumen        rpData={rpData} feData={feData} rcData={rcData} fvData={fvData} tpData={tpData}/>}
         {subTab==="graficos"         &&<GraficosPlantas tpData={tpData} rpData={rpData}/>}
-        {subTab==="totalPedidos"     &&<TotalPedidos    data={tpData} setData={setTp} rpData={rpData} setRpData={setRp} can={can}/>}
-        {subTab==="royaltyPlanta"    &&<RoyaltyPlanta   data={rpData} setData={setRp} can={can}/>}
-        {subTab==="feeEntrada"       &&<FeeEntrada      data={feData} setData={setFe} can={can}/>}
-        {subTab==="royaltyComercial" &&<RoyaltyComercial data={rcData} setData={setRc} can={can}/>}
-        {subTab==="feeViveros"       &&<FeeViveros      data={fvData} setData={setFv} can={can}/>}
+        {subTab==="totalPedidos"     &&<TotalPedidos    data={tpData} setData={setTp} rpData={rpData} setRpData={setRp} can={canIngresos} clientes={clientes}/>}
+        {subTab==="royaltyPlanta"    &&<RoyaltyPlanta   data={rpData} setData={setRp} can={canIngresos} clientes={clientes}/>}
+        {subTab==="feeEntrada"       &&<FeeEntrada      data={feData} setData={setFe} can={canIngresos} clientes={clientes}/>}
+        {subTab==="royaltyComercial" &&<RoyaltyComercial data={rcData} setData={setRc} can={canIngresos} clientes={clientes}/>}
+        {subTab==="feeViveros"       &&<FeeViveros      data={fvData} setData={setFv} can={canIngresos} clientes={clientes}/>}
       </div>
     </div>
   );
