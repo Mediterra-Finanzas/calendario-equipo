@@ -1723,22 +1723,36 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     return `S${String(week).padStart(2,"0")}`;
   },[]);
 
-  // ── Saldo banco USD: último registro por banco, anterior a hoy ──
+  // ── Saldo banco en USD: toma TODAS las monedas, convierte a USD ──
+  // Para USD: usa el monto directo
+  // Para otras monedas (PEN, CLP, EUR): usa el campo "usd" guardado en Supabase
   const saldoBancoUSD = useMemo(()=>{
     if(!saldosBancos) return null;
     const HOY = new Date();
     const porBanco = {};
     Object.entries(saldosBancos).forEach(([key, rec])=>{
       const parts = key.split("||");
-      if(parts[0]!==empNombre || parts[2]!=="usd") return;
+      if(parts[0]!==empNombre) return;
       if(!rec?.monto || !rec?.fecha) return;
       const f = new Date(rec.fecha);
       if(f > HOY) return;
       const banco = parts[1];
-      if(!porBanco[banco] || new Date(porBanco[banco].fecha) < f) porBanco[banco] = rec;
+      // Tomar el registro más reciente por banco (cualquier moneda)
+      const existente = porBanco[banco];
+      if(!existente || new Date(existente.fecha) < f) porBanco[banco] = rec;
     });
     let total = 0, found = false;
-    Object.values(porBanco).forEach(rec=>{total += Number(rec.monto)||0; found = true;});
+    Object.values(porBanco).forEach(rec=>{
+      const moneda = rec.moneda || "usd";
+      if(moneda === "usd") {
+        total += Number(rec.monto)||0;
+      } else if(rec.usd != null) {
+        // Usar conversión guardada en Supabase al momento del ingreso
+        total += Number(rec.usd)||0;
+      }
+      // Si no hay conversión guardada, no suma (evita mostrar valor incorrecto)
+      found = true;
+    });
     return found ? total : null;
   },[saldosBancos, empNombre]);
 
