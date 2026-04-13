@@ -60,7 +60,7 @@ const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 
 async function dbLoad() {
   try {
-    const r = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=eq.main&select=value`,
+    const r = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=eq.finanzas&select=value`,
       { headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}` }});
     const d = await r.json();
     const parsed = d?.[0]?.value ? JSON.parse(d[0].value) : {};
@@ -73,7 +73,7 @@ async function dbLoad() {
 }
 async function dbSave(data) {
   try {
-    const body = JSON.stringify({ id:"main", value:JSON.stringify(data) });
+    const body = JSON.stringify({ id:"finanzas", value:JSON.stringify(data) });
     const r = await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
       method:"POST",
       headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}`,
