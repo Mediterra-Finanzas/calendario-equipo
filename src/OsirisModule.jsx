@@ -5188,7 +5188,7 @@ function RoyaltyComercial({data,setData,can,clientes=[]}) {
         filtros={[
           {label:"Cliente",tipo:"input",valor:filtroCli,onChange:setFiltroCli},
           {label:"País",opciones:["Todos",...Array.from(new Set(data.map(r=>r.pais).filter(Boolean))).sort()],valor:filtroPais,onChange:setFiltroPais},
-          {label:"Año",opciones:["Todos",...Array.from(new Set(data.map(r=>r.añoCobro))).sort()],valor:filtroAño,onChange:v=>setFiltroAño(String(v))},
+          {label:"Año",opciones:años,valor:filtroAño,onChange:v=>setFiltroAño(String(v))},
           {label:"Cobro",opciones:["Todos","Pagado","Por cobrar"],valor:filtroCobro,onChange:setFiltroCobro},
         ]}
         onExportar={()=>exportCSV(
@@ -5282,8 +5282,6 @@ function FeeEntrada({data,setData,can,clientes=[]}) {
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({cliente:"",pais:"Peru",nFact:"",pagado:false,fechaPago:"",montoUSD:30000,detalle:"Sin Devolución"});
   const upd=(id,c,v)=>setData(prev=>prev.map(r=>r.id===id?{...r,[c]:v}:r));
-  const totCob=data.filter(r=>r.pagado).reduce((s,r)=>s+(r.montoUSD||0),0);
-  const totPend=data.filter(r=>!r.pagado).reduce((s,r)=>s+(r.montoUSD||0),0);
   function agregar(){if(!form.cliente.trim()){alert("Cliente obligatorio.");return;}setData(prev=>[...prev,{...form,id:`fe_${Date.now()}`,montoUSD:parseFloat(form.montoUSD)||30000}]);setModal(false);}
   const filtrado=data.filter(r=>
     (filtroPais==="Todos"||r.pais===filtroPais)&&
@@ -6889,7 +6887,6 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const rolActual = usuarioActual?.rol || "editor";
   const esEditorOAdmin = rolActual === "editor" || rolActual === "admin";
   const permContratos = tabPermisos?.contratos || "editar";
-  const permIngresos  = tabPermisos?.royalties  || "editar";
   const canVerContratos = permContratos !== "sin_acceso";
   // can = editorOAdmin independiente de tabPermisos (tabPermisos solo oculta secciones)
   const canContratos = esEditorOAdmin;
