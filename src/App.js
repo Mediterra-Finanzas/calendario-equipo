@@ -787,7 +787,8 @@ export default function App(){
                   // Registro agregado manualmente (no viene del Excel)
                   if(!id.includes('_xl_')) return true;
                   // Registro del Excel con ediciones del usuario
-                  if(r.pagado===true) return true;
+                  // pagado puede ser true O false (si el usuario cambió el estado)
+                  if(r.pagado===true || r.pagado===false) return true;
                   if(r.nFact && String(r.nFact).trim()!=='') return true;
                   if(r.nOC && String(r.nOC).trim()!=='') return true;
                   if(r.fechaPago && String(r.fechaPago).trim()!=='') return true;
