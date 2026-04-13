@@ -4738,6 +4738,55 @@ function NombreCliente({nombre,clientes,onChange,can}) {
   );
 }
 
+// ── Helper: exportar datos filtrados a CSV ────────────────────
+function exportCSV(rows, headers, nombre) {
+  const bom = "\uFEFF";
+  const csv = bom + [headers, ...rows.map(r=>headers.map((_,i)=>r[i]))].map(row=>
+    row.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(",")
+  ).join("\r\n");
+  const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download=`${nombre}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Helper: barra de filtros + exportar reutilizable ──────────
+function BarraFiltros({filtros, onExportar, exportLabel="⬇️ Exportar"}) {
+  return (
+    <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center",
+      background:"#f8fafc",borderRadius:10,padding:"8px 12px",border:"1px solid #e2e8f0"}}>
+      {filtros.map(({label,opciones,valor,onChange,tipo})=>(
+        tipo==="input"
+          ? <div key={label} style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,color:"#64748b",fontWeight:600}}>{label}:</span>
+              <input value={valor} onChange={e=>onChange(e.target.value)} placeholder="Buscar..."
+                style={{padding:"4px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,
+                  outline:"none",width:130}}/>
+            </div>
+          : <div key={label} style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,color:"#64748b",fontWeight:600}}>{label}:</span>
+              {opciones.map(op=>(
+                <button key={op} onClick={()=>onChange(op)}
+                  style={{padding:"3px 10px",borderRadius:20,border:"none",cursor:"pointer",
+                    fontSize:11,fontWeight:600,
+                    background:valor===op?"#1e293b":"#fff",
+                    color:valor===op?"#fff":"#475569"}}>
+                  {op}
+                </button>
+              ))}
+            </div>
+      ))}
+      <button onClick={onExportar}
+        style={{marginLeft:"auto",background:"#16a34a",color:"#fff",border:"none",
+          borderRadius:8,padding:"5px 14px",cursor:"pointer",fontSize:12,fontWeight:700,
+          whiteSpace:"nowrap"}}>
+        {exportLabel}
+      </button>
+    </div>
+  );
+}
+
 function TotalPedidos({data,setData,rpData,setRpData,can,clientes=[]}) {
   const [filtroAño,setFiltroAño]=useState("Todos");
   const [filtroPais,setFiltroPais]=useState("Todos");
@@ -4821,32 +4870,21 @@ function TotalPedidos({data,setData,rpData,setRpData,can,clientes=[]}) {
         ))}
         {can&&<button onClick={()=>setModal(true)} style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,alignSelf:"center"}}>+ Agregar</button>}
       </div>
-
-      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
-        <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar cliente / proforma..."
-          style={{padding:"6px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,minWidth:200}}/>
-        {["Todos","Por confirmar","Confirmado"].map(e=>(
-          <button key={e} onClick={()=>setFiltroEst(e)}
-            style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
-              background:filtroEst===e?(e==="Confirmado"?C.verde:e==="Por confirmar"?C.am:C.sl):"#fff",
-              color:filtroEst===e?"#fff":C.sl}}>
-            {e}
-          </button>
-        ))}
-        <span style={{fontSize:12,color:C.gris,fontWeight:600,marginLeft:4}}>Año:</span>
-        {años.map(a=>(
-          <button key={a} onClick={()=>setFiltroAño(String(a))}
-            style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
-              background:filtroAño===String(a)?C.teal:"#fff",color:filtroAño===String(a)?"#fff":C.sl}}>
-            {a}
-          </button>
-        ))}
-        <select value={filtroPais} onChange={e=>setFiltroPais(e.target.value)}
-          style={{padding:"5px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12}}>
-          {["Todos",...PAISES].map(p=><option key={p}>{p}</option>)}
-        </select>
-      </div>
-
+      <BarraFiltros
+        filtros={[
+          {label:"Cliente",tipo:"input",valor:busq,onChange:setBusq},
+          {label:"País",opciones:["Todos",...Array.from(new Set(data.map(r=>r.pais).filter(Boolean))).sort()],valor:filtroPais,onChange:setFiltroPais},
+          {label:"Año",opciones:años,valor:filtroAño,onChange:v=>setFiltroAño(String(v))},
+          {label:"Estado",opciones:["Todos","Confirmado","Por confirmar"],valor:filtroEst,onChange:setFiltroEst},
+        ]}
+        onExportar={()=>exportCSV(
+          filtrado.map(r=>[r.cliente,r.pais,r.proforma||"",r.año,r.trim||"",r.nPlantas||0,r.estado||""]),
+          ["Cliente","País","Proforma","Año","Trim.","N° Plantas","Estado"],
+          "TotalPedidos"
+        )}
+      />
+      <div style={{overflowX:"auto"}}>
+    
       <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
           <Th cols={[
@@ -4933,10 +4971,14 @@ function TotalPedidos({data,setData,rpData,setRpData,can,clientes=[]}) {
 function RoyaltyPlanta({data,setData,can,clientes=[]}) {
   const [filtroAño,setFiltroAño]=useState("Todos");
   const [filtroFact,setFiltroFact]=useState("Todos");
+  const [filtroPais,setFiltroPais]=useState("Todos");
+  const [filtroCobro,setFiltroCobro]=useState("Todos");
+  const [filtroCli,setFiltroCli]=useState("");
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({cliente:"",pais:"Peru",año:2026,trim:1,nPlantas:"",usdPlanta:"",nOC:"",nFact:"",pagado:false,fechaPago:"",vivero:"Synergia Chile"});
 
   const años=["Todos",...Array.from(new Set(data.map(r=>r.año))).sort()];
+  const paises=["Todos",...Array.from(new Set(data.map(r=>r.pais).filter(Boolean))).sort()];
 
   const calc=useMemo(()=>data.map(r=>{
     const mf=(Number(r.nPlantas)||0)*(Number(r.usdPlanta)||0);
@@ -4945,7 +4987,10 @@ function RoyaltyPlanta({data,setData,can,clientes=[]}) {
 
   const filtrado=calc.filter(r=>
     (filtroAño==="Todos"||r.año===Number(filtroAño))&&
-    (filtroFact==="Todos"||(filtroFact==="Facturado"?r.nFact&&r.nFact.trim()!=="":!r.nFact||r.nFact.trim()===""))
+    (filtroPais==="Todos"||r.pais===filtroPais)&&
+    (filtroCobro==="Todos"||(filtroCobro==="Pagado"?r.pagado:!r.pagado))&&
+    (filtroFact==="Todos"||(filtroFact==="Facturado"?r.nFact&&r.nFact.trim()!=="":!r.nFact||r.nFact.trim()===""))&&
+    (!filtroCli||r.cliente?.toLowerCase().includes(filtroCli.toLowerCase()))
   );
 
   const totFact=filtrado.reduce((s,r)=>s+r.montoFact,0);
@@ -4977,24 +5022,22 @@ function RoyaltyPlanta({data,setData,can,clientes=[]}) {
         💡 Monto Facturar = N° Plantas × US$/Planta &nbsp;·&nbsp; Monto Cobrar = <strong>85% Perú/México (WHT 15%) · 100% Chile (sin WHT)</strong>
       </div>
 
-      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{fontSize:12,color:C.gris,fontWeight:600}}>Año:</span>
-        {años.map(a=>(
-          <button key={a} onClick={()=>setFiltroAño(String(a))}
-            style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
-              background:filtroAño===String(a)?C.azul:"#fff",color:filtroAño===String(a)?"#fff":C.sl}}>
-            {a}
-          </button>
-        ))}
-        <span style={{fontSize:12,color:C.gris,fontWeight:600,marginLeft:6}}>Facturación:</span>
-        {["Todos","Facturado","Pendiente de facturar"].map(e=>(
-          <button key={e} onClick={()=>setFiltroFact(e)}
-            style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
-              background:filtroFact===e?C.sl:"#fff",color:filtroFact===e?"#fff":C.sl}}>
-            {e}
-          </button>
-        ))}
-      </div>
+      <BarraFiltros
+        filtros={[
+          {label:"Cliente",tipo:"input",valor:filtroCli,onChange:setFiltroCli},
+          {label:"País",opciones:paises,valor:filtroPais,onChange:setFiltroPais},
+          {label:"Año",opciones:años,valor:filtroAño,onChange:v=>setFiltroAño(String(v))},
+          {label:"Cobro",opciones:["Todos","Pagado","Por cobrar"],valor:filtroCobro,onChange:setFiltroCobro},
+          {label:"Factura",opciones:["Todos","Facturado","Pendiente de facturar"],valor:filtroFact,onChange:setFiltroFact},
+        ]}
+        onExportar={()=>exportCSV(
+          filtrado.map(r=>[r.cliente,r.pais,`${r.año} T${r.trim}`,r.nPlantas,r.usdPlanta,
+            r.montoFact.toFixed(2),r.montoCobro.toFixed(2),r.nOC||"",r.nFact||"",
+            r.pagado?"Pagado":"Por cobrar",r.fechaPago||"",r.vivero||""]),
+          ["Cliente","País","Año/Trim","N° Plantas","US$/Planta","Mto.Facturar","Mto.Cobrar","N° OC","N° Factura","Estado Cobro","Fecha Pago","Vivero"],
+          "RoyaltyPlanta"
+        )}
+      />
 
       <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
@@ -5069,6 +5112,9 @@ function RoyaltyPlanta({data,setData,can,clientes=[]}) {
 // ══════════════════════════════════════════════════════════
 function RoyaltyComercial({data,setData,can,clientes=[]}) {
   const [filtroAño,setFiltroAño]=useState("Todos");
+  const [filtroPais,setFiltroPais]=useState("Todos");
+  const [filtroCobro,setFiltroCobro]=useState("Todos");
+  const [filtroCli,setFiltroCli]=useState("");
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({cliente:"",pais:"Peru",trimCobro:2,añoCobro:2026,nPlantas:"",ha:"",usdHa:3000,nFact:"",pagado:false});
 
@@ -5086,7 +5132,12 @@ function RoyaltyComercial({data,setData,can,clientes=[]}) {
   },[data]);
 
   const años=["Todos",...Array.from(new Set(calc.map(r=>r.añoCobro))).sort()];
-  const filtrado=calc.filter(r=>filtroAño==="Todos"||r.añoCobro===Number(filtroAño));
+  const filtrado=calc.filter(r=>
+    (filtroAño==="Todos"||r.añoCobro===Number(filtroAño))&&
+    (filtroPais==="Todos"||r.pais===filtroPais)&&
+    (filtroCobro==="Todos"||(filtroCobro==="Pagado"?r.pagado:!r.pagado))&&
+    (!filtroCli||r.cliente?.toLowerCase().includes(filtroCli.toLowerCase()))
+  );
 
   const alertas=calc.filter(r=>r.alertaActiva);
   const totFact=filtrado.reduce((s,r)=>s+r.montoFact,0);
@@ -5135,17 +5186,21 @@ function RoyaltyComercial({data,setData,can,clientes=[]}) {
         💡 Monto Facturar = Há a cobrar × US$/Há (por defecto US$3.000/Há) &nbsp;·&nbsp; Monto Cobrar = <strong>85% Perú/México (WHT 15%) · 100% Chile (sin WHT)</strong>
       </div>
 
-      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
-        <span style={{fontSize:12,color:C.gris,fontWeight:600}}>Año cobro:</span>
-        {años.map(a=>(
-          <button key={a} onClick={()=>setFiltroAño(String(a))}
-            style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
-              background:filtroAño===String(a)?C.mo:"#fff",color:filtroAño===String(a)?"#fff":C.sl}}>
-            {a}
-          </button>
-        ))}
-      </div>
-
+      <BarraFiltros
+        filtros={[
+          {label:"Cliente",tipo:"input",valor:filtroCli,onChange:setFiltroCli},
+          {label:"País",opciones:["Todos",...Array.from(new Set(data.map(r=>r.pais).filter(Boolean))).sort()],valor:filtroPais,onChange:setFiltroPais},
+          {label:"Año",opciones:["Todos",...Array.from(new Set(data.map(r=>r.añoCobro))).sort()],valor:filtroAño,onChange:v=>setFiltroAño(String(v))},
+          {label:"Cobro",opciones:["Todos","Pagado","Por cobrar"],valor:filtroCobro,onChange:setFiltroCobro},
+        ]}
+        onExportar={()=>exportCSV(
+          filtrado.map(r=>[r.cliente,r.pais,`T${r.trimCobro} ${r.añoCobro}`,r.nPlantas||0,r.ha||0,
+            r.usdHa||3000,r.montoFact.toFixed(2),r.montoCobro.toFixed(2),r.nFact||"",
+            r.pagado?"Pagado":"Por cobrar"]),
+          ["Cliente","País","Trim/Año","N° Plantas","Há","US$/Há","Mto.Facturar","Mto.Cobrar","N° Factura","Estado Cobro"],
+          "RoyaltyComercial"
+        )}
+      />
       <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
           <Th cols={[
@@ -5223,16 +5278,26 @@ function RoyaltyComercial({data,setData,can,clientes=[]}) {
 // FEE ENTRADA
 // ══════════════════════════════════════════════════════════
 function FeeEntrada({data,setData,can,clientes=[]}) {
+  const [filtroPais,setFiltroPais]=useState("Todos");
+  const [filtroCobro,setFiltroCobro]=useState("Todos");
+  const [filtroCli,setFiltroCli]=useState("");
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({cliente:"",pais:"Peru",nFact:"",pagado:false,fechaPago:"",montoUSD:30000,detalle:"Sin Devolución"});
   const upd=(id,c,v)=>setData(prev=>prev.map(r=>r.id===id?{...r,[c]:v}:r));
   const totCob=data.filter(r=>r.pagado).reduce((s,r)=>s+(r.montoUSD||0),0);
   const totPend=data.filter(r=>!r.pagado).reduce((s,r)=>s+(r.montoUSD||0),0);
   function agregar(){if(!form.cliente.trim()){alert("Cliente obligatorio.");return;}setData(prev=>[...prev,{...form,id:`fe_${Date.now()}`,montoUSD:parseFloat(form.montoUSD)||30000}]);setModal(false);}
+  const filtrado=data.filter(r=>
+    (filtroPais==="Todos"||r.pais===filtroPais)&&
+    (filtroCobro==="Todos"||(filtroCobro==="Pagado"?r.pagado:!r.pagado))&&
+    (!filtroCli||r.cliente?.toLowerCase().includes(filtroCli.toLowerCase()))
+  );
+  const totCobFilt=filtrado.filter(r=>r.pagado).reduce((s,r)=>s+(r.montoUSD||0),0);
+  const totPendFilt=filtrado.filter(r=>!r.pagado).reduce((s,r)=>s+(r.montoUSD||0),0);
   return (
     <div>
       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-        {[[$$(totCob),"Cobrado",C.verde,C.verdeBg],[$$(totPend),"Por cobrar",C.am,C.amBg],[data.length,"Total",C.gris,C.grisBg]].map(([v,l,c,bg])=>(
+        {[[$$(totCobFilt),"Cobrado",C.verde,C.verdeBg],[$$(totPendFilt),"Por cobrar",C.am,C.amBg],[filtrado.length,"Registros",C.gris,C.grisBg]].map(([v,l,c,bg])=>(
           <div key={l} style={{background:bg,borderRadius:12,padding:"12px 18px",flex:1,minWidth:120}}>
             <div style={{fontSize:11,color:c,fontWeight:600}}>{l}</div>
             <div style={{fontSize:20,fontWeight:800,color:c}}>{v}</div>
@@ -5240,11 +5305,24 @@ function FeeEntrada({data,setData,can,clientes=[]}) {
         ))}
         {can&&<button onClick={()=>setModal(true)} style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,alignSelf:"center"}}>+ Agregar</button>}
       </div>
+      <BarraFiltros
+        filtros={[
+          {label:"Cliente",tipo:"input",valor:filtroCli,onChange:setFiltroCli},
+          {label:"País",opciones:["Todos","Peru","Mexico","Chile"],valor:filtroPais,onChange:setFiltroPais},
+          {label:"Cobro",opciones:["Todos","Pagado","Por cobrar"],valor:filtroCobro,onChange:setFiltroCobro},
+        ]}
+        onExportar={()=>exportCSV(
+          filtrado.map(r=>[r.cliente,r.pais,r.nFact||"",
+            r.pagado?"Pagado":"Por cobrar",r.fechaPago||"",r.montoUSD||0,r.detalle||""]),
+          ["Cliente","País","N° Factura","Estado Cobro","Fecha Pago","Monto US$","Detalle"],
+          "FeeEntrada"
+        )}
+      />
       <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
           <Th cols={[{l:"Cliente",w:130},{l:"País",w:80},{l:"N° Factura",c:true,w:110},{l:"Fact. Est.",c:true,w:130},{l:"Fecha pago",c:true,w:100},{l:"Monto US$",c:true,w:100},{l:"Cobro",c:true,w:110},{l:"Detalle",w:140},...(can?[{l:"",c:true,w:40}]:[])]}/>
           <tbody>
-            {data.map((r,i)=>(
+            {filtrado.map((r,i)=>(
               <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
                 <td style={{padding:"8px 12px"}}>
                   <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
@@ -5298,17 +5376,23 @@ function FeeEntrada({data,setData,can,clientes=[]}) {
 // ══════════════════════════════════════════════════════════
 function FeeViveros({data,setData,can,clientes=[]}) {
   const [filtroEst,setFiltroEst]=useState("Todos");
+  const [filtroPais,setFiltroPais]=useState("Todos");
+  const [filtroCobro,setFiltroCobro]=useState("Todos");
+  const [filtroCli,setFiltroCli]=useState("");
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({vivero:"Synergiabio",empresa:"",pais:"Peru",proforma:"",nPlantas:"",regalia:0.45,totalOsiris:"",tipoPago:"Entrega",montoFact:"",fechaFact:"",nFact:"",pagado:false});
   const upd=(id,c,v)=>setData(prev=>prev.map(r=>r.id===id?{...r,[c]:v}:r));
 
   const filtrado=data.filter(r=>{
-    if(filtroEst==="Todos") return true;
-    if(filtroEst==="Facturado") return r.nFact&&r.nFact.trim()!=="";
-    if(filtroEst==="Pendiente") return !r.nFact||r.nFact.trim()==="";
-    if(filtroEst==="Pagado") return r.pagado;
+    if(filtroEst!=="Todos"){
+      if(filtroEst==="Facturado"&&!(r.nFact&&r.nFact.trim()!==""))return false;
+      if(filtroEst==="Pendiente"&&(r.nFact&&r.nFact.trim()!==""))return false;
+    }
+    if(filtroPais!=="Todos"&&r.pais!==filtroPais)return false;
+    if(filtroCobro!=="Todos"&&(filtroCobro==="Pagado"?!r.pagado:r.pagado))return false;
+    if(filtroCli&&!r.empresa?.toLowerCase().includes(filtroCli.toLowerCase()))return false;
     return true;
-  });
+  });;
 
   const totFact=filtrado.reduce((s,r)=>s+(Number(r.montoFact)||0),0);
   const totPend=filtrado.filter(r=>!r.pagado).reduce((s,r)=>s+(Number(r.montoFact)||0),0);
@@ -5327,16 +5411,23 @@ function FeeViveros({data,setData,can,clientes=[]}) {
         ))}
         {can&&<button onClick={()=>setModal(true)} style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,alignSelf:"center"}}>+ Agregar</button>}
       </div>
-      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
-        {["Todos","Facturado","Pendiente","Pagado"].map(e=>(
-          <button key={e} onClick={()=>setFiltroEst(e)}
-            style={{padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
-              background:filtroEst===e?C.azul:"#fff",color:filtroEst===e?"#fff":C.sl}}>
-            {e}
-          </button>
-        ))}
-      </div>
+      <BarraFiltros
+        filtros={[
+          {label:"Empresa",tipo:"input",valor:filtroCli,onChange:setFiltroCli},
+          {label:"País",opciones:["Todos","Peru","Mexico","Chile","AMexico"],valor:filtroPais,onChange:setFiltroPais},
+          {label:"Estado",opciones:["Todos","Facturado","Pendiente","Pagado"],valor:filtroEst,onChange:setFiltroEst},
+          {label:"Cobro",opciones:["Todos","Pagado","Por cobrar"],valor:filtroCobro,onChange:setFiltroCobro},
+        ]}
+        onExportar={()=>exportCSV(
+          filtrado.map(r=>[r.vivero||"",r.empresa,r.pais,r.proforma||"",r.nPlantas||0,
+            r.regalia||0,r.totalOsiris||0,r.tipoPago||"",r.montoFact||0,
+            r.fechaFact||"",r.nFact||"",r.pagado?"Pagado":"Por cobrar"]),
+          ["Vivero","Empresa","País","Proforma","N° Plantas","Regalía","Total Osiris","Tipo Pago","Mto.Facturar","Fecha Fact.","N° Factura","Estado Cobro"],
+          "FeeViveros"
+        )}
+      />
       <div style={{overflowX:"auto"}}>
+          <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:10,overflow:"hidden"}}>
           <Th cols={[{l:"Vivero",w:100},{l:"Empresa",w:150},{l:"País",w:70},{l:"Proforma",w:130},{l:"N° Plantas",c:true,w:90},{l:"Regalía",c:true,w:70},{l:"Total Osiris",c:true,w:110},{l:"Tipo",c:true,w:90},{l:"Mto. Facturar",c:true,w:115},{l:"Fecha Fact.",c:true,w:100},{l:"N° Factura",c:true,w:100},{l:"Fact. Est.",c:true,w:130},{l:"Cobro",c:true,w:110},...(can?[{l:"",c:true,w:40}]:[])]}/>
           <tbody>
@@ -6785,15 +6876,16 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const setTp=useCallback(fn=>setOsirisData(prev=>({...prev,totalPedidos:    typeof fn==="function"?fn(prev?.totalPedidos    ??TOTAL_PEDIDOS_INIT)    :fn})),[setOsirisData]);
 
   // PERMISOS OSIRIS
-  // Editor/Admin → can=true por defecto
-  // Solo se restringe si tab_permisos está explícitamente en "ver" o "sin_acceso"
+  // can = cualquier usuario que NO sea "consulta" puede editar
+  // tabPermisos solo controla acceso a secciones completas, no edición de registros
   const rolActual = usuarioActual?.rol || "editor";
   const esEditorOAdmin = rolActual === "editor" || rolActual === "admin";
   const permContratos = tabPermisos?.contratos || "editar";
   const permIngresos  = tabPermisos?.royalties  || "editar";
   const canVerContratos = permContratos !== "sin_acceso";
-  const canContratos    = esEditorOAdmin && permContratos === "editar";
-  const canIngresos     = esEditorOAdmin && permIngresos  === "editar";
+  // can = editorOAdmin independiente de tabPermisos (tabPermisos solo oculta secciones)
+  const canContratos = esEditorOAdmin;
+  const canIngresos  = esEditorOAdmin;
   const can = canIngresos;
 
   const totPend=
