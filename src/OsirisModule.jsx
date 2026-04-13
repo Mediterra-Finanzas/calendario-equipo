@@ -23,7 +23,13 @@ const N = v => (v!=null&&!isNaN(v)) ? Number(v).toLocaleString("es-CL") : "—";
 // Porcentaje cobro según país
 function pct(pais="") {
   const p = pais.toLowerCase();
-  return (p.includes("mexico")||p.includes("méxico")) ? 0.90 : 0.85;
+  if(p.includes("chile")) return 1.00;          // Sin WHT
+  return 0.85;                                    // Peru/Mexico: WHT 15%
+}
+function whtLabel(pais="") {
+  const p = pais.toLowerCase();
+  if(p.includes("chile")) return null;           // Sin WHT
+  return "WHT 15%";
 }
 
 // Fecha de inicio de trimestre
@@ -4925,7 +4931,7 @@ function RoyaltyPlanta({data,setData,can}) {
       </div>
 
       <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:12,color:"#15803d"}}>
-        💡 Monto Facturar = N° Plantas × US$/Planta &nbsp;·&nbsp; Monto Cobrar = <strong>85% Perú/Chile · 90% México</strong>
+        💡 Monto Facturar = N° Plantas × US$/Planta &nbsp;·&nbsp; Monto Cobrar = <strong>85% Perú/México (WHT 15%) · 100% Chile (sin WHT)</strong>
       </div>
 
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
@@ -4971,7 +4977,7 @@ function RoyaltyPlanta({data,setData,can}) {
                 <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.usdPlanta} onChange={v=>upd(r.id,"usdPlanta",parseFloat(v))} type="number" can={can}/></td>
                 <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.azul}}>{$$(r.montoFact)}</td>
                 <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.verde}}>
-                  {$$(r.montoCobro)}<div style={{fontSize:9,color:C.gris}}>{(pct(r.pais)*100).toFixed(0)}%</div>
+                  {$$(r.montoCobro)}<div style={{fontSize:9,color:C.gris}}>{whtLabel(r.pais)||`${(pct(r.pais)*100).toFixed(0)}% neto`}</div>
                 </td>
                 <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.nOC} onChange={v=>upd(r.id,"nOC",v)} can={can} ph="OC-..."/></td>
                 <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.nFact} onChange={v=>upd(r.id,"nFact",v)} can={can} ph="F-..."/></td>
@@ -5082,7 +5088,7 @@ function RoyaltyComercial({data,setData,can}) {
       </div>
 
       <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:12,color:"#15803d"}}>
-        💡 Monto Facturar = Há a cobrar × US$/Há (por defecto US$3.000/Há) &nbsp;·&nbsp; Monto Cobrar = <strong>85% Perú/Chile · 90% México</strong>
+        💡 Monto Facturar = Há a cobrar × US$/Há (por defecto US$3.000/Há) &nbsp;·&nbsp; Monto Cobrar = <strong>85% Perú/México (WHT 15%) · 100% Chile (sin WHT)</strong>
       </div>
 
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
@@ -5121,7 +5127,7 @@ function RoyaltyComercial({data,setData,can}) {
                 <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.usdHa||3000} onChange={v=>upd(r.id,"usdHa",parseFloat(v)||3000)} type="number" can={can}/></td>
                 <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.mo}}>{$$(r.montoFact)}</td>
                 <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.verde}}>
-                  {$$(r.montoCobro)}<div style={{fontSize:9,color:C.gris}}>{(pct(r.pais)*100).toFixed(0)}%</div>
+                  {$$(r.montoCobro)}<div style={{fontSize:9,color:C.gris}}>{whtLabel(r.pais)||`${(pct(r.pais)*100).toFixed(0)}% neto`}</div>
                 </td>
                 <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.nFact} onChange={v=>upd(r.id,"nFact",v)} can={can} ph="F-..."/></td>
                 <td style={{padding:"7px 10px",textAlign:"center"}}><BadgeFact nFact={r.nFact}/></td>
@@ -5728,7 +5734,26 @@ function OsirisLogo({height=52}) {
 // ════════════════════════════════════════════════════════════
 const TIPOS_FEE=["Con Devolución","Sin Devolución","Sin Contract Fee"];
 const MESES_ANO=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const TIPOS_CONTRATO=["Licencia","Exclusiva","No Exclusiva"];
+const TIPOS_CONTRATO_BASE=["Licencia","Exclusiva","No Exclusiva"];
+const TIPOS_ANEXO_BASE=[
+  "Extensión período de prueba","Condiciones comerciales",
+  "Modificación de hectáreas","Adenda de precio",
+  "Prórroga de contrato","Cambio de titular",
+];
+// Maestro de clientes inicial (compartido entre Contratos e Ingresos)
+const CLIENTES_INIT=[
+  {id:"cli1",razonSocial:"Agroextiende",nombreComercial:"Agroextiende",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli2",razonSocial:"Allpa Farms",nombreComercial:"Allpa Farms",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli3",razonSocial:"Vanguard",nombreComercial:"Vanguard",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli4",razonSocial:"Mainland Farms SA",nombreComercial:"Mainland",taxID:"",pais:"Mexico",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli5",razonSocial:"Frusan Agro SAC",nombreComercial:"Frusan",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli6",razonSocial:"Danper Trujillo SAC",nombreComercial:"Danper",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli7",razonSocial:"Hass Peru SA",nombreComercial:"Hass Peru",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli8",razonSocial:"Pura Berries",nombreComercial:"Pura Berries",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli9",razonSocial:"San Clemente",nombreComercial:"San Clemente",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli10",razonSocial:"Fruits Giddings SA de CV",nombreComercial:"Giddings",taxID:"",pais:"Mexico",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+  {id:"cli11",razonSocial:"Frunatural",nombreComercial:"Frunatural",taxID:"",pais:"Mexico",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
+];
 const MONEDAS=["USD","EUR","CLP","PEN"];
 const SECCIONES_CT=[
   {id:"empresa",   label:"🏢 Empresa",         color:"#2563eb"},
@@ -5755,13 +5780,138 @@ const CONTRATOS_INIT=[
 // ════════════════════════════════════════════════════════════
 // CONTROL CONTRATOS
 // ════════════════════════════════════════════════════════════
-function ControlContratos({data,setData,can}){
+// ════════════════════════════════════════════════════════════
+// MAESTRO DE CLIENTES — compartido entre Contratos e Ingresos
+// ════════════════════════════════════════════════════════════
+function MaestroClientes({clientes,setClientes,can}){
+  const [editId,setEditId]=useState(null);
+  const [form,setForm]=useState({razonSocial:"",nombreComercial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""});
+  const [showForm,setShowForm]=useState(false);
+  const [busq,setBusq]=useState("");
+
+  function guardar(){
+    if(!form.razonSocial.trim()){alert("Razón Social es obligatoria.");return;}
+    if(editId){
+      setClientes(prev=>prev.map(c=>c.id===editId?{...c,...form}:c));
+      setEditId(null);
+    } else {
+      setClientes(prev=>[...prev,{...form,id:`cli_${Date.now()}`}]);
+    }
+    setForm({razonSocial:"",nombreComercial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""});
+    setShowForm(false);
+  }
+  function iniciarEdicion(c){
+    setForm({razonSocial:c.razonSocial||"",nombreComercial:c.nombreComercial||"",taxID:c.taxID||"",pais:c.pais||"Peru",direccion:c.direccion||"",ciudad:c.ciudad||"",repLegal:c.repLegal||"",rucRep:c.rucRep||"",contactoCobranza:c.contactoCobranza||""});
+    setEditId(c.id);setShowForm(true);
+  }
+
+  const filtrado = clientes.filter(c=>!busq||c.razonSocial.toLowerCase().includes(busq.toLowerCase())||
+    (c.nombreComercial||"").toLowerCase().includes(busq.toLowerCase()));
+  const CAMPOS=[["Razón Social *","razonSocial","text"],["Nombre Comercial","nombreComercial","text"],["TAX ID / RUC","taxID","text"],["País","pais","select"],["Dirección","direccion","text"],["Ciudad","ciudad","text"],["Representante Legal","repLegal","text"],["RUC Representante","rucRep","text"],["Contacto Cobranza","contactoCobranza","text"]];
+
+  return(
+    <div style={{background:"#f0fdfa",border:"1px solid #99f6e4",borderRadius:12,padding:"16px 20px",marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#0f766e"}}>👥 Maestro de Clientes</div>
+        <div style={{display:"flex",gap:8}}>
+          <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar..."
+            style={{padding:"5px 10px",borderRadius:6,border:"1px solid #99f6e4",fontSize:12,outline:"none"}}/>
+          {can&&<button onClick={()=>{setShowForm(v=>!v);setEditId(null);setForm({razonSocial:"",nombreComercial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""}); }}
+            style={{padding:"6px 14px",borderRadius:6,background:"#0f766e",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>
+            {showForm&&!editId?"✕":"+ Nuevo cliente"}
+          </button>}
+        </div>
+      </div>
+
+      {showForm&&can&&(
+        <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",marginBottom:12,border:"1px solid #99f6e4"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#0f766e",marginBottom:10}}>{editId?"Editar cliente":"Nuevo cliente"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10,marginBottom:12}}>
+            {CAMPOS.map(([lbl,campo,tipo])=>(
+              <div key={campo}>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>{lbl}</div>
+                {tipo==="select"
+                  ? <select value={form[campo]} onChange={e=>setForm(p=>({...p,[campo]:e.target.value}))}
+                      style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
+                      {["Peru","Mexico","Chile","Corea","España"].map(o=><option key={o}>{o}</option>)}
+                    </select>
+                  : <input type={tipo} value={form[campo]} onChange={e=>setForm(p=>({...p,[campo]:e.target.value}))}
+                      style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                }
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button onClick={()=>{setShowForm(false);setEditId(null);}} style={{padding:"6px 16px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12}}>Cancelar</button>
+            <button onClick={guardar} style={{padding:"6px 16px",borderRadius:6,background:"#0f766e",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>💾 Guardar</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{overflowX:"auto"}}>
+        <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:8,overflow:"hidden",fontSize:12}}>
+          <thead><tr style={{background:"#0f766e",color:"#fff"}}>
+            {["Razón Social","Nombre Comercial","TAX ID","País","Ciudad","Rep. Legal","Contacto Cobranza",""].map(h=>(
+              <th key={h} style={{padding:"7px 10px",textAlign:"left",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {filtrado.map((c,i)=>(
+              <tr key={c.id} style={{borderBottom:"1px solid #f0fdfa",background:i%2===0?"#fff":"#f0fdfa"}}>
+                <td style={{padding:"6px 10px",fontWeight:600,color:"#0f766e"}}>{c.razonSocial}</td>
+                <td style={{padding:"6px 10px",color:"#64748b"}}>{c.nombreComercial||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{c.taxID||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b"}}>{c.pais}</td>
+                <td style={{padding:"6px 10px",color:"#64748b"}}>{c.ciudad||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{c.repLegal||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{c.contactoCobranza||"—"}</td>
+                <td style={{padding:"6px 8px",textAlign:"center"}}>
+                  {can&&<div style={{display:"flex",gap:4"}}>
+                    <button onClick={()=>iniciarEdicion(c)} style={{background:"#dbeafe",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#1d4ed8",fontWeight:600}}>✏️</button>
+                    <button onClick={()=>{if(window.confirm(`¿Eliminar cliente "${c.razonSocial}"?`))setClientes(prev=>prev.filter(x=>x.id!==c.id));}}
+                      style={{background:"#fee2e2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#991b1b",fontWeight:600}}>×</button>
+                  </div>}
+                </td>
+              </tr>
+            ))}
+            {filtrado.length===0&&<tr><td colSpan={8} style={{textAlign:"center",padding:20,color:"#94a3b8"}}>Sin clientes</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ControlContratos({data,setData,clientes,setClientes,can}){
   const [vista,setVista]=useState("tabla");
   const [sel,setSel]=useState(null);
   const [sec,setSec]=useState("empresa");
   const [busq,setBusq]=useState("");
   const [filtroPais,setFiltroPais]=useState("Todos");
-  const formVacio={razonSocial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",tipoContrato:"Licencia",moneda:"USD",fechaContrato:"",fechaTermino:"",firmadoLicenciado:false,firmadoOsiris:false,verDigital:"",anexo1:false,anexo2:false,anexo3:false,nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",region:"",ciudadPredio:"",coordenadas:"",tipoContractFee:"Sin Devolución",montoContractFee:30000,valorRoyaltyPlanta:1.00,valorRoyaltyComercial:3000,royaltyInflacion:false,mesFacuracionRC:"",notas:""};
+  // Mantenedores
+  const [tiposContrato,setTiposContrato]=useState(TIPOS_CONTRATO_BASE);
+  const [tiposAnexo,setTiposAnexo]=useState(TIPOS_ANEXO_BASE);
+  const [showMantenedor,setShowMantenedor]=useState(false);
+  const [showClientes,setShowClientes]=useState(false);
+  const [nuevoTipo,setNuevoTipo]=useState("");
+  const [nuevoAnexo,setNuevoAnexo]=useState("");
+  const [clienteSelId,setClienteSelId]=useState("");
+
+  const formAnexoVacio={activo:false,firmadoOsiris:false,firmadoLicenciado:false,tipo:""};
+  const formVacio={
+    razonSocial:"",nombreComercial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",
+    tipoContrato:"Licencia",moneda:"USD",fechaContrato:"",fechaTermino:"",
+    firmadoLicenciado:false,firmadoOsiris:false,verDigital:"",
+    anexo1:{...formAnexoVacio},anexo2:{...formAnexoVacio},anexo3:{...formAnexoVacio},
+    nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",
+    region:"",ciudadPredio:"",coordenadas:"",
+    tipoContractFee:"Sin Devolución",montoContractFee:30000,
+    valorRoyaltyPlanta:1.00,valorRoyaltyComercial:3000,
+    royaltyInflacion:false,mesFacuracionRC:"",notas:"",
+    // Nuevos campos
+    llevaMulta:false,haMinContrato:0,
+    tieneAnioPrueba:false,cantAnioPrueba:1,
+  };
   const [form,setForm]=useState(formVacio);
 
   const upd=(id,c,v)=>setData(prev=>prev.map(r=>r.id===id?{...r,[c]:v}:r));
@@ -5777,7 +5927,23 @@ function ControlContratos({data,setData,can}){
   function guardarNuevo(){
     if(!form.razonSocial.trim()){alert("Razón Social es obligatoria.");return;}
     setData(prev=>[...prev,{...form,id:`ct_${Date.now()}`}]);
-    setVista("tabla");setForm(formVacio);
+    setVista("tabla");setForm(formVacio);setClienteSelId("");
+  }
+
+  function autocompletarCliente(cliId){
+    setClienteSelId(cliId);
+    const cli=clientes.find(c=>c.id===cliId);
+    if(!cli)return;
+    setForm(prev=>({
+      ...prev,
+      razonSocial:cli.razonSocial||prev.razonSocial,
+      nombreComercial:cli.nombreComercial||"",
+      taxID:cli.taxID||"",
+      pais:cli.pais||prev.pais,
+      direccion:cli.direccion||"",
+      ciudad:cli.ciudad||"",
+      nombreRep:cli.repLegal||"",
+    }));
   }
   function eliminar(id){
     if(!window.confirm("¿Eliminar este contrato?"))return;
@@ -5848,6 +6014,7 @@ function ControlContratos({data,setData,can}){
           {sec==="empresa"&&(
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:16}}>
               <Campo label="Razón Social" campo="razonSocial" r={r}/>
+              <Campo label="Nombre Comercial" campo="nombreComercial" r={r}/>
               <Campo label="Tax ID / RUC" campo="taxID" r={r}/>
               <Campo label="País" campo="pais" opts={PAISES} r={r}/>
               <Campo label="Dirección" campo="direccion" r={r}/>
@@ -5857,38 +6024,108 @@ function ControlContratos({data,setData,can}){
           {sec==="contrato"&&(
             <div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:16,marginBottom:20}}>
-                <Campo label="Tipo Contrato" campo="tipoContrato" opts={TIPOS_CONTRATO} r={r}/>
+                <Campo label="Tipo Contrato" campo="tipoContrato" opts={tiposContrato} r={r}/>
                 <Campo label="Moneda" campo="moneda" opts={MONEDAS} r={r}/>
                 <Campo label="Fecha Contrato" campo="fechaContrato" tipo="date" r={r}/>
                 <Campo label="Fecha Término" campo="fechaTermino" tipo="date" r={r}/>
                 <Campo label="Ver Digital (URL)" campo="verDigital" r={r}/>
               </div>
+              {/* Año de prueba */}
+              <div style={{background:"#fefce8",borderRadius:12,padding:16,marginBottom:16,border:"1px solid #fde047"}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#854d0e",marginBottom:10}}>🧪 Año de prueba</div>
+                <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",fontSize:13,fontWeight:600,color:r.tieneAnioPrueba?"#854d0e":"#94a3b8"}}>
+                    <input type="checkbox" checked={r.tieneAnioPrueba||false} disabled={!can} onChange={()=>upd(r.id,"tieneAnioPrueba",!r.tieneAnioPrueba)}/>
+                    Tiene año de prueba
+                  </label>
+                  {r.tieneAnioPrueba&&(
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:12,color:"#854d0e"}}>Duración:</span>
+                      {can
+                        ? <input type="number" min="1" max="5" value={r.cantAnioPrueba||1}
+                            onChange={e=>upd(r.id,"cantAnioPrueba",parseInt(e.target.value)||1)}
+                            style={{width:60,padding:"5px 8px",borderRadius:6,border:"1px solid #fde047",fontSize:13,textAlign:"center"}}/>
+                        : <span style={{fontWeight:700,color:"#854d0e"}}>{r.cantAnioPrueba||1}</span>
+                      }
+                      <span style={{fontSize:12,color:"#854d0e"}}>año(s)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Multa */}
+              <div style={{background:"#fff1f2",borderRadius:12,padding:16,marginBottom:16,border:"1px solid #fecdd3"}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#9f1239",marginBottom:10}}>⚠️ Multa por incumplimiento</div>
+                <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",fontSize:13,fontWeight:600,color:r.llevaMulta?"#9f1239":"#94a3b8"}}>
+                    <input type="checkbox" checked={r.llevaMulta||false} disabled={!can} onChange={()=>upd(r.id,"llevaMulta",!r.llevaMulta)}/>
+                    Lleva multa
+                  </label>
+                  {r.llevaMulta&&(
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:12,color:"#9f1239"}}>Mínimo Há según contrato:</span>
+                      {can
+                        ? <input type="number" min="0" value={r.haMinContrato||0}
+                            onChange={e=>upd(r.id,"haMinContrato",parseFloat(e.target.value)||0)}
+                            style={{width:90,padding:"5px 8px",borderRadius:6,border:"1px solid #fecdd3",fontSize:13,textAlign:"right"}}/>
+                        : <span style={{fontWeight:700,color:"#9f1239"}}>{r.haMinContrato||0}</span>
+                      }
+                      <span style={{fontSize:12,color:"#9f1239"}}>Há</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Firmas */}
               <div style={{background:"#f8fafc",borderRadius:12,padding:16,marginBottom:16}}>
-                <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:12}}>Estado de Firmas</div>
+                <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:12}}>Estado de Firmas del Contrato</div>
                 <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
                   {[["firmadoLicenciado","Firmado Licenciado"],["firmadoOsiris","Firmado OSIRIS"]].map(([campo,label])=>(
                     <label key={campo} style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",
                       background:r[campo]?C.verdeBg:C.rojoBg,border:`1px solid ${r[campo]?"#86efac":"#fca5a5"}`,
-                      borderRadius:10,padding:"9px 18px",fontSize:13,fontWeight:600,
-                      color:r[campo]?C.verde:C.rojo}}>
+                      borderRadius:10,padding:"9px 18px",fontSize:13,fontWeight:600,color:r[campo]?C.verde:C.rojo}}>
                       <input type="checkbox" checked={r[campo]} disabled={!can} onChange={()=>upd(r.id,campo,!r[campo])} style={{accentColor:r[campo]?"#16a34a":"#dc2626"}}/>
                       {r[campo]?"✅":"❌"} {label}
                     </label>
                   ))}
                 </div>
               </div>
+              {/* Anexos mejorados */}
               <div style={{background:"#f8fafc",borderRadius:12,padding:16,marginBottom:16}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:12}}>Anexos del contrato</div>
-                <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                  {[["anexo1","Anexo 1"],["anexo2","Anexo 2"],["anexo3","Anexo 3"]].map(([campo,label])=>(
-                    <label key={campo} style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",
-                      background:r[campo]?C.azulBg:"#f1f5f9",border:`1px solid ${r[campo]?"#93c5fd":"#d1d5db"}`,
-                      borderRadius:10,padding:"9px 18px",fontSize:13,fontWeight:600,
-                      color:r[campo]?C.azul:"#94a3b8"}}>
-                      <input type="checkbox" checked={r[campo]} disabled={!can} onChange={()=>upd(r.id,campo,!r[campo])} style={{accentColor:"#2563eb"}}/>
-                      {r[campo]?"📎":"○"} {label}
-                    </label>
-                  ))}
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {[["anexo1","Anexo 1"],["anexo2","Anexo 2"],["anexo3","Anexo 3"]].map(([campo,label])=>{
+                    const anx = typeof r[campo]==="object" ? r[campo] : {activo:!!r[campo],firmadoOsiris:false,firmadoLicenciado:false,tipo:""};
+                    return(
+                      <div key={campo} style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:`1px solid ${anx.activo?"#93c5fd":"#e2e8f0"}`}}>
+                        <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                          <label style={{display:"flex",alignItems:"center",gap:6,cursor:can?"pointer":"default",fontSize:13,fontWeight:700,color:anx.activo?C.azul:"#94a3b8",minWidth:80}}>
+                            <input type="checkbox" checked={anx.activo} disabled={!can}
+                              onChange={()=>upd(r.id,campo,{...anx,activo:!anx.activo})}/>
+                            {anx.activo?"📎":"○"} {label}
+                          </label>
+                          {anx.activo&&(
+                            <>
+                              <select value={anx.tipo||""} disabled={!can}
+                                onChange={e=>upd(r.id,campo,{...anx,tipo:e.target.value})}
+                                style={{padding:"5px 8px",borderRadius:6,border:"1px solid #93c5fd",fontSize:12,flex:1,minWidth:180}}>
+                                <option value="">— Tipo de anexo —</option>
+                                {tiposAnexo.map(t=><option key={t} value={t}>{t}</option>)}
+                              </select>
+                              <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600,color:anx.firmadoOsiris?C.verde:"#94a3b8",cursor:can?"pointer":"default"}}>
+                                <input type="checkbox" checked={anx.firmadoOsiris||false} disabled={!can}
+                                  onChange={()=>upd(r.id,campo,{...anx,firmadoOsiris:!anx.firmadoOsiris})}/>
+                                {anx.firmadoOsiris?"✅":"❌"} OSIRIS
+                              </label>
+                              <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600,color:anx.firmadoLicenciado?C.verde:"#94a3b8",cursor:can?"pointer":"default"}}>
+                                <input type="checkbox" checked={anx.firmadoLicenciado||false} disabled={!can}
+                                  onChange={()=>upd(r.id,campo,{...anx,firmadoLicenciado:!anx.firmadoLicenciado})}/>
+                                {anx.firmadoLicenciado?"✅":"❌"} Licenciado
+                              </label>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <div>
@@ -5959,14 +6196,27 @@ function ControlContratos({data,setData,can}){
     return(
       <div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-          <button onClick={()=>{setVista("tabla");setForm(formVacio);}} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:13,color:C.sl,fontWeight:600}}>← Volver</button>
+          <button onClick={()=>{setVista("tabla");setForm(formVacio);setClienteSelId("");}} style={{background:"#f1f5f9",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:13,color:C.sl,fontWeight:600}}>← Volver</button>
           <h2 style={{margin:0,fontSize:16,fontWeight:800,color:C.sl}}>Nuevo Contrato</h2>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {/* Selector de cliente con autocompletado */}
+          <div style={{background:"#eff6ff",borderRadius:12,padding:"14px 20px",border:"1px solid #bfdbfe"}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.azul,marginBottom:8}}>🔍 Seleccionar cliente existente (opcional)</div>
+            <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+              <select value={clienteSelId} onChange={e=>autocompletarCliente(e.target.value)}
+                style={{flex:1,minWidth:200,padding:"8px 12px",borderRadius:8,border:"1px solid #93c5fd",fontSize:13}}>
+                <option value="">— Buscar cliente —</option>
+                {clientes.map(c=><option key={c.id} value={c.id}>{c.razonSocial}{c.nombreComercial&&c.nombreComercial!==c.razonSocial?` (${c.nombreComercial})`:""}</option>)}
+              </select>
+              {clienteSelId&&<span style={{fontSize:11,color:C.azul,background:C.azulBg,borderRadius:20,padding:"3px 10px"}}>✓ Datos autocompletados</span>}
+            </div>
+          </div>
           <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
             <div style={{fontSize:13,fontWeight:700,color:C.azul,marginBottom:14}}>🏢 Antecedentes Empresa</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
               <CampoNuevo label="Razón Social *" campo="razonSocial"/>
+              <CampoNuevo label="Nombre Comercial" campo="nombreComercial"/>
               <CampoNuevo label="Tax ID / RUC" campo="taxID"/>
               <CampoNuevo label="País" campo="pais" opts={PAISES}/>
               <CampoNuevo label="Dirección" campo="direccion"/>
@@ -5976,18 +6226,91 @@ function ControlContratos({data,setData,can}){
           <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
             <div style={{fontSize:13,fontWeight:700,color:C.mo,marginBottom:14}}>📄 Datos del Contrato</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
-              <CampoNuevo label="Tipo Contrato" campo="tipoContrato" opts={TIPOS_CONTRATO}/>
+              <CampoNuevo label="Tipo Contrato" campo="tipoContrato" opts={tiposContrato}/>
               <CampoNuevo label="Moneda" campo="moneda" opts={MONEDAS}/>
               <CampoNuevo label="Fecha Contrato" campo="fechaContrato" tipo="date"/>
               <CampoNuevo label="Fecha Término" campo="fechaTermino" tipo="date"/>
               <CampoNuevo label="Ver Digital (URL)" campo="verDigital"/>
             </div>
-            <div style={{display:"flex",gap:14,marginTop:14,flexWrap:"wrap"}}>
-              {[["firmadoLicenciado","✅ Firmado Licenciado"],["firmadoOsiris","✅ Firmado OSIRIS"],["anexo1","📎 Anexo 1"],["anexo2","📎 Anexo 2"],["anexo3","📎 Anexo 3"]].map(([c,l])=>(
-                <label key={c} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:form[c]?C.sl:"#94a3b8"}}>
-                  <input type="checkbox" checked={form[c]||false} onChange={()=>setF(c,!form[c])}/>{l}
+            {/* Año de prueba */}
+            <div style={{marginTop:14,background:"#fefce8",borderRadius:10,padding:"12px 14px",border:"1px solid #fde047"}}>
+              <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,fontWeight:600,color:form.tieneAnioPrueba?"#854d0e":"#94a3b8"}}>
+                  <input type="checkbox" checked={form.tieneAnioPrueba||false} onChange={()=>setF("tieneAnioPrueba",!form.tieneAnioPrueba)}/>
+                  🧪 Tiene año de prueba
                 </label>
-              ))}
+                {form.tieneAnioPrueba&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:12,color:"#854d0e"}}>Duración:</span>
+                    <input type="number" min="1" max="5" value={form.cantAnioPrueba||1}
+                      onChange={e=>setF("cantAnioPrueba",parseInt(e.target.value)||1)}
+                      style={{width:60,padding:"5px 8px",borderRadius:6,border:"1px solid #fde047",fontSize:13,textAlign:"center"}}/>
+                    <span style={{fontSize:12,color:"#854d0e"}}>año(s)</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Multa */}
+            <div style={{marginTop:10,background:"#fff1f2",borderRadius:10,padding:"12px 14px",border:"1px solid #fecdd3"}}>
+              <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,fontWeight:600,color:form.llevaMulta?"#9f1239":"#94a3b8"}}>
+                  <input type="checkbox" checked={form.llevaMulta||false} onChange={()=>setF("llevaMulta",!form.llevaMulta)}/>
+                  ⚠️ Lleva multa por incumplimiento
+                </label>
+                {form.llevaMulta&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:12,color:"#9f1239"}}>Mínimo Há:</span>
+                    <input type="number" min="0" value={form.haMinContrato||0}
+                      onChange={e=>setF("haMinContrato",parseFloat(e.target.value)||0)}
+                      style={{width:90,padding:"5px 8px",borderRadius:6,border:"1px solid #fecdd3",fontSize:13,textAlign:"right"}}/>
+                    <span style={{fontSize:12,color:"#9f1239"}}>Há</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Firmas y Anexos mejorados */}
+            <div style={{marginTop:14}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:8}}>Firmas contrato principal</div>
+              <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:14}}>
+                {[["firmadoLicenciado","✅ Firmado Licenciado"],["firmadoOsiris","✅ Firmado OSIRIS"]].map(([c,l])=>(
+                  <label key={c} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:600,color:form[c]?C.verde:"#94a3b8"}}>
+                    <input type="checkbox" checked={form[c]||false} onChange={()=>setF(c,!form[c])}/>{l}
+                  </label>
+                ))}
+              </div>
+              <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:8}}>Anexos</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {[["anexo1","Anexo 1"],["anexo2","Anexo 2"],["anexo3","Anexo 3"]].map(([c,label])=>{
+                  const anx = form[c]||{activo:false,firmadoOsiris:false,firmadoLicenciado:false,tipo:""};
+                  return(
+                    <div key={c} style={{background:"#f8fafc",borderRadius:8,padding:"10px 14px",border:`1px solid ${anx.activo?"#93c5fd":"#e2e8f0"}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                        <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,fontWeight:700,color:anx.activo?C.azul:"#94a3b8",minWidth:80}}>
+                          <input type="checkbox" checked={anx.activo||false} onChange={()=>setF(c,{...anx,activo:!anx.activo})}/>
+                          {anx.activo?"📎":"○"} {label}
+                        </label>
+                        {anx.activo&&(
+                          <>
+                            <select value={anx.tipo||""} onChange={e=>setF(c,{...anx,tipo:e.target.value})}
+                              style={{padding:"5px 8px",borderRadius:6,border:"1px solid #93c5fd",fontSize:12,flex:1,minWidth:180}}>
+                              <option value="">— Tipo de anexo —</option>
+                              {tiposAnexo.map(t=><option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600,color:anx.firmadoOsiris?C.verde:"#94a3b8",cursor:"pointer"}}>
+                              <input type="checkbox" checked={anx.firmadoOsiris||false} onChange={()=>setF(c,{...anx,firmadoOsiris:!anx.firmadoOsiris})}/>
+                              {anx.firmadoOsiris?"✅":"❌"} OSIRIS
+                            </label>
+                            <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600,color:anx.firmadoLicenciado?C.verde:"#94a3b8",cursor:"pointer"}}>
+                              <input type="checkbox" checked={anx.firmadoLicenciado||false} onChange={()=>setF(c,{...anx,firmadoLicenciado:!anx.firmadoLicenciado})}/>
+                              {anx.firmadoLicenciado?"✅":"❌"} Licenciado
+                            </label>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
@@ -6044,8 +6367,73 @@ function ControlContratos({data,setData,can}){
             <div style={{fontSize:22,fontWeight:800,color:c}}>{v}</div>
           </div>
         ))}
-        {can&&<button onClick={()=>{setVista("nuevo");setForm(formVacio);}} style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontSize:13,fontWeight:700,alignSelf:"center"}}>+ Nuevo contrato</button>}
+        <div style={{display:"flex",gap:8,alignSelf:"center",flexWrap:"wrap"}}>
+          {can&&<button onClick={()=>{setVista("nuevo");setForm(formVacio);setClienteSelId("");}} style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontSize:13,fontWeight:700}}>+ Nuevo contrato</button>}
+          {can&&<button onClick={()=>{setShowMantenedor(v=>!v);setShowClientes(false);}}
+            style={{background:showMantenedor?"#1e293b":"#f1f5f9",color:showMantenedor?"#fff":"#1e293b",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>
+            ⚙️ Tipos
+          </button>}
+          {can&&<button onClick={()=>{setShowClientes(v=>!v);setShowMantenedor(false);}}
+            style={{background:showClientes?"#0f766e":"#f1f5f9",color:showClientes?"#fff":"#1e293b",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>
+            👥 Clientes
+          </button>}
+        </div>
       </div>
+
+      {/* Mantenedor tipos */}
+      {showMantenedor&&can&&(
+        <div style={{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:12,padding:"16px 20px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:12}}>⚙️ Mantenedor de tipos</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:C.azul,marginBottom:8}}>Tipos de contrato</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:8,maxHeight:160,overflowY:"auto"}}>
+                {tiposContrato.map((t,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",borderRadius:6,padding:"5px 10px",border:"1px solid #e2e8f0"}}>
+                    <span style={{flex:1,fontSize:12}}>{t}</span>
+                    {i>=TIPOS_CONTRATO_BASE.length&&(
+                      <button onClick={()=>setTiposContrato(p=>p.filter((_,j)=>j!==i))}
+                        style={{background:"none",border:"none",color:C.rojo,cursor:"pointer",fontSize:14,fontWeight:700}}>×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <input value={nuevoTipo} onChange={e=>setNuevoTipo(e.target.value)} placeholder="Nuevo tipo..."
+                  style={{flex:1,padding:"6px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}
+                  onKeyDown={e=>{if(e.key==="Enter"&&nuevoTipo.trim()&&!tiposContrato.includes(nuevoTipo.trim())){setTiposContrato(p=>[...p,nuevoTipo.trim()]);setNuevoTipo("");}}}/>
+                <button onClick={()=>{if(nuevoTipo.trim()&&!tiposContrato.includes(nuevoTipo.trim())){setTiposContrato(p=>[...p,nuevoTipo.trim()]);setNuevoTipo("");}}}
+                  style={{padding:"6px 12px",borderRadius:6,background:C.azul,color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>+</button>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:C.mo,marginBottom:8}}>Tipos de anexo</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:8,maxHeight:160,overflowY:"auto"}}>
+                {tiposAnexo.map((t,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:"#fff",borderRadius:6,padding:"5px 10px",border:"1px solid #e2e8f0"}}>
+                    <span style={{flex:1,fontSize:12}}>{t}</span>
+                    {i>=TIPOS_ANEXO_BASE.length&&(
+                      <button onClick={()=>setTiposAnexo(p=>p.filter((_,j)=>j!==i))}
+                        style={{background:"none",border:"none",color:C.rojo,cursor:"pointer",fontSize:14,fontWeight:700}}>×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <input value={nuevoAnexo} onChange={e=>setNuevoAnexo(e.target.value)} placeholder="Nuevo tipo de anexo..."
+                  style={{flex:1,padding:"6px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}
+                  onKeyDown={e=>{if(e.key==="Enter"&&nuevoAnexo.trim()&&!tiposAnexo.includes(nuevoAnexo.trim())){setTiposAnexo(p=>[...p,nuevoAnexo.trim()]);setNuevoAnexo("");}}}/>
+                <button onClick={()=>{if(nuevoAnexo.trim()&&!tiposAnexo.includes(nuevoAnexo.trim())){setTiposAnexo(p=>[...p,nuevoAnexo.trim()]);setNuevoAnexo("");}}}
+                  style={{padding:"6px 12px",borderRadius:6,background:C.mo,color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Maestro clientes inline */}
+      {showClientes&&<MaestroClientes clientes={clientes} setClientes={setClientes} can={can}/>}
+
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar empresa..."
           style={{padding:"7px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minWidth:200}}/>
@@ -6142,6 +6530,8 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
   }
 
   const ctData=osirisData?.contratos        ??CONTRATOS_INIT;
+  const clientes=osirisData?.clientes       ??CLIENTES_INIT;
+  const setClientes=useCallback(fn=>setOsirisData(prev=>({...prev,clientes:typeof fn==="function"?fn(prev?.clientes??CLIENTES_INIT):fn})),[setOsirisData]);
   const rpData=mergeConInit(osirisData?.royaltyPlanta,    ROYALTY_PLANTA_INIT);
   const feData=mergeConInit(osirisData?.feeEntrada,       FEE_ENTRADA_INIT);
   const rcData=mergeConInit(osirisData?.royaltyComercial, ROYALTY_COMERCIAL_INIT);
@@ -6355,7 +6745,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
         {label:"Control Contratos"},
       ]}/>
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
-        <ControlContratos data={ctData} setData={setCt} can={can}/>
+        <ControlContratos data={ctData} setData={setCt} clientes={clientes} setClientes={setClientes} can={can}/>
       </div>
     </div>
   );
@@ -6370,7 +6760,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
       ]}/>
 
       {/* Sub-tabs */}
-      <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
         {SUBTABS.map(({id,label,badge})=>(
           <button key={id} onClick={()=>setSubTab(id)}
             style={{padding:"7px 14px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,
@@ -6382,6 +6772,13 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,osiri
         ))}
       </div>
 
+      {/* Maestro clientes accesible desde Ingresos también */}
+      {can&&<div style={{marginBottom:16}}>
+        <details style={{background:"#f0fdfa",border:"1px solid #99f6e4",borderRadius:10}}>
+          <summary style={{padding:"10px 16px",cursor:"pointer",fontSize:12,fontWeight:700,color:"#0f766e"}}>👥 Maestro de Clientes</summary>
+          <div style={{padding:"0 16px 16px"}}><MaestroClientes clientes={clientes} setClientes={setClientes} can={can}/></div>
+        </details>
+      </div>}
       {/* Contenido */}
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
         {subTab==="resumen"          &&<Resumen        rpData={rpData} feData={feData} rcData={rcData} fvData={fvData} tpData={tpData}/>}
