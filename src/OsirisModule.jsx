@@ -6575,7 +6575,6 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const canContratos  = permContratos === "editar";
   const canIngresos   = permIngresos  === "editar";
   const canVerContratos = permContratos !== "sin_acceso";
-  const canVerIngresos  = permIngresos  !== "sin_acceso";
   // can genérico usado en componentes internos (ingresos)
   const can = canIngresos;
 
