@@ -2858,18 +2858,32 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   // eslint-disable-next-line
   },[realData,params,saldosBancos]);
 
+  // Ref para tener siempre el valor más reciente de paramsEmp sin stale closure
+  const paramsEmpRef = React.useRef(paramsEmp);
+  useEffect(()=>{ paramsEmpRef.current = paramsEmp; },[paramsEmp]);
+
   const handleSaveSaldos=useCallback(async(next)=>{
     setSaldosBancos(next);
-    const ok=await dbSave({finanzas_real:realData,allegria_params:params,saldos_bancos:next,params_emp:paramsEmp});
+    const ok=await dbSave({
+      finanzas_real:realData,
+      allegria_params:params,
+      saldos_bancos:next,
+      params_emp:paramsEmpRef.current,
+    });
     setSaved(ok?"✅ Guardado":"⚠️ Error");
     setTimeout(()=>setSaved(null),3000);
-  },[realData,params,paramsEmp]);
+  },[realData,params]);
 
   useEffect(()=>{
     if(loading) return;
-    const t=setTimeout(()=>dbSave({finanzas_real:realData,allegria_params:params,saldos_bancos:saldosBancos,params_emp:paramsEmp}),800);
+    const t=setTimeout(()=>dbSave({
+      finanzas_real:realData,
+      allegria_params:params,
+      saldos_bancos:saldosBancos,
+      params_emp:paramsEmpRef.current,
+    }),800);
     return ()=>clearTimeout(t);
-  },[params,loading]); // eslint-disable-line
+  },[params,saldosBancos,loading]); // eslint-disable-line
 
   if(loading) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",
