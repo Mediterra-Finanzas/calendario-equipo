@@ -3104,8 +3104,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       return cols.map((col,ci)=>{
                         const isTot=col.isTotalMes;
                         const valMes=getProy(line.label,col.idx);
-                        // Show full monthly value on last week only (not divided across weeks)
-                        const val=isTot ? valMes : (col.type==="month_collapsed" ? valMes : (col.isLastInMonth ? valMes : 0));
+                        // Show full monthly value: on monthly view always, on weekly view only on last week
+                        const val=isTot||col.type==="month"||col.type==="month_collapsed" ? valMes : (col.isLastInMonth ? valMes : 0);
                         const real=vista==="mensual"?(realMensual[col.mes]?.[line.label]||null):null;
                         const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                         const isEditable=canEdit&&!line.formula&&!isTot&&col.type!=="month_collapsed";
@@ -3168,7 +3168,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                           return cols.map((col,ci)=>{
                             const isTot=col.isTotalMes;
                             const raw=proyArr[col.idx]||0;
-                            const disp=isTot?raw:(col.isLastInMonth?raw:0);
+                            const disp=isTot||col.type==="month"||col.type==="month_collapsed"||col.isLastInMonth?raw:0;
                             const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                             return (
                               <td key={`pr-${acreedor}-${col.mes||""}-${ci}`}
@@ -3213,7 +3213,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                           return cols.map((col,ci)=>{
                             const isTot=col.isTotalMes;
                             const raw=Number(slVals[col.idx])||0;
-                            const disp=isTot?raw:(col.type==="month_collapsed"?raw:(col.isLastInMonth?raw:0));
+                            const disp=isTot?raw:(col.type==="month"||col.type==="month_collapsed"||col.isLastInMonth?raw:0);
                             const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                             return (
                               <td key={`sl-${sli}-${col.mes||""}-${ci}`}
@@ -3268,7 +3268,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       return cols.map((col,ci)=>{
                         const isTot=col.isTotalMes;
                         const rawVal=Number(alVals[col.idx])||0;
-                        const disp=isTot?rawVal:(col.type==="month_collapsed"?rawVal:(col.isLastInMonth?rawVal:0));
+                        const disp=isTot?rawVal:(col.type==="month"||col.type==="month_collapsed"||col.isLastInMonth?rawVal:0);
                         const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                         return (
                           <td key={`al-${ali}-${col.mes||""}-${ci}`}
@@ -3327,12 +3327,12 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     }
                     return cols.map((col,ci)=>{
                       const isTot=col.isTotalMes;
-                      const isTotOrCollapsed=col.type==="month_collapsed"||isTot;
-                      // Subtotal: show full month value on last week only (not divided)
+                      const showFull=isTot||col.type==="month"||col.type==="month_collapsed"||col.isLastInMonth;
+                      // Subtotal: show full month value on monthly view always, weekly only on last week
                       // Exclude indented sub-lines (  Banco X) — they're breakdowns of Pago Préstamos
-                      const baseTotal=(!isTotOrCollapsed && !col.isLastInMonth) ? 0 :
+                      const baseTotal=!showFull ? 0 :
                         sec.lines.reduce((a,l)=>l.label.startsWith("  ")?a:a+getProy(l.label,col.idx),0);
-                      const addedTotal=(!isTotOrCollapsed && !col.isLastInMonth) ? 0 :
+                      const addedTotal=!showFull ? 0 :
                         (addedLines[sec.cat]||[]).reduce((a,al)=>{
                           const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
                           return a+v;
