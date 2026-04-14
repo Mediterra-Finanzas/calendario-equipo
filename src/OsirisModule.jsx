@@ -142,18 +142,27 @@ function trimPagoVivero(trimEntrega, añoEntrega) {
 // % anticipo por defecto según tipo pago vivero
 
 // Helper: selector cliente en modales — desplegable desde maestro + autocompletado país
-function SelectorCliente({form,setForm,clientes}){
+function SelectorCliente({form,setForm,clientes,onSelect}){
+  // Estado local para el valor del select — evita que re-renders del padre cierren el dropdown
+  const [selVal,setSelVal]=useState("");
   return(
     <div style={{display:"flex",flexDirection:"column",gap:6}}>
       <label style={{fontSize:11,fontWeight:600,color:"#374151"}}>Cliente *</label>
       {clientes.length>0&&(
-        <select value={""} onChange={e=>{
+        <select value={selVal} onChange={e=>{
+          setSelVal(e.target.value);
           const cli=clientes.find(c=>c.id===e.target.value);
           if(!cli)return;
-          setForm(p=>({...p,
-            cliente:cli.razonSocial||p.cliente,
-            pais:cli.pais||p.pais,
-          }));
+          if(onSelect){
+            onSelect(cli);
+          } else {
+            setForm(p=>({...p,
+              cliente:cli.razonSocial||p.cliente,
+              pais:cli.pais||p.pais,
+            }));
+          }
+          // Reset después de seleccionar
+          setTimeout(()=>setSelVal(""),50);
         }} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #93c5fd",fontSize:12,boxSizing:"border-box",color:"#2563eb"}}>
           <option value="">🔍 Seleccionar desde maestro de clientes...</option>
           {clientes.map(c=><option key={c.id} value={c.id}>
@@ -161,8 +170,8 @@ function SelectorCliente({form,setForm,clientes}){
           </option>)}
         </select>
       )}
-      <input type="text" value={form.cliente} onChange={e=>setForm(p=>({...p,cliente:e.target.value}))}
-        placeholder="O escribe el nombre..."
+      <input type="text" value={form.cliente||""} onChange={e=>setForm(p=>({...p,cliente:e.target.value}))}
+        placeholder="O escribe el nombre del cliente..."
         style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
     </div>
   );
@@ -725,7 +734,7 @@ function TotalPedidos({data,setData,rpData,setRpData,rcData,setRcData,fvData,set
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               {/* Columna izquierda */}
               <div style={{gridColumn:"1/-1"}}>
-                <SelectorCliente form={form} setForm={f=>setForm(prev=>calcularDefaults({...prev,...f}))} clientes={clientes}/>
+                <SelectorCliente form={form} setForm={setForm} clientes={clientes} onSelect={cli=>setForm(prev=>calcularDefaults({...prev,cliente:cli.razonSocial||prev.cliente,pais:cli.pais||prev.pais}))}/>
               </div>
 
               {[
