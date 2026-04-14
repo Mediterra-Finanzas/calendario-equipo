@@ -660,21 +660,26 @@ export default function App(){
 
   // ── Auto-reload on new Vercel deploy ─────────────────────────────
   useEffect(()=>{
+    // URL de producción fija — evita redirigir a URLs internas protegidas de Vercel
+    const PROD_URL = 'https://gestion-grupo-mediterra.vercel.app';
     let currentBundle = null;
     async function checkNewDeploy() {
       try {
-        const res = await fetch('/', {cache:'no-store'});
+        const res = await fetch(`${PROD_URL}/`, {cache:'no-store'});
+        if(!res.ok) return; // si la URL falla, no hacer nada
         const html = await res.text();
         const match = html.match(/\/static\/js\/main\.[a-f0-9]+\.js/);
         const bundle = match ? match[0] : null;
         if(!bundle) return;
         if(currentBundle === null) { currentBundle = bundle; }
-        else if(bundle !== currentBundle) { window.location.reload(); }
+        else if(bundle !== currentBundle) {
+          // Recargar siempre a la URL de producción
+          window.location.href = PROD_URL;
+        }
       } catch(e) {}
     }
-    // Esperar 5s para que la app cargue, luego verificar inmediatamente
     const initialCheck = setTimeout(checkNewDeploy, 5000);
-    const interval = setInterval(checkNewDeploy, 10 * 1000); // cada 10 segundos // cada 30 segundos
+    const interval = setInterval(checkNewDeploy, 30 * 1000);
     return () => { clearTimeout(initialCheck); clearInterval(interval); };
   }, []);
   // ─────────────────────────────────────────────────────────────────
