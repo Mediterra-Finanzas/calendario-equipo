@@ -456,7 +456,6 @@ const EMPRESAS_STATIC = {
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
         {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Mediterra'), formula:true, subLines:true},
-        {label:'Privado Particular', proy:calcPrestamosDesglose('Mediterra')['Privado Particular']||Z65()},
         {label:'Aportes de Capital', proy:Z65(), subLines:true},
         {label:'Leyes Sociales Laborales', proy:Z65()},
         {label:'Pago F-29', proy:Z65()},
@@ -499,7 +498,6 @@ const EMPRESAS_STATIC = {
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
         {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Allegria Service'), formula:true, subLines:true},
-        {label:'  BCI', proy:calcPrestamosDesglose('Allegria Service')['BCI']||Z65()},
         {label:'Aportes de Capital', proy:Z65(), subLines:true},
         {label:'Leyes Sociales Laborales', proy:Z65()},
         {label:'Otros Egresos No Operacionales', proy:Z65()},
@@ -542,8 +540,6 @@ const EMPRESAS_STATIC = {
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
         {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Frisku Foods'), formula:true, subLines:true},
-        {label:'  Banco Security', proy:calcPrestamosDesglose('Frisku Foods')['Banco Security']||Z65()},
-        {label:'  Banco BICE', proy:calcPrestamosDesglose('Frisku Foods')['Banco BICE']||Z65()},
         {label:'Aportes de Capital', proy:Z65(), subLines:true},
         {label:'Leyes Sociales Laborales', proy:Z65()},
         {label:'Otros Egresos No Operacionales', proy:Z65()},
@@ -655,7 +651,6 @@ const EMPRESAS_STATIC = {
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
         {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Allpa Farms'), formula:true, subLines:true},
-        {label:'  Banco de Chile', proy:calcPrestamosDesglose('Allpa Farms')['Banco de Chile']||Z65()},
         {label:'Aportes de Capital', proy:Z65(), subLines:true},
         {label:'Leyes Sociales Laborales', proy:Z65()},
         {label:'Otros Egresos No Operacionales', proy:Z65()},
@@ -789,8 +784,6 @@ const EMPRESAS_STATIC = {
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
         {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Osiris'), formula:true, subLines:true},
-        {label:'  Banco Security', proy:calcPrestamosDesglose('Osiris')['Banco Security']||Z65()},
-        {label:'  BCI', proy:calcPrestamosDesglose('Osiris')['BCI']||Z65()},
         {label:'Aportes de Capital', proy:Z65(), subLines:true},
         {label:'Leyes Sociales Laborales', proy:Z65()},
         {label:'Otros Egresos No Operacionales', proy:Z65()},
@@ -847,13 +840,6 @@ function buildAllegria(params) {
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
         {label:"Pago Préstamos - Total", proy:calcPrestamosEmpresa("Allegria Foods"), formula:true, subLines:true},
-        {label:"  Zelun",                proy:calcPrestamosDesglose("Allegria Foods")["Zelun"]||Z65()},
-        {label:"  Yiannis",              proy:calcPrestamosDesglose("Allegria Foods")["Yiannis"]||Z65()},
-        {label:"  Fresion",              proy:calcPrestamosDesglose("Allegria Foods")["Fresion"]||Z65()},
-        {label:"  Qupai",               proy:calcPrestamosDesglose("Allegria Foods")["Qupai"]||Z65()},
-        {label:"  China Smart",         proy:calcPrestamosDesglose("Allegria Foods")["China Smart"]||Z65()},
-        {label:"  Banco BICE",          proy:calcPrestamosDesglose("Allegria Foods")["Banco BICE"]||Z65()},
-        {label:"  Banco Santander",     proy:calcPrestamosDesglose("Allegria Foods")["Banco Santander"]||Z65()},
         {label:"Aportes de Capital", proy:Z65(), subLines:true},
         {label:"Leyes Sociales Laborales", proy:Z65()},
         {label:"Otros Egresos No Operacionales", proy:Z65()},
@@ -3160,7 +3146,47 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     })}
                   </tr>
                   {/* SubLines: clientes/acreedores con montos por mes */}
-                  {line.subLines&&expandedSubs[line.label]&&(subLines[line.label]||[]).map((sl,sli)=>{
+                  {/* For Pago Préstamos: auto-generate rows from calcPrestamosDesglose */}
+                  {line.subLines&&expandedSubs[line.label]&&line.label.includes("Préstamos")&&(()=>{
+                    const desglose = calcPrestamosDesglose(empNombre);
+                    return Object.entries(desglose).map(([acreedor, proyArr])=>(
+                      <tr key={`prest-${acreedor}`} style={{borderBottom:`1px solid ${C.border}11`,background:`${C.red}06`}}>
+                        <td style={{padding:"4px 14px 4px 28px",fontSize:10,position:"sticky",left:0,
+                          background:`${C.red}06`,zIndex:1,borderRight:`1px solid ${C.border}`,color:C.muted}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{color:C.red,fontSize:9}}>↳</span>
+                            <span style={{fontWeight:600}}>{acreedor}</span>
+                          </div>
+                        </td>
+                        {colStructure.map(({season:s,collapsed,cols})=>{
+                          if(collapsed){
+                            const tot=s.indices.reduce((a,i)=>a+(proyArr[i]||0),0);
+                            return <td key={s.key} style={{padding:"4px 6px",textAlign:"right",fontSize:9,
+                              color:tot?C.red:C.muted2,fontWeight:tot?700:400,
+                              borderLeft:`2px solid ${C.border2}`}}>{tot?$$(tot):"—"}</td>;
+                          }
+                          return cols.map((col,ci)=>{
+                            const isTot=col.isTotalMes;
+                            const raw=proyArr[col.idx]||0;
+                            const disp=isTot?raw:(col.isLastInMonth?raw:0);
+                            const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                            return (
+                              <td key={`pr-${acreedor}-${col.mes||""}-${ci}`}
+                                style={{padding:"4px 5px",textAlign:"right",fontSize:9,
+                                  background:isTot?`${C.yellow}12`:`${C.red}06`,
+                                  borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                                <span style={{color:disp?C.red:C.muted2,fontWeight:disp?700:400}}>
+                                  {disp?$$(disp):"—"}
+                                </span>
+                              </td>
+                            );
+                          });
+                        })}
+                      </tr>
+                    ));
+                  })()}
+                  {/* For CxC/Capital Calls: use saved subLines from Supabase */}
+                  {line.subLines&&expandedSubs[line.label]&&!line.label.includes("Préstamos")&&(subLines[line.label]||[]).map((sl,sli)=>{
                     const slLabel=typeof sl==="string"?sl:sl.label;
                     const slVals =typeof sl==="string"?{}:(sl.vals||{});
                     const updSlVal=(idx,v)=>{
