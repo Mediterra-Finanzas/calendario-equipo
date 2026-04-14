@@ -151,6 +151,45 @@ function defaultParamsEmp() {
   return p;
 }
 
+// Allegria Service: parámetros por especie (cerezas / ciruelas)
+function defaultParamsAllegriaService() {
+  const p = {};
+  SEASON_KEYS.forEach(sk => {
+    p[sk] = {
+      cerezas: { kg_mes:{}, usd_kg:0, mes_cobro:"" },
+      ciruelas:{ kg_mes:{}, usd_kg:0, mes_cobro:"" },
+    };
+  });
+  return p;
+}
+
+// Calcula proyección de ingresos para Allegria Service desde sus parámetros
+function calcAllegriaService(paramsAS) {
+  const ingCerezas  = Z65();
+  const ingCiruelas = Z65();
+  SEASON_KEYS.forEach(sk => {
+    const d = paramsAS?.[sk];
+    if(!d) return;
+    ["cerezas","ciruelas"].forEach(esp => {
+      const p = d[esp]; if(!p) return;
+      const usd = Number(p.usd_kg)||0; if(!usd) return;
+      // Total kg procesados en la temporada
+      const totalKg = Object.values(p.kg_mes||{}).reduce((s,v)=>s+(Number(v)||0),0);
+      if(!totalKg) return;
+      const totalIng = totalKg * usd;
+      // El cobro va en el mes definido
+      if(p.mes_cobro) {
+        const i = mIdx(p.mes_cobro);
+        if(i >= 0) {
+          if(esp==="cerezas")  ingCerezas[i]  += totalIng;
+          else                 ingCiruelas[i] += totalIng;
+        }
+      }
+    });
+  });
+  return { ingCerezas, ingCiruelas };
+}
+
 // Convierte los params genéricos en arrays de proyección Z65
 // para las líneas de una empresa
 function calcParamsEmp(paramsEmp, lineLabel) {
@@ -1228,17 +1267,158 @@ function AnticipListGen({items,onChange,totalUnits=0,label="usd_unit"}) {
   );
 }
 
+
+// ── Parámetros Allegria Service ───────────────────────────────────
+const ESP_AS = ["cerezas","ciruelas"];
+const ESP_AS_EMOJI = {cerezas:"🍒",ciruelas:"🟣"};
+const ESP_AS_LABEL = {cerezas:"Cerezas",ciruelas:"Ciruelas"};
+
+function ParamsAllegriaService({selSeason, paramsAS, setParamsAS, readOnly}) {
+  const [selEsp, setSelEsp] = useState("cerezas");
+
+  const d = paramsAS?.[selSeason]?.[selEsp] || {kg_mes:{},usd_kg:0,mes_cobro:""};
+
+  function upd(field, val) {
+    if(readOnly) return;
+    setParamsAS(prev=>{
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason]) next[selSeason]={};
+      if(!next[selSeason][selEsp]) next[selSeason][selEsp]={kg_mes:{},usd_kg:0,mes_cobro:""};
+      next[selSeason][selEsp][field] = val;
+      return next;
+    });
+  }
+  function updKgMes(mes, val) {
+    if(readOnly) return;
+    setParamsAS(prev=>{
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason]) next[selSeason]={};
+      if(!next[selSeason][selEsp]) next[selSeason][selEsp]={kg_mes:{},usd_kg:0,mes_cobro:""};
+      if(!next[selSeason][selEsp].kg_mes) next[selSeason][selEsp].kg_mes={};
+      if(val===0||val==="") delete next[selSeason][selEsp].kg_mes[mes];
+      else next[selSeason][selEsp].kg_mes[mes] = Number(val)||0;
+      return next;
+    });
+  }
+
+  // Meses de la temporada seleccionada
+  const season = SEASONS.find(s=>s.key===selSeason);
+  const mesesTemp = season?.months||[];
+  const totalKg = Object.values(d.kg_mes||{}).reduce((s,v)=>s+(Number(v)||0),0);
+  const totalIng = totalKg * (Number(d.usd_kg)||0);
+
+  const iSt = {width:90,padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,
+    borderRadius:6,color:C.text,fontSize:11,outline:"none",textAlign:"right"};
+  const selSt = {padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,
+    borderRadius:6,fontSize:11,outline:"none",color:C.text};
+
+  return (
+    <Card>
+      {/* Selector especie */}
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        {ESP_AS.map(esp=>(
+          <button key={esp} onClick={()=>setSelEsp(esp)}
+            style={{padding:"6px 18px",borderRadius:20,border:"none",cursor:"pointer",
+              fontWeight:600,fontSize:12,
+              background:selEsp===esp?"#92400e":"transparent",
+              color:selEsp===esp?"#fff":C.muted,
+              border:`1px solid ${selEsp===esp?"#92400e":C.border}`}}>
+            {ESP_AS_EMOJI[esp]} {ESP_AS_LABEL[esp]}
+          </button>
+        ))}
+      </div>
+
+      <div style={{background:C.card2,borderRadius:12,padding:16,border:`1px solid ${C.border}`}}>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+          <span style={{fontSize:22}}>{ESP_AS_EMOJI[selEsp]}</span>
+          <span style={{fontWeight:800,fontSize:14,color:C.text}}>{ESP_AS_LABEL[selEsp]}</span>
+          {totalIng>0&&(
+            <span style={{fontSize:11,background:`${C.green}22`,color:C.green,
+              borderRadius:20,padding:"2px 10px",fontWeight:700,marginLeft:"auto"}}>
+              Total kg: {totalKg.toLocaleString()} · Ingreso: {$$(totalIng)}
+            </span>
+          )}
+        </div>
+
+        {/* US$/kg y mes de cobro */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          <div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:4}}>Tarifa proceso (US$/kg)</div>
+            <div style={{display:"flex",alignItems:"center",gap:4}}>
+              <span style={{fontSize:11,color:C.muted}}>$</span>
+              <input type="number" step="0.001" value={d.usd_kg||""} placeholder="0.000"
+                onChange={e=>upd("usd_kg",parseFloat(e.target.value)||0)}
+                style={iSt} disabled={readOnly}/>
+              <span style={{fontSize:10,color:C.muted}}>/kg</span>
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:4}}>Mes de cobro</div>
+            <select value={d.mes_cobro||""} onChange={e=>upd("mes_cobro",e.target.value)}
+              style={selSt} disabled={readOnly}>
+              <option value="">— seleccionar —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Kg por mes */}
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:8}}>
+            Kg a procesar por mes — {season?.label}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
+            {mesesTemp.map(mes=>{
+              const val = d.kg_mes?.[mes]||"";
+              return (
+                <div key={mes} style={{background:C.bg,borderRadius:8,padding:"8px 10px",
+                  border:`1px solid ${val?C.border2:C.border}`}}>
+                  <div style={{fontSize:10,color:val?C.accentL:C.muted,fontWeight:600,marginBottom:4}}>{mes}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <input type="number" value={val} placeholder="0"
+                      onChange={e=>updKgMes(mes,e.target.value)}
+                      style={{width:"100%",padding:"4px 6px",background:C.card2,
+                        border:`1px solid ${C.border}`,borderRadius:6,
+                        color:C.text,fontSize:11,outline:"none",textAlign:"right"}}
+                      disabled={readOnly}/>
+                    <span style={{fontSize:9,color:C.muted,flexShrink:0}}>kg</span>
+                  </div>
+                  {val&&Number(d.usd_kg)>0&&(
+                    <div style={{fontSize:9,color:C.green,marginTop:2,textAlign:"right"}}>
+                      = {$$(Number(val)*Number(d.usd_kg))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {totalKg>0&&Number(d.usd_kg)>0&&d.mes_cobro&&(
+            <div style={{marginTop:10,background:`${C.green}15`,border:`1px solid ${C.green}33`,
+              borderRadius:8,padding:"8px 12px",fontSize:11,color:C.green}}>
+              ✓ Se cobrarán <strong>{$$(totalIng)}</strong> en <strong>{d.mes_cobro}</strong>
+              <span style={{color:C.muted,marginLeft:6}}>({totalKg.toLocaleString()} kg × ${Number(d.usd_kg).toFixed(3)}/kg)</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // ── TabParametros GENÉRICO para todas las empresas ─────────────────
 function TabParametros({empNombre,empColor="#2563eb",
   params,setParams,           // Allegria Foods (frutas)
   paramsEmp,setParamsEmp,     // Otras empresas (productos genéricos)
+  paramsAS,setParamsAS,       // Allegria Service (kg × especie)
   readOnly=false}) {
 
   const [selSeason,setSelSeason] = useState(SEASON_KEYS[0]);
   const [selFruta, setSelFruta]  = useState("cerezas");
   const [selProd,  setSelProd]   = useState(null);   // id producto seleccionado
 
-  const esAllegria = empNombre === "Allegria Foods";
+  const esAllegria  = empNombre === "Allegria Foods";
+  const esAllegriaService = empNombre === "Allegria Service";
 
   // Productos de esta empresa en la temporada seleccionada
   const productos = paramsEmp?.[selSeason] || {};
@@ -1349,8 +1529,17 @@ function TabParametros({empNombre,empColor="#2563eb",
         </Card>
       )}
 
+      {/* ── ALLEGRIA SERVICE: kg por especie × mes ── */}
+      {esAllegriaService&&(
+        <ParamsAllegriaService
+          selSeason={selSeason}
+          paramsAS={paramsAS||defaultParamsAllegriaService()}
+          setParamsAS={setParamsAS||function(){}}
+          readOnly={readOnly}/>
+      )}
+
       {/* ── OTRAS EMPRESAS: lista de productos ── */}
-      {!esAllegria&&(
+      {!esAllegria&&!esAllegriaService&&(
         <div style={{display:"flex",gap:14}}>
           {/* Panel izquierdo: lista productos */}
           <div style={{width:200,flexShrink:0,display:"flex",flexDirection:"column",gap:6}}>
@@ -1419,7 +1608,7 @@ function TabParametros({empNombre,empColor="#2563eb",
       )}
 
       {/* Resumen proyectado */}
-      {(resumenAllegria.length>0||resumenEmp.length>0)&&(
+      {!esAllegriaService&&(resumenAllegria.length>0||resumenEmp.length>0)&&(
         <Card>
           <SectionTitle>Resumen Proyectado — Todas las Temporadas</SectionTitle>
           <div style={{overflowX:"auto"}}>
@@ -2411,14 +2600,15 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     return {...p,[sec.cat]:arr};
                   });
                   return (
-                  <tr key={`al-${sec.cat}-${ali}`} style={{borderBottom:`1px solid ${C.border}11`}}>
+                  <tr key={`al-${sec.cat}-${ali}`} style={{borderBottom:`1px solid ${C.border}11`,background:C.card}}>
                     <td style={{padding:"5px 14px",fontSize:11,position:"sticky",left:0,background:C.card,zIndex:1,
-                      borderRight:`1px solid ${C.border}`,color:CAT_COLOR[sec.cat]||C.text}}>
-                      <div style={{display:"flex",alignItems:"center",gap:4,paddingLeft:10}}>
-                        <span style={{fontSize:9,color:C.muted}}>↳</span>
-                        <span style={{fontStyle:"italic"}}>{alLabel}</span>
+                      borderRight:`1px solid ${C.border}`,whiteSpace:"nowrap",
+                      maxWidth:240,overflow:"hidden",textOverflow:"ellipsis"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:3,color:C.text}}>
                         {canEdit&&<button onClick={()=>setAddedLines(p=>({...p,[sec.cat]:(p[sec.cat]||[]).filter((_,i)=>i!==ali)}))}
-                          style={{marginLeft:4,background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10}}>×</button>}
+                          style={{background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10,
+                            padding:0,flexShrink:0}}>×</button>}
+                        <span>{alLabel}</span>
                       </div>
                     </td>
                     {colStructure.map(({season:s,collapsed,cols})=>{
@@ -3608,6 +3798,8 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   const [params,setParams]=useState(defaultParams);
   // paramsEmp: { empresa: { seasonKey: { prodId: defaultProducto() } } }
   const [paramsEmp,setParamsEmp]=useState({});
+  // paramsAS: parámetros específicos Allegria Service
+  const [paramsAS,setParamsAS]=useState(defaultParamsAllegriaService);
   // subLines: { empresa: { lineLabel: [nombre1, nombre2, ...] } }
   const [subLines,setSubLines]=useState({});
   // intercompany: array de transferencias entre empresas
@@ -3624,7 +3816,25 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   const puedoVer = (tabId) => esAdmin || perm(tabId) !== "sin_acceso";
   const puedoEdit= (tabId) => esAdmin || (perm(tabId) !== "ver" && perm(tabId) !== "sin_acceso");
 
-  const empresas=useMemo(()=>buildEmpresas(params),[params]);
+  const empresas=useMemo(()=>{
+    const base = buildEmpresas(params);
+    // Inject Allegria Service calculated projections
+    const {ingCerezas,ingCiruelas} = calcAllegriaService(paramsAS);
+    const as = base["Allegria Service"];
+    if(as) {
+      const next = JSON.parse(JSON.stringify(as));
+      next.sections = next.sections.map(sec=>{
+        if(sec.cat!=="ing_op") return sec;
+        return {...sec, lines: sec.lines.map(l=>{
+          if(l.label==="Proceso de Cerezas")   return {...l,proy:[...ingCerezas],  formula:true};
+          if(l.label==="Procesos de Ciruelas")  return {...l,proy:[...ingCiruelas], formula:true};
+          return l;
+        })};
+      });
+      base["Allegria Service"] = next;
+    }
+    return base;
+  },[params,paramsAS]);
 
   const TABS_ALL=[
     {id:"dashboard",label:"📊 Dashboard"},
@@ -3650,6 +3860,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
       if(d?.allegria_params) setParams(prev=>({...defaultParams(),...d.allegria_params}));
       if(d?.params_emp) setParamsEmp(d.params_emp);
       if(d?.saldos_bancos) setSaldosBancos(d.saldos_bancos);
+      if(d?.params_as)    setParamsAS(prev=>({...defaultParamsAllegriaService(),...d.params_as}));
       if(d?.sub_lines)    setSubLines(d.sub_lines);
       if(d?.intercompany) setIntercompany(d.intercompany||[]);
       setLoading(false);
@@ -3661,12 +3872,14 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   const paramsRef       = React.useRef(params);
   const saldosBancosRef = React.useRef(saldosBancos);
   const paramsEmpRef    = React.useRef(paramsEmp);
+  const paramsASRef     = React.useRef(paramsAS);
   const subLinesRef      = React.useRef(subLines);
   const intercompanyRef  = React.useRef(intercompany);
   useEffect(()=>{ realDataRef.current     = realData;     },[realData]);
   useEffect(()=>{ paramsRef.current       = params;       },[params]);
   useEffect(()=>{ saldosBancosRef.current = saldosBancos; },[saldosBancos]);
   useEffect(()=>{ paramsEmpRef.current    = paramsEmp;    },[paramsEmp]);
+  useEffect(()=>{ paramsASRef.current     = paramsAS;     },[paramsAS]);
   useEffect(()=>{ subLinesRef.current     = subLines;     },[subLines]);
   useEffect(()=>{ intercompanyRef.current = intercompany; },[intercompany]);
 
@@ -3678,6 +3891,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
       allegria_params: overrides.allegria_params !== undefined ? overrides.allegria_params : paramsRef.current,
       saldos_bancos:   overrides.saldos_bancos   !== undefined ? overrides.saldos_bancos   : saldosBancosRef.current,
       params_emp:      overrides.params_emp      !== undefined ? overrides.params_emp      : paramsEmpRef.current,
+      params_as:       overrides.params_as       !== undefined ? overrides.params_as       : paramsASRef.current,
       sub_lines:       overrides.sub_lines       !== undefined ? overrides.sub_lines       : subLinesRef.current,
       intercompany:    overrides.intercompany    !== undefined ? overrides.intercompany    : intercompanyRef.current,
     });
@@ -3739,6 +3953,17 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
         persistAll({ sub_lines: next })
           .then(ok=>{ setSaved(ok ? "✅ Guardado" : "⚠️ Error"); setTimeout(()=>setSaved(null),2000); });
       }, 0);
+      return next;
+    });
+  },[persistAll]);
+
+  // Guardar paramsAS de Allegria Service
+  const handleSaveParamsAS = useCallback((updater) => {
+    setParamsAS(prev=>{
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      paramsASRef.current = next;
+      setTimeout(()=>persistAll({ params_as:next })
+        .then(ok=>{setSaved(ok?"✅ Parámetros guardados":"⚠️ Error");setTimeout(()=>setSaved(null),2000);}),0);
       return next;
     });
   },[persistAll]);
@@ -3927,6 +4152,8 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
                 setParamsEmp={!esAllegria&&puedoEdit("flujo")
                   ? (updater)=>setParamsEmpresa(empTab,updater)
                   : ()=>{}}
+                paramsAS={empTab==="Allegria Service"?paramsAS:undefined}
+                setParamsAS={empTab==="Allegria Service"&&puedoEdit("flujo")?handleSaveParamsAS:undefined}
                 readOnly={!puedoEdit("flujo")}
               />
             );
