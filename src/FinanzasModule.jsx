@@ -403,6 +403,28 @@ function calcPrestamosEmpresa(empresa) {
   return arr;
 }
 
+// Retorna { mes: { semana: monto } } para posicionar en semana exacta de vencimiento
+// Si la semana calculada no está en SEMANAS_MES del mes, usa la última semana del mes
+function semanaVencimientoEnMes(f_venc) {
+  const mes = mesDeDate(f_venc);
+  const sem = semanaDeDate(f_venc);
+  const semsDelMes = SEMANAS_MES[mes] || [];
+  // Si la semana está en el mes → usarla; si no → usar la última semana del mes
+  return { mes, sem: semsDelMes.includes(sem) ? sem : (semsDelMes[semsDelMes.length-1] || sem) };
+}
+
+function calcPrestamosSemanasEmpresa(empresa) {
+  const bySemana = {}; // { "Nov-26": { "S47": 120000 } }
+  CREDITOS.filter(c => c.empresa === empresa).forEach(c => {
+    if(!c.f_venc || !c.cuota) return;
+    const { mes, sem } = semanaVencimientoEnMes(c.f_venc);
+    const monto = Number(c.cuota)||0;
+    if(!bySemana[mes]) bySemana[mes] = {};
+    bySemana[mes][sem] = (bySemana[mes][sem]||0) + monto;
+  });
+  return bySemana;
+}
+
 // Retorna { acreedor: proy[64] } desglosado por institución
 function calcPrestamosDesglose(empresa) {
   const byAcreedor = {};
@@ -415,6 +437,20 @@ function calcPrestamosDesglose(empresa) {
     byAcreedor[c.acreedor][i] += Number(c.cuota)||0;
   });
   return byAcreedor;
+}
+
+// Retorna { acreedor: { mes: { semana: monto } } } para vista semanal exacta
+function calcPrestamosDesgloseSemanasEmpresa(empresa) {
+  const bySemana = {}; // { "Zelun": { "Nov-26": { "S47": 120000 } } }
+  CREDITOS.filter(c => c.empresa === empresa).forEach(c => {
+    if(!c.f_venc || !c.cuota) return;
+    const { mes, sem } = semanaVencimientoEnMes(c.f_venc);
+    const monto = Number(c.cuota)||0;
+    if(!bySemana[c.acreedor]) bySemana[c.acreedor] = {};
+    if(!bySemana[c.acreedor][mes]) bySemana[c.acreedor][mes] = {};
+    bySemana[c.acreedor][mes][sem] = (bySemana[c.acreedor][mes][sem]||0) + monto;
+  });
+  return bySemana;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3104,8 +3140,17 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       return cols.map((col,ci)=>{
                         const isTot=col.isTotalMes;
                         const valMes=getProy(line.label,col.idx);
-                        // Show full monthly value: on monthly view always, on weekly view only on last week
-                        const val=isTot||col.type==="month"||col.type==="month_collapsed" ? valMes : (col.isLastInMonth ? valMes : 0);
+                        // Show full monthly value: on monthly view always
+                        // For Pago Préstamos: use exact semana of vencimiento in weekly view
+                        let val;
+                        if(isTot||col.type==="month"||col.type==="month_collapsed"){
+                          val=valMes;
+                        } else if(line.formula&&line.label.includes("Préstamos")&&col.type==="week"){
+                          const semMap=calcPrestamosSemanasEmpresa(empNombre);
+                          val=(semMap[col.mes]?.[col.semana])||0;
+                        } else {
+                          val=col.isLastInMonth?valMes:0;
+                        }
                         const real=vista==="mensual"?(realMensual[col.mes]?.[line.label]||null):null;
                         const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                         const isEditable=canEdit&&!line.formula&&!isTot&&col.type!=="month_collapsed";
@@ -3148,8 +3193,11 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                   {/* SubLines: clientes/acreedores con montos por mes */}
                   {/* For Pago Préstamos: auto-generate rows from calcPrestamosDesglose */}
                   {line.subLines&&expandedSubs[line.label]&&line.label.includes("Préstamos")&&(()=>{
-                    const desglose = calcPrestamosDesglose(empNombre);
-                    return Object.entries(desglose).map(([acreedor, proyArr])=>(
+                    const desglose      = calcPrestamosDesglose(empNombre);
+                    const desgloseSemsn = calcPrestamosDesgloseSemanasEmpresa(empNombre);
+                    return Object.entries(desglose).map(([acreedor, proyArr])=>{
+                      const semMap = desgloseSemsn[acreedor]||{};
+                      return (
                       <tr key={`prest-${acreedor}`} style={{borderBottom:`1px solid ${C.border}11`,background:`${C.red}06`}}>
                         <td style={{padding:"4px 14px 4px 28px",fontSize:10,position:"sticky",left:0,
                           background:`${C.red}06`,zIndex:1,borderRight:`1px solid ${C.border}`,color:C.muted}}>
@@ -3167,8 +3215,14 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                           }
                           return cols.map((col,ci)=>{
                             const isTot=col.isTotalMes;
-                            const raw=proyArr[col.idx]||0;
-                            const disp=isTot||col.type==="month"||col.type==="month_collapsed"||col.isLastInMonth?raw:0;
+                            // Vista mensual: usar proy mensual
+                            // Vista semanal: usar semana exacta de vencimiento
+                            let disp=0;
+                            if(isTot||col.type==="month"||col.type==="month_collapsed"){
+                              disp=proyArr[col.idx]||0;
+                            } else if(col.type==="week"&&col.mes&&col.semana){
+                              disp=(semMap[col.mes]?.[col.semana])||0;
+                            }
                             const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                             return (
                               <td key={`pr-${acreedor}-${col.mes||""}-${ci}`}
@@ -3183,7 +3237,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                           });
                         })}
                       </tr>
-                    ));
+                      );
+                    });
                   })()}
                   {/* For CxC/Capital Calls: use saved subLines from Supabase */}
                   {line.subLines&&expandedSubs[line.label]&&!line.label.includes("Préstamos")&&(subLines[line.label]||[]).map((sl,sli)=>{
