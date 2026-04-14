@@ -3060,12 +3060,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
 
                 {/* Líneas editables */}
                 {sec.lines.map(line=>{
-                  // Hide indented sub-lines unless their parent is expanded
-                  if(line.label.startsWith("  ")) {
-                    // Find parent line (Pago Préstamos - Total)
-                    const parent = sec.lines.find(l=>l.subLines && !l.label.startsWith("  "));
-                    if(parent && !expandedSubs[parent.label]) return null;
-                  }
+                  // Indented sub-lines (  Banco X) always visible — they show breakdown of Pago Préstamos
                   return (
                   <React.Fragment key={line.label}>
                   <tr style={{borderBottom:`1px solid ${C.border}11`}}>
@@ -3306,14 +3301,16 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     }
                     return cols.map((col,ci)=>{
                       const isTot=col.isTotalMes;
-                      const nSems=col.type==="month_collapsed"||isTot?1:col.nSems;
-                      // Exclude indented sub-lines (  Banco X) from subtotal — they're breakdowns of Pago Préstamos
-                      const baseTotal=sec.lines.reduce((a,l)=>l.label.startsWith("  ")?a:a+getProy(l.label,col.idx)/nSems,0);
-                      // Add values from user-added lines
-                      const addedTotal=(addedLines[sec.cat]||[]).reduce((a,al)=>{
-                        const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
-                        return a+v/nSems;
-                      },0);
+                      const isTotOrCollapsed=col.type==="month_collapsed"||isTot;
+                      // Subtotal: show full month value on last week only (not divided)
+                      // Exclude indented sub-lines (  Banco X) — they're breakdowns of Pago Préstamos
+                      const baseTotal=(!isTotOrCollapsed && !col.isLastInMonth) ? 0 :
+                        sec.lines.reduce((a,l)=>l.label.startsWith("  ")?a:a+getProy(l.label,col.idx),0);
+                      const addedTotal=(!isTotOrCollapsed && !col.isLastInMonth) ? 0 :
+                        (addedLines[sec.cat]||[]).reduce((a,al)=>{
+                          const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
+                          return a+v;
+                        },0);
                       const total=baseTotal+addedTotal;
                       const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                       return (
