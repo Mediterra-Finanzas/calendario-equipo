@@ -1722,6 +1722,14 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     const week = 1+Math.round(((hoy-jan1)/86400000-3+((jan1.getDay()+6)%7))/7);
     return `S${String(week).padStart(2,"0")}`;
   },[]);
+  // Año actual para filtrar saldo banco solo en el año en curso
+  const añoHoy = new Date().getFullYear();
+  // Label del mes actual (ej: "Apr-26") para comparación exacta
+  const mesHoyLabel = useMemo(()=>{
+    const hoy = new Date();
+    const meses=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${meses[hoy.getMonth()]}-${String(hoy.getFullYear()).slice(2)}`;
+  },[]);
 
   // ── Saldo banco en USD: toma TODAS las monedas, convierte a USD ──
   // Para USD: usa el monto directo
@@ -1959,7 +1967,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                 <div style={{fontSize:11,fontWeight:700,color:C.blue}}>🏦 Saldo Banco (USD)</div>
                 <div style={{fontSize:9,color:C.muted}}>
                   {saldoBancoUSD!=null
-                    ? `${semanaHoy} · desde Saldos Bancos`
+                    ? `${mesHoyLabel} ${semanaHoy} · desde Saldos Bancos`
                     : `sin saldo registrado`}
                 </div>
               </td>
@@ -1975,9 +1983,11 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                   // Mostrar saldo solo en la semana actual (semanaHoy)
                   // Vista mensual: mostrar en el mes que contiene la semana actual
                   // Vista semanal: mostrar solo en la columna de la semana actual
-                  const esMesActual = col.type==="month" && (SEMANAS_MES[col.mes]||[]).includes(semanaHoy);
-                  const esSemActual = col.type==="week" && col.semana===semanaHoy;
-                  const esMesColapsado = col.type==="month_collapsed" && (SEMANAS_MES[col.mes]||[]).includes(semanaHoy);
+                  // Saldo banco: mostrar SOLO en el mes/semana del año actual
+                  // col.mes tiene formato "Apr-26" — comparar exactamente con mesHoyLabel
+                  const esMesActual = col.type==="month" && col.mes===mesHoyLabel;
+                  const esSemActual = col.type==="week" && col.semana===semanaHoy && col.mes===mesHoyLabel;
+                  const esMesColapsado = col.type==="month_collapsed" && col.mes===mesHoyLabel;
                   const mostrar = (vista==="mensual" && esMesActual) ||
                                   (vista==="semanal" && (esSemActual||esMesColapsado));
                   return (
