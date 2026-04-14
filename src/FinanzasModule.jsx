@@ -4620,20 +4620,78 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   // eslint-disable-next-line
   },[tabPermisos]);
 
+  // ── Carga inicial de datos ────────────────────────────────────────
+  function applyData(d) {
+    if(!d) return;
+    if(d?.calendario_data) setRealData(d.calendario_data);
+    else if(d&&!d.calendario_data&&!d.allegria_params) setRealData(d);
+    if(d?.allegria_params) setParams(prev=>({...defaultParams(),...d.allegria_params}));
+    if(d?.params_emp) setParamsEmp(d.params_emp);
+    if(d?.saldos_bancos) setSaldosBancos(d.saldos_bancos);
+    if(d?.params_as)    setParamsAS(prev=>({...defaultParamsAllegriaService(),...d.params_as}));
+    if(d?.params_if)    setParamsIF(prev=>({...defaultParamsIntegrity(),...d.params_if}));
+    if(d?.params_af)    setParamsAF(prev=>({...defaultParamsAllpa(),...d.params_af}));
+    if(d?.sub_lines)    setSubLines(d.sub_lines);
+    if(d?.intercompany) setIntercompany(d.intercompany||[]);
+  }
+
   useEffect(()=>{
-    dbLoad().then(d=>{
-      if(d?.calendario_data) setRealData(d.calendario_data);
-      else if(d&&!d.calendario_data&&!d.allegria_params) setRealData(d);
-      if(d?.allegria_params) setParams(prev=>({...defaultParams(),...d.allegria_params}));
-      if(d?.params_emp) setParamsEmp(d.params_emp);
-      if(d?.saldos_bancos) setSaldosBancos(d.saldos_bancos);
-      if(d?.params_as)    setParamsAS(prev=>({...defaultParamsAllegriaService(),...d.params_as}));
-      if(d?.params_if)    setParamsIF(prev=>({...defaultParamsIntegrity(),...d.params_if}));
-      if(d?.params_af)    setParamsAF(prev=>({...defaultParamsAllpa(),...d.params_af}));
-      if(d?.sub_lines)    setSubLines(d.sub_lines);
-      if(d?.intercompany) setIntercompany(d.intercompany||[]);
-      setLoading(false);
-    });
+    dbLoad().then(d=>{ applyData(d); setLoading(false); });
+
+    // ── Supabase Realtime — sincronización instantánea entre usuarios ──
+    // Escucha cambios en la fila "finanzas" de calendario_data
+    // Cuando otro usuario guarda → todos reciben los nuevos datos al instante
+    const channel = new WebSocket(
+      `wss://${SUPA_URL.replace('https://','')}/realtime/v1/websocket?apikey=${SUPA_KEY}&vsn=1.0.0`
+    );
+
+    let joined = false;
+    const REF   = () => String(Date.now());
+    const TOPIC = "realtime:public:calendario_data";
+
+    channel.onopen = () => {
+      // Join the realtime channel
+      channel.send(JSON.stringify({
+        topic: TOPIC, event: "phx_join",
+        payload: { config: { broadcast:{ack:false,self:false}, presence:{key:""} } },
+        ref: REF()
+      }));
+    };
+
+    channel.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        // Heartbeat keepalive
+        if(msg.event === "phx_reply" && !joined) { joined=true; return; }
+        if(msg.topic === "phoenix" && msg.event === "phx_reply") {
+          channel.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:REF()}));
+          return;
+        }
+        // Data change event
+        if(msg.topic === TOPIC && (msg.event === "INSERT" || msg.event === "UPDATE")) {
+          const record = msg.payload?.record;
+          if(record?.id === "finanzas" && record?.value) {
+            try {
+              const d = JSON.parse(record.value);
+              applyData(d);
+            } catch(err) {}
+          }
+        }
+      } catch(err) {}
+    };
+
+    // Heartbeat every 30s to keep connection alive
+    const hb = setInterval(()=>{
+      if(channel.readyState === WebSocket.OPEN) {
+        channel.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:REF()}));
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(hb);
+      if(channel.readyState === WebSocket.OPEN) channel.close();
+    };
+  // eslint-disable-next-line
   },[]);
 
   // Refs para siempre tener el valor mas reciente sin stale closures
