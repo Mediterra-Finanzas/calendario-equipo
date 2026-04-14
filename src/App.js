@@ -647,6 +647,26 @@ export default function App(){
   const [loginNombre,setLoginNombre]=useState("");
   const [loginPin,setLoginPin]=useState("");
   const [loginError,setLoginError]=useState("");
+
+  // ── Auto-reload on new Vercel deploy ─────────────────────────────
+  useEffect(()=>{
+    let currentBundle = null;
+    async function checkNewDeploy() {
+      try {
+        const res = await fetch('/', {cache:'no-store'});
+        const html = await res.text();
+        const match = html.match(/\/static\/js\/main\.[a-f0-9]+\.js/);
+        const bundle = match ? match[0] : null;
+        if(!bundle) return;
+        if(currentBundle === null) { currentBundle = bundle; }
+        else if(bundle !== currentBundle) { window.location.reload(); }
+      } catch(e) {}
+    }
+    checkNewDeploy();
+    const interval = setInterval(checkNewDeploy, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+  // ─────────────────────────────────────────────────────────────────
   const [pinsPersonalizados,setPinsPersonalizados]=useState({});
   const [modalPin,setModalPin]=useState(null);
   const [workerPendiente,setWorkerPendiente]=useState(null); // usuario que entró con PIN temporal
@@ -1570,38 +1590,6 @@ export default function App(){
 
   // Hub principal
   const modulosPermitidos = modulosDeUsuarioSeguro(usuarioFresco || usuarioActual);
-
-  // ── Auto-reload on new Vercel deploy ─────────────────────────────
-  useEffect(()=>{
-    let currentBundle = null;
-
-    async function checkNewDeploy() {
-      try {
-        // Fetch the root HTML with cache-busting
-        const res = await fetch('/', {cache:'no-store'});
-        const html = await res.text();
-        // Extract the main JS bundle hash from the HTML
-        const match = html.match(/\/static\/js\/main\.[a-f0-9]+\.js/);
-        const bundle = match ? match[0] : null;
-        if(!bundle) return;
-        if(currentBundle === null) {
-          // First check — store current bundle
-          currentBundle = bundle;
-        } else if(bundle !== currentBundle) {
-          // New deploy detected — reload silently
-          window.location.reload();
-        }
-      } catch(e) {
-        // Network error — ignore
-      }
-    }
-
-    // Check immediately, then every 2 minutes
-    checkNewDeploy();
-    const interval = setInterval(checkNewDeploy, 2 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-  // ─────────────────────────────────────────────────────────────────
 
   return (
     <HubScreen
