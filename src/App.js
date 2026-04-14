@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+/* eslint-disable */
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import OsirisModule from "./OsirisModule.jsx";
 import FinanzasModule from "./FinanzasModule.jsx";
