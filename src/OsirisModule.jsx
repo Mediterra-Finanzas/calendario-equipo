@@ -3025,16 +3025,15 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const clientes= osirisData?.clientes        ?? CLIENTES_INIT;
   const tpData  = osirisData?.totalPedidos    ?? [];
   const rpData  = osirisData?.royaltyPlanta   ?? [];
-  const feDataRaw = osirisData?.feeEntrada     ?? [];
-  const rcData    = osirisData?.royaltyComercial?? [];
-  const fvData    = osirisData?.feeViveros      ?? [];
+  const rcData    = osirisData?.royaltyComercial ?? [];
+  const fvData    = osirisData?.feeViveros       ?? [];
 
-  // feData: vista reactiva — siempre refleja contratos actuales + ediciones guardadas
-  // Se calcula aquí para que Resumen y FeeEntrada usen el MISMO dataset
-  // Nota: feDataRaw y ctData son referencias estables (vienen de estado), no inline ??
+  // feData: vista reactiva — lee osirisData directamente (no variable intermedia)
+  // Evita el problema de referencia nueva en cada render con ?? []
   const feData = useMemo(()=>{
+    const raw = osirisData?.feeEntrada || [];
     const edits = {};
-    feDataRaw.forEach(r=>{ edits[r.ctId||r.id] = r; });
+    raw.forEach(r=>{ edits[r.ctId||r.id] = r; });
     const fromContracts = ctData
       .filter(ct=> ct.tipoContractFee && ct.tipoContractFee!=="Sin Contract Fee")
       .map(ct=>{
@@ -3052,9 +3051,9 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           _fromContract: true,
         };
       });
-    const manuales = feDataRaw.filter(r=> !r.ctId && !r._fromContract);
+    const manuales = raw.filter(r=> !r.ctId && !r._fromContract);
     return [...fromContracts, ...manuales];
-  },[feDataRaw, ctData]);
+  },[osirisData, ctData]);
 
   const setClientes=useCallback(fn=>setOsirisData(prev=>({...prev,clientes:       typeof fn==="function"?fn(prev?.clientes       ??CLIENTES_INIT):fn})),[setOsirisData]);
   const setCt=useCallback(fn=>setOsirisData(prev=>({...prev,contratos:      typeof fn==="function"?fn(prev?.contratos      ??CONTRATOS_INIT):fn})),[setOsirisData]);
