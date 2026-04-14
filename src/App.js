@@ -749,6 +749,7 @@ export default function App(){
   const [editRecComentario,setEditRecComentario]=useState(null);
   const [textoRecComentario,setTextoRecComentario]=useState("");
   const [modalNotif,setModalNotif]=useState(null);
+  const [modalVencidas,setModalVencidas]=useState(false);
   const [textoNotif,setTextoNotif]=useState("");
   const [enviandoNotif,setEnviandoNotif]=useState(false);
   const [nuevaTarea,setNuevaTarea]=useState({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:""});
@@ -1456,7 +1457,79 @@ Equipo Mediterra`);
           </div>
         )}
 
-        {/* Modal notificación dependencia */}
+        {/* Modal tareas vencidas */}
+      {modalVencidas&&(()=>{
+        const vencidas=[];
+        todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{
+          if(getFrecuencia(t.id)==="Mensual"){
+            if(estaVencida(t,t.id,null)) vencidas.push({tarea:t,semana:null,key:t.id});
+          } else {
+            semanas.forEach(s=>{
+              if(estaVencida(t,`${t.id}_s${s.num}`,s.num))
+                vencidas.push({tarea:t,semana:s,key:`${t.id}_s${s.num}`});
+            });
+          }
+        });
+        return (
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,
+            display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div style={{background:"#1e293b",border:"1px solid #ef444444",borderRadius:16,
+              width:520,maxWidth:"95vw",maxHeight:"80vh",display:"flex",flexDirection:"column",
+              boxShadow:"0 24px 64px rgba(0,0,0,0.7)"}}>
+              <div style={{padding:"16px 20px",borderBottom:"1px solid #334155",
+                display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:22}}>⚠️</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:800,color:"#f87171"}}>
+                    Tareas Vencidas — {vencidas.length}
+                  </div>
+                  <div style={{fontSize:11,color:"#94a3b8"}}>{MESES[mes]} {anio}</div>
+                </div>
+                <button onClick={()=>setModalVencidas(false)}
+                  style={{background:"transparent",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:20}}>×</button>
+              </div>
+              <div style={{overflowY:"auto",padding:"12px 20px",display:"flex",flexDirection:"column",gap:8}}>
+                {vencidas.length===0&&(
+                  <div style={{textAlign:"center",padding:32,color:"#94a3b8"}}>Sin tareas vencidas ✓</div>
+                )}
+                {vencidas.map(({tarea,semana,key},i)=>{
+                  const est=estados[key];
+                  const resp=est?.estadoResp||"gris";
+                  const sup2=est?.estadoSup||"gris";
+                  const col={"rojo":"#ef4444","amarillo":"#f59e0b","verde":"#22c55e","gris":"#64748b"};
+                  return (
+                    <div key={i} style={{background:"#0f172a",borderRadius:10,padding:"10px 14px",
+                      border:"1px solid #ef444433"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <span style={{width:8,height:8,borderRadius:"50%",background:"#ef4444",flexShrink:0}}/>
+                        <span style={{fontSize:13,fontWeight:700,color:"#f1f5f9",flex:1}}>{tarea.nombre}</span>
+                        {semana&&<span style={{fontSize:10,color:"#94a3b8",background:"#1e293b",borderRadius:6,padding:"1px 6px"}}>S{semana.num}</span>}
+                      </div>
+                      <div style={{display:"flex",gap:12,paddingLeft:16,fontSize:11,color:"#94a3b8",flexWrap:"wrap"}}>
+                        <span>👤 {tarea.responsable}</span>
+                        {getSupervisor(tarea.id)&&<span>🔍 {getSupervisor(tarea.id)}</span>}
+                        <span style={{marginLeft:"auto",display:"flex",gap:6}}>
+                          <span style={{color:col[resp]}}>● Resp: {resp}</span>
+                          {getSupervisor(tarea.id)&&<span style={{color:col[sup2]}}>● Sup: {sup2}</span>}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{padding:"12px 20px",borderTop:"1px solid #334155",display:"flex",justifyContent:"flex-end"}}>
+                <button onClick={()=>setModalVencidas(false)}
+                  style={{padding:"8px 20px",borderRadius:8,background:"#334155",
+                    border:"none",color:"#f1f5f9",cursor:"pointer",fontSize:12,fontWeight:600}}>
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modal notificación dependencia */}
         {modalNotif&&(
           <div style={{position:"fixed",inset:0,background:"#0006",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
             <div style={{background:"#fff",borderRadius:16,padding:24,maxWidth:420,width:"100%",boxShadow:"0 8px 32px #0003"}}>
@@ -1498,7 +1571,7 @@ Equipo Mediterra`);
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             {estadoGuardadoUI&&<span style={{fontSize:11,color:"rgba(255,255,255,0.7)"}}>{estadoGuardadoUI.icon} {estadoGuardadoUI.text}</span>}
-            {totalVencidas>0&&<span style={{background:"#ef4444",color:"#fff",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700}}>⚠ {totalVencidas} vencidas</span>}
+            {totalVencidas>0&&<button onClick={()=>setModalVencidas(true)} style={{background:"#ef4444",color:"#fff",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer"}}>⚠ {totalVencidas} vencidas</button>}
             <button onClick={()=>setTab(tab==="semanal"?"mensual":"semanal")} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>
               {tab==="semanal"?"📆 Ver Mensual":"📅 Ver Semanal"}
             </button>
