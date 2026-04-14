@@ -414,42 +414,21 @@ function semanaVencimientoEnMes(f_venc) {
 }
 
 // ── Genera cuotas de renovación para créditos renovables ya pagados ──────────
-// Para cada crédito con renovable:true y pagado:true,
-// genera filas de pago futuras según forma_pago y meses_pago
+// Usa cuotas_renovacion:[{mes,anio,monto}] para fechas exactas
+const MES_ABR_TO_EN = {
+  "Ene":"Jan","Feb":"Feb","Mar":"Mar","Abr":"Apr","May":"May","Jun":"Jun",
+  "Jul":"Jul","Ago":"Aug","Sep":"Sep","Oct":"Oct","Nov":"Nov","Dic":"Dec"
+};
+
 function calcRenovacionesEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
   const arr = Z65();
-  creditos.filter(c => c.empresa === empresa && c.renovable && c.pagado && c.cuota_renovacion).forEach(c => {
-    const cuota = Number(c.cuota_renovacion) || 0;
-    if(!cuota) return;
-    const mesesAbr = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-    const mesesMap = {
-      "Ene":"Jan","Feb":"Feb","Mar":"Mar","Abr":"Apr","May":"May","Jun":"Jun",
-      "Jul":"Jul","Ago":"Aug","Sep":"Sep","Oct":"Oct","Nov":"Nov","Dic":"Dec"
-    };
-    // Determinar qué meses aplica según forma_pago y meses_pago
-    const mesesPago = c.meses_pago && c.meses_pago.length > 0 ? c.meses_pago : [];
-    MESES_INFO.forEach(mo => {
-      const moAbrEs = mesesAbr[mo.m]; // mes en español abreviado
-      const moMN    = MN[mo.m];       // mes en inglés (para label)
-      let aplica = false;
-      if(mesesPago.length > 0) {
-        aplica = mesesPago.includes(moAbrEs);
-      } else {
-        // Sin meses definidos: usar forma_pago para distribuir
-        switch(c.forma_pago) {
-          case "Mensual":     aplica = true; break;
-          case "Trimestral":  aplica = [2,5,8,11].includes(mo.m); break; // Mar,Jun,Sep,Dic
-          case "Semestral":   aplica = [5,11].includes(mo.m); break;      // Jun,Dic
-          case "Anual":       aplica = mo.m === 11; break;                 // Dic
-          case "Bullet":      aplica = false; break;
-          default:            aplica = false;
-        }
-      }
-      if(aplica) {
-        const label = `${moMN}-${String(mo.y).slice(2)}`;
-        const i = mIdx(label);
-        if(i >= 0) arr[i] += cuota;
-      }
+  creditos.filter(c => c.empresa === empresa && c.renovable && c.pagado).forEach(c => {
+    (c.cuotas_renovacion||[]).forEach(cq => {
+      if(!cq.mes || !cq.anio || !cq.monto) return;
+      const mesEn = MES_ABR_TO_EN[cq.mes] || cq.mes;
+      const label = `${mesEn}-${String(cq.anio).slice(2)}`;
+      const i = mIdx(label);
+      if(i >= 0) arr[i] += Number(cq.monto)||0;
     });
   });
   return arr;
@@ -457,35 +436,30 @@ function calcRenovacionesEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
 
 function calcRenovacionesDesglose(empresa, creditos=CREDITOS_DEFAULT) {
   const byAcreedor = {};
-  creditos.filter(c => c.empresa === empresa && c.renovable && c.pagado && c.cuota_renovacion).forEach(c => {
-    const cuota = Number(c.cuota_renovacion) || 0;
-    if(!cuota) return;
-    if(!byAcreedor[c.acreedor + " (Ren.)"]) byAcreedor[c.acreedor + " (Ren.)"] = Z65();
-    const mesesAbr = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-    const mesesPago = c.meses_pago && c.meses_pago.length > 0 ? c.meses_pago : [];
-    MESES_INFO.forEach(mo => {
-      const moAbrEs = mesesAbr[mo.m];
-      const moMN    = MN[mo.m];
-      let aplica = false;
-      if(mesesPago.length > 0) {
-        aplica = mesesPago.includes(moAbrEs);
-      } else {
-        switch(c.forma_pago) {
-          case "Mensual":     aplica = true; break;
-          case "Trimestral":  aplica = [2,5,8,11].includes(mo.m); break;
-          case "Semestral":   aplica = [5,11].includes(mo.m); break;
-          case "Anual":       aplica = mo.m === 11; break;
-          default:            aplica = false;
-        }
-      }
-      if(aplica) {
-        const label = `${moMN}-${String(mo.y).slice(2)}`;
-        const i = mIdx(label);
-        if(i >= 0) byAcreedor[c.acreedor + " (Ren.)"][i] += cuota;
-      }
+  creditos.filter(c => c.empresa === empresa && c.renovable && c.pagado).forEach(c => {
+    (c.cuotas_renovacion||[]).forEach(cq => {
+      if(!cq.mes || !cq.anio || !cq.monto) return;
+      const key = c.acreedor + " (Ren.)";
+      if(!byAcreedor[key]) byAcreedor[key] = Z65();
+      const mesEn = MES_ABR_TO_EN[cq.mes] || cq.mes;
+      const label = `${mesEn}-${String(cq.anio).slice(2)}`;
+      const i = mIdx(label);
+      if(i >= 0) byAcreedor[key][i] += Number(cq.monto)||0;
     });
   });
   return byAcreedor;
+}
+
+// Genera array de ingresos por renovación (nuevo préstamo recibido)
+function calcIngresoRenovacionEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
+  const arr = Z65();
+  creditos.filter(c => c.empresa === empresa && c.renovable && c.pagado && c.monto_renovacion && c.mes_ingreso_renovacion && c.anio_ingreso_renovacion).forEach(c => {
+    const mesEn = MES_ABR_TO_EN[c.mes_ingreso_renovacion] || c.mes_ingreso_renovacion;
+    const label = `${mesEn}-${String(c.anio_ingreso_renovacion).slice(2)}`;
+    const i = mIdx(label);
+    if(i >= 0) arr[i] += Number(c.monto_renovacion)||0;
+  });
+  return arr;
 }
 
 function calcPrestamosSemanasEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
@@ -563,6 +537,7 @@ const EMPRESAS_STATIC = {
       { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
         {label:'Capital Calls', proy:Z65(), subLines:true},
         {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Mediterra'), formula:true, subLines:true},
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
@@ -606,6 +581,7 @@ const EMPRESAS_STATIC = {
       { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
         {label:'Capital Calls', proy:Z65(), subLines:true},
         {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Allegria Service'), formula:true, subLines:true},
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
@@ -649,6 +625,7 @@ const EMPRESAS_STATIC = {
       { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
         {label:'Capital Calls', proy:Z65(), subLines:true},
         {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Frisku Foods'), formula:true, subLines:true},
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
@@ -691,6 +668,7 @@ const EMPRESAS_STATIC = {
       { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
         {label:'Capital Calls', proy:Z65(), subLines:true},
         {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Frisku Peru'), formula:true, subLines:true},
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
@@ -761,6 +739,7 @@ const EMPRESAS_STATIC = {
       ]},
       { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
         {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Allpa Farms'), formula:true, subLines:true},
         {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
@@ -811,6 +790,7 @@ const EMPRESAS_STATIC = {
       { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
         {label:'Capital Calls', proy:Z65(), subLines:true},
         {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Allpa Farms Perú'), formula:true, subLines:true},
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
@@ -854,6 +834,7 @@ const EMPRESAS_STATIC = {
       { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
         {label:'Capital Calls', proy:Z65(), subLines:true},
         {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Integrity Farms'), formula:true, subLines:true},
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
@@ -897,6 +878,7 @@ const EMPRESAS_STATIC = {
       ]},
       { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
         {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Osiris'), formula:true, subLines:true},
         {label:'Crédito BCI', proy:Z65()},
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
@@ -3819,10 +3801,11 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
     empresa:"",acreedor:"",tipo_inst:"",monto:"",f_venc:"",tipo_cr:"Bullet",tasa:"",cuota:"",
     // Renovación
     renovable:false,
-    forma_pago:"Bullet",        // Mensual | Trimestral | Semestral | Anual | Bullet
     tasa_anual:"",              // % tasa anual
-    meses_pago:[],              // meses específicos de pago ["Jun","Nov"]
-    cuota_renovacion:"",        // monto por cuota en renovación
+    cuotas_renovacion:[],       // [{mes:"Jun",anio:"2027",monto:"120000"}]
+    monto_renovacion:"",        // monto ingreso nuevo préstamo
+    mes_ingreso_renovacion:"",  // mes en que se recibe el nuevo préstamo
+    anio_ingreso_renovacion:"", // año en que se recibe el nuevo préstamo
   };
   const [form,setForm]=useState(EMPTY_FORM);
 
@@ -4189,49 +4172,88 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
               </div>
               {form.renovable&&(
                 <div style={{background:`${C.green}08`,border:`1px solid ${C.green}33`,borderRadius:10,padding:"12px 14px"}}>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-                    <div>
-                      <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Forma de Pago</div>
-                      <select value={form.forma_pago||"Bullet"} onChange={e=>setForm(p=>({...p,forma_pago:e.target.value}))}
-                        style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none"}}>
-                        {["Bullet","Mensual","Trimestral","Semestral","Anual"].map(o=><option key={o}>{o}</option>)}
-                      </select>
+
+                  {/* Ingreso del préstamo renovado */}
+                  <div style={{marginBottom:12,padding:"8px 12px",background:`${C.blue}11`,borderRadius:8,border:`1px solid ${C.blue}33`}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:8}}>💰 Ingreso Nuevo Préstamo (Ing. No Operacional)</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                      <div>
+                        <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Monto Nuevo Préstamo (USD)</div>
+                        <input type="number" value={form.monto_renovacion||""} onChange={e=>setForm(p=>({...p,monto_renovacion:e.target.value}))}
+                          placeholder="Ej: 500000"
+                          style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                      </div>
+                      <div>
+                        <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Mes Ingreso</div>
+                        <select value={form.mes_ingreso_renovacion||""} onChange={e=>setForm(p=>({...p,mes_ingreso_renovacion:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none"}}>
+                          <option value="">— mes —</option>
+                          {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].map(m=><option key={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Año Ingreso</div>
+                        <input type="number" value={form.anio_ingreso_renovacion||""} onChange={e=>setForm(p=>({...p,anio_ingreso_renovacion:e.target.value}))}
+                          placeholder="2026"
+                          style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Cuotas de pago de la renovación */}
+                  <div style={{marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.green}}>📅 Cuotas de Pago Renovación</div>
+                      <button type="button" onClick={()=>setForm(p=>({...p,cuotas_renovacion:[...(p.cuotas_renovacion||[]),{mes:"",anio:"",monto:""}]}))}
+                        style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:"1px dashed #86efac",background:"transparent",color:C.green,cursor:"pointer"}}>
+                        + Agregar cuota
+                      </button>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:8,marginBottom:6,alignItems:"end"}}>
+                      <div style={{fontSize:10,color:C.muted,fontWeight:600}}>Mes</div>
+                      <div style={{fontSize:10,color:C.muted,fontWeight:600}}>Año</div>
+                      <div style={{fontSize:10,color:C.muted,fontWeight:600}}>Monto (USD)</div>
+                      <div/>
+                    </div>
+                    {(form.cuotas_renovacion||[]).length===0&&(
+                      <div style={{fontSize:11,color:C.muted2,fontStyle:"italic"}}>Sin cuotas definidas — agrega al menos una</div>
+                    )}
+                    {(form.cuotas_renovacion||[]).map((cq,ci)=>(
+                      <div key={ci} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:8,marginBottom:6,alignItems:"center"}}>
+                        <select value={cq.mes||""} onChange={e=>{const arr=[...(form.cuotas_renovacion||[])];arr[ci]={...cq,mes:e.target.value};setForm(p=>({...p,cuotas_renovacion:arr}));}}
+                          style={{padding:"6px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+                          <option value="">— mes —</option>
+                          {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].map(m=><option key={m}>{m}</option>)}
+                        </select>
+                        <input type="number" value={cq.anio||""} placeholder="2026"
+                          onChange={e=>{const arr=[...(form.cuotas_renovacion||[])];arr[ci]={...cq,anio:e.target.value};setForm(p=>({...p,cuotas_renovacion:arr}));}}
+                          style={{padding:"6px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}/>
+                        <input type="number" value={cq.monto||""} placeholder="0"
+                          onChange={e=>{const arr=[...(form.cuotas_renovacion||[])];arr[ci]={...cq,monto:e.target.value};setForm(p=>({...p,cuotas_renovacion:arr}));}}
+                          style={{padding:"6px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}/>
+                        <button type="button" onClick={()=>setForm(p=>({...p,cuotas_renovacion:(p.cuotas_renovacion||[]).filter((_,j)=>j!==ci)}))}
+                          style={{padding:"4px 8px",borderRadius:6,background:"#fee2e2",border:"none",color:"#991b1b",cursor:"pointer",fontSize:11}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Tasa */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                     <div>
                       <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Tasa Anual (%)</div>
                       <input type="number" step="0.1" value={form.tasa_anual||""} onChange={e=>setForm(p=>({...p,tasa_anual:e.target.value}))}
                         placeholder="Ej: 8.5"
                         style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
                     </div>
-                    <div>
-                      <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Cuota Renovación (USD)</div>
-                      <input type="number" value={form.cuota_renovacion||""} onChange={e=>setForm(p=>({...p,cuota_renovacion:e.target.value}))}
-                        placeholder="Monto por cuota"
-                        style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                    <div style={{display:"flex",alignItems:"flex-end",paddingBottom:4}}>
+                      <div style={{fontSize:10,color:C.muted,fontStyle:"italic"}}>
+                        {(form.cuotas_renovacion||[]).length>0&&(
+                          <>Total cuotas: <strong style={{color:C.green}}>{$$((form.cuotas_renovacion||[]).reduce((s,c)=>s+(Number(c.monto)||0),0))}</strong></>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:6}}>Meses de Pago</div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                      {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].map(m=>{
-                        const sel=(form.meses_pago||[]).includes(m);
-                        return (
-                          <button key={m} type="button"
-                            onClick={()=>setForm(p=>({...p,meses_pago:sel?(p.meses_pago||[]).filter(x=>x!==m):[...(p.meses_pago||[]),m]}))}
-                            style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
-                              background:sel?C.green:C.card2,color:sel?"#fff":C.muted,
-                              border:`1px solid ${sel?C.green:C.border}`}}>
-                            {m}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div style={{fontSize:10,color:C.muted,marginTop:5}}>
-                      {(form.meses_pago||[]).length>0
-                        ? `Pagos en: ${(form.meses_pago||[]).join(", ")}`
-                        : "Sin meses seleccionados — usa fecha de vencimiento"}
-                    </div>
-                  </div>
+
                 </div>
               )}
             </div>
@@ -5015,6 +5037,8 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
                 return {...l, proy: calcPrestamosEmpresa(empNombre, creditosData)};
               if(l.label==="Renovaciones")
                 return {...l, proy: calcRenovacionesEmpresa(empNombre, creditosData)};
+              if(l.label==="Ingreso Renovación")
+                return {...l, proy: calcIngresoRenovacionEmpresa(empNombre, creditosData)};
               return l;
             })
           };
