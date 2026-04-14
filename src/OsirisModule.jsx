@@ -1073,41 +1073,9 @@ function FeeEntrada({data,setData,ctData,can,clientes=[]}) {
   const [filtroCobro,setFiltroCobro]=useState("Todos");
   const [filtroCli,setFiltroCli]=useState("");
 
-  // Sincronización reactiva con contratos:
-  // - Cada contrato con fee genera/actualiza su fila automáticamente
-  // - Los datos del contrato (cliente, pais, monto, detalle) SIEMPRE vienen del contrato actual
-  // - Solo se preservan las ediciones del usuario: nFact, pagado, fechaPago
-  const dataConSync = useMemo(()=>{
-    // Mapa de ediciones guardadas por ctId
-    const edits = {};
-    data.forEach(r=>{
-      const key = r.ctId || r.id;
-      edits[key] = r;
-    });
-    // Generar vista desde contratos vigentes
-    const fromContracts = (ctData||[])
-      .filter(ct=> ct.tipoContractFee && ct.tipoContractFee!=="Sin Contract Fee")
-      .map(ct=>{
-        const saved = edits[ct.id] || edits[`fe_${ct.id}`] || {};
-        return {
-          id: saved.id || `fe_${ct.id}`,
-          ctId: ct.id,
-          // Datos del contrato — siempre actualizados
-          cliente: ct.razonSocial,
-          pais:    ct.pais,
-          montoUSD: ct.montoContractFee || 30000,
-          detalle:  ct.tipoContractFee || "",
-          // Ediciones del usuario — preservadas
-          nFact:    saved.nFact    || "",
-          pagado:   saved.pagado   || false,
-          fechaPago:saved.fechaPago|| "",
-          _fromContract: true,
-        };
-      });
-    // Agregar registros manuales (sin ctId) que el usuario haya creado
-    const manuales = data.filter(r=> !r.ctId && !r._fromContract);
-    return [...fromContracts, ...manuales];
-  },[data,ctData]);
+  // feData ya viene pre-calculado desde OsirisModule (incluye contratos auto-generados)
+  // No necesitamos computar dataConSync aquí
+  const dataConSync = data;
 
   const filtrado=dataConSync.filter(r=>
     (filtroPais==="Todos"||r.pais===filtroPais)&&
@@ -1851,8 +1819,11 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
   const totRP_porCobrar= rpCalc.filter(r=>!r.pagado).reduce((s,r)=>s+r.montoCobro,0);
   const totRP_cobrado  = rpCalc.filter(r=>r.pagado).reduce((s,r)=>s+r.montoCobro,0);
 
-  const totFE_facturado= feData.filter(r=>r.nFact&&r.nFact.trim()!=="").reduce((s,r)=>s+(r.montoUSD||0),0);
+  const totFE_conFact  = feData.filter(r=>r.nFact&&r.nFact.trim()!=="").reduce((s,r)=>s+(r.montoUSD||0),0);
+  const totFE_pendFact = feData.filter(r=>!r.nFact||r.nFact.trim()==="").reduce((s,r)=>s+(r.montoUSD||0),0);
   const totFE_porCobrar= feData.filter(r=>!r.pagado).reduce((s,r)=>s+(r.montoUSD||0),0);
+  const totFE_cobrado  = feData.filter(r=>r.pagado).reduce((s,r)=>s+(r.montoUSD||0),0);
+  const totFE_facturado= totFE_conFact;
 
   const totRC_pendFact = rcCalc.filter(r=>!r.nFact||r.nFact.trim()==="").reduce((s,r)=>s+r.montoFact,0);
   const totRC_facturado= rcCalc.filter(r=>r.nFact&&r.nFact.trim()!=="").reduce((s,r)=>s+r.montoFact,0);
@@ -1862,7 +1833,7 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
   const totFV_facturado= fvData.filter(r=>r.nFact&&r.nFact.trim()!=="").reduce((s,r)=>s+(Number(r.montoFact)||0),0);
   const totFV_porCobrar= fvData.filter(r=>!r.pagado).reduce((s,r)=>s+(Number(r.montoFact)||0),0);
 
-  const grandPendFact  = totRP_pendFact + totFE_porCobrar + totRC_pendFact + totFV_pendFact;
+  const grandPendFact  = totRP_pendFact + totFE_pendFact + totRC_pendFact + totFV_pendFact;
   const grandFacturado = totRP_facturado + totFE_facturado + totRC_facturado + totFV_facturado;
   const grandPorCobrar = totRP_porCobrar + totFE_porCobrar + totRC_porCobrar + totFV_porCobrar;
 
@@ -2040,9 +2011,9 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:12}}>
         {[
-          ["⏸ Total pendiente de facturar", $$(grandPendFact),  C.azul, C.azulBg],
-          ["📄 Total facturado",      $$(grandFacturado), C.mo,   C.moBg],
-          ["⏳ Total por cobrar",            $$(grandPorCobrar), C.am,   C.amBg],
+          ["⏸ Pend. de facturar", $$(grandPendFact),  C.azul, C.azulBg],
+          ["📄 Total facturado",   $$(grandFacturado), C.mo,   C.moBg],
+          ["⏳ Total por cobrar",  $$(grandPorCobrar), C.am,   C.amBg],
         ].map(([l,v,c,bg])=>(
           <div key={l} style={{background:bg,borderRadius:12,padding:"16px 18px",border:`1px solid ${c}33`}}>
             <div style={{fontSize:11,color:c,fontWeight:700,marginBottom:4}}>{l}</div>
@@ -2065,8 +2036,9 @@ function Resumen({rpData,feData,rcData,fvData,tpData}) {
           ["Viveros pend. facturar", $$(totFV_pendFact),  C.azul,  C.azulBg],
           ["Viveros facturado",      $$(totFV_facturado), C.mo,    C.moBg],
           ["Viveros por cobrar",     $$(totFV_porCobrar), C.am,    C.amBg],
-          ["Fee Entrada facturado",  $$(totFE_facturado), C.mo,    C.moBg],
+          ["Fee Entrada facturado",  $$(totFE_conFact),   C.mo,    C.moBg],
           ["Fee Entrada por cobrar", $$(totFE_porCobrar), C.am,    C.amBg],
+          ["Fee Entrada cobrado",    $$(totFE_cobrado),   C.verde, C.verdeBg],
         ].map(([l,v,c,bg])=>(
           <div key={l} style={{background:bg,borderRadius:10,padding:"12px 14px"}}>
             <div style={{fontSize:10,color:c,fontWeight:600,marginBottom:2}}>{l}</div>
@@ -3053,9 +3025,35 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const clientes= osirisData?.clientes        ?? CLIENTES_INIT;
   const tpData  = osirisData?.totalPedidos    ?? [];
   const rpData  = osirisData?.royaltyPlanta   ?? [];
-  const feData  = osirisData?.feeEntrada      ?? [];
+  const feDataRaw = osirisData?.feeEntrada    ?? [];
   const rcData  = osirisData?.royaltyComercial?? [];
   const fvData  = osirisData?.feeViveros      ?? [];
+
+  // feData: vista reactiva — siempre refleja contratos actuales + ediciones guardadas
+  // Se calcula aquí para que Resumen y FeeEntrada usen el MISMO dataset
+  const feData = React.useMemo(()=>{
+    const edits = {};
+    feDataRaw.forEach(r=>{ edits[r.ctId||r.id] = r; });
+    const fromContracts = ctData
+      .filter(ct=> ct.tipoContractFee && ct.tipoContractFee!=="Sin Contract Fee")
+      .map(ct=>{
+        const saved = edits[ct.id] || edits[`fe_${ct.id}`] || {};
+        return {
+          id:       saved.id      || `fe_${ct.id}`,
+          ctId:     ct.id,
+          cliente:  ct.razonSocial,
+          pais:     ct.pais,
+          montoUSD: ct.montoContractFee || 30000,
+          detalle:  ct.tipoContractFee  || "",
+          nFact:    saved.nFact    || "",
+          pagado:   saved.pagado   || false,
+          fechaPago:saved.fechaPago|| "",
+          _fromContract: true,
+        };
+      });
+    const manuales = feDataRaw.filter(r=> !r.ctId && !r._fromContract);
+    return [...fromContracts, ...manuales];
+  },[feDataRaw, ctData]);
 
   const setClientes=useCallback(fn=>setOsirisData(prev=>({...prev,clientes:       typeof fn==="function"?fn(prev?.clientes       ??CLIENTES_INIT):fn})),[setOsirisData]);
   const setCt=useCallback(fn=>setOsirisData(prev=>({...prev,contratos:      typeof fn==="function"?fn(prev?.contratos      ??CONTRATOS_INIT):fn})),[setOsirisData]);
@@ -3263,6 +3261,26 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           </div>
         ))}
       </div>
+
+      {/* Botón reset datos de ingresos — solo para admin */}
+      {(esAdmin||usuarioActual?.rol==="admin")&&(
+        <div style={{marginTop:20,textAlign:"center"}}>
+          <button onClick={()=>{
+            if(!window.confirm("⚠️ Esto borrará TODOS los datos de ingresos (pedidos, royalties, fees). Los contratos y clientes se mantienen. ¿Continuar?"))return;
+            setOsirisData(prev=>({
+              ...prev,
+              totalPedidos:[],
+              royaltyPlanta:[],
+              feeEntrada:[],
+              royaltyComercial:[],
+              feeViveros:[],
+            }));
+          }} style={{background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.3)",
+            color:"#fca5a5",borderRadius:8,padding:"7px 18px",cursor:"pointer",fontSize:11,fontWeight:600}}>
+            🗑 Limpiar datos de ingresos (mantiene contratos y clientes)
+          </button>
+        </div>
+      )}
     </div>
   );
 
