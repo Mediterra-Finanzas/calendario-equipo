@@ -8,7 +8,7 @@ const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','D
 
 function generarMeses() {
   const out = [];
-  let y = 2026, m = 2;
+  let y = 2026, m = 3; // Empieza en Apr-26 (Mar-26 eliminado)
   while (!(y === 2031 && m === 6)) {
     out.push({ label:`${MN[m]}-${String(y).slice(2)}`, y, m, idx:out.length });
     m++; if (m > 11) { m = 0; y++; }
@@ -35,7 +35,7 @@ const SEASONS = (() => {
 const SEASON_KEYS = SEASONS.map(s => s.key);
 
 const SEMANAS_MES = {
-  "Mar-26":["S11","S12","S13"],"Apr-26":["S14","S15","S16","S17"],
+  "Apr-26":["S14","S15","S16","S17"],
   "May-26":["S18","S19","S20","S21"],"Jun-26":["S22","S23","S24","S25"],
   "Jul-26":["S27","S28","S29","S30"],"Aug-26":["S31","S32","S33","S34"],
   "Sep-26":["S36","S37","S38","S39"],"Oct-26":["S40","S41","S42","S43"],
@@ -48,8 +48,8 @@ const SEMANAS_MES = {
   "Nov-27":["S44","S45","S46","S47"],"Dec-27":["S48","S49","S50","S51"],
 };
 
-const Z65  = () => Array(65).fill(0);
-function ext(arr) { const r=[...(arr||[])]; while(r.length<65) r.push(0); return r; }
+const Z65  = () => Array(64).fill(0); // 64 meses: Apr-26 → Jun-31
+function ext(arr) { const r=[...(arr||[])]; while(r.length<64) r.push(0); if(r.length>64) r.splice(64); return r; }
 function mIdx(label) { return MESES_65.indexOf(label); }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -280,7 +280,7 @@ const EMPRESAS_STATIC = {
     emoji:'🏢', color:'#1d4ed8', saldo_ini:3601, desc:'Holding · Inversiones Mediterra SpA',
     sections:[
       { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
-        {label:'Fee Administración', proy:ext([0,80000,80000,80000,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500].concat(Array(41).fill(87500)))},
+        {label:'Fee Administración', proy:ext([80000,80000,80000,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500].concat(Array(41).fill(87500)))},
         {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
       ]},
       { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
@@ -322,7 +322,7 @@ const EMPRESAS_STATIC = {
     emoji:'🏭', color:'#92400e', saldo_ini:5519, desc:'Procesamiento · Packing',
     sections:[
       { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
-        {label:'Proceso de Cerezas', proy:ext([0,0,0,0,0,0,0,0,0,240000,240000,0,1048000,0,0,240000,240000,0,1048000,0,0,240000,240000,0].concat(Array(41).fill(0)))},
+        {label:'Proceso de Cerezas', proy:ext([0,0,0,0,0,0,0,0,240000,240000,0,1048000,0,0,240000,240000,0,1048000,0,0,240000,240000,0].concat(Array(41).fill(0)))},
         {label:'Procesos de Ciruelas', proy:Z65()},
         {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
       ]},
@@ -365,7 +365,7 @@ const EMPRESAS_STATIC = {
     emoji:'🚢', color:'#0e7490', saldo_ini:132828, desc:'Carga contenedores · Logística',
     sections:[
       { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
-        {label:'Ingreso Carga Contenedores', proy:ext([0,0,0,0,50500,35350,101000,50500,35350,0,0,0,50500,35350,101000,50500,35350,0,0,0,50500,35350,101000,0].concat(Array(41).fill(0)))},
+        {label:'Ingreso Carga Contenedores', proy:ext([0,0,0,50500,35350,101000,50500,35350,0,0,0,50500,35350,101000,50500,35350,0,0,0,50500,35350,101000,0].concat(Array(41).fill(0)))},
         {label:'Otros Ingresos', proy:Z65()},
         {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
       ]},
@@ -396,7 +396,7 @@ const EMPRESAS_STATIC = {
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
-        {label:'Pago Préstamos - Total', proy:ext([0,109857,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0].concat(Array(41).fill(0))),subLines:true},
+        {label:'Pago Préstamos - Total', proy:ext([109857,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0].concat(Array(41).fill(0))),subLines:true},
         {label:'  Banco Security', proy:Z65()},
         {label:'  Banco BICE', proy:Z65()},
         {label:'  └ del cual: Intereses', proy:Z65()},
@@ -450,7 +450,7 @@ const EMPRESAS_STATIC = {
     emoji:'🌸', color:'#dc2626', saldo_ini:1828, desc:'Farming cerezas · Chile',
     sections:[
       { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
-        {label:'Ingreso Exportación Cerezas', proy:ext([0,0,0,0,0,0,0,0,152312,304624,0,0,913872,0,0,152312,304624,0,913872,0,0,152312,304624,0].concat(Array(41).fill(0)))},
+        {label:'Ingreso Exportación Cerezas', proy:ext([0,0,0,0,0,0,0,152312,304624,0,0,913872,0,0,152312,304624,0,913872,0,0,152312,304624,0].concat(Array(41).fill(0)))},
         {label:'Ingreso Cerezas Nacionales', proy:Z65()},
         {label:'Otros Ingresos', proy:Z65()},
         {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
@@ -475,7 +475,7 @@ const EMPRESAS_STATIC = {
         {label:'Mantención de Huerto', proy:Z65()},
       ]},
       { cat:'egr_fijo', label:'Costos Fijos / SG&A', signo:-1, lines:[
-        {label:'Remuneración Administración', proy:ext([0,0,0,0,0,0,0,0,0,0,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400].concat(Array(41).fill(0)))},
+        {label:'Remuneración Administración', proy:ext([0,0,0,0,0,0,0,0,0,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400].concat(Array(41).fill(0)))},
         {label:'Honorarios Profesionales', proy:Z65()},
         {label:'Gastos de Representación', proy:Z65()},
         {label:'Artículos E Insumos de Oficina', proy:Z65()},
@@ -490,7 +490,7 @@ const EMPRESAS_STATIC = {
         {label:'Gasto Internet - Sist Informáticos', proy:Z65()},
         {label:'Telefonía - Celular', proy:Z65()},
         {label:'Electricidad', proy:Z65()},
-        {label:'Fee Administración', proy:ext([0,0,0,0,0,0,0,0,0,0,0,0,371696,0,0,0,0,0,371696,0,0,0,0,0].concat(Array(41).fill(0)))},
+        {label:'Fee Administración', proy:ext([0,0,0,0,0,0,0,0,0,0,0,371696,0,0,0,0,0,371696,0,0,0,0,0].concat(Array(41).fill(0)))},
         {label:'Certificaciones', proy:Z65()},
         {label:'Cafetería', proy:Z65()},
         {label:'Correo - Gasto Despacho', proy:Z65()},
@@ -509,7 +509,7 @@ const EMPRESAS_STATIC = {
         {label:'Otros Ingresos No Operacionales', proy:Z65()},
       ]},
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
-        {label:'Pago Préstamos - Total', proy:ext([0,0,0,476021,0,0,0,0,0,0,0,0,476021,0,0,476021,0,0,476021,0,0,476021,0,0].concat(Array(41).fill(0))),subLines:true},
+        {label:'Pago Préstamos - Total', proy:ext([0,0,476021,0,0,0,0,0,0,0,0,476021,0,0,476021,0,0,476021,0,0,476021,0,0].concat(Array(41).fill(0))),subLines:true},
         {label:'  Banco de Chile', proy:Z65()},
         {label:'  └ del cual: Intereses', proy:Z65()},
         {label:'Leyes Sociales Laborales', proy:Z65()},
@@ -569,7 +569,7 @@ const EMPRESAS_STATIC = {
     emoji:'🌾', color:'#15803d', saldo_ini:604, desc:'Administración agrícola (US$2.000/há)',
     sections:[
       { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
-        {label:'Ingreso Administración (us$2.000/ha)', proy:ext([0,172000,0,0,0,0,0,0,0,0,172000,0,172000,0,0,0,0,0,172000,0,0,0,0,0].concat(Array(41).fill(0)))},
+        {label:'Ingreso Administración (us$2.000/ha)', proy:ext([172000,0,0,0,0,0,0,0,0,172000,0,172000,0,0,0,0,0,172000,0,0,0,0,0].concat(Array(41).fill(0)))},
         {label:'Otros Ingresos', proy:Z65()},
         {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
       ]},
@@ -611,7 +611,7 @@ const EMPRESAS_STATIC = {
     emoji:'🌱', color:'#0f766e', saldo_ini:40188, desc:'Royalties · Fee Viveros · Osiris Plant Mgmt',
     sections:[
       { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
-        {label:'Royalty por Planta', proy:ext([0,0,0,0,0,0,0,0,1100000,0,0,0,2200000,0,0,1100000,0,0,2200000,0,0,1100000,0,0].concat(Array(41).fill(0)))},
+        {label:'Royalty por Planta', proy:ext([0,0,0,0,0,0,0,1100000,0,0,0,2200000,0,0,1100000,0,0,2200000,0,0,1100000,0,0].concat(Array(41).fill(0)))},
         {label:'Royalty Comercial', proy:Z65()},
         {label:'Fee Vivero', proy:Z65()},
         {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
@@ -645,7 +645,7 @@ const EMPRESAS_STATIC = {
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
         {label:'Pago Préstamos - Total', proy:ext([9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178,9178].concat(Array(41).fill(0))),subLines:true},
         {label:'  Banco Security', proy:Z65()},
-        {label:'  BCI', proy:ext([0,0,0,355425,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0].concat(Array(41).fill(0)))},
+        {label:'  BCI', proy:ext([0,0,355425,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0].concat(Array(41).fill(0)))},
         {label:'  └ del cual: Intereses', proy:Z65()},
         {label:'Leyes Sociales Laborales', proy:Z65()},
         {label:'Otros Egresos No Operacionales', proy:Z65()},
@@ -701,7 +701,7 @@ function buildAllegria(params) {
         {label:"Otros Ingresos No Operacionales", proy:Z65()},
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
-        {label:"Pago Préstamos - Total", proy:ext([0,0,0,0,0,0,0,0,0,499864,0,783199,0,0,0,0,0,0,0,0,0,0,0,0].concat(Array(41).fill(0))), subLines:true},
+        {label:"Pago Préstamos - Total", proy:ext([0,0,0,0,0,0,0,0,499864,0,783199,0,0,0,0,0,0,0,0,0,0,0,0].concat(Array(41).fill(0))), subLines:true},
         {label:"  Zelun",                proy:Z65()},
         {label:"  Yiannis",              proy:Z65()},
         {label:"  Fresion",              proy:Z65()},
@@ -1637,7 +1637,7 @@ function getSaldoBancoInicial(saldosBancos, empNombre, fallback) {
     if(parts[0]!==empNombre||parts[2]!=="usd") return;
     if(!rec?.monto||!rec?.fecha) return;
     const banco=parts[1];
-    if(!porBanco[banco]||new Date(porBanco[banco].fecha)>new Date(rec.fecha)) porBanco[banco]=rec;
+    if(!porBanco[banco]||new Date(porBanco[banco].fecha)<new Date(rec.fecha)) porBanco[banco]=rec;
   });
   let total=0,found=false;
   Object.values(porBanco).forEach(rec=>{total+=Number(rec.monto)||0;found=true;});
@@ -2020,12 +2020,24 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
     const fa = MESES_65.map((_,i)=>{
       let f=0;
-      emp.sections.forEach(sec=>sec.lines.forEach(l=>{
-        const v = proyOverrides[l.label]?.[i] !== undefined
-          ? proyOverrides[l.label][i]
-          : (l.proy[i]||0);
-        f += v * sec.signo;
-      }));
+      emp.sections.forEach(sec=>{
+        sec.lines.forEach(l=>{
+          const v = proyOverrides[l.label]?.[i] !== undefined
+            ? proyOverrides[l.label][i]
+            : (l.proy[i]||0);
+          f += v * sec.signo;
+          // Include subLines (CxC/Préstamos sub-items) in flujo
+          if(l.subLines)(subLines[l.label]||[]).forEach(sl=>{
+            const sv=Number(typeof sl==="string"?0:(sl.vals||{})[i])||0;
+            f += sv * sec.signo;
+          });
+        });
+        // Include user-added lines in flujo
+        (addedLines[sec.cat]||[]).forEach(al=>{
+          const av=Number(typeof al==="string"?0:(al.vals||{})[i])||0;
+          f += av * sec.signo;
+        });
+      });
       return f;
     });
     let a = saldoIni;
@@ -2229,7 +2241,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
 
                 {/* Líneas editables */}
                 {sec.lines.map(line=>(
-                  <tr key={line.label} style={{borderBottom:`1px solid ${C.border}11`}}>
+                  <React.Fragment key={line.label}>
+                  <tr style={{borderBottom:`1px solid ${C.border}11`}}>
                     <td style={{padding:"5px 14px",color:line.formula?C.yellow:C.text,fontSize:11,
                       position:"sticky",left:0,background:C.card,zIndex:1,
                       borderRight:`1px solid ${C.border}`,whiteSpace:"nowrap",
@@ -2246,33 +2259,17 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         )}
                         <span style={{paddingLeft:line.label.startsWith("  ")?10:0}}>{line.label.trim()}</span>
                       </div>
-                      {line.subLines&&expandedSubs[line.label]&&(
+                      {line.subLines&&expandedSubs[line.label]&&canEdit&&(
                         <div style={{marginTop:3,paddingLeft:14}}>
-                          {(subLines[line.label]||[]).map((sub,si)=>(
-                            <div key={si} style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:C.muted,padding:"2px 0",
-                              borderBottom:`1px solid ${C.border}22`}}>
-                              <span style={{color:C.accentL}}>↳</span>
-                              <span style={{flex:1}}>{sub}</span>
-                              {canEdit&&<button onClick={()=>{
-                                const newList=(subLines[line.label]||[]).filter((_,j)=>j!==si);
-                                if(onSaveSubLines) onSaveSubLines(line.label, newList);
-                              }} style={{background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10,padding:0}}>×</button>}
-                            </div>
-                          ))}
-                          {canEdit&&(
-                            <button onClick={()=>{
-                              const n=prompt(line.label.includes("Cobrar")?"Nombre del cliente:":"Nombre del acreedor:");
-                              if(!n?.trim())return;
-                              const newList=[...(subLines[line.label]||[]),n.trim()];
-                              if(onSaveSubLines) onSaveSubLines(line.label, newList);
-                            }} style={{fontSize:9,color:C.blue,background:"none",border:`1px dashed ${C.blue}44`,
-                              borderRadius:4,padding:"2px 8px",cursor:"pointer",marginTop:3,display:"block"}}>
-                              {line.label.includes("Cobrar")?"+ agregar cliente":"+ agregar acreedor"}
-                            </button>
-                          )}
-                          {(subLines[line.label]||[]).length===0&&!canEdit&&(
-                            <div style={{fontSize:10,color:C.muted2,fontStyle:"italic"}}>Sin registros</div>
-                          )}
+                          <button onClick={()=>{
+                            const n=prompt(line.label.includes("Cobrar")?"Nombre del cliente:":"Nombre del acreedor:");
+                            if(!n?.trim())return;
+                            const cur=subLines[line.label]||[];
+                            if(onSaveSubLines) onSaveSubLines(line.label,[...cur,{label:n.trim(),vals:{}}]);
+                          }} style={{fontSize:9,color:C.blue,background:"none",border:`1px dashed ${C.blue}44`,
+                            borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
+                            {line.label.includes("Cobrar")?"+ agregar cliente":"+ agregar acreedor"}
+                          </button>
                         </div>
                       )}
                     </td>
@@ -2333,28 +2330,110 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       });
                     })}
                   </tr>
+                  {/* SubLines: clientes/acreedores con montos por mes */}
+                  {line.subLines&&expandedSubs[line.label]&&(subLines[line.label]||[]).map((sl,sli)=>{
+                    const slLabel=typeof sl==="string"?sl:sl.label;
+                    const slVals =typeof sl==="string"?{}:(sl.vals||{});
+                    const updSlVal=(idx,v)=>{
+                      const arr=(subLines[line.label]||[]).map((x,xi)=>xi===sli?{label:slLabel,vals:{...slVals,[idx]:v}}:x);
+                      if(onSaveSubLines) onSaveSubLines(line.label,arr);
+                    };
+                    return (
+                      <tr key={`sl-${line.label}-${sli}`} style={{borderBottom:`1px solid ${C.border}11`,background:`${C.blue}06`}}>
+                        <td style={{padding:"4px 14px 4px 28px",fontSize:10,position:"sticky",left:0,
+                          background:`${C.blue}06`,zIndex:1,borderRight:`1px solid ${C.border}`,color:C.muted}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{color:C.blue}}>↳</span><span>{slLabel}</span>
+                            {canEdit&&<button onClick={()=>{
+                              if(onSaveSubLines) onSaveSubLines(line.label,(subLines[line.label]||[]).filter((_,j)=>j!==sli));
+                            }} style={{marginLeft:4,background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10}}>×</button>}
+                          </div>
+                        </td>
+                        {colStructure.map(({season:s,collapsed,cols})=>{
+                          if(collapsed){
+                            const tot=s.indices.reduce((a,i)=>a+(Number(slVals[i])||0),0);
+                            return <td key={s.key} style={{padding:"4px 6px",textAlign:"right",fontSize:9,
+                              color:tot?C.blue:C.muted2,borderLeft:`2px solid ${C.border2}`}}>{tot?$$(tot):"—"}</td>;
+                          }
+                          return cols.map((col,ci)=>{
+                            const isTot=col.isTotalMes;
+                            const raw=Number(slVals[col.idx])||0;
+                            const disp=isTot?raw:(col.type==="month_collapsed"?raw:raw/(col.nSems||1));
+                            const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                            return (
+                              <td key={`sl-${sli}-${col.mes||""}-${ci}`}
+                                style={{padding:"4px 5px",textAlign:"right",fontSize:9,
+                                  background:isTot?`${C.yellow}12`:`${C.blue}06`,
+                                  borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                                {isTot
+                                  ? <span style={{color:disp?C.blue:C.muted2,fontWeight:disp?700:400}}>{disp?$$(disp):"—"}</span>
+                                  : <CeldaEditable val={disp} color={C.blue}
+                                      canEdit={canEdit&&col.type!=="month_collapsed"}
+                                      onSave={v=>updSlVal(col.idx,col.type==="month_collapsed"?v:v*(col.nSems||1))}/>
+                                }
+                              </td>
+                            );
+                          });
+                        })}
+                      </tr>
+                    );
+                  })}
+                  </React.Fragment>
                 ))}
 
                 {/* Filas agregadas por el usuario en esta sección */}
-                {(addedLines[sec.cat]||[]).map((al,ali)=>(
+                {(addedLines[sec.cat]||[]).map((al,ali)=>{
+                  const alLabel = typeof al==="string" ? al : al.label;
+                  const alVals  = typeof al==="string" ? {} : (al.vals||{});
+                  const updAlVal=(idx,v)=>setAddedLines(p=>{
+                    const arr=[...(p[sec.cat]||[])];
+                    arr[ali]={label:alLabel,vals:{...alVals,[idx]:v}};
+                    return {...p,[sec.cat]:arr};
+                  });
+                  return (
                   <tr key={`al-${sec.cat}-${ali}`} style={{borderBottom:`1px solid ${C.border}11`}}>
                     <td style={{padding:"5px 14px",fontSize:11,position:"sticky",left:0,background:C.card,zIndex:1,
-                      borderRight:`1px solid ${C.border}`,color:CAT_COLOR[sec.cat]||C.text,paddingLeft:20}}>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <span style={{fontSize:9,color:C.muted}}>+</span>{al}
+                      borderRight:`1px solid ${C.border}`,color:CAT_COLOR[sec.cat]||C.text}}>
+                      <div style={{display:"flex",alignItems:"center",gap:4,paddingLeft:10}}>
+                        <span style={{fontSize:9,color:C.muted}}>↳</span>
+                        <span style={{fontStyle:"italic"}}>{alLabel}</span>
                         {canEdit&&<button onClick={()=>setAddedLines(p=>({...p,[sec.cat]:(p[sec.cat]||[]).filter((_,i)=>i!==ali)}))}
                           style={{marginLeft:4,background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10}}>×</button>}
                       </div>
                     </td>
                     {colStructure.map(({season:s,collapsed,cols})=>{
-                      if(collapsed) return <td key={s.key} style={{borderLeft:`2px solid ${C.border2}`}}/>;
-                      return cols.map((col,ci)=>(
-                        <td key={`al-${ali}-${col.mes||""}-${ci}`}
-                          style={{padding:"4px 5px",borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:col.isFirstInMonth?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}/>
-                      ));
+                      if(collapsed){
+                        const tot=s.indices.reduce((a,i)=>a+(Number(alVals[i])||0),0);
+                        return <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontSize:9,
+                          color:tot?CAT_COLOR[sec.cat]:C.muted2,fontWeight:tot?600:400,
+                          borderLeft:`2px solid ${C.border2}`}}>{tot?$$(tot):"—"}</td>;
+                      }
+                      return cols.map((col,ci)=>{
+                        const isTot=col.isTotalMes;
+                        const rawVal=Number(alVals[col.idx])||0;
+                        const disp=isTot?rawVal:(col.type==="month_collapsed"?rawVal:rawVal/(col.nSems||1));
+                        const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                        return (
+                          <td key={`al-${ali}-${col.mes||""}-${ci}`}
+                            style={{padding:"4px 5px",textAlign:"right",fontSize:9,
+                              background:isTot?`${C.yellow}12`:C.card,
+                              borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                            {isTot?(
+                              <span style={{color:disp?(sec.signo>0?C.green:C.red):C.muted2,fontWeight:disp?700:400}}>
+                                {disp?$$(disp):"—"}
+                              </span>
+                            ):(
+                              <CeldaEditable val={disp} color={sec.signo>0?C.green:C.red}
+                                canEdit={canEdit&&col.type!=="month_collapsed"}
+                                onSave={v=>updAlVal(col.idx, col.type==="month_collapsed"?v:v*(col.nSems||1))}/>
+                            )}
+                          </td>
+                        );
+                      });
                     })}
                   </tr>
-                ))}
+                  );
+                })}
                 {/* Botón + agregar concepto */}
                 {canEdit&&(
                   <tr>
@@ -2362,7 +2441,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       <button onClick={()=>{
                         const nombre=prompt(`Nueva línea en "${sec.label}":`);
                         if(!nombre?.trim())return;
-                        setAddedLines(p=>({...p,[sec.cat]:[...(p[sec.cat]||[]),nombre.trim()]}));
+                        setAddedLines(p=>({...p,[sec.cat]:[...(p[sec.cat]||[]),{label:nombre.trim(),vals:{}}]}));
                       }} style={{fontSize:9,color:CAT_COLOR[sec.cat]||C.muted,background:"none",
                         border:`1px dashed ${CAT_COLOR[sec.cat]||C.border}44`,
                         borderRadius:4,padding:"2px 10px",cursor:"pointer"}}>
@@ -2379,7 +2458,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                   </td>
                   {colStructure.map(({season:s,collapsed,cols})=>{
                     if(collapsed){
-                      const total=s.indices.reduce((a,i)=>a+sec.lines.reduce((b,l)=>b+getProy(l.label,i),0),0);
+                      const total=s.indices.reduce((a,i)=>a+sec.lines.reduce((b,l)=>b+getProy(l.label,i),0)+
+                      (addedLines[sec.cat]||[]).reduce((b,al)=>b+(Number(typeof al==="string"?0:(al.vals||{})[i])||0),0),0);
                       return (
                         <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontWeight:800,
                           color:CAT_COLOR[sec.cat],fontSize:10,borderLeft:`2px solid ${C.border2}`,background:C.bg2}}>
@@ -2391,7 +2471,13 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     return cols.map((col,ci)=>{
                       const isTot=col.isTotalMes;
                       const nSems=col.type==="month_collapsed"||isTot?1:col.nSems;
-                      const total=sec.lines.reduce((a,l)=>a+getProy(l.label,col.idx)/nSems,0);
+                      const baseTotal=sec.lines.reduce((a,l)=>a+getProy(l.label,col.idx)/nSems,0);
+                      // Add values from user-added lines
+                      const addedTotal=(addedLines[sec.cat]||[]).reduce((a,al)=>{
+                        const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
+                        return a+v/nSems;
+                      },0);
+                      const total=baseTotal+addedTotal;
                       const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                       return (
                         <td key={`sub-${col.mes}-${col.label}-${ci}`}
@@ -3367,7 +3453,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
             onError={e=>{e.target.style.display="none";}}/>
           <div>
             <div style={{fontSize:13,fontWeight:900,color:C.text}}>Finanzas · Grupo Mediterra</div>
-            <div style={{fontSize:10,color:C.muted}}>Mar-2026 → Jun-2031 · 65 meses · 6 Temporadas · USD</div>
+            <div style={{fontSize:10,color:C.muted}}>Apr-2026 → Jun-2031 · 64 meses · 6 Temporadas · USD</div>
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
