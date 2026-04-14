@@ -660,21 +660,21 @@ function buildAllegria(params) {
     emoji:"🍒", color:"#b91c1c", saldo_ini:17433, desc:"Exportación frutas · Chile", hasFormula:true,
     sections:[
       { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
-        {label:"Anticipo Cerezas",             proy:[...ing.cerezas],   formula:true},
-        {label:"Liquidación Cerezas",          proy:Z65()},
-        {label:"Arándanos Perú",               proy:[...ing.arandanos], formula:true},
-        {label:"Liquidación Ciruelas",         proy:[...ing.ciruelas],  formula:true},
-        {label:"Ingresos por Paltas",          proy:Z65()},
-        {label:"Ingreso por Allegria Service", proy:Z65()},
-        {label:"Rebates",                      proy:Z65()},
-        {label:"Cuentas por Cobrar",           proy:Z65(), subLines:true},
+        {label:"Anticipo Cerezas",              proy:[...ing.cerezas],   formula:true},
+        {label:"Liquidación Cerezas",           proy:Z65()},
+        {label:"Arándanos Perú",                proy:[...ing.arandanos], formula:true},
+        {label:"Liquidación Ciruelas",          proy:[...ing.ciruelas],  formula:true},
+        {label:"Ingresos por Paltas",           proy:Z65()},
+        {label:"Ingreso por Allegria Service",  proy:Z65()},
+        {label:"Rebates",                       proy:Z65()},
+        {label:"Cuentas por Cobrar",            proy:Z65(), subLines:true},
       ]},
       { cat:"egr_var", label:"Egresos Operacionales", signo:-1, lines:[
-        {label:"Costo Fruta Exportación",          proy:[...cost.cerezas],   formula:true},
-        {label:"Materiales",                       proy:[...mat.cerezas],    formula:true},
-        {label:"Servicios de Packing",             proy:[...srv.cerezas],    formula:true},
-        {label:"Comisión Exportadora",             proy:Z65()},
-        {label:"Seguros Exportación",              proy:Z65()},
+        {label:"Costo Fruta Exportación",            proy:[...cost.cerezas],  formula:true},
+        {label:"Materiales",                         proy:[...mat.cerezas],   formula:true},
+        {label:"Servicios de Packing",               proy:[...srv.cerezas],   formula:true},
+        {label:"Comisión Exportadora",               proy:Z65()},
+        {label:"Seguros Exportación",                proy:Z65()},
         {label:"Servicios Terceros / Arriendo Bodegas", proy:Z65()},
       ]},
       { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
@@ -696,15 +696,15 @@ function buildAllegria(params) {
         {label:"Impuestos Anuales",   proy:Z65()},
       ]},
       { cat:"ing_nop", label:"Ingresos No Operacionales", signo:1, lines:[
-        {label:"Capital Calls",               proy:Z65()},
-        {label:"Crédito Banco Santander",     proy:Z65()},
+        {label:"Capital Calls",                   proy:Z65()},
+        {label:"Crédito Banco Santander",         proy:Z65()},
         {label:"Otros Ingresos No Operacionales", proy:Z65()},
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
         {label:"Pago Préstamos - Total", proy:ext([0,0,0,0,0,0,0,0,0,499864,0,783199,0,0,0,0,0,0,0,0,0,0,0,0].concat(Array(41).fill(0))), subLines:true},
-        {label:"  Zelun",               proy:Z65()},
-        {label:"  Yiannis",             proy:Z65()},
-        {label:"  Fresion",             proy:Z65()},
+        {label:"  Zelun",                proy:Z65()},
+        {label:"  Yiannis",              proy:Z65()},
+        {label:"  Fresion",              proy:Z65()},
         {label:"  Qupai",               proy:Z65()},
         {label:"  China Smart",         proy:Z65()},
         {label:"  Banco BICE",          proy:Z65()},
@@ -1906,7 +1906,7 @@ function Consolidado({empresas,saldosBancos}) {
 // ═══════════════════════════════════════════════════════════════════
 // FLUJO POR EMPRESA — v2: totales mes/temporada + edición + saldo banco
 // ═══════════════════════════════════════════════════════════════════
-function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBancos,onSaveProy}) {
+function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBancos,onSaveProy,subLines={},onSaveSubLines}) {
   const emp=empresas[empNombre];
   const [vista,setVista]=useState("mensual");
   const [openSeason,setOpenSeason]=useState({[SEASON_KEYS[0]]:true,[SEASON_KEYS[1]]:true});
@@ -1914,9 +1914,11 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
   const [showReal,setShowReal]=useState(false);
   const [modalSem,setModalSem]=useState(null);
   // Overrides de proyección editados por el usuario: { lineLabel: { idx: valor } }
-  const [proyOverrides,   setProyOverrides]   = useState({});
-  const [expandedSubs,   setExpandedSubs]    = useState({});  // CxC / Préstamos expandibles
-  const [addedLines,     setAddedLines]       = useState({});  // filas extra por sección
+  const [proyOverrides,  setProyOverrides]  = useState({});
+  const [expandedSubs,   setExpandedSubs]   = useState({});  // ▶ CxC / Préstamos
+  const [addedLines,     setAddedLines]      = useState({});  // + conceptos por sección (no persistidos)
+  // subLines viene de Supabase via prop — clientes/acreedores de CxC y Préstamos
+  // addedLines es local — filas extra de concepto (se podrían persistir si se necesita)
 
   const toggleSeason=key=>setOpenSeason(p=>({...p,[key]:!p[key]}));
   const toggleMonth=mes=>setOpenMonth(p=>({...p,[mes]:!p[mes]}));
@@ -1929,13 +1931,12 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     const week = 1+Math.round(((hoy-jan1)/86400000-3+((jan1.getDay()+6)%7))/7);
     return `S${String(week).padStart(2,"0")}`;
   },[]);
-  // Label del mes actual (ej: "Apr-26") para comparación exacta
+  // Mes actual exacto ej "Apr-26" — evita mostrar saldo banco en años futuros con misma semana
   const mesHoyLabel = useMemo(()=>{
     const hoy = new Date();
-    const meses=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    return `${meses[hoy.getMonth()]}-${String(hoy.getFullYear()).slice(2)}`;
+    const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${mn[hoy.getMonth()]}-${String(hoy.getFullYear()).slice(2)}`;
   },[]);
-
   // ── Saldo banco en USD: toma TODAS las monedas, convierte a USD ──
   // Para USD: usa el monto directo
   // Para otras monedas (PEN, CLP, EUR): usa el campo "usd" guardado en Supabase
@@ -2188,8 +2189,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                   // Mostrar saldo solo en la semana actual (semanaHoy)
                   // Vista mensual: mostrar en el mes que contiene la semana actual
                   // Vista semanal: mostrar solo en la columna de la semana actual
-                  // Saldo banco: mostrar SOLO en el mes/semana del año actual
-                  // col.mes tiene formato "Apr-26" — comparar exactamente con mesHoyLabel
+                  // Comparar mes exacto (incluyendo año) para no repetir en años futuros
                   const esMesActual = col.type==="month" && col.mes===mesHoyLabel;
                   const esSemActual = col.type==="week" && col.semana===semanaHoy && col.mes===mesHoyLabel;
                   const esMesColapsado = col.type==="month_collapsed" && col.mes===mesHoyLabel;
@@ -2235,33 +2235,44 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       borderRight:`1px solid ${C.border}`,whiteSpace:"nowrap",
                       maxWidth:240,overflow:"hidden",textOverflow:"ellipsis"}}>
                       <div style={{display:"flex",alignItems:"center",gap:3}}>
-                        {line.formula&&<span style={{fontSize:9,marginRight:2}}>⚡</span>}
-                        {proyOverrides[line.label]&&<span style={{fontSize:8,color:C.accentL,marginRight:2}} title="Valor editado">●</span>}
+                        {line.formula&&<span style={{fontSize:9}}>⚡</span>}
+                        {proyOverrides[line.label]&&<span style={{fontSize:8,color:C.accentL}} title="Editado">●</span>}
                         {line.subLines&&(
                           <button onClick={()=>setExpandedSubs(p=>({...p,[line.label]:!p[line.label]}))}
                             style={{background:"none",border:"none",cursor:"pointer",padding:"0 1px",
-                              color:C.blue,fontSize:9,fontWeight:700,lineHeight:1,flexShrink:0}}>
+                              color:C.blue,fontSize:9,fontWeight:700,flexShrink:0}}>
                             {expandedSubs[line.label]?"▼":"▶"}
                           </button>
                         )}
                         <span style={{paddingLeft:line.label.startsWith("  ")?10:0}}>{line.label.trim()}</span>
                       </div>
-                      {line.subLines&&expandedSubs[line.label]&&canEdit&&(
-                        <div style={{marginTop:3,paddingLeft:12}}>
-                          {(addedLines[line.label]||[]).map((sub,si)=>(
-                            <div key={si} style={{fontSize:10,color:C.muted,padding:"1px 0",display:"flex",gap:4}}>
-                              <span>↳ {sub}</span>
+                      {line.subLines&&expandedSubs[line.label]&&(
+                        <div style={{marginTop:3,paddingLeft:14}}>
+                          {(subLines[line.label]||[]).map((sub,si)=>(
+                            <div key={si} style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:C.muted,padding:"2px 0",
+                              borderBottom:`1px solid ${C.border}22`}}>
+                              <span style={{color:C.accentL}}>↳</span>
+                              <span style={{flex:1}}>{sub}</span>
+                              {canEdit&&<button onClick={()=>{
+                                const newList=(subLines[line.label]||[]).filter((_,j)=>j!==si);
+                                if(onSaveSubLines) onSaveSubLines(line.label, newList);
+                              }} style={{background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10,padding:0}}>×</button>}
                             </div>
                           ))}
-                          <button onClick={()=>{
-                            const nombre=prompt("Nombre del cliente / acreedor:");
-                            if(!nombre?.trim())return;
-                            setAddedLines(p=>({...p,[line.label]:[...(p[line.label]||[]),nombre.trim()]}));
-                          }} style={{fontSize:9,color:C.blue,background:"none",
-                            border:`1px dashed ${C.blue}44`,borderRadius:4,
-                            padding:"1px 6px",cursor:"pointer",marginTop:2}}>
-                            + agregar
-                          </button>
+                          {canEdit&&(
+                            <button onClick={()=>{
+                              const n=prompt(line.label.includes("Cobrar")?"Nombre del cliente:":"Nombre del acreedor:");
+                              if(!n?.trim())return;
+                              const newList=[...(subLines[line.label]||[]),n.trim()];
+                              if(onSaveSubLines) onSaveSubLines(line.label, newList);
+                            }} style={{fontSize:9,color:C.blue,background:"none",border:`1px dashed ${C.blue}44`,
+                              borderRadius:4,padding:"2px 8px",cursor:"pointer",marginTop:3,display:"block"}}>
+                              {line.label.includes("Cobrar")?"+ agregar cliente":"+ agregar acreedor"}
+                            </button>
+                          )}
+                          {(subLines[line.label]||[]).length===0&&!canEdit&&(
+                            <div style={{fontSize:10,color:C.muted2,fontStyle:"italic"}}>Sin registros</div>
+                          )}
                         </div>
                       )}
                     </td>
@@ -2324,31 +2335,42 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                   </tr>
                 ))}
 
-              {/* Filas agregadas por usuario en esta sección */}
-              {(addedLines[sec.cat]||[]).map((al,ali)=>(
-                <tr key={`al-${sec.cat}-${ali}`} style={{borderBottom:`1px solid ${C.border}11`}}>
-                  <td style={{padding:"5px 14px",fontSize:11,color:CAT_COLOR[sec.cat]||C.text,
-                    position:"sticky",left:0,background:C.card,zIndex:1,
-                    borderRight:`1px solid ${C.border}`,paddingLeft:20}}>
-                    <div style={{display:"flex",alignItems:"center",gap:4}}>
-                      <span style={{fontSize:9,color:C.muted}}>+</span>
-                      {al}
-                      {canEdit&&<button onClick={()=>setAddedLines(p=>({...p,[sec.cat]:(p[sec.cat]||[]).filter((_,i)=>i!==ali)}))}
-                        style={{marginLeft:4,background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10}}>×</button>}
-                    </div>
-                  </td>
-                  {colStructure.map(({season:s,collapsed,cols})=>{
-                    if(collapsed) return <td key={s.key}/>;
-                    return cols.map((col,ci)=>(
-                      <td key={`al-${ali}-${col.mes}-${ci}`}
-                        style={{padding:"4px 5px",textAlign:"right",fontSize:9,color:C.muted,
-                          borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:col.isFirstInMonth?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
-                      </td>
-                    ));
-                  })}
-                </tr>
-              ))}
-
+                {/* Filas agregadas por el usuario en esta sección */}
+                {(addedLines[sec.cat]||[]).map((al,ali)=>(
+                  <tr key={`al-${sec.cat}-${ali}`} style={{borderBottom:`1px solid ${C.border}11`}}>
+                    <td style={{padding:"5px 14px",fontSize:11,position:"sticky",left:0,background:C.card,zIndex:1,
+                      borderRight:`1px solid ${C.border}`,color:CAT_COLOR[sec.cat]||C.text,paddingLeft:20}}>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <span style={{fontSize:9,color:C.muted}}>+</span>{al}
+                        {canEdit&&<button onClick={()=>setAddedLines(p=>({...p,[sec.cat]:(p[sec.cat]||[]).filter((_,i)=>i!==ali)}))}
+                          style={{marginLeft:4,background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10}}>×</button>}
+                      </div>
+                    </td>
+                    {colStructure.map(({season:s,collapsed,cols})=>{
+                      if(collapsed) return <td key={s.key} style={{borderLeft:`2px solid ${C.border2}`}}/>;
+                      return cols.map((col,ci)=>(
+                        <td key={`al-${ali}-${col.mes||""}-${ci}`}
+                          style={{padding:"4px 5px",borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:col.isFirstInMonth?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}/>
+                      ));
+                    })}
+                  </tr>
+                ))}
+                {/* Botón + agregar concepto */}
+                {canEdit&&(
+                  <tr>
+                    <td colSpan={999} style={{padding:"2px 14px",position:"sticky",left:0,zIndex:1}}>
+                      <button onClick={()=>{
+                        const nombre=prompt(`Nueva línea en "${sec.label}":`);
+                        if(!nombre?.trim())return;
+                        setAddedLines(p=>({...p,[sec.cat]:[...(p[sec.cat]||[]),nombre.trim()]}));
+                      }} style={{fontSize:9,color:CAT_COLOR[sec.cat]||C.muted,background:"none",
+                        border:`1px dashed ${CAT_COLOR[sec.cat]||C.border}44`,
+                        borderRadius:4,padding:"2px 10px",cursor:"pointer"}}>
+                        + agregar concepto
+                      </button>
+                    </td>
+                  </tr>
+                )}
                 {/* Subtotal sección */}
                 <tr style={{background:C.bg2}}>
                   <td style={{padding:"5px 14px",fontWeight:700,color:CAT_COLOR[sec.cat],fontSize:10,
@@ -2383,25 +2405,6 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     });
                   })}
                 </tr>
-              {/* ── Botón agregar fila por concepto ── */}
-              {canEdit&&(sec.cat==="ing_op"||sec.cat==="egr_var"||sec.cat==="egr_fijo"||sec.cat==="ing_nop"||sec.cat==="egr_nop")&&(
-                <tr>
-                  <td colSpan={999} style={{padding:"2px 14px",position:"sticky",left:0}}>
-                    <button onClick={()=>{
-                      const nombre=prompt(`Nueva línea en "${sec.label}":`);
-                      if(!nombre?.trim())return;
-                      setAddedLines(p=>({
-                        ...p,
-                        [sec.cat]:[...(p[sec.cat]||[]),{label:nombre.trim(),proy:Z65()}]
-                      }));
-                    }} style={{fontSize:9,color:CAT_COLOR[sec.cat]||C.muted,background:"none",
-                      border:`1px dashed ${CAT_COLOR[sec.cat]||C.border}44`,
-                      borderRadius:4,padding:"2px 10px",cursor:"pointer"}}>
-                      + agregar concepto
-                    </button>
-                  </td>
-                </tr>
-              )}
               </React.Fragment>
             ))}
 
@@ -2617,14 +2620,11 @@ function Dashboard({empresas, saldosBancos}) {
     let acc=Object.values(empresas).reduce((s,e)=>s+e.saldo_ini,0);
     return MESES_65.map((_,i)=>{let f=0;Object.values(empresas).forEach(e=>e.sections.forEach(sec=>sec.lines.forEach(l=>{f+=(l.proy[i]||0)*sec.signo;})));acc+=f;return acc;});
   },[empresas]);
-  // ── Saldo banco por país (USD) ──────────────────────────
-  // Empresas Chile: Mediterra, Allegria Foods, Allegria Service, Frisku Foods, Allpa Farms, Osiris, Integrity
-  // Empresas Perú:  Allpa Farms Perú, Frisku Peru
   const EMPRESAS_CHILE = ["Mediterra","Allegria Foods","Allegria Service","Frisku Foods","Allpa Farms","Osiris","Integrity Farms"];
   const EMPRESAS_PERU  = ["Allpa Farms Perú","Frisku Peru"];
   const HOY_DASH = new Date();
   function saldoDeEmpresas(empList) {
-    if(!saldosBancos) return Object.values(empresas).filter((_,i)=>empList.includes(Object.keys(empresas)[i])).reduce((s,e)=>s+e.saldo_ini,0);
+    if(!saldosBancos) return 0;
     let total = 0;
     empList.forEach(empNombre=>{
       const porBanco = {};
@@ -3184,6 +3184,8 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   const [params,setParams]=useState(defaultParams);
   // paramsEmp: { empresa: { seasonKey: { prodId: defaultProducto() } } }
   const [paramsEmp,setParamsEmp]=useState({});
+  // subLines: { empresa: { lineLabel: [nombre1, nombre2, ...] } }
+  const [subLines,setSubLines]=useState({});
   const [saldosBancos,setSaldosBancos]=useState({});
   const [loading,setLoading]=useState(true);
   const [saved,setSaved]=useState(null);
@@ -3221,6 +3223,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
       if(d?.allegria_params) setParams(prev=>({...defaultParams(),...d.allegria_params}));
       if(d?.params_emp) setParamsEmp(d.params_emp);
       if(d?.saldos_bancos) setSaldosBancos(d.saldos_bancos);
+      if(d?.sub_lines)    setSubLines(d.sub_lines);
       setLoading(false);
     });
   },[]);
@@ -3230,10 +3233,12 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   const paramsRef       = React.useRef(params);
   const saldosBancosRef = React.useRef(saldosBancos);
   const paramsEmpRef    = React.useRef(paramsEmp);
+  const subLinesRef     = React.useRef(subLines);
   useEffect(()=>{ realDataRef.current     = realData;     },[realData]);
   useEffect(()=>{ paramsRef.current       = params;       },[params]);
   useEffect(()=>{ saldosBancosRef.current = saldosBancos; },[saldosBancos]);
   useEffect(()=>{ paramsEmpRef.current    = paramsEmp;    },[paramsEmp]);
+  useEffect(()=>{ subLinesRef.current     = subLines;     },[subLines]);
 
   // Helper centralizado - siempre usa los valores mas recientes
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3243,6 +3248,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
       allegria_params: overrides.allegria_params !== undefined ? overrides.allegria_params : paramsRef.current,
       saldos_bancos:   overrides.saldos_bancos   !== undefined ? overrides.saldos_bancos   : saldosBancosRef.current,
       params_emp:      overrides.params_emp      !== undefined ? overrides.params_emp      : paramsEmpRef.current,
+      sub_lines:       overrides.sub_lines       !== undefined ? overrides.sub_lines       : subLinesRef.current,
     });
   },[]); // eslint-disable-line
 
@@ -3280,6 +3286,22 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   },[persistAll]);
 
   // setParamsEmp para una empresa específica
+  // Guardar subfilas (clientes CxC / acreedores préstamos) en Supabase
+  const handleSaveSubLines = useCallback((empresa, lineLabel, newList) => {
+    setSubLines(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[empresa]) next[empresa] = {};
+      next[empresa][lineLabel] = newList;
+      subLinesRef.current = next;
+      // Persistir async
+      setTimeout(()=>{
+        persistAll({ sub_lines: next })
+          .then(ok=>{ setSaved(ok ? "✅ Guardado" : "⚠️ Error"); setTimeout(()=>setSaved(null),2000); });
+      }, 0);
+      return next;
+    });
+  },[persistAll]);
+
   const setParamsEmpresa = useCallback((empresa, updater) => {
     setParamsEmp(prev => {
       const next = JSON.parse(JSON.stringify(prev));
@@ -3384,34 +3406,25 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
         <div>
           {/* Selector empresa + botón Consolidado */}
           <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
-            {/* Consolidado primero */}
             <button onClick={()=>{setEmpTab("_consolidado");setFlujoSubTab("flujo");}}
-              style={{
-                padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
+              style={{padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
                 border:`2px solid ${empTab==="_consolidado"?"#a78bfa":"#a78bfa55"}`,
                 background:empTab==="_consolidado"?"#a78bfa33":C.card,
-                color:empTab==="_consolidado"?"#a78bfa":C.muted,
-                transition:"all 0.15s",
-              }}>
+                color:empTab==="_consolidado"?"#a78bfa":C.muted,transition:"all 0.15s"}}>
               🏛 Consolidado
             </button>
-            {/* Empresas en orden definido */}
-            {[
-              "Mediterra","Allegria Foods","Allegria Service","Frisku Foods",
+            {["Mediterra","Allegria Foods","Allegria Service","Frisku Foods",
               "Osiris","Integrity Farms","Allpa Farms","Allpa Farms Perú","Frisku Peru"
             ].filter(n=>empresas[n]).map(n=>{const e=empresas[n];return (
               <button key={n} onClick={()=>{setEmpTab(n);setFlujoSubTab("flujo");}}
-                style={{
-                  padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
+                style={{padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
                   border:`1px solid ${empTab===n?e.color:C.border}`,
                   background:empTab===n?`${e.color}33`:C.card,
-                  color:empTab===n?e.color:C.muted,
-                  transition:"all 0.15s",
-                }}>
+                  color:empTab===n?e.color:C.muted,transition:"all 0.15s"}}>
                 {e.emoji} {n}{n==="Allegria Foods"&&<span style={{fontSize:9,marginLeft:3,color:C.yellow}}>✦</span>}
               </button>
             );})}
-            </div>
+          </div>
 
           {/* Sub-pestañas Flujo/Parámetros — solo cuando NO es consolidado */}
           {empTab!=="_consolidado"&&(
@@ -3448,7 +3461,8 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
           {flujoSubTab==="flujo"&&(
             <FlujoEmpresa key={empTab} empNombre={empTab} empresas={empresas}
               realData={realData} onSaveReal={handleSaveReal} canEdit={puedoEdit("flujo")}
-              saldosBancos={saldosBancos} onSaveProy={handleSaveProy}/>
+              saldosBancos={saldosBancos} onSaveProy={handleSaveProy}
+              subLines={subLines?.[empTab]||{}} onSaveSubLines={(lineLabel,list)=>handleSaveSubLines(empTab,lineLabel,list)}/>
           )}
           {flujoSubTab==="params"&&(()=>{
             const emp=empresas[empTab];
