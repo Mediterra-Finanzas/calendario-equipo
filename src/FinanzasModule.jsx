@@ -937,6 +937,7 @@ function buildAllegria(params) {
       { cat:"ing_nop", label:"Ingresos No Operacionales", signo:1, lines:[
         {label:"Capital Calls",                   proy:Z65()},
         {label:"Crédito Banco Santander",         proy:Z65()},
+        {label:"Ingreso Renovación",              proy:calcIngresoRenovacionEmpresa("Allegria Foods"), formula:true, subLines:true},
         {label:"Otros Ingresos No Operacionales", proy:Z65()},
       ]},
       { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
@@ -5022,26 +5023,37 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
 
   const empresas=useMemo(()=>{
     const base = buildEmpresas(params);
-    // Recalculate Pago Préstamos proy using current creditosData (non-mutating)
+    // Recalculate Préstamos + Renovaciones proy using current creditosData
     Object.keys(base).forEach(empNombre=>{
       const emp = base[empNombre];
       base[empNombre] = {
         ...emp,
         sections: emp.sections.map(sec=>{
-          if(sec.cat!=="egr_nop") return sec;
-          return {
-            ...sec,
-            lines: sec.lines.map(l=>{
-              if(l.label!=="Pago Préstamos - Total") return l;
-              if(l.label==="Pago Préstamos - Total")
-                return {...l, proy: calcPrestamosEmpresa(empNombre, creditosData)};
-              if(l.label==="Renovaciones")
-                return {...l, proy: calcRenovacionesEmpresa(empNombre, creditosData)};
-              if(l.label==="Ingreso Renovación")
-                return {...l, proy: calcIngresoRenovacionEmpresa(empNombre, creditosData)};
-              return l;
-            })
-          };
+          // egr_nop: Pago Préstamos + Renovaciones (egresos)
+          if(sec.cat==="egr_nop") {
+            return {
+              ...sec,
+              lines: sec.lines.map(l=>{
+                if(l.label==="Pago Préstamos - Total")
+                  return {...l, proy: calcPrestamosEmpresa(empNombre, creditosData)};
+                if(l.label==="Renovaciones")
+                  return {...l, proy: calcRenovacionesEmpresa(empNombre, creditosData)};
+                return l;
+              })
+            };
+          }
+          // ing_nop: Ingreso Renovación (ingresos)
+          if(sec.cat==="ing_nop") {
+            return {
+              ...sec,
+              lines: sec.lines.map(l=>{
+                if(l.label==="Ingreso Renovación")
+                  return {...l, proy: calcIngresoRenovacionEmpresa(empNombre, creditosData)};
+                return l;
+              })
+            };
+          }
+          return sec;
         })
       };
     });
