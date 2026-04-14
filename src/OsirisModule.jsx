@@ -3025,13 +3025,14 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const clientes= osirisData?.clientes        ?? CLIENTES_INIT;
   const tpData  = osirisData?.totalPedidos    ?? [];
   const rpData  = osirisData?.royaltyPlanta   ?? [];
-  const feDataRaw = osirisData?.feeEntrada    ?? [];
-  const rcData  = osirisData?.royaltyComercial?? [];
-  const fvData  = osirisData?.feeViveros      ?? [];
+  const feDataRaw = osirisData?.feeEntrada     ?? [];
+  const rcData    = osirisData?.royaltyComercial?? [];
+  const fvData    = osirisData?.feeViveros      ?? [];
 
   // feData: vista reactiva — siempre refleja contratos actuales + ediciones guardadas
   // Se calcula aquí para que Resumen y FeeEntrada usen el MISMO dataset
-  const feData = React.useMemo(()=>{
+  // Nota: feDataRaw y ctData son referencias estables (vienen de estado), no inline ??
+  const feData = useMemo(()=>{
     const edits = {};
     feDataRaw.forEach(r=>{ edits[r.ctId||r.id] = r; });
     const fromContracts = ctData
@@ -3039,15 +3040,15 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       .map(ct=>{
         const saved = edits[ct.id] || edits[`fe_${ct.id}`] || {};
         return {
-          id:       saved.id      || `fe_${ct.id}`,
+          id:       saved.id       || `fe_${ct.id}`,
           ctId:     ct.id,
           cliente:  ct.razonSocial,
           pais:     ct.pais,
           montoUSD: ct.montoContractFee || 30000,
           detalle:  ct.tipoContractFee  || "",
-          nFact:    saved.nFact    || "",
-          pagado:   saved.pagado   || false,
-          fechaPago:saved.fechaPago|| "",
+          nFact:    saved.nFact     || "",
+          pagado:   saved.pagado    || false,
+          fechaPago:saved.fechaPago || "",
           _fromContract: true,
         };
       });
