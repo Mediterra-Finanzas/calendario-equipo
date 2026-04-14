@@ -587,10 +587,22 @@ function RoyaltyPlanta({data,setData,tpData,can,clientes=[]}) {
   const años=["Todos",...Array.from(new Set(data.map(r=>r.añoEntrega||r.año))).sort()];
   const paises=["Todos",...Array.from(new Set(data.map(r=>r.pais).filter(Boolean))).sort()];
 
-  const calc=useMemo(()=>data.map(r=>{
+  // Sync reactiva: si el registro tiene tpId, actualiza cliente/pais/nPlantas desde Total Pedidos
+  const dataConSync = useMemo(()=>{
+    const tpMap = {};
+    (tpData||[]).forEach(r=>{ tpMap[r.id]=r; });
+    return data.map(r=>{
+      if(!r.tpId || !tpMap[r.tpId]) return r;
+      const tp = tpMap[r.tpId];
+      return {...r, cliente:tp.cliente, pais:tp.pais, vivero:tp.vivero||r.vivero,
+        nPlantas:r.nPlantas||tp.nPlantas}; // nPlantas del royalty puede diferir del pedido
+    });
+  },[data,tpData]);
+
+  const calc=useMemo(()=>dataConSync.map(r=>{
     const mf=(Number(r.nPlantas)||0)*(Number(r.usdPlanta)||0);
     return{...r,montoFact:mf,montoCobro:mf*pct(r.pais)};
-  }),[data]);
+  }),[dataConSync]);
 
   const filtrado=calc.filter(r=>
     (filtroPais==="Todos"||r.pais===filtroPais)&&
@@ -806,20 +818,40 @@ function FeeEntrada({data,setData,ctData,can,clientes=[]}) {
   const [filtroCobro,setFiltroCobro]=useState("Todos");
   const [filtroCli,setFiltroCli]=useState("");
 
-  // Sincronizar con contratos: agregar fee por cada contrato que tenga fee y no esté ya en data
+  // Sincronización reactiva con contratos:
+  // - Cada contrato con fee genera/actualiza su fila automáticamente
+  // - Los datos del contrato (cliente, pais, monto, detalle) SIEMPRE vienen del contrato actual
+  // - Solo se preservan las ediciones del usuario: nFact, pagado, fechaPago
   const dataConSync = useMemo(()=>{
-    const existing = new Set(data.map(r=>r.ctId||r.id));
+    // Mapa de ediciones guardadas por ctId
+    const edits = {};
+    data.forEach(r=>{
+      const key = r.ctId || r.id;
+      edits[key] = r;
+    });
+    // Generar vista desde contratos vigentes
     const fromContracts = (ctData||[])
-      .filter(ct=> ct.tipoContractFee && ct.tipoContractFee!=="Sin Contract Fee" && !existing.has(ct.id))
-      .map(ct=>({
-        id:`fe_${ct.id}`,ctId:ct.id,
-        cliente:ct.razonSocial,pais:ct.pais,
-        montoUSD:ct.montoContractFee||30000,
-        detalle:ct.tipoContractFee||"",
-        nFact:"",pagado:false,fechaPago:"",
-        _fromContract:true,
-      }));
-    return [...data,...fromContracts];
+      .filter(ct=> ct.tipoContractFee && ct.tipoContractFee!=="Sin Contract Fee")
+      .map(ct=>{
+        const saved = edits[ct.id] || edits[`fe_${ct.id}`] || {};
+        return {
+          id: saved.id || `fe_${ct.id}`,
+          ctId: ct.id,
+          // Datos del contrato — siempre actualizados
+          cliente: ct.razonSocial,
+          pais:    ct.pais,
+          montoUSD: ct.montoContractFee || 30000,
+          detalle:  ct.tipoContractFee || "",
+          // Ediciones del usuario — preservadas
+          nFact:    saved.nFact    || "",
+          pagado:   saved.pagado   || false,
+          fechaPago:saved.fechaPago|| "",
+          _fromContract: true,
+        };
+      });
+    // Agregar registros manuales (sin ctId) que el usuario haya creado
+    const manuales = data.filter(r=> !r.ctId && !r._fromContract);
+    return [...fromContracts, ...manuales];
   },[data,ctData]);
 
   const filtrado=dataConSync.filter(r=>
@@ -957,9 +989,20 @@ function RoyaltyComercial({data,setData,tpData,can,clientes=[]}) {
     nFact:"",pagado:false,
   });
 
+  // Sync reactiva con Total Pedidos si tiene tpId vinculado
+  const dataConSync = useMemo(()=>{
+    const tpMap = {};
+    (tpData||[]).forEach(r=>{ tpMap[r.id]=r; });
+    return data.map(r=>{
+      if(!r.tpId || !tpMap[r.tpId]) return r;
+      const tp = tpMap[r.tpId];
+      return {...r, cliente:tp.cliente, pais:tp.pais};
+    });
+  },[data,tpData]);
+
   const calc=useMemo(()=>{
     const ahora=new Date();ahora.setHours(0,0,0,0);
-    return data.map(r=>{
+    return dataConSync.map(r=>{
       const mf=(Number(r.ha)||0)*(Number(r.usdHa)||3000);
       const mc=mf*pct(r.pais);
       const fAviso=fechaAvisoTrim(r.añoCobro,r.trimCobro);
@@ -968,7 +1011,7 @@ function RoyaltyComercial({data,setData,tpData,can,clientes=[]}) {
       const alertaActiva=ahora>=fAviso&&ahora<fInicio&&!r.nFact;
       return{...r,montoFact:mf,montoCobro:mc,fAviso,fInicio,diasAviso,alertaActiva};
     });
-  },[data]);
+  },[dataConSync]);
 
   const años=["Todos",...Array.from(new Set(calc.map(r=>r.añoCobro))).sort()];
   const paises=["Todos",...Array.from(new Set(calc.map(r=>r.pais).filter(Boolean))).sort()];
