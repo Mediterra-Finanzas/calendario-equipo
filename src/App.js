@@ -672,9 +672,10 @@ export default function App(){
         else if(bundle !== currentBundle) { window.location.reload(); }
       } catch(e) {}
     }
-    checkNewDeploy();
-    const interval = setInterval(checkNewDeploy, 2 * 60 * 1000);
-    return () => clearInterval(interval);
+    // Esperar 5s para que la app cargue, luego verificar inmediatamente
+    const initialCheck = setTimeout(checkNewDeploy, 5000);
+    const interval = setInterval(checkNewDeploy, 10 * 1000); // cada 10 segundos // cada 30 segundos
+    return () => { clearTimeout(initialCheck); clearInterval(interval); };
   }, []);
   // ─────────────────────────────────────────────────────────────────
   const [pinsPersonalizados,setPinsPersonalizados]=useState({});
@@ -920,8 +921,12 @@ export default function App(){
       const worker = usuarios.find(u=>u.nombre===savedNombre);
       if(worker && !worker.desactivado) {
         setUsuarioActual(worker);
+        // Restaurar el módulo donde estaba
+        const savedModulo = sessionStorage.getItem('mediterra_modulo');
+        if(savedModulo) setModuloActivo(savedModulo);
       } else {
         sessionStorage.removeItem('mediterra_usuario');
+        sessionStorage.removeItem('mediterra_modulo');
       }
     }
   },[cargando, usuarios]); // eslint-disable-line
@@ -1410,7 +1415,7 @@ Equipo Mediterra`);
         esSoloConsulta={esSoloConsulta}
         tabPermisos={tabPermisosFinanzas}
         onBack={()=>setModuloActivo(null)}
-        onLogout={()=>{setUsuarioActual(null);setModuloActivo(null);sessionStorage.removeItem('mediterra_usuario');}}
+        onLogout={()=>{setUsuarioActual(null);setModuloActivo(null);sessionStorage.removeItem('mediterra_usuario');sessionStorage.removeItem('mediterra_modulo');}}
       />
     </div>
   );
@@ -1423,7 +1428,7 @@ Equipo Mediterra`);
         esSoloConsulta={esSoloConsulta}
         tabPermisos={getTabPermisosModulo(usuarioFresco,"osiris")}
         onBack={()=>setModuloActivo(null)}
-        onLogout={()=>{setUsuarioActual(null);setModuloActivo(null);sessionStorage.removeItem('mediterra_usuario');}}
+        onLogout={()=>{setUsuarioActual(null);setModuloActivo(null);sessionStorage.removeItem('mediterra_usuario');sessionStorage.removeItem('mediterra_modulo');}}
         osirisData={osirisData}
         setOsirisData={setOsirisData}
       />
@@ -1575,7 +1580,7 @@ Equipo Mediterra`);
             <button onClick={()=>setTab(tab==="semanal"?"mensual":"semanal")} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>
               {tab==="semanal"?"📆 Ver Mensual":"📅 Ver Semanal"}
             </button>
-            <button onClick={()=>{setUsuarioActual(null);setModuloActivo(null);sessionStorage.removeItem('mediterra_usuario');}} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#fca5a5",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>Salir</button>
+            <button onClick={()=>{setUsuarioActual(null);setModuloActivo(null);sessionStorage.removeItem('mediterra_usuario');sessionStorage.removeItem('mediterra_modulo');}} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#fca5a5",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>Salir</button>
           </div>
         </div>
 
@@ -1759,8 +1764,8 @@ Equipo Mediterra`);
     <HubScreen
       usuario={usuarioFresco || usuarioActual}
       modulosPermitidos={modulosPermitidos}
-      onSelectModulo={id=>setModuloActivo(id)}
-      onLogout={()=>{setUsuarioActual(null);sessionStorage.removeItem('mediterra_usuario');}}
+      onSelectModulo={id=>{setModuloActivo(id);sessionStorage.setItem('mediterra_modulo',id);}}
+      onLogout={()=>{setUsuarioActual(null);sessionStorage.removeItem('mediterra_usuario');sessionStorage.removeItem('mediterra_modulo');}}
       onCambiarPin={()=>setModalPin("cambiar")}
       esSoloConsulta={esSoloConsulta}
       usuarios={usuarios}
