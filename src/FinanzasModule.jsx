@@ -5943,6 +5943,31 @@ function semanaActual() {
   return semanaISO(new Date()).semana;
 }
 
+function añoActualNom() {
+  return new Date().getFullYear();
+}
+
+// Generate all ISO weeks for a given year
+function semanasDeAño(año) {
+  const weeks = [];
+  // ISO weeks: start from week 1, go until week 52 or 53
+  for(let w = 1; w <= 53; w++) {
+    // Check if week w exists in year
+    const jan4 = new Date(año, 0, 4);
+    const startOfWeek1 = new Date(jan4);
+    startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+    const weekStart = new Date(startOfWeek1);
+    weekStart.setDate(startOfWeek1.getDate() + (w-1)*7);
+    const iso = semanaISO(weekStart);
+    if(iso.año !== año && w > 1) break; // week belongs to next year
+    if(iso.semana === w && iso.año === año) weeks.push(w);
+  }
+  return weeks;
+}
+
+// All años available
+const AÑOS_NOM = Array.from({length:12},(_,i)=>2024+i); // 2024-2035
+
 // ─────────────────────────────────────────────────────────────────
 // ITEM ROW VACÍO
 // ─────────────────────────────────────────────────────────────────
@@ -5973,6 +5998,7 @@ function nominaVacia(empresa, semana, año) {
     items: [],
     bancos: Object.fromEntries(BANCOS.map(b=>[b,{clp:0,usd:0}])),
     notas: "",
+    seccionesExtra: [], // [{id, label}] custom sections
   };
 }
 
@@ -6393,7 +6419,7 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
         </div>
 
         {/* Secciones de items */}
-        {SECCIONES.map(sec=>{
+        {([...SECCIONES,...(nom.seccionesExtra||[])]).map(sec=>{
           const hasItems = nom.items.some(it=>it.seccion===sec.id);
           if(!canEdit && !hasItems) return null;
           return (
@@ -6422,6 +6448,38 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
             </div>
           );
         })}
+
+        {/* Agregar nueva sección */}
+        {canEdit&&(
+          <div style={{marginTop:16,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            <input id="nueva-sec-inp" type="text"
+              placeholder="+ Nueva sección (ej: Gastos de Viaje) — Enter para agregar"
+              style={{flex:1,minWidth:250,padding:"8px 12px",borderRadius:8,
+                border:`1px dashed ${C.border2}`,background:C.card2,color:C.text,
+                fontSize:12,outline:"none"}}
+              onKeyDown={e=>{
+                if(e.key!=="Enter"||!e.target.value.trim()) return;
+                const label=e.target.value.trim();
+                upd("seccionesExtra",[...(nom.seccionesExtra||[]),{id:`extra_${Date.now()}`,label}]);
+                e.target.value="";
+              }}/>
+            <button onClick={()=>{
+              const inp=document.getElementById("nueva-sec-inp");
+              if(!inp?.value.trim()) return;
+              upd("seccionesExtra",[...(nom.seccionesExtra||[]),{id:`extra_${Date.now()}`,label:inp.value.trim()}]);
+              inp.value="";
+            }} style={{padding:"8px 16px",borderRadius:8,background:C.blue,border:"none",
+              color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar sección</button>
+            {(nom.seccionesExtra||[]).map(sec=>(
+              <span key={sec.id} style={{background:`${C.muted2}22`,borderRadius:20,
+                padding:"3px 10px",fontSize:11,color:C.muted,display:"flex",alignItems:"center",gap:4}}>
+                {sec.label}
+                <button onClick={()=>upd("seccionesExtra",(nom.seccionesExtra||[]).filter(s=>s.id!==sec.id))}
+                  style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:13,lineHeight:1}}>×</button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -6434,6 +6492,7 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
   const [nominas, setNominas] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [selNomina, setSelNomina] = useState(null); // id nomina abierta
+  const [filtroAño, setFiltroAño]       = useState(añoActualNom());
   const [filtroSemana, setFiltroSemana] = useState(semanaActual());
   const [filtroEmpresa, setFiltroEmpresa] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
@@ -6469,7 +6528,7 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
 
   function crearNomina(empresa) {
     const s = filtroSemana||semanaActual();
-    const a = new Date().getFullYear();
+    const a = filtroAño||añoActualNom();
     const nom = nominaVacia(empresa, s, a);
     updNomina(nom);
     setSelNomina(nom.id);
@@ -6534,15 +6593,16 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
 
   // Filtrar
   const nominasFiltradas = nominas.filter(n=>{
+    if(filtroAño    && n.año!==filtroAño)       return false;
     if(filtroSemana && n.semana!==filtroSemana) return false;
     if(filtroEmpresa && n.empresa!==filtroEmpresa) return false;
     if(filtroEstado && n.estado!==filtroEstado) return false;
     return true;
   });
 
-  // Semanas disponibles
-  const semanasDisp = [...new Set(nominas.map(n=>n.semana))].sort((a,b)=>b-a);
-  if(!semanasDisp.includes(filtroSemana)) semanasDisp.unshift(filtroSemana);
+  // Semanas disponibles — todas las del año seleccionado
+  const semanasDisp = semanasDeAño(filtroAño||añoActualNom());
+  // Max weeks: 52 or 53 based on year
 
   // Empresas que ya tienen nómina esta semana
   const empresasConNomina = new Set(nominasFiltradas.map(n=>n.empresa));
@@ -6576,29 +6636,60 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
 
       {/* Filtros */}
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <span style={{fontSize:12,color:C.muted,fontWeight:600}}>Semana:</span>
-          <select value={filtroSemana} onChange={e=>setFiltroSemana(Number(e.target.value))}
-            style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,
-              background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
-            {semanasDisp.map(s=>(
-              <option key={s} value={s}>S{s} {s===semanaActual()?"(actual)":""}</option>
-            ))}
+
+        {/* Año */}
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <span style={{fontSize:11,color:C.muted,fontWeight:600}}>Año:</span>
+          <select value={filtroAño} onChange={e=>{setFiltroAño(Number(e.target.value));setFiltroSemana(semanaActual());}}
+            style={{padding:"6px 8px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+            {AÑOS_NOM.map(a=>(<option key={a} value={a}>{a}{a===añoActualNom()?" ★":""}</option>))}
           </select>
-          <button onClick={()=>setFiltroSemana(s=>s-1)}
-            style={{padding:"5px 10px",borderRadius:6,border:`1px solid ${C.border}`,
-              background:C.card2,color:C.muted,cursor:"pointer",fontSize:12}}>‹</button>
-          <button onClick={()=>setFiltroSemana(s=>s+1)}
-            style={{padding:"5px 10px",borderRadius:6,border:`1px solid ${C.border}`,
-              background:C.card2,color:C.muted,cursor:"pointer",fontSize:12}}>›</button>
         </div>
 
-        <select value={filtroEmpresa} onChange={e=>setFiltroEmpresa(e.target.value)}
-          style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,
-            background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
-          <option value="">🏢 Todas las empresas</option>
-          {EMPRESAS_NOM.map(e=><option key={e}>{e}</option>)}
-        </select>
+        {/* Semana */}
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <span style={{fontSize:11,color:C.muted,fontWeight:600}}>Semana:</span>
+          <button onClick={()=>setFiltroSemana(s=>Math.max(1,s-1))}
+            style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.muted,cursor:"pointer",fontSize:12}}>‹</button>
+          <select value={filtroSemana} onChange={e=>setFiltroSemana(Number(e.target.value))}
+            style={{padding:"6px 8px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+            {semanasDisp.map(s=>{
+              const hasNom = nominas.some(n=>n.semana===s&&n.año===filtroAño);
+              return (<option key={s} value={s}>S{String(s).padStart(2,"0")}{s===semanaActual()&&filtroAño===añoActualNom()?" ★":""}{hasNom?" ·":""}</option>);
+            })}
+          </select>
+          <button onClick={()=>setFiltroSemana(s=>Math.min(semanasDisp.length?semanasDisp[semanasDisp.length-1]:53,s+1))}
+            style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.muted,cursor:"pointer",fontSize:12}}>›</button>
+        </div>
+
+        {/* Empresa: selector + crear directo */}
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <select value={filtroEmpresa} onChange={e=>setFiltroEmpresa(e.target.value)}
+            style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+            <option value="">🏢 Todas las empresas</option>
+            {EMPRESAS_NOM.map(e=>{
+              const existe = nominas.some(n=>n.empresa===e&&n.semana===filtroSemana&&n.año===filtroAño);
+              return <option key={e} value={e}>{e}{existe?" ✓":""}</option>;
+            })}
+          </select>
+          {filtroEmpresa&&canEdit&&!nominas.some(n=>n.empresa===filtroEmpresa&&n.semana===filtroSemana&&n.año===filtroAño)&&(
+            <button onClick={()=>crearNomina(filtroEmpresa)}
+              style={{padding:"6px 14px",borderRadius:8,background:C.blue,border:"none",
+                color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>
+              + Crear S{filtroSemana} {filtroEmpresa}
+            </button>
+          )}
+          {filtroEmpresa&&nominas.some(n=>n.empresa===filtroEmpresa&&n.semana===filtroSemana&&n.año===filtroAño)&&(
+            <button onClick={()=>{
+              const nom=nominas.find(n=>n.empresa===filtroEmpresa&&n.semana===filtroSemana&&n.año===filtroAño);
+              if(nom) setSelNomina(nom.id);
+            }}
+              style={{padding:"6px 14px",borderRadius:8,background:C.green,border:"none",
+                color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+              👁 Abrir
+            </button>
+          )}
+        </div>
 
         <select value={filtroEstado} onChange={e=>setFiltroEstado(e.target.value)}
           style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,
@@ -6607,6 +6698,7 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
           {ESTADOS_FLUJO.map(e=><option key={e.id} value={e.id}>{e.label}</option>)}
         </select>
       </div>
+
 
       {/* Tabla semanal por empresa */}
       <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`,marginBottom:20}}>
