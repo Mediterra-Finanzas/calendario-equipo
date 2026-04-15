@@ -650,6 +650,203 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
 }
 
 // ══════════════════════════════════════════════════════════════════════
+// CONFIG TAB — Gestión de tareas (componente separado para poder usar hooks)
+// ══════════════════════════════════════════════════════════════════════
+function ConfigTab({todasTareas,getFrecuencia,WORKERS,CATEGORIAS,FRECUENCIAS,
+  editandoTarea,setEditandoTarea,formEditTarea,setFormEditTarea,
+  tareasOverrides,setTareasOverrides,setTareasConfig,guardarAhora,puedeEditConfig}){
+  const [cfgFiltroPersona,setCfgFiltroPersona]=useState("");
+  const [cfgFiltroFrec,setCfgFiltroFrec]=useState("");
+
+  const FREC_META={
+    "Diaria":    {icon:"📋",desc:"Lunes a Viernes",   bg:"#eff6ff",color:"#1d4ed8"},
+    "Semanal":   {icon:"📅",desc:"Una vez por semana", bg:"#f0fdf4",color:"#16a34a"},
+    "Quincenal": {icon:"🗓",desc:"1ra y 2da quincena", bg:"#fefce8",color:"#ca8a04"},
+    "Mensual":   {icon:"📆",desc:"Una vez al mes",     bg:"#fdf4ff",color:"#9333ea"},
+    "Anual":     {icon:"📌",desc:"Una vez al año",     bg:"#fff7ed",color:"#ea580c"},
+  };
+
+  const tareasFiltradas=todasTareas().filter(t=>{
+    if(cfgFiltroPersona && t.responsable!==cfgFiltroPersona) return false;
+    if(cfgFiltroFrec    && getFrecuencia(t.id)!==cfgFiltroFrec) return false;
+    return true;
+  });
+
+  const FREC_ORDER=["Diaria","Semanal","Quincenal","Mensual","Anual"];
+  const grupos=FREC_ORDER.map(frec=>({frec,tareas:tareasFiltradas.filter(t=>getFrecuencia(t.id)===frec)})).filter(g=>g.tareas.length>0);
+
+  function guardarTarea(t){
+    const upd={...formEditTarea};
+    setTareasOverrides(prev=>({...prev,[t.id]:upd}));
+    setTareasConfig(prev=>({...prev,[t.id]:{...prev[t.id],...upd}}));
+    setEditandoTarea(null);
+    setTimeout(()=>guardarAhora(),300);
+  }
+
+  return (
+    <div>
+      {/* Filtros */}
+      <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{fontWeight:700,fontSize:15,color:"#1e293b",marginRight:8}}>⚙️ Gestión de Tareas</div>
+        <select value={cfgFiltroPersona} onChange={e=>setCfgFiltroPersona(e.target.value)}
+          style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
+          <option value="">👤 Todas las personas</option>
+          {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]} {w.nombre.split(" ")[1]||""}</option>)}
+        </select>
+        <select value={cfgFiltroFrec} onChange={e=>setCfgFiltroFrec(e.target.value)}
+          style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
+          <option value="">🔁 Todas las frecuencias</option>
+          {FRECUENCIAS.map(f=><option key={f}>{f}</option>)}
+        </select>
+        {!puedeEditConfig&&(
+          <span style={{marginLeft:"auto",background:"#fef3c7",borderRadius:8,padding:"4px 10px",fontSize:11,color:"#92400e"}}>Solo lectura</span>
+        )}
+      </div>
+
+      {grupos.length===0&&(
+        <div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>Sin tareas con los filtros seleccionados</div>
+      )}
+
+      {grupos.map(({frec,tareas})=>{
+        const meta=FREC_META[frec]||{icon:"📋",desc:"",bg:"#f8fafc",color:"#64748b"};
+        return (
+          <div key={frec} style={{marginBottom:24}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,padding:"8px 14px",
+              background:meta.bg,borderRadius:10,border:`1px solid ${meta.color}33`}}>
+              <span style={{fontSize:16}}>{meta.icon}</span>
+              <span style={{fontWeight:800,fontSize:14,color:meta.color}}>{frec}</span>
+              <span style={{fontSize:11,color:"#64748b"}}>— {meta.desc}</span>
+              <span style={{marginLeft:"auto",background:`${meta.color}22`,color:meta.color,
+                borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{tareas.length} tareas</span>
+            </div>
+            <div style={{overflowX:"auto",borderRadius:10,boxShadow:"0 1px 3px #0001"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",background:"#fff",fontSize:12}}>
+                <thead>
+                  <tr style={{background:"#1e293b",color:"#fff"}}>
+                    {["Tarea","Responsable","Supervisor","Categoría","Fecha Venc.","Depende De",""].map(h=>(
+                      <th key={h} style={{padding:"7px 10px",textAlign:"left",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tareas.map((t,ti)=>{
+                    const isEditing=editandoTarea===t.id;
+                    const cat=CATEGORIAS[t.categoria]||{color:"#64748b",bg:"#f1f5f9"};
+                    const ovr=tareasOverrides[t.id]||{};
+                    const fechaVenc=ovr.fechaVenc||t.fechaVenc||"";
+                    const depDe=ovr.dependeDe!==undefined?ovr.dependeDe:t.dependeDe;
+                    if(isEditing) return (
+                      <tr key={t.id} style={{background:"#eff6ff",borderBottom:"2px solid #3b82f6"}}>
+                        <td style={{padding:"5px 8px"}}>
+                          <input value={formEditTarea.nombre||""} onChange={e=>setFormEditTarea(p=>({...p,nombre:e.target.value}))}
+                            style={{width:"100%",padding:"4px 7px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                        </td>
+                        <td style={{padding:"5px 6px"}}>
+                          <select value={formEditTarea.responsable||""} onChange={e=>setFormEditTarea(p=>({...p,responsable:e.target.value}))}
+                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
+                            <option value="">—</option>
+                            {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
+                          </select>
+                        </td>
+                        <td style={{padding:"5px 6px"}}>
+                          <select value={formEditTarea.supervisor||""} onChange={e=>setFormEditTarea(p=>({...p,supervisor:e.target.value}))}
+                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
+                            <option value="">—</option>
+                            {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
+                          </select>
+                        </td>
+                        <td style={{padding:"5px 6px"}}>
+                          <select value={formEditTarea.categoria||""} onChange={e=>setFormEditTarea(p=>({...p,categoria:e.target.value}))}
+                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
+                            {Object.keys(CATEGORIAS).map(c=><option key={c}>{c}</option>)}
+                          </select>
+                        </td>
+                        <td style={{padding:"5px 6px"}}>
+                          <input type="date" value={formEditTarea.fechaVenc||""} onChange={e=>setFormEditTarea(p=>({...p,fechaVenc:e.target.value}))}
+                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}/>
+                        </td>
+                        <td style={{padding:"5px 6px"}}>
+                          <select value={formEditTarea.dependeDe||""} onChange={e=>setFormEditTarea(p=>({...p,dependeDe:e.target.value||null}))}
+                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none",maxWidth:140}}>
+                            <option value="">Sin dependencia</option>
+                            {todasTareas().filter(x=>x.id!==t.id).map(x=>(
+                              <option key={x.id} value={x.id}>{x.id}: {x.nombre.slice(0,25)}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={{padding:"5px 8px",whiteSpace:"nowrap"}}>
+                          <button onClick={()=>guardarTarea(t)}
+                            style={{padding:"4px 10px",borderRadius:6,background:"#2563eb",color:"#fff",
+                              border:"none",cursor:"pointer",fontSize:11,marginRight:4}}>✓ Guardar</button>
+                          <button onClick={()=>setEditandoTarea(null)}
+                            style={{padding:"4px 8px",borderRadius:6,background:"#f1f5f9",
+                              color:"#64748b",border:"1px solid #d1d5db",cursor:"pointer",fontSize:11}}>✕</button>
+                        </td>
+                      </tr>
+                    );
+                    return (
+                      <tr key={t.id} style={{borderBottom:"1px solid #f1f5f9",background:ti%2===0?"#fff":"#fafafa"}}>
+                        <td style={{padding:"7px 10px",fontWeight:500,maxWidth:280}}>
+                          <div>{ovr.nombre||t.nombre}</div>
+                          <div style={{fontSize:10,color:"#94a3b8"}}>{t.id}</div>
+                        </td>
+                        <td style={{padding:"7px 10px"}}>
+                          <span style={{background:"#dbeafe",color:"#1d4ed8",borderRadius:20,padding:"2px 8px",fontSize:11}}>
+                            {(ovr.responsable||t.responsable)?.split(" ")[0]}
+                          </span>
+                        </td>
+                        <td style={{padding:"7px 10px",color:"#64748b",fontSize:11}}>
+                          {(ovr.supervisor||t.supervisor)?.split(" ")[0]||"—"}
+                        </td>
+                        <td style={{padding:"7px 10px"}}>
+                          <span style={{background:cat.bg,color:cat.color,borderRadius:20,padding:"2px 8px",fontSize:10}}>
+                            {ovr.categoria||t.categoria}
+                          </span>
+                        </td>
+                        <td style={{padding:"7px 10px",whiteSpace:"nowrap"}}>
+                          {fechaVenc
+                            ? <span style={{background:"#fef3c7",color:"#92400e",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600}}>
+                                📅 {new Date(fechaVenc+"T12:00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}
+                              </span>
+                            : <span style={{color:"#94a3b8",fontSize:11}}>— sin fecha —</span>}
+                        </td>
+                        <td style={{padding:"7px 10px",fontSize:11}}>
+                          {depDe
+                            ? <span style={{background:"#fef3c7",color:"#92400e",borderRadius:20,padding:"2px 8px",fontSize:10}}>→ {depDe}</span>
+                            : <span style={{color:"#d1d5db"}}>—</span>}
+                        </td>
+                        <td style={{padding:"7px 8px"}}>
+                          {puedeEditConfig&&(
+                            <button onClick={()=>{
+                              setEditandoTarea(t.id);
+                              setFormEditTarea({
+                                nombre:     ovr.nombre||t.nombre,
+                                responsable:ovr.responsable||t.responsable,
+                                supervisor: ovr.supervisor||t.supervisor,
+                                categoria:  ovr.categoria||t.categoria,
+                                frecuencia: getFrecuencia(t.id),
+                                fechaVenc:  fechaVenc,
+                                dependeDe:  depDe,
+                              });
+                            }}
+                              style={{padding:"3px 10px",borderRadius:6,background:"#f8fafc",
+                                border:"1px solid #d1d5db",cursor:"pointer",fontSize:11,color:"#475569"}}>✏️ Editar</button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // APP PRINCIPAL
 // ══════════════════════════════════════════════════════════════════════
 export default function App(){
@@ -1811,209 +2008,24 @@ Equipo Mediterra`);
             </div>
           )}
 
-          {tab==="config"&&puedeVerConfig&&(()=>{
-            // ── Filtros ──────────────────────────────────────────────
-            const [cfgFiltroPersona,setCfgFiltroPersona] = React.useState("");
-            const [cfgFiltroFrec,setCfgFiltroFrec]       = React.useState("");
-
-            const tareasFiltradas = todasTareas().filter(t=>{
-              if(cfgFiltroPersona && t.responsable!==cfgFiltroPersona) return false;
-              if(cfgFiltroFrec    && getFrecuencia(t.id)!==cfgFiltroFrec) return false;
-              return true;
-            });
-
-            // Agrupar por frecuencia en orden
-            const FREC_ORDER = ["Diaria","Semanal","Quincenal","Mensual","Anual"];
-            const grupos = FREC_ORDER.map(frec=>({
-              frec,
-              tareas: tareasFiltradas.filter(t=>getFrecuencia(t.id)===frec)
-            })).filter(g=>g.tareas.length>0);
-
-            // Labels por frecuencia
-            const FREC_META = {
-              "Diaria":    {icon:"📋", desc:"Lunes a Viernes",          bg:"#eff6ff",  color:"#1d4ed8"},
-              "Semanal":   {icon:"📅", desc:"Una vez por semana",       bg:"#f0fdf4",  color:"#16a34a"},
-              "Quincenal": {icon:"🗓", desc:"1ra y 2da quincena",       bg:"#fefce8",  color:"#ca8a04"},
-              "Mensual":   {icon:"📆", desc:"Una vez al mes",           bg:"#fdf4ff",  color:"#9333ea"},
-              "Anual":     {icon:"📌", desc:"Una vez al año",           bg:"#fff7ed",  color:"#ea580c"},
-            };
-
-            return (
-            <div>
-              {/* Header + filtros */}
-              <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
-                <div style={{fontWeight:700,fontSize:15,color:"#1e293b",marginRight:8}}>⚙️ Gestión de Tareas</div>
-                <select value={cfgFiltroPersona} onChange={e=>setCfgFiltroPersona(e.target.value)}
-                  style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
-                  <option value="">👤 Todas las personas</option>
-                  {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
-                </select>
-                <select value={cfgFiltroFrec} onChange={e=>setCfgFiltroFrec(e.target.value)}
-                  style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
-                  <option value="">🔁 Todas las frecuencias</option>
-                  {FRECUENCIAS.map(f=><option key={f}>{f}</option>)}
-                </select>
-                {!puedeEditConfig&&(
-                  <span style={{marginLeft:"auto",background:"#fef3c7",borderRadius:8,padding:"4px 10px",fontSize:11,color:"#92400e"}}>Solo lectura</span>
-                )}
-              </div>
-
-              {grupos.length===0&&(
-                <div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>Sin tareas con los filtros seleccionados</div>
-              )}
-
-              {grupos.map(({frec,tareas})=>{
-                const meta = FREC_META[frec]||{icon:"📋",desc:"",bg:"#f8fafc",color:"#64748b"};
-                return (
-                <div key={frec} style={{marginBottom:24}}>
-                  {/* Grupo header */}
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,padding:"8px 12px",
-                    background:meta.bg,borderRadius:10,border:`1px solid ${meta.color}33`}}>
-                    <span style={{fontSize:16}}>{meta.icon}</span>
-                    <span style={{fontWeight:800,fontSize:14,color:meta.color}}>{frec}</span>
-                    <span style={{fontSize:11,color:"#64748b"}}>— {meta.desc}</span>
-                    <span style={{marginLeft:"auto",background:`${meta.color}22`,color:meta.color,
-                      borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{tareas.length} tareas</span>
-                  </div>
-
-                  {/* Tabla */}
-                  <div style={{overflowX:"auto",borderRadius:10,boxShadow:"0 1px 3px #0001"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse",background:"#fff",fontSize:12}}>
-                      <thead>
-                        <tr style={{background:"#1e293b",color:"#fff"}}>
-                          {["Tarea","Responsable","Supervisor","Categoría","Fecha Venc.","Depende De",""].map(h=>(
-                            <th key={h} style={{padding:"7px 10px",textAlign:"left",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tareas.map((t,ti)=>{
-                          const isEditing = editandoTarea===t.id;
-                          const cat = CATEGORIAS[t.categoria]||{color:"#64748b",bg:"#f1f5f9"};
-                          if(isEditing) return (
-                            <tr key={t.id} style={{background:"#eff6ff",borderBottom:"2px solid #3b82f6"}}>
-                              <td style={{padding:"5px 8px"}}>
-                                <input value={formEditTarea.nombre||""} onChange={e=>setFormEditTarea(p=>({...p,nombre:e.target.value}))}
-                                  style={{width:"100%",padding:"4px 7px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none"}}/>
-                              </td>
-                              <td style={{padding:"5px 6px"}}>
-                                <select value={formEditTarea.responsable||""} onChange={e=>setFormEditTarea(p=>({...p,responsable:e.target.value}))}
-                                  style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
-                                  <option value="">—</option>
-                                  {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
-                                </select>
-                              </td>
-                              <td style={{padding:"5px 6px"}}>
-                                <select value={formEditTarea.supervisor||""} onChange={e=>setFormEditTarea(p=>({...p,supervisor:e.target.value}))}
-                                  style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
-                                  <option value="">—</option>
-                                  {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
-                                </select>
-                              </td>
-                              <td style={{padding:"5px 6px"}}>
-                                <select value={formEditTarea.categoria||""} onChange={e=>setFormEditTarea(p=>({...p,categoria:e.target.value}))}
-                                  style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
-                                  {Object.keys(CATEGORIAS).map(c=><option key={c}>{c}</option>)}
-                                </select>
-                              </td>
-                              <td style={{padding:"5px 6px"}}>
-                                <input type="date" value={formEditTarea.fechaVenc||""} onChange={e=>setFormEditTarea(p=>({...p,fechaVenc:e.target.value}))}
-                                  style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}/>
-                              </td>
-                              <td style={{padding:"5px 6px"}}>
-                                <select value={formEditTarea.dependeDe||""} onChange={e=>setFormEditTarea(p=>({...p,dependeDe:e.target.value||null}))}
-                                  style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none",maxWidth:140}}>
-                                  <option value="">Sin dependencia</option>
-                                  {todasTareas().filter(x=>x.id!==t.id).map(x=>(
-                                    <option key={x.id} value={x.id}>{x.id}: {x.nombre.slice(0,25)}</option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td style={{padding:"5px 8px",whiteSpace:"nowrap"}}>
-                                <button onClick={()=>{
-                                  const upd = {...formEditTarea};
-                                  setTareasOverrides(prev=>{
-                                    const next={...prev,[t.id]:upd};
-                                    return next;
-                                  });
-                                  // También actualizar tareasConfig para compatibilidad
-                                  setTareasConfig(prev=>({...prev,[t.id]:{...prev[t.id],...upd}}));
-                                  setEditandoTarea(null);
-                                  setTimeout(()=>guardarAhora(),300);
-                                }}
-                                  style={{padding:"4px 10px",borderRadius:6,background:"#2563eb",color:"#fff",
-                                    border:"none",cursor:"pointer",fontSize:11,marginRight:4}}>✓ Guardar</button>
-                                <button onClick={()=>setEditandoTarea(null)}
-                                  style={{padding:"4px 8px",borderRadius:6,background:"#f1f5f9",
-                                    color:"#64748b",border:"1px solid #d1d5db",cursor:"pointer",fontSize:11}}>✕</button>
-                              </td>
-                            </tr>
-                          );
-                          // Vista normal
-                          const override = tareasOverrides[t.id]||{};
-                          const fechaVenc = override.fechaVenc||t.fechaVenc||"";
-                          const depDe = override.dependeDe!==undefined?override.dependeDe:t.dependeDe;
-                          return (
-                            <tr key={t.id} style={{borderBottom:"1px solid #f1f5f9",background:ti%2===0?"#fff":"#fafafa"}}>
-                              <td style={{padding:"7px 10px",fontWeight:500,maxWidth:280}}>
-                                <div>{override.nombre||t.nombre}</div>
-                                <div style={{fontSize:10,color:"#94a3b8"}}>{t.id}</div>
-                              </td>
-                              <td style={{padding:"7px 10px"}}>
-                                <span style={{background:"#dbeafe",color:"#1d4ed8",borderRadius:20,padding:"2px 8px",fontSize:11}}>
-                                  {(override.responsable||t.responsable)?.split(" ")[0]}
-                                </span>
-                              </td>
-                              <td style={{padding:"7px 10px",color:"#64748b",fontSize:11}}>
-                                {(override.supervisor||t.supervisor)?.split(" ")[0]||"—"}
-                              </td>
-                              <td style={{padding:"7px 10px"}}>
-                                <span style={{background:cat.bg,color:cat.color,borderRadius:20,padding:"2px 8px",fontSize:10}}>
-                                  {override.categoria||t.categoria}
-                                </span>
-                              </td>
-                              <td style={{padding:"7px 10px",whiteSpace:"nowrap"}}>
-                                {fechaVenc
-                                  ? <span style={{background:"#fef3c7",color:"#92400e",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600}}>
-                                      📅 {new Date(fechaVenc+"T12:00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}
-                                    </span>
-                                  : <span style={{color:"#94a3b8",fontSize:11}}>— sin fecha —</span>}
-                              </td>
-                              <td style={{padding:"7px 10px",fontSize:11}}>
-                                {depDe
-                                  ? <span style={{background:"#fef3c7",color:"#92400e",borderRadius:20,padding:"2px 8px",fontSize:10}}>→ {depDe}</span>
-                                  : <span style={{color:"#d1d5db"}}>—</span>}
-                              </td>
-                              <td style={{padding:"7px 8px"}}>
-                                {puedeEditConfig&&(
-                                  <button onClick={()=>{
-                                    setEditandoTarea(t.id);
-                                    setFormEditTarea({
-                                      nombre:    override.nombre||t.nombre,
-                                      responsable:override.responsable||t.responsable,
-                                      supervisor: override.supervisor||t.supervisor,
-                                      categoria:  override.categoria||t.categoria,
-                                      frecuencia: getFrecuencia(t.id),
-                                      fechaVenc:  fechaVenc,
-                                      dependeDe:  depDe,
-                                    });
-                                  }}
-                                    style={{padding:"3px 10px",borderRadius:6,background:"#f8fafc",
-                                      border:"1px solid #d1d5db",cursor:"pointer",fontSize:11,color:"#475569"}}>✏️ Editar</button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                );
-              })}
-            </div>
-            );
-          })()}
+          {tab==="config"&&puedeVerConfig&&(
+            <ConfigTab
+              todasTareas={todasTareas}
+              getFrecuencia={getFrecuencia}
+              WORKERS={WORKERS}
+              CATEGORIAS={CATEGORIAS}
+              FRECUENCIAS={FRECUENCIAS}
+              editandoTarea={editandoTarea}
+              setEditandoTarea={setEditandoTarea}
+              formEditTarea={formEditTarea}
+              setFormEditTarea={setFormEditTarea}
+              tareasOverrides={tareasOverrides}
+              setTareasOverrides={setTareasOverrides}
+              setTareasConfig={setTareasConfig}
+              guardarAhora={guardarAhora}
+              puedeEditConfig={puedeEditConfig}
+            />
+          )}
 
         </div>
       </div>
