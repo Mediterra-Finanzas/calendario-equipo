@@ -1906,6 +1906,26 @@ Equipo Mediterra`);
           </div>
         )}
 
+
+        {/* Tab navigation bar */}
+        <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",gap:0,overflowX:"auto"}}>
+          {[
+            {id:"diaria",    label:"📋 Diarias",    show:puedeVerDiaria},
+            {id:"semanal",   label:"📅 Semanales",  show:puedeVerSemanal},
+            {id:"quincenal", label:"🗓 Quincenales",show:puedeVerQuincenal},
+            {id:"mensual",   label:"📆 Mensuales",  show:puedeVerMensual},
+            {id:"anual",     label:"📌 Anuales",    show:puedeVerAnual},
+            {id:"config",    label:"⚙️ Config",    show:puedeVerConfig},
+          ].filter(t=>t.show).map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)}
+              style={{padding:"12px 18px",border:"none",borderBottom:`3px solid ${tab===t.id?"#2563eb":"transparent"}`,
+                background:"transparent",cursor:"pointer",fontSize:12,fontWeight:tab===t.id?700:400,
+                color:tab===t.id?"#2563eb":"#64748b",whiteSpace:"nowrap",transition:"all 0.15s"}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         {/* Contenido Tareas */}
         <div style={{padding:"16px 24px"}}>
           {tab==="semanal"&&puedeVerSemanal&&(
