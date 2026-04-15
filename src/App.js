@@ -730,6 +730,7 @@ export default function App(){
   const [tareasExtra,setTareasExtra]=useState([]);
   const [tareasConfig,setTareasConfig]=useState(()=>{
     const c={};TAREAS_BASE.forEach(t=>{c[t.id]={supervisor:t.supervisor,diaLimiteSem:t.diaLimiteSem,diaLimite:t.diaLimite,frecuencia:t.frecuencia,bloqueada:false,dependeDe:t.dependeDe||null};});return c;
+  const [tareasOverrides,setTareasOverrides]=useState({});
   });
   const todasTareas=useCallback(()=>{
     const base=[...TAREAS_BASE,...tareasExtra];
@@ -770,7 +771,6 @@ export default function App(){
   const [mostrarFormTarea,setMostrarFormTarea]=useState(false);
   const [editandoTarea,setEditandoTarea]=useState(null);
   const [formEditTarea,setFormEditTarea]=useState({});
-  const [tareasOverrides,setTareasOverrides]=useState({});
 
   const [osirisData,setOsirisData]=useState({});
 
