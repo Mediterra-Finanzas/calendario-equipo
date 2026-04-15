@@ -56,7 +56,7 @@ async function enviarNotificacion(toEmail, nombre, asunto, mensaje) {
 
 const DIAS_SEMANA = ["Lunes","Martes","Miercoles","Jueves","Viernes"];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const FRECUENCIAS = ["Diaria","Semanal","Mensual"];
+const FRECUENCIAS = ["Diaria","Semanal","Quincenal","Mensual","Anual"];
 
 // Roles del sistema
 const ROLES = [
@@ -208,8 +208,11 @@ function OsirisLogoSmall() {
 // ══════════════════════════════════════════════════════════════════════
 const TABS_PERMISOS_CONFIG = {
   tareas: [
-    {id:"semanal",  label:"📅 Vista Semanal"},
-    {id:"mensual",  label:"📆 Vista Mensual"},
+    {id:"diaria",    label:"📋 Diarias"},
+    {id:"semanal",  label:"📅 Semanales"},
+    {id:"quincenal",label:"🗓 Quincenales"},
+    {id:"mensual",  label:"📆 Mensuales"},
+    {id:"anual",    label:"📌 Anuales"},
     {id:"config",   label:"⚙️ Configuración"},
   ],
   osiris: [
@@ -655,6 +658,8 @@ export default function App(){
   const [usuarioActual,setUsuarioActual]=useState(null);
   const [moduloActivo,setModuloActivo]=useState(null);
   const [loginNombre,setLoginNombre]=useState("");
+  const [loginEmail,setLoginEmail]=useState("");
+  const [resetEmail,setResetEmail]=useState("");
   const [loginPin,setLoginPin]=useState("");
   const [loginError,setLoginError]=useState("");
 
@@ -726,10 +731,13 @@ export default function App(){
   const [tareasConfig,setTareasConfig]=useState(()=>{
     const c={};TAREAS_BASE.forEach(t=>{c[t.id]={supervisor:t.supervisor,diaLimiteSem:t.diaLimiteSem,diaLimite:t.diaLimite,frecuencia:t.frecuencia,bloqueada:false,dependeDe:t.dependeDe||null};});return c;
   });
-  const todasTareas=useCallback(()=>[...TAREAS_BASE,...tareasExtra],[tareasExtra]);
+  const todasTareas=useCallback(()=>{
+    const base=[...TAREAS_BASE,...tareasExtra];
+    return base.map(t=>tareasOverrides[t.id]?{...t,...tareasOverrides[t.id]}:t);
+  },[tareasExtra,tareasOverrides]);
   const getConfig=(id)=>tareasConfig[id]||{supervisor:"",diaLimiteSem:0,diaLimite:10,frecuencia:"Semanal",bloqueada:false,dependeDe:null};
   const getSupervisor=(id)=>tareasConfig[id]?.supervisor??TAREAS_BASE.find(t=>t.id===id)?.supervisor??"";
-  const getFrecuencia=(id)=>tareasConfig[id]?.frecuencia||TAREAS_BASE.find(t=>t.id===id)?.frecuencia||"Semanal";
+  const getFrecuencia=(id)=>tareasOverrides[id]?.frecuencia||tareasConfig[id]?.frecuencia||TAREAS_BASE.find(t=>t.id===id)?.frecuencia||"Semanal";
   const isBloqueada=(id)=>tareasConfig[id]?.bloqueada||false;
   const getDependeDe=(id)=>tareasConfig[id]?.dependeDe??null;
   const getTareaById=(id)=>todasTareas().find(t=>t.id===id);
@@ -760,6 +768,9 @@ export default function App(){
   const [enviandoNotif,setEnviandoNotif]=useState(false);
   const [nuevaTarea,setNuevaTarea]=useState({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:""});
   const [mostrarFormTarea,setMostrarFormTarea]=useState(false);
+  const [editandoTarea,setEditandoTarea]=useState(null);
+  const [formEditTarea,setFormEditTarea]=useState({});
+  const [tareasOverrides,setTareasOverrides]=useState({});
 
   const [osirisData,setOsirisData]=useState({});
 
@@ -1012,8 +1023,9 @@ export default function App(){
   function getPinActivo(w){return pinsPersonalizados[w.nombre]||w.pin;}
 
   function handleLogin(){
-    const w=WORKERS.find(x=>x.nombre===loginNombre);
-    if(!w){setLoginError("Selecciona tu nombre.");return;}
+    const emailInput = loginEmail.trim().toLowerCase();
+    const w=WORKERS.find(x=>x.email&&x.email.toLowerCase()===emailInput);
+    if(!w){setLoginError("Email no reconocido. Verifica tu dirección.");return;}
     const pinOk=getPinActivo(w);
     const pinTemp=pinsPersonalizados[w.nombre+"_temp"];
     const esTemp=pinTemp&&loginPin.trim()===pinTemp;
@@ -1035,7 +1047,7 @@ export default function App(){
   }
 
   async function handleResetPin(){
-    const w=WORKERS.find(x=>x.nombre===resetNombre);if(!w){setResetMsg("Selecciona tu nombre.");return;}
+    const emailReset=(resetEmail||loginEmail||"").trim().toLowerCase();const w=WORKERS.find(x=>x.email&&x.email.toLowerCase()===emailReset);if(!w){setResetMsg("Email no reconocido.");return;}
     setResetEnviando(true);
     const temporal=String(Math.floor(1000+Math.random()*9000));
     const nuevosPins={...pinsPersonalizados,[w.nombre+"_temp"]:temporal};
@@ -1353,49 +1365,42 @@ Equipo Mediterra`);
         ):(
           <>
             <div style={{marginBottom:12}}>
-              <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>Selecciona tu nombre</div>
-              <select value={loginNombre} onChange={e=>setLoginNombre(e.target.value)}
-                style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,background:"#fff",outline:"none"}}>
-                <option value="">— Seleccionar —</option>
-                {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre} · {w.cargo}</option>)}
-              </select>
+              <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>Email corporativo</div>
+              <input type="email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&document.getElementById("login-pin-input")?.focus()}
+                placeholder="tu.nombre@grupomediterra.cl" autoComplete="email"
+                style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,
+                  outline:"none",boxSizing:"border-box"}}/>
             </div>
             <div style={{marginBottom:16}}>
               <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>PIN de acceso</div>
-              <input type="password" value={loginPin} onChange={e=>setLoginPin(e.target.value)}
+              <input id="login-pin-input" type="password" value={loginPin} onChange={e=>setLoginPin(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="••••"
-                style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:16,letterSpacing:4,textAlign:"center",outline:"none",boxSizing:"border-box"}}/>
+                style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:16,
+                  textAlign:"center",letterSpacing:6,outline:"none",boxSizing:"border-box"}}/>
             </div>
             {loginError&&<div style={{color:"#ef4444",fontSize:12,marginBottom:10,textAlign:"center"}}>{loginError}</div>}
             <button onClick={handleLogin}
-              style={{width:"100%",padding:"11px",borderRadius:8,background:"linear-gradient(135deg,#1e3a5f,#2563eb)",color:"#fff",border:"none",fontWeight:700,fontSize:15,cursor:"pointer"}}>
+              style={{width:"100%",padding:"11px",borderRadius:8,background:"linear-gradient(135deg,#1e3a5f,#2563eb)",
+                color:"#fff",border:"none",fontWeight:700,fontSize:14,cursor:"pointer"}}>
               Ingresar
             </button>
-
             <div style={{marginTop:16,textAlign:"center"}}>
-              <button onClick={()=>setModalPin("reset")} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>
+              <button onClick={()=>setModalPin("reset")} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer"}}>
                 ¿Olvidaste tu PIN?
               </button>
             </div>
-
             {modalPin==="reset"&&(
               <div style={{marginTop:16,background:"#f8fafc",borderRadius:10,padding:"14px 16px",border:"1px solid #e2e8f0"}}>
                 <div style={{fontSize:12,fontWeight:700,color:"#1e293b",marginBottom:8}}>Recuperar PIN por email</div>
-                {/* Si ya seleccionó su nombre arriba, usarlo directo. Si no, mostrar selector */}
-                {loginNombre
-                  ? (<div style={{padding:"8px 12px",background:"#f1f5f9",borderRadius:8,fontSize:13,color:"#1e293b",fontWeight:600,marginBottom:8}}>
-                      👤 {loginNombre}
-                    </div>)
-                  : (<select value={resetNombre} onChange={e=>setResetNombre(e.target.value)}
-                      style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,marginBottom:8,outline:"none"}}>
-                      <option value="">— Selecciona tu nombre —</option>
-                      {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre}</option>)}
-                    </select>)
-                }
-                <button onClick={()=>{ if(loginNombre) setResetNombre(loginNombre); handleResetPin(); }}
-                  disabled={resetEnviando||(!loginNombre&&!resetNombre)}
+                <input type="email" value={resetEmail||loginEmail} onChange={e=>setResetEmail(e.target.value)}
+                  placeholder="tu.nombre@grupomediterra.cl"
+                  style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #d1d5db",
+                    fontSize:13,marginBottom:8,outline:"none",boxSizing:"border-box"}}/>
+                <button onClick={()=>handleResetPin()}
+                  disabled={resetEnviando||!(resetEmail||loginEmail)}
                   style={{width:"100%",padding:"8px",borderRadius:8,
-                    background:(resetEnviando||(!loginNombre&&!resetNombre))?"#94a3b8":"#2563eb",
+                    background:(resetEnviando||!(resetEmail||loginEmail))?"#94a3b8":"#2563eb",
                     color:"#fff",border:"none",fontWeight:700,fontSize:13,cursor:"pointer"}}>
                   {resetEnviando?"Enviando...":"Enviar PIN temporal"}
                 </button>
@@ -1601,7 +1606,7 @@ Equipo Mediterra`);
           <select value={filtroPersona} onChange={e=>setFiltroPersona(e.target.value)}
             style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
             <option value="">Todas las personas</option>
-            {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
+            {WORKERS.filter(w=>esAdmin(usuarioActual?.nombre)||w.nombre===usuarioActual?.nombre||(usuarioActual?.equipo||[]).includes(w.nombre)).map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
           </select>
           {recsActivos.length>0&&(
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1756,6 +1761,175 @@ Equipo Mediterra`);
           )}
           {!puedeVerMensual&&tab==="mensual"&&(
             <div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:14}}>🚫 No tienes acceso a la vista mensual.</div>
+          )}
+
+          {tab==="diaria"&&puedeVerSemanal&&(
+            <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
+                {encabezadoTabla}
+                <tbody>
+                  <TablaFilas
+                    tareas={todasTareas().filter(t=>getFrecuencia(t.id)==="Diaria")}
+                    getKey={t=>t.id}
+                    getSemana={()=>null}
+                  />
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {tab==="quincenal"&&puedeVerSemanal&&(
+            <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
+                {encabezadoTabla}
+                <tbody>
+                  <TablaFilas
+                    tareas={todasTareas().filter(t=>getFrecuencia(t.id)==="Quincenal")}
+                    getKey={t=>t.id}
+                    getSemana={()=>null}
+                  />
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {tab==="anual"&&puedeVerSemanal&&(
+            <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
+                {encabezadoTabla}
+                <tbody>
+                  <TablaFilas
+                    tareas={todasTareas().filter(t=>getFrecuencia(t.id)==="Anual")}
+                    getKey={t=>t.id}
+                    getSemana={()=>null}
+                  />
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {tab==="config"&&puedeVerConfig&&(
+            <div>
+              <div style={{fontWeight:700,fontSize:15,marginBottom:14,color:"#1e293b"}}>⚙️ Gestión de Tareas</div>
+              {!puedeEditConfig&&(
+                <div style={{background:"#fef3c7",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#92400e",marginBottom:12}}>Solo lectura — sin permisos de edición</div>
+              )}
+              {/* Tabla editable de todas las tareas */}
+              <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001",marginBottom:20}}>
+                <table style={{width:"100%",borderCollapse:"collapse",background:"#fff",fontSize:12}}>
+                  <thead>
+                    <tr style={{background:"#1e293b",color:"#fff"}}>
+                      {["ID","Tarea","Responsable","Supervisor","Categoría","Frecuencia","Día Límite","Depende De",""].map(h=>(
+                        <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todasTareas().map(t=>{
+                      const isEditing = editandoTarea===t.id;
+                      const cat = CATEGORIAS[t.categoria]||{color:"#64748b",bg:"#f1f5f9"};
+                      if(isEditing) return (
+                        <tr key={t.id} style={{background:"#eff6ff",borderBottom:"1px solid #bfdbfe"}}>
+                          <td style={{padding:"6px 8px",color:"#64748b",fontSize:10}}>{t.id}</td>
+                          <td style={{padding:"4px 6px"}}>
+                            <input value={formEditTarea.nombre||""} onChange={e=>setFormEditTarea(p=>({...p,nombre:e.target.value}))}
+                              style={{width:"100%",padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none"}}/>
+                          </td>
+                          <td style={{padding:"4px 6px"}}>
+                            <select value={formEditTarea.responsable||""} onChange={e=>setFormEditTarea(p=>({...p,responsable:e.target.value}))}
+                              style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none"}}>
+                              <option value="">— —</option>
+                              {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
+                            </select>
+                          </td>
+                          <td style={{padding:"4px 6px"}}>
+                            <select value={formEditTarea.supervisor||""} onChange={e=>setFormEditTarea(p=>({...p,supervisor:e.target.value}))}
+                              style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none"}}>
+                              <option value="">— —</option>
+                              {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
+                            </select>
+                          </td>
+                          <td style={{padding:"4px 6px"}}>
+                            <select value={formEditTarea.categoria||""} onChange={e=>setFormEditTarea(p=>({...p,categoria:e.target.value}))}
+                              style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none"}}>
+                              {Object.keys(CATEGORIAS).map(c=><option key={c}>{c}</option>)}
+                            </select>
+                          </td>
+                          <td style={{padding:"4px 6px"}}>
+                            <select value={formEditTarea.frecuencia||""} onChange={e=>setFormEditTarea(p=>({...p,frecuencia:e.target.value}))}
+                              style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none"}}>
+                              {FRECUENCIAS.map(f=><option key={f}>{f}</option>)}
+                            </select>
+                          </td>
+                          <td style={{padding:"4px 6px"}}>
+                            <input type="number" value={formEditTarea.diaLimite||""} onChange={e=>setFormEditTarea(p=>({...p,diaLimite:Number(e.target.value)}))}
+                              placeholder="día" style={{width:50,padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none"}}/>
+                          </td>
+                          <td style={{padding:"4px 6px"}}>
+                            <select value={formEditTarea.dependeDe||""} onChange={e=>setFormEditTarea(p=>({...p,dependeDe:e.target.value||null}))}
+                              style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none"}}>
+                              <option value="">Sin dependencia</option>
+                              {todasTareas().filter(x=>x.id!==t.id).map(x=>(
+                                <option key={x.id} value={x.id}>{x.id}: {x.nombre.slice(0,30)}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={{padding:"4px 8px",whiteSpace:"nowrap"}}>
+                            <button onClick={()=>{
+                              setTareasExtra(prev=>{
+                                const next=[...prev];
+                                const idx=next.findIndex(x=>x.id===t.id);
+                                if(idx>=0) next[idx]={...next[idx],...formEditTarea};
+                                else {
+                                  // tarea base — guardar override
+                                  const override={...t,...formEditTarea};
+                                  next.push(override);
+                                  // Remove original from base display by marking as overridden
+                                  setTareasOverrides(p=>({...p,[t.id]:formEditTarea}));
+                                }
+                                return next;
+                              });
+                              setEditandoTarea(null);
+                            }}
+                              style={{padding:"3px 10px",borderRadius:6,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer",fontSize:11,marginRight:4}}>✓</button>
+                            <button onClick={()=>setEditandoTarea(null)}
+                              style={{padding:"3px 8px",borderRadius:6,background:"#f1f5f9",color:"#64748b",border:"1px solid #d1d5db",cursor:"pointer",fontSize:11}}>✕</button>
+                          </td>
+                        </tr>
+                      );
+                      return (
+                        <tr key={t.id} style={{borderBottom:"1px solid #f1f5f9",background:t.id.startsWith("m")?"#fafafa":"#fff"}}>
+                          <td style={{padding:"6px 10px",color:"#94a3b8",fontSize:10,fontWeight:600}}>{t.id}</td>
+                          <td style={{padding:"6px 10px",fontWeight:500}}>{t.nombre}</td>
+                          <td style={{padding:"6px 10px"}}>
+                            <span style={{background:"#dbeafe",color:"#1d4ed8",borderRadius:20,padding:"2px 8px",fontSize:11}}>
+                              {t.responsable?.split(" ")[0]}
+                            </span>
+                          </td>
+                          <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{t.supervisor?.split(" ")[0]||"—"}</td>
+                          <td style={{padding:"6px 10px"}}>
+                            <span style={{background:cat.bg,color:cat.color,borderRadius:20,padding:"2px 8px",fontSize:10}}>{t.categoria}</span>
+                          </td>
+                          <td style={{padding:"6px 10px"}}>
+                            <span style={{background:"#f0fdf4",color:"#16a34a",borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:600}}>{getFrecuencia(t.id)}</span>
+                          </td>
+                          <td style={{padding:"6px 10px",textAlign:"center",color:"#64748b"}}>{t.diaLimite||"—"}</td>
+                          <td style={{padding:"6px 10px",fontSize:11,color:"#64748b"}}>
+                            {t.dependeDe ? <span style={{background:"#fef3c7",color:"#92400e",borderRadius:20,padding:"2px 8px",fontSize:10}}>→ {t.dependeDe}</span> : "—"}
+                          </td>
+                          <td style={{padding:"6px 8px"}}>
+                            {puedeEditConfig&&(
+                              <button onClick={()=>{setEditandoTarea(t.id);setFormEditTarea({nombre:t.nombre,responsable:t.responsable,supervisor:t.supervisor,categoria:t.categoria,frecuencia:getFrecuencia(t.id),diaLimite:t.diaLimite,dependeDe:t.dependeDe});}}
+                                style={{padding:"3px 10px",borderRadius:6,background:"#f8fafc",border:"1px solid #d1d5db",cursor:"pointer",fontSize:11,color:"#475569"}}>✏️</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       </div>
