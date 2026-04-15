@@ -6006,3 +6006,5 @@ function ParamsFrisku({selSeason, paramsFrisku, setParamsFrisku, readOnly}) {
     </div>
   );
 }
+
+
