@@ -6042,8 +6042,10 @@ function BadgeEstado({estado}) {
 // ─────────────────────────────────────────────────────────────────
 // TABLA ITEMS (por sección)
 // ─────────────────────────────────────────────────────────────────
-function TablaItems({items, seccion, onChange, canEdit, tc}) {
+function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas"}) {
   const rows = items.filter(it=>it.seccion===seccion);
+  const soloUSD = moneda==="usd";
+  const soloCLP = moneda==="clp";
 
   function updItem(id, field, val) {
     onChange(items.map(it=>it.id===id?{...it,[field]:val}:it));
@@ -6058,6 +6060,13 @@ function TablaItems({items, seccion, onChange, canEdit, tc}) {
   const totalCLP = rows.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
   const totalUSD = rows.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
 
+  const montoLabel = soloUSD ? "Monto USD" : soloCLP ? "Monto CLP" : null;
+  const headers = ["Proveedor / Nombre","RUT","N° Doc","F. Doc","F. Venc","Sem","Concepto",
+    ...(soloUSD ? ["Monto USD"] : soloCLP ? ["Monto CLP"] : ["Monto CLP","Monto USD"]),
+    "Comentario",""];
+  const colSpanTotal = 7;
+  const colSpanEnd = soloUSD||soloCLP ? 2 : 2;
+
   const inputSt = {
     padding:"4px 6px",borderRadius:5,border:`1px solid ${C.border}`,
     background:C.card2,color:C.text,fontSize:11,outline:"none",width:"100%",boxSizing:"border-box"
@@ -6069,7 +6078,7 @@ function TablaItems({items, seccion, onChange, canEdit, tc}) {
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
           <thead>
             <tr style={{background:C.bg2}}>
-              {["Proveedor / Nombre","RUT","N° Doc","F. Doc","F. Venc","Sem","Concepto","Monto CLP","Monto USD","Comentario",""].map(h=>(
+              {headers.map(h=>(
                 <th key={h} style={{padding:"6px 8px",color:C.muted,fontWeight:600,fontSize:10,
                   textAlign:h==="Monto CLP"||h==="Monto USD"?"right":"left",
                   whiteSpace:"nowrap",borderBottom:`1px solid ${C.border}`}}>{h}</th>
@@ -6078,7 +6087,7 @@ function TablaItems({items, seccion, onChange, canEdit, tc}) {
           </thead>
           <tbody>
             {rows.length===0&&(
-              <tr><td colSpan={11} style={{padding:"16px",textAlign:"center",color:C.muted2,fontSize:11}}>
+              <tr><td colSpan={headers.length} style={{padding:"16px",textAlign:"center",color:C.muted2,fontSize:11}}>
                 Sin registros — agrega uno con el botón +
               </td></tr>
             )}
@@ -6121,16 +6130,20 @@ function TablaItems({items, seccion, onChange, canEdit, tc}) {
                     ? <input value={it.concepto} onChange={e=>updItem(it.id,"concepto",e.target.value)} style={inputSt} placeholder="Descripción"/>
                     : <span style={{color:C.text}}>{it.concepto||"—"}</span>}
                 </td>
+                {!soloUSD&&(
                 <td style={{padding:"3px 6px",minWidth:100,textAlign:"right"}}>
                   {canEdit
                     ? <input type="number" value={it.montoCLP||""} onChange={e=>updItem(it.id,"montoCLP",Number(e.target.value))} style={{...inputSt,textAlign:"right"}} placeholder="0"/>
                     : <span style={{color:it.montoCLP?C.text:C.muted2,fontWeight:it.montoCLP?600:400}}>{it.montoCLP?$$clp(it.montoCLP):"—"}</span>}
                 </td>
+                )}
+                {!soloCLP&&(
                 <td style={{padding:"3px 6px",minWidth:100,textAlign:"right"}}>
                   {canEdit
                     ? <input type="number" value={it.montoUSD||""} onChange={e=>updItem(it.id,"montoUSD",Number(e.target.value))} style={{...inputSt,textAlign:"right"}} placeholder="0"/>
                     : <span style={{color:it.montoUSD?C.blue:C.muted2,fontWeight:it.montoUSD?600:400}}>{it.montoUSD?$$usd(it.montoUSD):"—"}</span>}
                 </td>
+                )}
                 <td style={{padding:"3px 6px",minWidth:120}}>
                   {canEdit
                     ? <input value={it.comentario||""} onChange={e=>updItem(it.id,"comentario",e.target.value)} style={inputSt} placeholder="Obs."/>
@@ -6160,12 +6173,16 @@ function TablaItems({items, seccion, onChange, canEdit, tc}) {
                 <td colSpan={7} style={{padding:"6px 10px",fontWeight:700,color:C.text,fontSize:11}}>
                   Total sección
                 </td>
+                {!soloUSD&&(
                 <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,color:C.yellow,fontSize:12}}>
                   {totalCLP?$$clp(totalCLP):"—"}
                 </td>
+                )}
+                {!soloCLP&&(
                 <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,color:C.blue,fontSize:12}}>
                   {totalUSD?$$usd(totalUSD):"—"}
                 </td>
+                )}
                 <td colSpan={2}/>
               </tr>
             </tfoot>
@@ -6283,8 +6300,24 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
   // Totales
   const totCLP = nom.items.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
   const totUSD = nom.items.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
-  const totBancosCLP = BANCOS.reduce((s,b)=>s+(Number(nom.bancos?.[b]?.clp)||0),0);
-  const totBancosUSD = BANCOS.reduce((s,b)=>s+(Number(nom.bancos?.[b]?.usd)||0),0);
+
+  // Saldo bancos: tomar de saldosBancos reales (pestaña Saldos Bancos) para esta empresa
+  const {totBancosCLP, totBancosUSD} = React.useMemo(()=>{
+    if(!saldosBancos) return {totBancosCLP:0, totBancosUSD:0};
+    const bancosChile = ["BCI","BICE","Security","Chile","Santander"];
+    const bancosPeruana = ["Scotiabank Perú","BBVA Perú"];
+    const esPeruana = nom.empresa.includes("Perú")||nom.empresa==="Frisku Peru";
+    const bancosList = esPeruana ? bancosPeruana : bancosChile;
+    let clp=0, usd=0;
+    bancosList.forEach(banco=>{
+      clp += Number(saldosBancos[`${nom.empresa}||${banco}||clp`]?.monto)||0;
+      usd += Number(saldosBancos[`${nom.empresa}||${banco}||usd`]?.monto)||0;
+      // PEN para empresas peruanas también
+      const pen = Number(saldosBancos[`${nom.empresa}||${banco}||pen`]?.monto)||0;
+      clp += pen; // Sumar PEN al total de moneda local
+    });
+    return {totBancosCLP:clp, totBancosUSD:usd};
+  },[saldosBancos, nom.empresa]);
 
   const puedeAvanzar = canEdit && nom.estado!=="aprobada" &&
     (nom.estado!=="aprobada1" || esCFO);
@@ -6435,27 +6468,37 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
         {([...SECCIONES,...(nom.seccionesExtra||[])]).map(sec=>{
           const hasItems = nom.items.some(it=>it.seccion===sec.id);
           if(!canEdit && !hasItems) return null;
+          const esSecUSD = sec.id==="emp_rel_usd"||sec.id==="pagos_usd";
+          const esSecCLP = !esSecUSD; // proveedores, anticipos, rendiciones, servipag, emp_rel_clp
+          const monedaSec = esSecUSD ? "usd" : "clp";
+          const secItems = nom.items.filter(it=>it.seccion===sec.id);
+          const secTotCLP = secItems.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
+          const secTotUSD = secItems.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
           return (
             <div key={sec.id} style={{marginBottom:4}}>
               <div style={{display:"flex",alignItems:"center",gap:8,
                 padding:"8px 12px",
-                background:sec.id==="emp_rel_usd"||sec.id==="pagos_usd"?`${C.blue}22`:
+                background:esSecUSD?`${C.blue}22`:
                            sec.id==="emp_rel_clp"?`${C.yellow}22`:C.bg2,
                 borderRadius:"8px 8px 0 0",
-                border:`1px solid ${sec.id==="emp_rel_usd"||sec.id==="pagos_usd"?C.blue:sec.id==="emp_rel_clp"?C.yellow:C.border}`,
+                border:`1px solid ${esSecUSD?C.blue:sec.id==="emp_rel_clp"?C.yellow:C.border}`,
                 borderBottom:"none",marginTop:12}}>
                 <span style={{fontWeight:700,fontSize:13,
-                  color:sec.id==="emp_rel_usd"||sec.id==="pagos_usd"?C.blue:
+                  color:esSecUSD?C.blue:
                         sec.id==="emp_rel_clp"?C.yellow:C.text}}>{sec.label}</span>
                 <span style={{fontSize:11,color:C.muted}}>
-                  ({nom.items.filter(it=>it.seccion===sec.id).length} items)
+                  ({secItems.length} items)
                 </span>
+                {!esSecUSD&&(
                 <span style={{marginLeft:"auto",fontWeight:700,fontSize:12,color:C.yellow}}>
-                  {$$clp(nom.items.filter(it=>it.seccion===sec.id).reduce((s,it)=>s+(Number(it.montoCLP)||0),0))}
+                  {$$clp(secTotCLP)}
                 </span>
-                <span style={{fontWeight:700,fontSize:12,color:C.blue}}>
-                  {$$usd(nom.items.filter(it=>it.seccion===sec.id).reduce((s,it)=>s+(Number(it.montoUSD)||0),0))}
+                )}
+                {esSecUSD&&(
+                <span style={{marginLeft:"auto",fontWeight:700,fontSize:12,color:C.blue}}>
+                  {$$usd(secTotUSD)}
                 </span>
+                )}
               </div>
               <TablaItems
                 items={nom.items}
@@ -6463,6 +6506,7 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                 onChange={v=>upd("items",v)}
                 canEdit={canEdit}
                 tc={nom.tc}
+                moneda={monedaSec}
               />
             </div>
           );
