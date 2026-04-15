@@ -3922,7 +3922,15 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
     if(busq&&![c.empresa,c.acreedor].some(s=>s.toLowerCase().includes(busq.toLowerCase()))) return false;
     return true;
   });
-  const deudaEmp={};creditosData.forEach(c=>{if(!deudaEmp[c.empresa])deudaEmp[c.empresa]=0;deudaEmp[c.empresa]+=c.monto;});
+  const deudaEmp={};creditosData.forEach(c=>{
+    if(!deudaEmp[c.empresa]) deudaEmp[c.empresa]=0;
+    // Deuda original (si no está pagado)
+    if(!c.pagado) deudaEmp[c.empresa]+=c.monto;
+    // Deuda renovación (cuotas pendientes de capital)
+    if(c.renovable)(c.cuotas_renovacion||[]).forEach(cq=>{
+      if((cq.tipo||'Solo Interés')==='Capital+Interés') deudaEmp[c.empresa]+=(Number(cq.monto)||0);
+    });
+  });
   const deudaList=Object.entries(deudaEmp).sort((a,b)=>b[1]-a[1]);
   const maxD=deudaList[0]?.[1]||1;
   return (
@@ -3931,6 +3939,7 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
         <KPI label="Deuda Total Q1-2026" value={$$(CREDITOS_TRIM.saldos[0])} color={C.red}/>
         <KPI label="Pagos Q1-2026"       value={$$(CREDITOS_TRIM.pagos[0])}  color={C.yellow}/>
         <KPI label="N° Créditos"         value={creditosData.length}             color={C.blue}/>
+        <KPI label="Renovables"          value={creditosData.filter(c=>c.renovable).length} color={C.orange}/>
       </div>
       <Card>
         <SectionTitle>Deuda por Empresa</SectionTitle>
@@ -4086,12 +4095,30 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
                   const e = empresas[emp]||{emoji:"🏢",color:C.blue};
                   const empCreds = creditosData.filter(c=>c.empresa===emp);
                   const saldos = CIERRES.map(([,fecha])=>
-                    empCreds.reduce((s,c)=>s+(c.f_venc>fecha?c.cuota:0),0)
+                    empCreds.reduce((s,c)=>{
+                      // Deuda original pendiente
+                      let d = (!c.pagado && c.f_venc>fecha) ? (Number(c.cuota)||0) : 0;
+                      // Cuotas de renovación pendientes (Capital+Interés aún no vencidas)
+                      if(c.renovable)(c.cuotas_renovacion||[]).forEach(cq=>{
+                        if((cq.tipo||'Solo Interés')==='Capital+Interés'){
+                          const mesEn = ({Ene:'Jan',Feb:'Feb',Mar:'Mar',Abr:'Apr',May:'May',Jun:'Jun',Jul:'Jul',Ago:'Aug',Sep:'Sep',Oct:'Oct',Nov:'Nov',Dic:'Dec'})[cq.mes]||cq.mes;
+                          const fCuota = cq.anio&&cq.mes ? `${cq.anio}-${String(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(mesEn)+1).padStart(2,'0')}-28` : '';
+                          if(fCuota>fecha) d+=Number(cq.monto)||0;
+                        }
+                      });
+                      return s+d;
+                    },0)
                   );
                   const hasSaldo = saldos.some(s=>s>0);
                   if(!hasSaldo) return null;
                   // Total inicial = saldo al cierre anterior (antes de Jun-26 = total deuda)
-                  const totalInicial = empCreds.reduce((s,c)=>s+c.cuota,0);
+                  const totalInicial = empCreds.reduce((s,c)=>{
+                    let d = Number(c.cuota)||0;
+                    if(c.renovable)(c.cuotas_renovacion||[]).forEach(cq=>{
+                      if((cq.tipo||'Solo Interés')==='Capital+Interés') d+=Number(cq.monto)||0;
+                    });
+                    return s+d;
+                  },0);
                   return (
                     <tr key={emp} style={{borderBottom:`1px solid ${C.border}22`}}
                       onMouseEnter={e2=>e2.currentTarget.style.background=`${C.card2}`}
@@ -4149,8 +4176,18 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
                     "2026-06-30","2027-06-30","2028-06-30",
                     "2029-06-30","2030-06-30","2031-06-30"
                   ];
+                  const MES_ABREV = {Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06',Jul:'07',Ago:'08',Sep:'09',Oct:'10',Nov:'11',Dic:'12'};
                   return CIERRES_F.map((fecha,i)=>{
-                    const total = creditosData.reduce((s,c)=>s+(c.f_venc>fecha?c.cuota:0),0);
+                    const total = creditosData.reduce((s,c)=>{
+                      let d = (!c.pagado && c.f_venc>fecha)?(Number(c.cuota)||0):0;
+                      if(c.renovable)(c.cuotas_renovacion||[]).forEach(cq=>{
+                        if((cq.tipo||'Solo Interés')==='Capital+Interés'){
+                          const fCuota=cq.anio&&cq.mes?`\${cq.anio}-\${MES_ABREV[cq.mes]||'06'}-28`:'';
+                          if(fCuota>fecha) d+=Number(cq.monto)||0;
+                        }
+                      });
+                      return s+d;
+                    },0);
                     return (
                       <td key={i} style={{padding:"8px 14px",textAlign:"right",
                         fontWeight:800,fontSize:12,color:total?C.red:C.green}}>
