@@ -2144,6 +2144,7 @@ function TabParametros({empNombre,empColor="#2563eb",
   paramsAS,setParamsAS,       // Allegria Service (kg × especie)
   paramsIF,setParamsIF,       // Integrity Farms (clientes × há)
   paramsAF,setParamsAF,       // Allpa Farms (variedades × kg)
+  paramsFrisku,setParamsFrisku, // Frisku Foods (contenedores × especie)
   readOnly=false}) {
 
   const [selSeason,setSelSeason] = useState(SEASON_KEYS[0]);
@@ -2151,6 +2152,7 @@ function TabParametros({empNombre,empColor="#2563eb",
   const [selProd,  setSelProd]   = useState(null);   // id producto seleccionado
 
   const esAllegria        = empNombre === "Allegria Foods";
+  const esFrisku          = empNombre === "Frisku Foods";
   const esAllegriaService = empNombre === "Allegria Service";
   const esIntegrity       = empNombre === "Integrity Farms";
   const esAllpa           = empNombre === "Allpa Farms";
@@ -5201,6 +5203,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   const [paramsAS,setParamsAS]=useState(defaultParamsAllegriaService);
   // paramsIF: parámetros específicos Integrity Farms
   const [paramsIF,setParamsIF]=useState(defaultParamsIntegrity);
+  const [paramsFrisku,setParamsFrisku]=useState(defaultParamsFrisku);
   // paramsAF: parámetros específicos Allpa Farms
   const [paramsAF,setParamsAF]=useState(defaultParamsAllpa);
   // subLines: { empresa: { lineLabel: [nombre1, nombre2, ...] } }
@@ -5305,8 +5308,23 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
       });
       base["Integrity Farms"] = nextIF;
     }
+    // Inject Frisku Foods calculated projections
+    const ingFrisku = calcFrisku(paramsFrisku);
+    const friskuEmp = base["Frisku Foods"];
+    if(friskuEmp) {
+      const nextFrisku = JSON.parse(JSON.stringify(friskuEmp));
+      nextFrisku.sections = nextFrisku.sections.map(sec=>{
+        if(sec.cat!=="ing_op") return sec;
+        return {...sec, lines: sec.lines.map(l=>{
+          if(l.label==="Ingreso Carga Contenedores")
+            return {...l, proy:[...ingFrisku], formula:true};
+          return l;
+        })};
+      });
+      base["Frisku Foods"] = nextFrisku;
+    }
     return base;
-  },[params,paramsAS,paramsIF,paramsAF,creditosData]);
+  },[params,paramsAS,paramsIF,paramsAF,creditosData,paramsFrisku]);
 
   const TABS_ALL=[
     {id:"dashboard",label:"📊 Dashboard"},
@@ -5408,6 +5426,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   const paramsASRef     = React.useRef(paramsAS);
   const creditosRef     = React.useRef(creditosData);
   const paramsIFRef     = React.useRef(paramsIF);
+  const paramsFriskuRef = React.useRef(paramsFrisku);
   const paramsAFRef     = React.useRef(paramsAF);
   const subLinesRef      = React.useRef(subLines);
   const intercompanyRef  = React.useRef(intercompany);
@@ -5418,6 +5437,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   useEffect(()=>{ paramsASRef.current     = paramsAS;     },[paramsAS]);
   useEffect(()=>{ creditosRef.current     = creditosData;  },[creditosData]);
   useEffect(()=>{ paramsIFRef.current     = paramsIF;     },[paramsIF]);
+  useEffect(()=>{ paramsFriskuRef.current = paramsFrisku; },[paramsFrisku]);
   useEffect(()=>{ paramsAFRef.current     = paramsAF;     },[paramsAF]);
   useEffect(()=>{ subLinesRef.current     = subLines;     },[subLines]);
   useEffect(()=>{ intercompanyRef.current = intercompany; },[intercompany]);
@@ -5432,6 +5452,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
       params_emp:      overrides.params_emp      !== undefined ? overrides.params_emp      : paramsEmpRef.current,
       creditos_data:   overrides.creditos_data !== undefined ? overrides.creditos_data : creditosRef.current,
       params_as:       overrides.params_as       !== undefined ? overrides.params_as       : paramsASRef.current,
+      params_frisku:   overrides.params_frisku !== undefined ? overrides.params_frisku : paramsFriskuRef.current,
       params_if:       overrides.params_if       !== undefined ? overrides.params_if       : paramsIFRef.current,
       params_af:       overrides.params_af       !== undefined ? overrides.params_af       : paramsAFRef.current,
       sub_lines:       overrides.sub_lines       !== undefined ? overrides.sub_lines       : subLinesRef.current,
@@ -5473,6 +5494,13 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   },[persistAll]);
 
   // setParamsEmp para una empresa específica
+  const handleSaveParamsFrisku = useCallback((updater) => {
+    const next = typeof updater === 'function' ? updater(paramsFriskuRef.current) : updater;
+    setParamsFrisku(next);
+    paramsFriskuRef.current = next;
+    setTimeout(()=>persistAll({ params_frisku: next }),0);
+  },[persistAll]);
+
   // Guardar créditos (nuevo, editar, marcar pagado)
   const handleSaveCreditos = useCallback((newList) => {
     setCreditosData(newList);
@@ -5731,6 +5759,8 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
                 setParamsAS={empTab==="Allegria Service"&&puedoEdit("flujo")?handleSaveParamsAS:undefined}
                 paramsIF={empTab==="Integrity Farms"?paramsIF:undefined}
                 setParamsIF={empTab==="Integrity Farms"&&puedoEdit("flujo")?handleSaveParamsIF:undefined}
+                paramsFrisku={empTab==="Frisku Foods"?paramsFrisku:undefined}
+                setParamsFrisku={empTab==="Frisku Foods"&&puedoEdit("flujo")?handleSaveParamsFrisku:undefined}
                 paramsAF={empTab==="Allpa Farms"?paramsAF:undefined}
                 setParamsAF={empTab==="Allpa Farms"&&puedoEdit("flujo")?handleSaveParamsAF:undefined}
                 readOnly={!puedoEdit("flujo")}
@@ -5760,6 +5790,219 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
       )}
       {tab==="creditos"&&puedoVer("creditos")&&<Creditos empresas={empresas} creditosData={creditosData} onSaveCreditos={handleSaveCreditos} canEdit={puedoEdit('creditos')}/>}
 
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════════
+// FRISKU FOODS — Contenedores por especie × mes × temporada
+// Ingreso = contenedores × precio_contenedor × 2% comisión
+// Cobro con delay de 2-3 meses
+// ═══════════════════════════════════════════════════════════════════
+const FRISKU_ESPECIES_DEFAULT = ["Arándanos","Cerezas","Paltas","Mangos","Manzana","Limones","Kiwi"];
+
+function defaultParamsFrisku() {
+  // { seasonKey: { especies: [{nombre, meses:[{mes,contenedores,precio_cont,delay_meses}]}] } }
+  // Usa todos los meses del rango (Apr-26 a Jun-31) para cada temporada
+  const p = {};
+  SEASON_KEYS.forEach(sk => {
+    const [y1] = sk.split("-").map(Number);
+    // Meses de esta temporada: Jul año1 → Jun año2
+    const mesesTemporada = MESES_INFO.filter(mo =>
+      (mo.y === y1 && mo.m >= 6) || (mo.y === y1+1 && mo.m <= 5)
+    );
+    p[sk] = {
+      especies: FRISKU_ESPECIES_DEFAULT.map(esp => ({
+        nombre: esp,
+        meses: mesesTemporada.map(mo => ({ mes: mo.label, contenedores: 0, precio_cont: 0, delay_meses: 2 }))
+      }))
+    };
+  });
+  return p;
+}
+
+function calcFrisku(paramsFrisku) {
+  const ingArr = Z65();
+  if(!paramsFrisku) return ingArr;
+  SEASON_KEYS.forEach(sk => {
+    const especies = paramsFrisku?.[sk]?.especies || [];
+    especies.forEach(esp => {
+      (esp.meses || []).forEach(m => {
+        const cont  = Number(m.contenedores) || 0;
+        const precio= Number(m.precio_cont)  || 0;
+        const delay = Number(m.delay_meses)  || 2;
+        if(!cont || !precio) return;
+        const comision = cont * precio * 0.02; // 2% sobre venta
+        // Encontrar el mes de cobro (mes de carga + delay)
+        const idxCarga = mIdx(m.mes);
+        if(idxCarga < 0) return;
+        const idxCobro = Math.min(idxCarga + delay, 64);
+        ingArr[idxCobro] += comision;
+      });
+    });
+  });
+  return ingArr;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PARAMS FRISKU FOODS — Contenedores por especie y mes
+// ═══════════════════════════════════════════════════════════════════
+function ParamsFrisku({selSeason, paramsFrisku, setParamsFrisku, readOnly}) {
+  const datos = paramsFrisku?.[selSeason] || defaultParamsFrisku()[selSeason] || {especies:[]};
+  const especies = datos.especies || [];
+  const [selEsp, setSelEsp] = React.useState(0);
+  const [nuevaEsp, setNuevaEsp] = React.useState("");
+
+  function updMes(espIdx, mesIdx, field, val) {
+    if(readOnly) return;
+    setParamsFrisku(prev => {
+      const next = JSON.parse(JSON.stringify(prev || defaultParamsFrisku()));
+      if(!next[selSeason]) next[selSeason] = {especies:[]};
+      const esp = next[selSeason].especies[espIdx];
+      if(esp && esp.meses[mesIdx]) esp.meses[mesIdx][field] = val;
+      return next;
+    });
+  }
+
+  function addEspecie() {
+    if(!nuevaEsp.trim() || readOnly) return;
+    setParamsFrisku(prev => {
+      const next = JSON.parse(JSON.stringify(prev || defaultParamsFrisku()));
+      SEASON_KEYS.forEach(sk => {
+        if(!next[sk]) next[sk] = {especies:[]};
+        if(!next[sk].especies.find(e=>e.nombre===nuevaEsp.trim())) {
+          next[sk].especies.push({
+            nombre: nuevaEsp.trim(),
+            meses: (next[sk].especies[0]?.meses||[]).map(m=>({mes:m.mes,contenedores:0,precio_cont:0,delay_meses:2}))
+          });
+        }
+      });
+      return next;
+    });
+    setNuevaEsp("");
+  }
+
+  // Calcular ingreso total para esta especie y temporada
+  const calcTotalEsp = (esp) => {
+    return (esp.meses||[]).reduce((s,m)=>{
+      const cont=Number(m.contenedores)||0;
+      const precio=Number(m.precio_cont)||0;
+      return s + cont*precio*0.02;
+    }, 0);
+  };
+
+  const totalTemporada = especies.reduce((s,esp)=>s+calcTotalEsp(esp),0);
+  const esp = especies[selEsp] || null;
+
+  return (
+    <div>
+      {/* KPI resumen */}
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{background:`${C.teal}22`,borderRadius:12,padding:"10px 16px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:C.teal,fontWeight:600}}>Ingreso Temporada</div>
+          <div style={{fontSize:20,fontWeight:800,color:C.teal}}>{$$(totalTemporada)}</div>
+          <div style={{fontSize:9,color:C.muted}}>2% comisión sobre venta</div>
+        </div>
+        <div style={{background:`${C.blue}22`,borderRadius:12,padding:"10px 16px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:C.blue,fontWeight:600}}>Contenedores totales</div>
+          <div style={{fontSize:20,fontWeight:800,color:C.blue}}>
+            {especies.reduce((s,esp)=>s+(esp.meses||[]).reduce((a,m)=>a+(Number(m.contenedores)||0),0),0)}
+          </div>
+        </div>
+        <div style={{background:`${C.orange}22`,borderRadius:12,padding:"10px 16px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:C.orange,fontWeight:600}}>Especies activas</div>
+          <div style={{fontSize:20,fontWeight:800,color:C.orange}}>
+            {especies.filter(esp=>(esp.meses||[]).some(m=>Number(m.contenedores)>0)).length}
+          </div>
+        </div>
+      </div>
+
+      {/* Selector de especie */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14,alignItems:"center"}}>
+        {especies.map((esp,i)=>(
+          <button key={esp.nombre} onClick={()=>setSelEsp(i)}
+            style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
+              border:`1px solid ${selEsp===i?C.teal:C.border}`,
+              background:selEsp===i?`${C.teal}33`:"transparent",
+              color:selEsp===i?C.teal:C.muted}}>
+            {esp.nombre}
+            {calcTotalEsp(esp)>0&&<span style={{marginLeft:4,color:C.teal,fontSize:9}}>{$$(calcTotalEsp(esp))}</span>}
+          </button>
+        ))}
+        {!readOnly&&(
+          <div style={{display:"flex",gap:4}}>
+            <input value={nuevaEsp} onChange={e=>setNuevaEsp(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&addEspecie()}
+              placeholder="+ Nueva especie"
+              style={{padding:"4px 8px",borderRadius:8,border:`1px solid ${C.border}`,
+                background:C.card2,color:C.text,fontSize:11,outline:"none",width:120}}/>
+            <button onClick={addEspecie}
+              style={{padding:"4px 10px",borderRadius:8,background:C.teal,border:"none",
+                color:"#fff",fontSize:11,cursor:"pointer",fontWeight:700}}>+</button>
+          </div>
+        )}
+      </div>
+
+      {/* Tabla de meses para la especie seleccionada */}
+      {esp&&(
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr style={{background:C.bg2}}>
+                {["Mes","Contenedores","Precio/Cont (USD)","Delay (meses)","Comisión 2%"].map(h=>(
+                  <th key={h} style={{padding:"7px 12px",fontWeight:600,fontSize:10,color:C.muted,
+                    textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,
+                    textAlign:h==="Mes"?"left":"right",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(esp.meses||[]).map((m,mi)=>{
+                const cont=Number(m.contenedores)||0;
+                const precio=Number(m.precio_cont)||0;
+                const comision=cont*precio*0.02;
+                return (
+                  <tr key={m.mes} style={{borderBottom:`1px solid ${C.border}22`,
+                    background:cont>0?`${C.teal}08`:"transparent"}}>
+                    <td style={{padding:"6px 12px",fontWeight:600,color:C.text}}>{m.mes}</td>
+                    <td style={{padding:"4px 8px",textAlign:"right"}}>
+                      <input type="number" min="0" value={m.contenedores||""} readOnly={readOnly}
+                        onChange={e=>updMes(selEsp,mi,"contenedores",e.target.value)}
+                        style={{width:70,padding:"4px 6px",textAlign:"right",borderRadius:6,
+                          border:`1px solid ${cont>0?C.teal:C.border}`,background:C.card2,
+                          color:cont>0?C.teal:C.text,fontSize:11,outline:"none"}}/>
+                    </td>
+                    <td style={{padding:"4px 8px",textAlign:"right"}}>
+                      <input type="number" min="0" value={m.precio_cont||""} readOnly={readOnly}
+                        onChange={e=>updMes(selEsp,mi,"precio_cont",e.target.value)}
+                        style={{width:90,padding:"4px 6px",textAlign:"right",borderRadius:6,
+                          border:`1px solid ${precio>0?C.blue:C.border}`,background:C.card2,
+                          color:precio>0?C.blue:C.text,fontSize:11,outline:"none"}}/>
+                    </td>
+                    <td style={{padding:"4px 8px",textAlign:"right"}}>
+                      <select value={m.delay_meses||2} disabled={readOnly}
+                        onChange={e=>updMes(selEsp,mi,"delay_meses",Number(e.target.value))}
+                        style={{padding:"4px 6px",borderRadius:6,border:`1px solid ${C.border}`,
+                          background:C.card2,color:C.text,fontSize:11,outline:"none"}}>
+                        {[2,3].map(d=><option key={d} value={d}>{d} meses</option>)}
+                      </select>
+                    </td>
+                    <td style={{padding:"6px 12px",textAlign:"right",fontWeight:700,
+                      color:comision>0?C.teal:C.muted2}}>
+                      {comision>0?$$(Math.round(comision)):"—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                <td style={{padding:"7px 12px",fontWeight:800,color:C.text}} colSpan={4}>Total {esp.nombre}</td>
+                <td style={{padding:"7px 12px",textAlign:"right",fontWeight:800,color:C.teal}}>{$$(Math.round(calcTotalEsp(esp)))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
