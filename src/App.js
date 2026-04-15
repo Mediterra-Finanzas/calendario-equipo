@@ -725,7 +725,7 @@ function ConfigTab({todasTareas,getFrecuencia,WORKERS,CATEGORIAS,FRECUENCIAS,
               <table style={{width:"100%",borderCollapse:"collapse",background:"#fff",fontSize:12}}>
                 <thead>
                   <tr style={{background:"#1e293b",color:"#fff"}}>
-                    {["Tarea","Responsable","Supervisor","Categoría","Fecha Venc.","Depende De",""].map(h=>(
+                    {["Tarea","Responsable","Supervisor","Categoría","Frecuencia","Fecha Venc.","Depende De",""].map(h=>(
                       <th key={h} style={{padding:"7px 10px",textAlign:"left",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr>
@@ -761,6 +761,12 @@ function ConfigTab({todasTareas,getFrecuencia,WORKERS,CATEGORIAS,FRECUENCIAS,
                           <select value={formEditTarea.categoria||""} onChange={e=>setFormEditTarea(p=>({...p,categoria:e.target.value}))}
                             style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
                             {Object.keys(CATEGORIAS).map(c=><option key={c}>{c}</option>)}
+                          </select>
+                        </td>
+                        <td style={{padding:"5px 6px"}}>
+                          <select value={formEditTarea.frecuencia||getFrecuencia(t.id)} onChange={e=>setFormEditTarea(p=>({...p,frecuencia:e.target.value}))}
+                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
+                            {FRECUENCIAS.map(f=><option key={f}>{f}</option>)}
                           </select>
                         </td>
                         <td style={{padding:"5px 6px"}}>
@@ -803,6 +809,11 @@ function ConfigTab({todasTareas,getFrecuencia,WORKERS,CATEGORIAS,FRECUENCIAS,
                         <td style={{padding:"7px 10px"}}>
                           <span style={{background:cat.bg,color:cat.color,borderRadius:20,padding:"2px 8px",fontSize:10}}>
                             {ovr.categoria||t.categoria}
+                          </span>
+                        </td>
+                        <td style={{padding:"7px 10px"}}>
+                          <span style={{background:"#f0fdf4",color:"#16a34a",borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:600}}>
+                            {getFrecuencia(t.id)}
                           </span>
                         </td>
                         <td style={{padding:"7px 10px",whiteSpace:"nowrap"}}>
@@ -1321,6 +1332,21 @@ export default function App(){
       const sig=ORDEN_SEM[(ORDEN_SEM.indexOf(actual)+1)%ORDEN_SEM.length];
       const nuevo={...prev,[key]:{...prev[key],estadoResp:sig,aprobado:false,estadoSup:sig!=="verde"?"gris":prev[key].estadoSup}};
       if(sig==="verde"){
+        // Notificar al supervisor por email
+        const supNombre = tareasOverrides[tarea.id]?.supervisor || getSupervisor(tarea.id);
+        if(supNombre){
+          const supWorker = WORKERS.find(w=>w.nombre===supNombre);
+          if(supWorker?.email){
+            const respNombre = tarea.responsable||usuarioActual?.nombre||"";
+            enviarNotificacion(
+              supWorker.email,
+              supNombre,
+              `✅ Tarea completada: ${tarea.nombre}`,
+              `${respNombre} ha completado la tarea "${tarea.nombre}" y está lista para tu revisión.`
+            ).catch(()=>{});
+          }
+        }
+        // Notificar dependencias
         const deps=todasTareas().filter(t=>{const d=getDependeDe(t.id);return d===tarea.id&&!isBloqueada(t.id);});
         if(deps.length>0)setTimeout(()=>setModalNotif({key,tarea,numSemana,dependientes:deps}),300);
       }
