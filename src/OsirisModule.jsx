@@ -525,34 +525,34 @@ function TotalPedidos({data,setData,rpData,setRpData,rcData,setRcData,fvData,set
       }]);
     }
 
-    // 3. Fee Vivero — crear filas según nCuotas (2, 3 o 4)
+    // 3. Fee Vivero — crear filas desde cuotasVivero[] (plan de pagos manual)
     const fvExiste = fvData.some(r=>r.tpId===tpId);
     if(!fvExiste) {
       const reg = pedido.regaliaVivero || regalias[pedido.vivero] || 0.45;
       const nPl = Number(pedido.nPlantas)||0;
       const total = nPl * reg;
-      const nCuotas = Number(pedido.nCuotasVivero)||2;
-      const pctAntic = (Number(pedido.pctAnticipo)||60)/100;
-      const montoAntic = total * pctAntic;
-      const montoRest = total * (1 - pctAntic);
-      const montoPorCuotaRest = nCuotas > 2 ? montoRest / (nCuotas - 1) : montoRest;
+      const proforma = pedido.nProforma||"";
+      // Usar cuotasVivero si existen (nuevo formato), sino legacy
+      const cuotasSource = pedido.cuotasVivero && pedido.cuotasVivero.length > 0
+        ? pedido.cuotasVivero.map((cq,i)=>({
+            id:`fv_cq${i}_${tpId}`,
+            tipoPago:cq.label||`Cuota ${i+1}`,
+            monto:cq.pct>0?Math.round(total*cq.pct/100):(Number(cq.monto)||0),
+            fechaPago:cq.fechaPago||"",
+          }))
+        : [
+            {id:`fv_oc_${tpId}`,tipoPago:"Anticipo (OC)",monto:total*((Number(pedido.pctAnticipo)||60)/100),fechaPago:""},
+            {id:`fv_sd_${tpId}`,tipoPago:"Saldo",monto:total*(1-(Number(pedido.pctAnticipo)||60)/100),fechaPago:""},
+          ];
       const trimPago = pedido.trimPagoVivero || trimPagoVivero(pedido.trimEntrega,pedido.añoEntrega).trim;
       const añoPago  = pedido.añoPagoVivero  || trimPagoVivero(pedido.trimEntrega,pedido.añoEntrega).año;
-      const proforma = pedido.nProforma||"";
-      const cuotas = [
-        {id:`fv_oc_${tpId}`,tipoPago:"Anticipo (OC)",monto:montoAntic,mes:pedido.mesAnticipo||""},
-        ...Array.from({length:nCuotas-1},(_,i)=>({
-          id:`fv_c${i+2}_${tpId}`,
-          tipoPago:nCuotas===2?"Despacho":`Cuota ${i+2}`,
-          monto:montoPorCuotaRest, mes:"",
-        }))
-      ];
+      const cuotas = cuotasSource;
       setFvData(prev=>[...prev,...cuotas.map(c=>({
         id:c.id,tpId,
         vivero:pedido.vivero||"Synergiabio",empresa:pedido.cliente,pais:pedido.pais,
         proforma,nPlantas:nPl,regalia:reg,totalOsiris:total,
         tipoPago:c.tipoPago,montoFact:c.monto,
-        trimPago,añoPago,mesCobroVivero:c.mes,
+        trimPago,añoPago,fechaPago:c.fechaPago||"",
         fechaFact:"",nFact:"",pagado:false,_fromPedido:true,
       }))]);
     }
@@ -1791,7 +1791,7 @@ function FeeViveros({data,setData,tpData,can,clientes=[]}) {
           <Th cols={[
             {l:"Vivero",w:100},{l:"Empresa",w:140},{l:"País",w:70},{l:"Proforma",w:110},
             {l:"N° Plantas",c:true,w:90},{l:"Regalía US$",c:true,w:90},{l:"% Cobro",c:true,w:80},{l:"Total",c:true,w:100},
-            {l:"Tipo Pago",c:true,w:120},{l:"Trim. Pago",c:true,w:100},{l:"Mto.",c:true,w:100},
+            {l:"Tipo Pago",c:true,w:120},{l:"Fecha Pago",c:true,w:110},{l:"Mto.",c:true,w:100},
             {l:"Fecha Fact.",c:true,w:100},{l:"N° Factura",c:true,w:100},
             {l:"Est. Factura",c:true,w:130},{l:"Estado Pago",c:true,w:110},
             ...(can?[{l:"",c:true,w:40}]:[]),
@@ -1827,7 +1827,7 @@ function FeeViveros({data,setData,tpData,can,clientes=[]}) {
                     </span>
                   </td>
                   <td style={{padding:"7px 10px",textAlign:"center",fontSize:11,color:C.mo,fontWeight:600}}>
-                    {r.trimPago&&r.añoPago?`T${r.trimPago} ${r.añoPago}`:"—"}
+                     <Cell val={r.fechaPago||""} onChange={v=>upd(r.id,"fechaPago",v)} type="date" can={can}/>
                   </td>
                   <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.azul}}>
                     <Cell val={r.montoFact||""} onChange={v=>upd(r.id,"montoFact",parseFloat(v)||0)} type="number" can={can}/>
