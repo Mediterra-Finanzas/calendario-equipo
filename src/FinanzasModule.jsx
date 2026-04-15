@@ -5646,6 +5646,30 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
     return ()=>clearTimeout(t);
   },[params,saldosBancos,loading]); // eslint-disable-line
 
+  // ── Print CSS ─────────────────────────────────────────────────
+  useEffect(()=>{
+    const style=document.createElement('style');
+    style.id='mediterra-print-css';
+    style.textContent=`
+      @media print {
+        @page{size:A3 landscape;margin:8mm}
+        body *{visibility:hidden}
+        #flujo-print-area,#flujo-print-area *{visibility:visible}
+        #flujo-print-area{position:fixed;top:0;left:0;width:100%;background:white!important;padding:8px}
+        .no-print{display:none!important}
+        table{border-collapse:collapse;font-size:7px;width:100%}
+        th{background:#1e293b!important;color:white!important;padding:3px 5px;white-space:nowrap;font-size:7px;text-align:right}
+        th:first-child{text-align:left}
+        td{padding:2px 5px;border-bottom:1px solid #e2e8f0;white-space:nowrap;font-size:7px;text-align:right}
+        td:first-child{text-align:left;font-weight:600}
+        tr:nth-child(even){background:#f8fafc!important}
+      }
+    `;
+    document.head.appendChild(style);
+    return()=>{const el=document.getElementById('mediterra-print-css');if(el)el.remove();};
+  // eslint-disable-next-line
+  },[]);
+
   if(loading) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",
       height:"60vh",color:C.muted,fontSize:14,background:C.bg,borderRadius:12}}>
@@ -5780,40 +5804,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
                 : "Proyección de flujo de caja mensual y semanal"}
             </span>
             {flujoSubTab==="flujo"&&empTab!=="_consolidado"&&empTab!=="_intercompany"&&(
-              <button onClick={()=>{
-                const empNombre=empTab;
-                const emp=empresas[empNombre];
-                const printWin=window.open("","_blank");
-                const tableEl=document.getElementById(`flujo-table-${empNombre}`);
-                if(!tableEl||!printWin)return;
-                printWin.document.write(`
-                  <!DOCTYPE html><html><head>
-                  <title>Flujo ${empNombre} - Grupo Mediterra</title>
-                  <style>
-                    @page{size:A3 landscape;margin:10mm}
-                    body{font-family:Arial,sans-serif;font-size:9px;color:#1e293b;background:#fff;margin:0}
-                    h2{font-size:13px;margin:0 0 4px;color:#1e293b}
-                    p{font-size:9px;color:#64748b;margin:0 0 8px}
-                    table{border-collapse:collapse;width:100%;font-size:8px}
-                    th{background:#1e293b;color:#fff;padding:4px 6px;text-align:right;white-space:nowrap;font-size:7px}
-                    th:first-child{text-align:left;position:static}
-                    td{padding:3px 6px;border-bottom:1px solid #e2e8f0;white-space:nowrap}
-                    td:first-child{text-align:left;font-weight:600}
-                    tr:nth-child(even){background:#f8fafc}
-                    .section-header{background:#334155;color:#fff;font-weight:700;font-size:8px}
-                    .total-row{background:#1e3a5f;color:#fff;font-weight:800}
-                    .saldo-row{background:#0f2d4a;color:#38bdf8;font-weight:800}
-                    .positive{color:#16a34a}.negative{color:#dc2626}
-                  </style></head><body>
-                  <h2>${empNombre} ${emp?.emoji||""} — Flujo de Caja Proyectado</h2>
-                  <p>Grupo Mediterra · Generado ${new Date().toLocaleDateString("es-CL")} · USD</p>
-                `);
-                printWin.document.write(tableEl.outerHTML);
-                printWin.document.write("</body></html>");
-                printWin.document.close();
-                printWin.focus();
-                setTimeout(()=>printWin.print(),400);
-              }}
+              <button onClick={()=>window.print()}
                 style={{marginLeft:"auto",padding:"5px 12px",borderRadius:8,
                   border:"1px solid #334155",background:"transparent",
                   color:C.muted,cursor:"pointer",fontSize:11,display:"flex",
@@ -5825,11 +5816,18 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
 
           {/* Contenido sub-pestaña */}
           {flujoSubTab==="flujo"&&(
-            <FlujoEmpresa key={empTab} empNombre={empTab} empresas={empresas}
-              realData={realData} onSaveReal={handleSaveReal} canEdit={puedoEdit("flujo")}
-              saldosBancos={saldosBancos} onSaveProy={handleSaveProy}
-              subLines={subLines?.[empTab]||{}} onSaveSubLines={(lineLabel,list)=>handleSaveSubLines(empTab,lineLabel,list)}
-              creditosData={creditosData}/>
+            <div id="flujo-print-area">
+              {/* Print header — solo visible al imprimir */}
+              <div style={{display:"none"}} className="print-header-block">
+                <div style={{fontWeight:800,fontSize:13}}>{empresas[empTab]?.emoji} {empTab} — Flujo de Caja Proyectado</div>
+                <div style={{fontSize:9,color:"#64748b"}}>Grupo Mediterra · Generado {new Date().toLocaleDateString("es-CL")} · USD</div>
+              </div>
+              <FlujoEmpresa key={empTab} empNombre={empTab} empresas={empresas}
+                realData={realData} onSaveReal={handleSaveReal} canEdit={puedoEdit("flujo")}
+                saldosBancos={saldosBancos} onSaveProy={handleSaveProy}
+                subLines={subLines?.[empTab]||{}} onSaveSubLines={(lineLabel,list)=>handleSaveSubLines(empTab,lineLabel,list)}
+                creditosData={creditosData}/>
+            </div>
           )}
           {flujoSubTab==="params"&&(()=>{
             const emp=empresas[empTab];
