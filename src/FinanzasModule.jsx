@@ -424,26 +424,61 @@ const MES_ABR_TO_EN = {
 // "Solo Interés"    → interés sobre saldo (capital NO disminuye)
 // "Capital+Interés" → amortización equitativa + interés sobre saldo (capital disminuye)
 // El interés SIEMPRE se agrega automáticamente según tasa anual
-function calcMontoRealCuota(cuotas, capital, tasaAnual) {
+// Mapa abreviatura mes español → número
+const MES_ABR_NUM = {Ene:1,Feb:2,Mar:3,Abr:4,May:5,Jun:6,Jul:7,Ago:8,Sep:9,Oct:10,Nov:11,Dic:12};
+
+function calcMontoRealCuota(cuotas, capital, tasaAnual, mesIngresoAnio) {
   const cuotasArr = cuotas||[];
   const n = cuotasArr.length;
   if(n===0) return [];
-  // Contar cuotas que amortizan capital
+  const tasaMensual = (Number(tasaAnual)||0)/100/12;
   const nCapital = cuotasArr.filter(cq=>(cq.tipo||"Solo Interés")==="Capital+Interés").length;
-  const periodosAnio = n>=10?12:n>=3?4:n>=2?2:1;
-  const tasaPeriodo = (Number(tasaAnual)||0)/100/periodosAnio;
   const amortPorCuota = nCapital>0 ? (Number(capital)||0)/nCapital : 0;
   let saldo = Number(capital)||0;
+
+  // Fecha base: mes de ingreso del préstamo (para calcular meses exactos)
+  // mesIngresoAnio: "May-26" o similar, o usar primer mes de cuotas
+  let fechaBase = null;
+  if(mesIngresoAnio) {
+    const parts = String(mesIngresoAnio).split("-");
+    if(parts.length===2) {
+      const mesAbr = parts[0]; const anioS = parts[1];
+      const mesN = MES_ABR_NUM[mesAbr]||1;
+      const anioN = anioS.length===2 ? 2000+parseInt(anioS) : parseInt(anioS);
+      fechaBase = {y:anioN, m:mesN};
+    }
+  }
+
   return cuotasArr.map((cq,i) => {
     const tipo = cq.tipo||"Solo Interés";
-    const interes = Math.round(saldo * tasaPeriodo);
+    // Calcular meses desde fecha base hasta esta cuota
+    let interes = 0;
+    if(tasaMensual > 0 && cq.mes && cq.anio) {
+      const mesN = MES_ABR_NUM[cq.mes]||1;
+      const anioN = parseInt(cq.anio)||2026;
+      let mesesTransc = 0;
+      if(fechaBase) {
+        // Meses desde el ingreso (o última cuota) hasta esta cuota
+        const prevCuota = i===0 ? fechaBase : (() => {
+          const pc = cuotasArr[i-1];
+          return pc?.mes && pc?.anio
+            ? {y:parseInt(pc.anio)||2026, m:MES_ABR_NUM[pc.mes]||1}
+            : fechaBase;
+        })();
+        mesesTransc = (anioN - prevCuota.y)*12 + (mesN - prevCuota.m);
+      } else {
+        // Sin fecha base, asumir período mensual
+        mesesTransc = 1;
+      }
+      mesesTransc = Math.max(1, mesesTransc);
+      interes = Math.round(saldo * tasaMensual * mesesTransc);
+    }
     let montoReal, amort=0;
     if(tipo==="Capital+Interés") {
       amort = Math.round(amortPorCuota);
       montoReal = amort + interes;
       saldo = Math.max(0, saldo - amort);
     } else {
-      // Solo Interés: solo paga interés, saldo no cambia
       montoReal = interes;
     }
     return {...cq, montoReal, interes, amort};
@@ -453,7 +488,7 @@ function calcMontoRealCuota(cuotas, capital, tasaAnual) {
 function calcRenovacionesEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
   const arr = Z65();
   creditos.filter(c => c.empresa === empresa && c.renovable).forEach(c => {
-    const cuotasCalc = calcMontoRealCuota(c.cuotas_renovacion, c.monto_renovacion, c.tasa_anual);
+    const cuotasCalc = calcMontoRealCuota(c.cuotas_renovacion, c.monto_renovacion, c.tasa_anual, c.mes_ingreso_renovacion&&c.anio_ingreso_renovacion?`${c.mes_ingreso_renovacion}-${String(c.anio_ingreso_renovacion).slice(-2)}`:'');
     cuotasCalc.forEach(cq => {
       if(!cq.mes || !cq.anio) return;
       const monto = cq.montoReal || Number(cq.monto) || 0;
@@ -471,7 +506,7 @@ function calcRenovacionesDesglose(empresa, creditos=CREDITOS_DEFAULT) {
   creditos.filter(c => c.empresa === empresa && c.renovable).forEach(c => {
     const key = c.acreedor + " (Ren.)";
     if(!byAcreedor[key]) byAcreedor[key] = Z65();
-    const cuotasConInt = calcMontoRealCuota(c.cuotas_renovacion, c.monto_renovacion, c.tasa_anual);
+    const cuotasConInt = calcMontoRealCuota(c.cuotas_renovacion, c.monto_renovacion, c.tasa_anual, c.mes_ingreso_renovacion&&c.anio_ingreso_renovacion?`${c.mes_ingreso_renovacion}-${String(c.anio_ingreso_renovacion).slice(-2)}`:'');
     cuotasConInt.forEach(cq => {
       if(!cq.mes || !cq.anio) return;
       const monto = cq.montoReal || Number(cq.monto) || 0;
@@ -4242,7 +4277,7 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
                   });
                   // Cuotas de renovación
                   creds.filter(c=>c.renovable&&(c.cuotas_renovacion||[]).length>0).forEach(c=>{
-                    const cuotasCalc=calcMontoRealCuota(c.cuotas_renovacion,c.monto_renovacion,c.tasa_anual);
+                    const cuotasCalc=calcMontoRealCuota(c.cuotas_renovacion,c.monto_renovacion,c.tasa_anual,c.mes_ingreso_renovacion&&c.anio_ingreso_renovacion?`${c.mes_ingreso_renovacion}-${String(c.anio_ingreso_renovacion).slice(-2)}`:'');
                     cuotasCalc.forEach((cq,ci)=>{
                       if(!cq.mes||!cq.anio) return;
                       const mesEn=MES_A[cq.mes]||cq.mes;
@@ -4409,15 +4444,20 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
                       const _cap = Number(form.monto_renovacion)||0;
                       const _n = (form.cuotas_renovacion||[]).length;
                       const _nCap = (form.cuotas_renovacion||[]).filter(c=>(c.tipo||"Solo Interés")==="Capital+Interés").length;
-                      const _pA = _n>=10?12:_n>=3?4:_n>=2?2:1;
-                      const _tP = ((Number(form.tasa_anual)||0)/100)/_pA;
+                      const _tMens = ((Number(form.tasa_anual)||0)/100)/12;
                       const _amort = _nCap>0?_cap/_nCap:0;
                       // Calcular saldo hasta esta cuota
                       let _saldo = _cap;
                       for(let _j=0;_j<ci;_j++){
                         if(((form.cuotas_renovacion||[])[_j]?.tipo||"Solo Interés")==="Capital+Interés") _saldo=Math.max(0,_saldo-_amort);
                       }
-                      const _interes = Math.round(_saldo*_tP);
+                      // Meses desde ingreso (o cuota anterior) hasta esta cuota
+                      const _prevMes = ci===0
+                        ? (form.mes_ingreso_renovacion&&form.anio_ingreso_renovacion?{y:parseInt(form.anio_ingreso_renovacion),m:MES_ABR_NUM[form.mes_ingreso_renovacion]||1}:null)
+                        : ((form.cuotas_renovacion||[])[ci-1]?.mes&&(form.cuotas_renovacion||[])[ci-1]?.anio?{y:parseInt((form.cuotas_renovacion||[])[ci-1].anio),m:MES_ABR_NUM[(form.cuotas_renovacion||[])[ci-1].mes]||1}:null);
+                      const _thisMes = cq.mes&&cq.anio?{y:parseInt(cq.anio),m:MES_ABR_NUM[cq.mes]||1}:null;
+                      const _meses = _prevMes&&_thisMes?Math.max(1,(_thisMes.y-_prevMes.y)*12+(_thisMes.m-_prevMes.m)):1;
+                      const _interes = Math.round(_saldo*_tMens*_meses);
                       const _esCap = (cq.tipo||"Solo Interés")==="Capital+Interés";
                       const _montoCalc = _esCap?Math.round(_amort)+_interes:_interes;
                       return (
