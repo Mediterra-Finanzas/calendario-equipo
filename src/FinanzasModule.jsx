@@ -4203,37 +4203,87 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
       </Card>
 
       {/* Cronograma de pagos por empresa */}
-      <Card>
-        <SectionTitle>Cronograma de Pagos por Empresa — conectado al Flujo</SectionTitle>
-        <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
-          Los pagos de préstamos se reflejan automáticamente en el flujo de cada empresa en el mes de vencimiento.
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px 8px",borderBottom:`1px solid ${C.border}`}}>
+          <SectionTitle>Timeline de Pagos por Acreedor</SectionTitle>
+          <div style={{fontSize:10,color:C.muted}}>Cronograma visual: cuotas originales → renovaciones por empresa y acreedor</div>
         </div>
-        {Object.entries(
-          creditosData.reduce((acc,c)=>{
-            if(!acc[c.empresa]) acc[c.empresa]=[];
-            acc[c.empresa].push(c); return acc;
-          },{})).map(([emp,creds])=>{
-          const e=empresas[emp]||{emoji:"🏢",color:C.muted};
-          return (
-            <div key={emp} style={{marginBottom:12,background:C.card2,borderRadius:8,padding:"10px 14px",
-              border:`1px solid ${C.border}`}}>
-              <div style={{fontSize:12,fontWeight:700,color:e.color,marginBottom:8}}>{e.emoji} {emp}</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {creds.map(c=>{
-                  const mes=mesDeDate(c.f_venc);
+        {(()=>{
+          // Agrupar por empresa → acreedor
+          const byEmp = {};
+          creditosData.forEach(c=>{
+            if(!byEmp[c.empresa]) byEmp[c.empresa]={};
+            if(!byEmp[c.empresa][c.acreedor]) byEmp[c.empresa][c.acreedor]=[];
+            byEmp[c.empresa][c.acreedor].push(c);
+          });
+          const MES_A = {Ene:"Jan",Feb:"Feb",Mar:"Mar",Abr:"Apr",May:"May",Jun:"Jun",Jul:"Jul",Ago:"Aug",Sep:"Sep",Oct:"Oct",Nov:"Nov",Dic:"Dec"};
+          return Object.entries(byEmp).map(([emp,acreedores])=>{
+            const e=empresas[emp]||{emoji:"🏢",color:C.muted};
+            return (
+              <div key={emp} style={{borderBottom:`1px solid ${C.border}`,padding:"12px 16px"}}>
+                <div style={{fontSize:12,fontWeight:800,color:e.color,marginBottom:10}}>{e.emoji} {emp}</div>
+                {Object.entries(acreedores).map(([acreedor,creds])=>{
+                  // Construir eventos del timeline para este acreedor
+                  const eventos = [];
+                  // Cuotas originales
+                  creds.forEach(c=>{
+                    eventos.push({fecha:c.f_venc,label:mesDeDate(c.f_venc),monto:c.cuota,tipo:"original",pagado:c.pagado,id:c.n});
+                  });
+                  // Cuotas de renovación
+                  creds.filter(c=>c.renovable&&(c.cuotas_renovacion||[]).length>0).forEach(c=>{
+                    const cuotasCalc=calcMontoRealCuota(c.cuotas_renovacion,c.monto_renovacion,c.tasa_anual);
+                    cuotasCalc.forEach((cq,ci)=>{
+                      if(!cq.mes||!cq.anio) return;
+                      const mesEn=MES_A[cq.mes]||cq.mes;
+                      const label=`${mesEn}-${String(cq.anio).slice(2)}`;
+                      const fecha=`${cq.anio}-${String(Object.values(MES_A).indexOf(mesEn)+1).padStart(2,"0")}-15`;
+                      eventos.push({fecha,label,monto:cq.montoReal||0,tipo:cq.tipo||"Solo Interés",pagado:false,id:`ren-${c.n}-${ci}`,isRen:true});
+                    });
+                  });
+                  // Ingreso de renovación
+                  creds.filter(c=>c.renovable&&c.monto_renovacion&&c.mes_ingreso_renovacion&&c.anio_ingreso_renovacion).forEach(c=>{
+                    const mesEn=MES_A[c.mes_ingreso_renovacion]||c.mes_ingreso_renovacion;
+                    const label=`${mesEn}-${String(c.anio_ingreso_renovacion).slice(2)}`;
+                    const fecha=`${c.anio_ingreso_renovacion}-${String(Object.values(MES_A).indexOf(mesEn)+1).padStart(2,"0")}-01`;
+                    eventos.push({fecha,label,monto:Number(c.monto_renovacion),tipo:"ingreso",pagado:false,id:`ing-${c.n}`,isIngreso:true});
+                  });
+                  // Ordenar cronológicamente
+                  eventos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+                  if(eventos.length===0) return null;
                   return (
-                    <div key={c.n} style={{background:C.bg,borderRadius:6,padding:"5px 10px",
-                      border:`1px solid ${C.border}`,fontSize:10}}>
-                      <div style={{color:C.muted}}>{c.acreedor}</div>
-                      <div style={{fontWeight:700,color:C.yellow}}>{mes}</div>
-                      <div style={{color:C.red,fontWeight:600}}>{$$(c.cuota)}</div>
+                    <div key={acreedor} style={{marginBottom:10}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6}}>{acreedor}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:0,overflowX:"auto",paddingBottom:4}}>
+                        {eventos.map((ev,ei)=>{
+                          const isLast=ei===eventos.length-1;
+                          const bgColor=ev.isIngreso?"#22c55e22":ev.isRen?(ev.tipo==="Capital+Interés"?"#3b82f622":"#f59e0b22"):`${C.bg}`;
+                          const borderColor=ev.isIngreso?"#22c55e":ev.isRen?(ev.tipo==="Capital+Interés"?C.blue:C.orange):(ev.pagado?"#22c55e44":C.border);
+                          const textColor=ev.isIngreso?"#22c55e":ev.isRen?(ev.tipo==="Capital+Interés"?C.blue:C.orange):C.red;
+                          return (
+                            <React.Fragment key={ev.id}>
+                              <div style={{flexShrink:0,background:bgColor,borderRadius:8,
+                                padding:"6px 10px",border:`1px solid ${borderColor}`,
+                                opacity:ev.pagado?0.45:1,minWidth:70,textAlign:"center"}}>
+                                {ev.isIngreso&&<div style={{fontSize:8,color:"#22c55e",fontWeight:700,marginBottom:1}}>💰 INGRESO</div>}
+                                {ev.isRen&&!ev.isIngreso&&<div style={{fontSize:8,color:ev.tipo==="Capital+Interés"?C.blue:C.orange,fontWeight:700,marginBottom:1}}>🔄 {ev.tipo==="Capital+Interés"?"CAP+INT":"INT"}</div>}
+                                <div style={{fontSize:10,fontWeight:700,color:C.yellow}}>{ev.label}</div>
+                                <div style={{fontSize:11,fontWeight:800,color:textColor}}>{$$(ev.monto)}</div>
+                                {ev.pagado&&<div style={{fontSize:8,color:"#22c55e"}}>✓</div>}
+                              </div>
+                              {!isLast&&<div style={{width:16,height:1,background:`${C.border}`,flexShrink:0,marginTop:8}}>
+                                <div style={{width:"100%",height:"100%",background:C.muted2}}/>
+                              </div>}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </Card>
 
       {/* Modal nuevo / editar crédito */}
