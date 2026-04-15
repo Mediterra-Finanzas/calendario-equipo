@@ -5902,7 +5902,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
 
 const EMPRESAS_NOM = [
   "Allegria Foods","Allegria Service","Frisku Foods","Frisku Peru",
-  "Allpa Farms","Mediterra","Integrity Farms","Osiris",
+  "Allpa Farms","Allpa Farms Perú","Mediterra","Integrity Farms","Osiris",
 ];
 
 
@@ -5911,6 +5911,8 @@ const SECCIONES = [
   {id:"anticipos",      label:"Anticipos de Sueldo"},
   {id:"rendiciones",    label:"Rendiciones"},
   {id:"servipag",       label:"Servipag"},
+  {id:"emp_rel_clp",    label:"Mov. Empresas Relacionadas CLP"},
+  {id:"emp_rel_usd",    label:"Mov. Empresas Relacionadas USD"},
   {id:"pagos_usd",      label:"Pagos USD"},
 ];
 
@@ -6186,19 +6188,30 @@ function TablaItems({items, seccion, onChange, canEdit, tc}) {
 // ─────────────────────────────────────────────────────────────────
 // PanelBancos: muestra saldos desde saldosBancos existente (read-only por empresa)
 function PanelBancosNomina({empresa, saldosBancos}) {
-  // Keys format: "Empresa||Banco||moneda"
+  // Keys format: "Empresa||Banco||moneda" — must match EMPRESAS_LIST exactly
   const bancosChile = ["BCI","BICE","Security","Chile","Santander"];
   const bancosPeruana = ["Scotiabank Perú","BBVA Perú"];
   const esPeruana = empresa.includes("Perú")||empresa==="Frisku Peru";
   const bancosList = esPeruana ? bancosPeruana : bancosChile;
-  const rows = bancosList.map(banco=>({
-    banco,
-    clp: Number(saldosBancos?.[`${empresa}||${banco}||clp`]?.monto)||0,
-    usd: Number(saldosBancos?.[`${empresa}||${banco}||usd`]?.monto)||0,
-  })).filter(r=>r.clp||r.usd);
-  const totCLP = rows.reduce((s,r)=>s+r.clp,0);
-  const totUSD = rows.reduce((s,r)=>s+r.usd,0);
-  if(!rows.length) return (
+  const monedas = esPeruana ? ["pen","usd"] : ["clp","usd","eur"];
+  // Build rows from all relevant keys in saldosBancos
+  const rows = bancosList.flatMap(banco=>
+    monedas.map(moneda=>{
+      const key = `${empresa}||${banco}||${moneda}`;
+      const val = Number(saldosBancos?.[key]?.monto)||0;
+      return {banco, moneda, val, key};
+    })
+  ).filter(r=>r.val!==0);
+  // Group by banco
+  const byBanco = bancosList.map(banco=>{
+    const clp = Number(saldosBancos?.[`${empresa}||${banco}||clp`]?.monto)||0;
+    const usd = Number(saldosBancos?.[`${empresa}||${banco}||usd`]?.monto)||0;
+    const pen = Number(saldosBancos?.[`${empresa}||${banco}||pen`]?.monto)||0;
+    return {banco, clp, usd, pen};
+  }).filter(r=>r.clp||r.usd||r.pen);
+  const totCLP = byBanco.reduce((s,r)=>s+r.clp,0);
+  const totUSD = byBanco.reduce((s,r)=>s+r.usd,0);
+  if(!byBanco.length) return (
     <div style={{background:C.card2,borderRadius:10,padding:"12px 16px",border:`1px solid ${C.border}`,
       color:C.muted2,fontSize:11}}>🏦 Sin saldos bancarios registrados para {empresa}</div>
   );
@@ -6214,7 +6227,7 @@ function PanelBancosNomina({empresa, saldosBancos}) {
           </tr>
         </thead>
         <tbody>
-          {rows.map(r=>(
+          {byBanco.map(r=>(
             <tr key={r.banco} style={{borderBottom:`1px solid ${C.border}22`}}>
               <td style={{padding:"4px 8px",color:C.text,fontWeight:500}}>{r.banco}</td>
               <td style={{padding:"4px 8px",textAlign:"right",color:r.clp?C.yellow:C.muted2,fontWeight:r.clp?700:400}}>{r.clp?$$clp(r.clp):"—"}</td>
@@ -6425,9 +6438,15 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
           return (
             <div key={sec.id} style={{marginBottom:4}}>
               <div style={{display:"flex",alignItems:"center",gap:8,
-                padding:"8px 12px",background:C.bg2,borderRadius:"8px 8px 0 0",
-                border:`1px solid ${C.border}`,borderBottom:"none",marginTop:12}}>
-                <span style={{fontWeight:700,fontSize:13,color:C.text}}>{sec.label}</span>
+                padding:"8px 12px",
+                background:sec.id==="emp_rel_usd"||sec.id==="pagos_usd"?`${C.blue}22`:
+                           sec.id==="emp_rel_clp"?`${C.yellow}22`:C.bg2,
+                borderRadius:"8px 8px 0 0",
+                border:`1px solid ${sec.id==="emp_rel_usd"||sec.id==="pagos_usd"?C.blue:sec.id==="emp_rel_clp"?C.yellow:C.border}`,
+                borderBottom:"none",marginTop:12}}>
+                <span style={{fontWeight:700,fontSize:13,
+                  color:sec.id==="emp_rel_usd"||sec.id==="pagos_usd"?C.blue:
+                        sec.id==="emp_rel_clp"?C.yellow:C.text}}>{sec.label}</span>
                 <span style={{fontSize:11,color:C.muted}}>
                   ({nom.items.filter(it=>it.seccion===sec.id).length} items)
                 </span>
