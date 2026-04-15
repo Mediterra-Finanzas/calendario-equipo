@@ -2293,6 +2293,15 @@ function TabParametros({empNombre,empColor="#2563eb",
           readOnly={readOnly}/>
       )}
 
+      {/* ── FRISKU FOODS: contenedores × especie × mes ── */}
+      {esFrisku&&(
+        <ParamsFrisku
+          selSeason={selSeason}
+          paramsFrisku={paramsFrisku||defaultParamsFrisku()}
+          setParamsFrisku={setParamsFrisku||function(){}}
+          readOnly={readOnly}/>
+      )}
+
       {/* ── OTRAS EMPRESAS: lista de productos ── */}
       {!esAllegria&&!esAllegriaService&&!esIntegrity&&!esAllpa&&!esFrisku&&(
         <div style={{display:"flex",gap:14}}>
