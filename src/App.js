@@ -180,6 +180,8 @@ async function enviarNotificacion(toEmail, nombre, asunto, mensaje) {
       template_params:{nombre, message:mensaje, to_email:toEmail, subject:asunto}})
   });
 }
+// Exponer globalmente para uso desde otros módulos (ej: nóminas)
+window._enviarNotificacion = enviarNotificacion;
 
 const DIAS_SEMANA = ["Lunes","Martes","Miercoles","Jueves","Viernes"];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
