@@ -4320,26 +4320,6 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           </div>
         ))}
       </div>
-
-      {/* Botón reset datos de ingresos — solo para admin */}
-      {(esAdmin||usuarioActual?.rol==="admin")&&(
-        <div style={{marginTop:20,textAlign:"center"}}>
-          <button onClick={()=>{
-            if(!window.confirm("⚠️ Esto borrará TODOS los datos de ingresos (pedidos, royalties, fees). Los contratos y clientes se mantienen. ¿Continuar?"))return;
-            setOsirisData(prev=>({
-              ...prev,
-              totalPedidos:[],
-              royaltyPlanta:[],
-              feeEntrada:[],
-              royaltyComercial:[],
-              feeViveros:[],
-            }));
-          }} style={{background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.3)",
-            color:"#fca5a5",borderRadius:8,padding:"7px 18px",cursor:"pointer",fontSize:11,fontWeight:600}}>
-            🗑 Limpiar datos de ingresos (mantiene contratos y clientes)
-          </button>
-        </div>
-      )}
     </div>
   );
 
