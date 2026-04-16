@@ -7050,9 +7050,12 @@ function PanelBancosNomina({empresa, saldosBancos}) {
 function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos, nominasHermanas=[], onSwitchNomina, onCrearYAbrir, onCrearNueva}) {
   const nom = nomina;
   const esCFO = usuario?.rol==="admin" || usuario?.esCFO;
-  const esAutorizador = canEdit;
   const [soloVer, setSoloVer] = useState(false);
-  const editActivo = canEdit && !soloVer;
+  // Estado bloqueado: nadie puede editar contenido una vez que tiene V°B° o está aprobada
+  const estadoBloqueado = nom.estado === "aprobada" || nom.estado === "aprobada1";
+  // editActivo: controla si se pueden modificar items/campos de la nómina
+  // NADIE puede editar una nómina con V°B° o aprobada (ni siquiera admin)
+  const editActivo = canEdit && !soloVer && !estadoBloqueado;
 
   // Nombre formal: "Nómina [Empresa] S[semana] N°[numero]"
   const numNomina = nom.numero || 1;
@@ -7342,10 +7345,13 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
   const esAdmin = usuario?.rol === "admin";
 
   const puedeAvanzar = (() => {
-    if(!editActivo) return false;
+    // La capacidad de AVANZAR ESTADO es independiente de editActivo
+    // (Carol puede dar V°B° aunque no pueda editar items)
+    if(soloVer) return false;
+    if(!canEdit) return false;
     if(nom.estado === "aprobada") return false;
     if(nom.estado === "borrador" || nom.estado === "preparada") return true; // cualquier editor
-    if(nom.estado === "revision") return esAutorizadorNom; // SOLO Carol o Michelle (admin NO puede)
+    if(nom.estado === "revision") return esAutorizadorNom; // SOLO Carol o Michelle
     if(nom.estado === "aprobada1") return esAdmin; // SOLO CFO/CEO
     return false;
   })();
@@ -7435,7 +7441,7 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
             {textoAvanzar}
           </button>
         )}
-        {nom.estado!=="borrador"&&editActivo&&(
+        {nom.estado!=="borrador"&&esAdmin&&!soloVer&&(
           <button onClick={retrocederEstado}
             style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,
               borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:11}}>
@@ -7461,6 +7467,26 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
           🖨️ Imprimir
         </button>
       </div>
+
+      {/* Banner nómina bloqueada */}
+      {estadoBloqueado&&(
+        <div className="no-print" style={{background:nom.estado==="aprobada"?"#dcfce7":"#ede9fe",
+          border:`1px solid ${nom.estado==="aprobada"?"#86efac":"#c4b5fd"}`,
+          padding:"8px 16px",margin:"0 20px",borderRadius:8,
+          display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:18}}>{nom.estado==="aprobada"?"🔒":"✅"}</span>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:nom.estado==="aprobada"?"#166534":"#6d28d9"}}>
+              {nom.estado==="aprobada"?"Nómina aprobada — No editable":"Nómina con V°B° — Pendiente aprobación CFO"}
+            </div>
+            <div style={{fontSize:10,color:"#64748b"}}>
+              {nom.estado==="aprobada"
+                ? `Aprobada por ${nom.aprobadoPor||"—"} el ${nom.fechaAprobacion||"—"}. El contenido no puede ser modificado.`
+                : `V°B° por ${nom.aprobado1Por||"—"} el ${nom.fechaAprobacion1||"—"}. Solo el CFO puede aprobar o retroceder.`}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div id="nomina-print-area" style={{padding:"20px 24px",maxWidth:1400,margin:"0 auto"}}>
         {/* ═══ Contenido interactivo — solo pantalla, oculto al imprimir ═══ */}
@@ -7754,6 +7780,37 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
       if(d?.nominas) setNominas(d.nominas);
       setCargando(false);
     });
+  },[]);
+
+  // Auto-refresh nóminas cada 30s para sincronizar cambios de otros usuarios
+  useEffect(()=>{
+    const interval = setInterval(()=>{
+      dbLoadNominas().then(d=>{
+        if(d?.nominas) {
+          setNominas(prev=>{
+            // Solo actualizar si hay cambios reales (evitar re-render innecesario)
+            const prevJSON = JSON.stringify(prev.map(n=>({id:n.id,estado:n.estado,aprobado1Por:n.aprobado1Por,aprobadoPor:n.aprobadoPor})));
+            const newJSON = JSON.stringify(d.nominas.map(n=>({id:n.id,estado:n.estado,aprobado1Por:n.aprobado1Por,aprobadoPor:n.aprobadoPor})));
+            if(prevJSON !== newJSON) return d.nominas;
+            return prev;
+          });
+        }
+      }).catch(()=>{});
+    }, 30000);
+    return ()=>clearInterval(interval);
+  },[]);
+
+  // Refresh al volver a la pestaña del navegador
+  useEffect(()=>{
+    function onVisibility(){
+      if(document.visibilityState === "visible"){
+        dbLoadNominas().then(d=>{
+          if(d?.nominas) setNominas(d.nominas);
+        }).catch(()=>{});
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return ()=>document.removeEventListener("visibilitychange", onVisibility);
   },[]);
 
   // Save (debounce 800ms)
