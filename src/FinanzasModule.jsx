@@ -3789,7 +3789,11 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         }
                         const real=vista==="mensual"?(realMensual[col.mes]?.[line.label]||null):null;
                         const isFirst=col.isFirstInSeason||col.isFirstInMonth;
-                        const isEditable=canEdit&&!line.formula&&!isTot&&col.type!=="month_collapsed";
+                        // Permite editar líneas con fórmula SOLO si el mes pertenece a la temporada actual 2025-2026
+                        // (los primeros meses del dataset, indices de SEASONS[0])
+                        const esTemporadaActual = SEASONS[0]?.indices?.includes(col.idx);
+                        const formulaBloquea = line.formula && !esTemporadaActual;
+                        const isEditable=canEdit && !formulaBloquea && !isTot && col.type!=="month_collapsed";
                         return (
                           <td key={`${col.mes}-${col.label}-${line.label}-${ci}`}
                             style={{padding:"4px 5px",textAlign:"right",fontSize:9,
@@ -3805,7 +3809,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                               <CeldaEditable
                                 val={val}
                                 color={sec.signo>0?C.green:C.red}
-                                canEdit={canEdit&&!line.formula}
+                                canEdit={canEdit && !formulaBloquea}
                                 real={real}
                                 onSave={v=>handleEditProy(line.label,col.idx,v)}
                               />
