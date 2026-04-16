@@ -2840,7 +2840,7 @@ function Consolidado({empresas,saldosBancos}) {
       {/* Vista sumada */}
       {vistaConsolidado==="sumada"&&(
         <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`}}>
-          <table id={`flujo-table-${empNombre}`} style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
+          <table id="flujo-table-consolidado" style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
             <THead/>
             <tbody>
               <FilaSaldoBanco nombre="_consolidado"/>
