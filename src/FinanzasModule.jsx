@@ -2808,12 +2808,12 @@ function Consolidado({empresas,saldosBancos}) {
           <div>
             <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Vista</div>
             <div style={{display:"flex",gap:0,borderRadius:8,overflow:"hidden",border:`1px solid ${C.border}`}}>
-              {[{id:"sumada",label:"🏛 Sumada"},{id:"por_empresa",label:"🏢 Por empresa"}].map(v=>(
+              {[{id:"sumada",label:"🏛 Sumada"},{id:"por_empresa",label:"🏢 Por empresa"},{id:"waterfall",label:"📊 Waterfall"}].map(v=>(
                 <button key={v.id} onClick={()=>setVistaConsolidado(v.id)}
                   style={{padding:"7px 18px",border:"none",cursor:"pointer",fontWeight:vistaConsolidado===v.id?800:500,fontSize:12,
                     background:vistaConsolidado===v.id?C.accent:"transparent",
                     color:vistaConsolidado===v.id?"#fff":C.muted,transition:"all 0.15s"}}>
-                  {v.id==="sumada"?"🏛 Sumada":"🏢 Por empresa"}
+                  {v.label}
                 </button>
               ))}
             </div>
@@ -2901,6 +2901,450 @@ function Consolidado({empresas,saldosBancos}) {
           </table>
         </div>
       )}
+
+      {/* Vista Waterfall — Conceptos × Empresas por temporada */}
+      {vistaConsolidado==="waterfall"&&(
+        <WaterfallConsolidado empresas={empresas} saldosBancos={saldosBancos}/>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WATERFALL CONSOLIDADO — Filas = Conceptos, Columnas = Empresas
+// Estructura tipo estado de flujo ejecutivo para presentación a directorio
+// ═══════════════════════════════════════════════════════════════════
+
+// Participaciones de controladora por empresa (%). Ajustables según realidad del grupo.
+const PARTICIPACION_CONTROLADORA = {
+  "Mediterra":1.00,
+  "Allegria Foods":1.00,
+  "Allegria Service":0.80,
+  "Frisku Foods":0.54,
+  "Frisku Peru":0.54,
+  "Osiris":1.00,
+  "Integrity Farms":0.80,
+  "Allpa Farms":0.50,
+  "Allpa Farms Perú":0.26,
+};
+
+// Helpers de agregación
+function sumRangeWF(arr, indices) {
+  if(!arr || !indices) return 0;
+  return indices.reduce((s,i)=>s+(Number(arr[i])||0), 0);
+}
+function findLineWF(emp, labelBuscado) {
+  for(const sec of (emp.sections||[])) {
+    for(const ln of (sec.lines||[])) {
+      if(ln.label === labelBuscado) return {line:ln, signo:sec.signo};
+    }
+  }
+  return null;
+}
+function sumCatWF(emp, cat, indices) {
+  const sec = (emp.sections||[]).find(s=>s.cat===cat);
+  if(!sec) return 0;
+  return sec.lines.reduce((s,ln)=>s+sumRangeWF(ln.proy,indices), 0) * sec.signo;
+}
+
+function WaterfallConsolidado({empresas, saldosBancos}) {
+  const empNames = Object.keys(empresas);
+  const [temporadaSel, setTemporadaSel] = useState(SEASONS[0]?.key || "");
+  const [mostrarControladora, setMostrarControladora] = useState(true);
+
+  const temporada = SEASONS.find(s=>s.key===temporadaSel) || SEASONS[0];
+  const idx = temporada?.indices || [];
+
+  // Construir conceptos por empresa
+  const datos = useMemo(()=>{
+    const res = {};
+    empNames.forEach(n=>{
+      const emp = empresas[n];
+      const saldoCaja = getSaldoBancoInicial(saldosBancos, n, emp.saldo_ini);
+      const ingresos = sumCatWF(emp, "ing_op", idx);
+      const egresosOp = sumCatWF(emp, "egr_var", idx) + sumCatWF(emp, "egr_fijo", idx);
+      const impuestos = sumCatWF(emp, "imp", idx);
+      const fcOp = ingresos + egresosOp + impuestos;
+
+      // Líneas específicas
+      const callCap   = findLineWF(emp,"Capital Calls");
+      const finInL    = findLineWF(emp,"Ingresos Financiamiento");
+      const ingRenL   = findLineWF(emp,"Ingreso Renovación");
+      const otrosINop = findLineWF(emp,"Otros Ingresos No Operacionales");
+      const pagoPres  = findLineWF(emp,"Pago Préstamos - Total");
+      const renovL    = findLineWF(emp,"Renovaciones");
+      const aportesL  = findLineWF(emp,"Aportes de Capital");
+      const leyesL    = findLineWF(emp,"Leyes Sociales Laborales");
+      const f29L      = findLineWF(emp,"Pago F-29");
+      const otrosENop = findLineWF(emp,"Otros Egresos No Operacionales");
+
+      const callCapital    = callCap   ? sumRangeWF(callCap.line.proy,idx)   * callCap.signo   : 0;
+      const financiamiento = finInL    ? sumRangeWF(finInL.line.proy,idx)    * finInL.signo    : 0;
+      const dividendosRec  = ingRenL   ? sumRangeWF(ingRenL.line.proy,idx)   * ingRenL.signo   : 0;
+      const otrosIngresosN = otrosINop ? sumRangeWF(otrosINop.line.proy,idx) * otrosINop.signo : 0;
+      const pagoCreditos   = pagoPres  ? sumRangeWF(pagoPres.line.proy,idx)  * pagoPres.signo  : 0;
+      const inversiones    = renovL    ? sumRangeWF(renovL.line.proy,idx)    * renovL.signo    : 0;
+      const aportesCapital = aportesL  ? sumRangeWF(aportesL.line.proy,idx)  * aportesL.signo  : 0;
+      const leyesSociales  = leyesL    ? sumRangeWF(leyesL.line.proy,idx)    * leyesL.signo    : 0;
+      const pagoF29        = f29L      ? sumRangeWF(f29L.line.proy,idx)      * f29L.signo      : 0;
+      const otrosEgresosN  = otrosENop ? sumRangeWF(otrosENop.line.proy,idx) * otrosENop.signo : 0;
+
+      const fcCapital = callCapital + financiamiento + pagoCreditos + dividendosRec +
+                        otrosIngresosN + inversiones + aportesCapital +
+                        leyesSociales + pagoF29 + otrosEgresosN;
+      const total = fcOp + fcCapital;
+      const participacion = PARTICIPACION_CONTROLADORA[n] ?? 1;
+
+      res[n] = {
+        saldoCaja, ingresos, egresosOp, impuestos, fcOp,
+        callCapital, financiamiento, pagoCreditos, dividendosRec, otrosIngresosN,
+        inversiones, aportesCapital, leyesSociales, pagoF29, otrosEgresosN,
+        fcCapital, total,
+        participacionCtrl: total * participacion,
+      };
+    });
+    return res;
+  }, [empresas, saldosBancos, idx]); // eslint-disable-line
+
+  // Totales consolidados (suma horizontal)
+  const totales = useMemo(()=>{
+    const keys = ["saldoCaja","ingresos","egresosOp","impuestos","fcOp","callCapital",
+                  "financiamiento","pagoCreditos","dividendosRec","otrosIngresosN",
+                  "inversiones","aportesCapital","leyesSociales","pagoF29","otrosEgresosN",
+                  "fcCapital","total","participacionCtrl"];
+    const t = {};
+    keys.forEach(k=>{
+      t[k] = empNames.reduce((s,n)=>s+(datos[n]?.[k]||0), 0);
+    });
+    return t;
+  }, [datos, empNames]);
+
+  // Definir filas del waterfall
+  const FILAS = [
+    {key:"saldoCaja",      label:"Total Saldo Caja",        tipo:"saldo"},
+    {key:"ingresos",       label:"Ingresos",                 tipo:"op"},
+    {key:"egresosOp",      label:"Egresos Operacionales",    tipo:"op"},
+    {key:"impuestos",      label:"Impuestos",                tipo:"op"},
+    {key:"fcOp",           label:"Flujo Caja Operacional",   tipo:"subtotal"},
+    {key:"callCapital",    label:"Call de Capital",          tipo:"cap"},
+    {key:"financiamiento", label:"Financiamiento",           tipo:"cap"},
+    {key:"pagoCreditos",   label:"Pago Créditos / Leasing / Hipotecarios", tipo:"cap"},
+    {key:"dividendosRec",  label:"Dividendos Recibidos / Ingreso Renovación", tipo:"cap"},
+    {key:"inversiones",    label:"Inversiones / Renovaciones", tipo:"cap"},
+    {key:"aportesCapital", label:"Aportes de Capital",        tipo:"cap"},
+    {key:"leyesSociales",  label:"Leyes Sociales Laborales",  tipo:"cap"},
+    {key:"pagoF29",        label:"Pago F-29",                 tipo:"cap"},
+    {key:"otrosIngresosN", label:"Otros Ingresos No Operacionales", tipo:"cap"},
+    {key:"otrosEgresosN",  label:"Otros Egresos No Operacionales",  tipo:"cap"},
+    {key:"fcCapital",      label:"Flujo Caja Capital",        tipo:"subtotal"},
+    {key:"total",          label:"Total",                     tipo:"total"},
+  ];
+
+  // Formato miles con signo
+  function fmt(v) {
+    if(v === 0 || v == null || isNaN(v)) return "—";
+    const abs = Math.abs(Math.round(v));
+    const s = v < 0 ? "-" : "";
+    return `${s}${abs.toLocaleString("es-CL")}`;
+  }
+
+  // Color según tipo de fila y valor
+  function colorFila(tipo, v) {
+    if(tipo === "saldo") return C.blue;
+    if(tipo === "subtotal") return v >= 0 ? C.green : C.red;
+    if(tipo === "total") return v >= 0 ? C.green : C.red;
+    if(v === 0 || v == null) return C.muted2;
+    return v >= 0 ? C.text : C.red;
+  }
+
+  // Export Excel
+  async function exportarExcel() {
+    if(!window.JSZip) {
+      await new Promise((res,rej)=>{
+        const s=document.createElement("script");
+        s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+        s.onload=res;s.onerror=rej;document.head.appendChild(s);
+      });
+    }
+    const headers = ["Concepto", ...empNames, "Total Consolidado"];
+    if(mostrarControladora) headers.push("Participación Controladora");
+    const rows = FILAS.map(f=>{
+      const row = [f.label];
+      empNames.forEach(n=>{
+        row.push(datos[n]?.[f.key]||0);
+      });
+      row.push(totales[f.key]||0);
+      if(mostrarControladora) {
+        if(f.key === "total") row.push(totales.participacionCtrl||0);
+        else row.push("");
+      }
+      return row;
+    });
+
+    function colLetter(n){let s="";n++;while(n>0){n--;s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26);}return s;}
+    function escXml(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+    const nCols = headers.length;
+    const lastCol = colLetter(nCols-1);
+    let rowsXml = "";
+
+    // Título
+    rowsXml += `<row r="1" ht="28" customHeight="1"><c r="A1" t="inlineStr" s="5"><is><t>Flujo de Caja Consolidado — Grupo Mediterra</t></is></c></row>`;
+    rowsXml += `<row r="2" ht="18" customHeight="1"><c r="A2" t="inlineStr" s="6"><is><t>${escXml(temporada.label)} · Exportado ${new Date().toLocaleDateString("es-CL")}</t></is></c></row>`;
+    rowsXml += `<row r="3" ht="10" customHeight="1"></row>`;
+
+    // Headers
+    rowsXml += `<row r="4" ht="24" customHeight="1">`;
+    headers.forEach((h,c)=>{rowsXml+=`<c r="${colLetter(c)}4" t="inlineStr" s="1"><is><t>${escXml(h)}</t></is></c>`;});
+    rowsXml += `</row>`;
+
+    // Data
+    rows.forEach((row,ri)=>{
+      const r = ri+5;
+      const fila = FILAS[ri];
+      const esSubtotal = fila.tipo==="subtotal";
+      const esTotal = fila.tipo==="total";
+      const esSaldo = fila.tipo==="saldo";
+      rowsXml += `<row r="${r}" ht="20" customHeight="1">`;
+      row.forEach((val,c)=>{
+        const addr = `${colLetter(c)}${r}`;
+        let estilo = 0; // normal
+        if(c===0) {
+          // Columna concepto
+          if(esTotal) estilo = 8;           // bold + fondo total
+          else if(esSubtotal) estilo = 7;   // bold + fondo subtotal
+          else if(esSaldo) estilo = 9;      // bold + fondo saldo
+          else estilo = 0;
+        } else {
+          // Columnas numéricas
+          if(typeof val === "number") {
+            if(esTotal) estilo = 12;
+            else if(esSubtotal) estilo = 11;
+            else if(esSaldo) estilo = 13;
+            else estilo = 10;
+          } else {
+            estilo = 0;
+          }
+        }
+        if(typeof val === "number" && val !== 0) {
+          rowsXml += `<c r="${addr}" s="${estilo}"><v>${val}</v></c>`;
+        } else {
+          rowsXml += `<c r="${addr}" t="inlineStr" s="${estilo}"><is><t>${escXml(val)}</t></is></c>`;
+        }
+      });
+      rowsXml += `</row>`;
+    });
+
+    const tableRef = `A4:${lastCol}${rows.length+4}`;
+    const merges = [`A1:${lastCol}1`,`A2:${lastCol}2`];
+    const mergesXml = `<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>`;
+
+    const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <numFmts count="1"><numFmt numFmtId="164" formatCode='#,##0;[Red]-#,##0'/></numFmts>
+  <fonts count="8">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><sz val="11"/><b/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font/><font/><font/>
+    <font><sz val="16"/><b/><color rgb="FF0F2D4A"/><name val="Calibri"/></font>
+    <font><sz val="11"/><i/><color rgb="FF64748B"/><name val="Calibri"/></font>
+    <font><sz val="11"/><b/><color rgb="FF0F2D4A"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="6">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF0F2D4A"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFDCFCE7"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FFE2E8F0"/></left><right style="thin"><color rgb="FFE2E8F0"/></right><top style="thin"><color rgb="FFE2E8F0"/></top><bottom style="thin"><color rgb="FFE2E8F0"/></bottom></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="14">
+    <xf numFmtId="0"   fontId="0" fillId="0" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="0"   fontId="1" fillId="2" borderId="0" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf/><xf/><xf/>
+    <xf numFmtId="0"   fontId="5" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+    <xf numFmtId="0"   fontId="6" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+    <xf numFmtId="0"   fontId="7" fillId="4" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="0"   fontId="7" fillId="5" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="0"   fontId="7" fillId="3" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="7" fillId="4" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="7" fillId="5" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="7" fillId="3" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+  </cellXfs>
+</styleSheet>`;
+
+    const colWidths = [38, ...empNames.map(()=>16), 18];
+    if(mostrarControladora) colWidths.push(22);
+    const colsXml = `<cols>${colWidths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`;
+
+    const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="4" xSplit="1" topLeftCell="B5" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>
+  ${colsXml}
+  <sheetData>${rowsXml}</sheetData>
+  ${mergesXml}
+</worksheet>`;
+
+    const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <bookViews><workbookView/></bookViews>
+  <sheets><sheet name="Flujo Consolidado" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+
+    const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+    const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+
+    const pkgRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+    const zip = new window.JSZip();
+    zip.file("[Content_Types].xml", contentTypes);
+    zip.file("_rels/.rels", pkgRels);
+    zip.file("xl/workbook.xml", wbXml);
+    zip.file("xl/_rels/workbook.xml.rels", wbRels);
+    zip.file("xl/worksheets/sheet1.xml", sheetXml);
+    zip.file("xl/styles.xml", stylesXml);
+
+    const blob = await zip.generateAsync({type:"blob"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Flujo_Consolidado_${temporada.key}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    window.auditLog&&window.auditLog("exportar", {modulo:"finanzas", seccion:"Flujo Consolidado Waterfall",
+      descripcion:`Exportó flujo consolidado waterfall — ${temporada.label}`});
+  }
+
+  return (
+    <div>
+      {/* Controles */}
+      <Card>
+        <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div>
+            <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Temporada</div>
+            <select value={temporadaSel} onChange={e=>setTemporadaSel(e.target.value)}
+              style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,
+                background:C.card,color:C.text,fontSize:12,outline:"none",minWidth:180}}>
+              {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.muted,cursor:"pointer"}}>
+              <input type="checkbox" checked={mostrarControladora}
+                onChange={e=>setMostrarControladora(e.target.checked)}/>
+              Mostrar Participación Controladora
+            </label>
+          </div>
+          <button onClick={exportarExcel}
+            style={{marginLeft:"auto",padding:"8px 16px",borderRadius:8,background:C.teal,
+              color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}}>
+            📥 Exportar Excel
+          </button>
+        </div>
+      </Card>
+
+      {/* Tabla Waterfall */}
+      <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`,marginTop:12}}>
+        <table style={{borderCollapse:"collapse",fontSize:11,width:"100%",minWidth:1000}}>
+          <thead>
+            <tr style={{background:C.bg2}}>
+              <th style={{padding:"10px 14px",textAlign:"left",color:C.muted,fontWeight:700,
+                fontSize:10,textTransform:"uppercase",letterSpacing:0.5,position:"sticky",left:0,
+                background:C.bg2,minWidth:240,zIndex:2}}>
+                {temporada?.label || "—"}
+              </th>
+              {empNames.map(n=>(
+                <th key={n} style={{padding:"10px 10px",textAlign:"right",color:C.muted,
+                  fontWeight:700,fontSize:10,minWidth:105}}>
+                  {n}
+                  <div style={{fontSize:9,color:C.muted2,fontWeight:400,marginTop:2}}>
+                    {empresas[n]?.emoji || ""}
+                  </div>
+                </th>
+              ))}
+              <th style={{padding:"10px 14px",textAlign:"right",color:C.text,fontWeight:900,
+                fontSize:10,background:`${C.accent}22`,minWidth:120}}>
+                TOTAL
+              </th>
+              {mostrarControladora&&(
+                <th style={{padding:"10px 14px",textAlign:"right",color:C.text,fontWeight:900,
+                  fontSize:10,background:`${C.teal}22`,minWidth:140}}>
+                  PART. CONTROLADORA
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {FILAS.map((f, i)=>{
+              const isSaldo = f.tipo === "saldo";
+              const isSubtotal = f.tipo === "subtotal";
+              const isTotal = f.tipo === "total";
+              const bg = isSaldo ? `${C.blue}11`
+                       : isTotal ? `${C.accent}22`
+                       : isSubtotal ? `${C.green}11`
+                       : i%2===0 ? "transparent" : `${C.border}08`;
+              const fontWeight = (isSaldo||isSubtotal||isTotal) ? 800 : 500;
+
+              return (
+                <tr key={f.key} style={{background:bg,borderBottom:`1px solid ${C.border}33`}}>
+                  <td style={{padding:"8px 14px",position:"sticky",left:0,background:bg,
+                    fontWeight, color:isSaldo?C.blue:isTotal?C.accent:isSubtotal?C.green:C.text,
+                    fontSize:isTotal?12:11,zIndex:1}}>
+                    {f.label}
+                  </td>
+                  {empNames.map(n=>{
+                    const v = datos[n]?.[f.key] || 0;
+                    return (
+                      <td key={n} style={{padding:"8px 10px",textAlign:"right",
+                        color:colorFila(f.tipo,v),fontWeight,fontSize:11}}>
+                        {fmt(v)}
+                      </td>
+                    );
+                  })}
+                  <td style={{padding:"8px 14px",textAlign:"right",
+                    color:colorFila(f.tipo,totales[f.key]),fontWeight:900,
+                    background:`${C.accent}11`,fontSize:isTotal?12:11}}>
+                    {fmt(totales[f.key])}
+                  </td>
+                  {mostrarControladora&&(
+                    <td style={{padding:"8px 14px",textAlign:"right",
+                      color:isTotal?colorFila("total",totales.participacionCtrl):C.muted2,
+                      fontWeight:isTotal?900:500,
+                      background:`${C.teal}08`,fontSize:isTotal?12:11}}>
+                      {isTotal ? fmt(totales.participacionCtrl) : "—"}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{marginTop:10,fontSize:10,color:C.muted,fontStyle:"italic",padding:"0 4px"}}>
+        💡 Cifras en USD · Valores positivos = ingresos / saldo · Valores negativos = egresos · Participación Controladora calcula solo sobre el Total según el % de propiedad de cada entidad.
+      </div>
     </div>
   );
 }
