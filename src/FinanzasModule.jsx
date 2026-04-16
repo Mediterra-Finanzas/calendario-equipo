@@ -2947,6 +2947,30 @@ function sumCatWF(emp, cat, indices) {
   return sec.lines.reduce((s,ln)=>s+sumRangeWF(ln.proy,indices), 0) * sec.signo;
 }
 
+// Saldo banco en USD por empresa (suma todas las monedas convertidas)
+function getSaldoBancoUSD(saldosBancos, empNombre) {
+  if(!saldosBancos) return 0;
+  const HOY = new Date();
+  const porCuenta = {};
+  Object.entries(saldosBancos).forEach(([key, rec])=>{
+    const parts = key.split("||");
+    if(parts[0]!==empNombre) return;
+    if(!rec?.monto || !rec?.fecha) return;
+    const f = new Date(rec.fecha);
+    if(f > HOY) return;
+    const cuentaKey = `${parts[1]}||${parts[2]||rec.moneda||"usd"}`;
+    const existente = porCuenta[cuentaKey];
+    if(!existente || new Date(existente.fecha) < f) porCuenta[cuentaKey] = rec;
+  });
+  let total = 0;
+  Object.values(porCuenta).forEach(rec=>{
+    const moneda = rec.moneda || "usd";
+    if(moneda === "usd") total += Number(rec.monto)||0;
+    else if(rec.usd != null) total += Number(rec.usd)||0;
+  });
+  return total;
+}
+
 function WaterfallConsolidado({empresas, saldosBancos}) {
   const empNames = Object.keys(empresas);
   const [temporadaSel, setTemporadaSel] = useState(SEASONS[0]?.key || "");
@@ -2960,13 +2984,27 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
     const res = {};
     empNames.forEach(n=>{
       const emp = empresas[n];
-      const saldoCaja = getSaldoBancoInicial(saldosBancos, n, emp.saldo_ini);
+      // Saldo Caja desde Saldos Bancos (convertido a USD)
+      const saldoCaja = getSaldoBancoUSD(saldosBancos, n);
+
+      // Ingresos Operacionales
       const ingresos = sumCatWF(emp, "ing_op", idx);
-      const egresosOp = sumCatWF(emp, "egr_var", idx) + sumCatWF(emp, "egr_fijo", idx);
+
+      // Egresos Operacionales: egr_var + egr_fijo + Leyes Sociales + F-29 + Otros Egresos No Op.
+      const egresosBase = sumCatWF(emp, "egr_var", idx) + sumCatWF(emp, "egr_fijo", idx);
+      const leyesL    = findLineWF(emp,"Leyes Sociales Laborales");
+      const f29L      = findLineWF(emp,"Pago F-29");
+      const otrosENop = findLineWF(emp,"Otros Egresos No Operacionales");
+      const leyesSociales = leyesL    ? sumRangeWF(leyesL.line.proy,idx)    * leyesL.signo    : 0;
+      const pagoF29       = f29L      ? sumRangeWF(f29L.line.proy,idx)      * f29L.signo      : 0;
+      const otrosEgresosN = otrosENop ? sumRangeWF(otrosENop.line.proy,idx) * otrosENop.signo : 0;
+      const egresosOp = egresosBase + leyesSociales + pagoF29 + otrosEgresosN;
+
+      // Impuestos
       const impuestos = sumCatWF(emp, "imp", idx);
       const fcOp = ingresos + egresosOp + impuestos;
 
-      // Líneas específicas
+      // Bloque de capital
       const callCap   = findLineWF(emp,"Capital Calls");
       const finInL    = findLineWF(emp,"Ingresos Financiamiento");
       const ingRenL   = findLineWF(emp,"Ingreso Renovación");
@@ -2974,9 +3012,6 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
       const pagoPres  = findLineWF(emp,"Pago Préstamos - Total");
       const renovL    = findLineWF(emp,"Renovaciones");
       const aportesL  = findLineWF(emp,"Aportes de Capital");
-      const leyesL    = findLineWF(emp,"Leyes Sociales Laborales");
-      const f29L      = findLineWF(emp,"Pago F-29");
-      const otrosENop = findLineWF(emp,"Otros Egresos No Operacionales");
 
       const callCapital    = callCap   ? sumRangeWF(callCap.line.proy,idx)   * callCap.signo   : 0;
       const financiamiento = finInL    ? sumRangeWF(finInL.line.proy,idx)    * finInL.signo    : 0;
@@ -2985,21 +3020,18 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
       const pagoCreditos   = pagoPres  ? sumRangeWF(pagoPres.line.proy,idx)  * pagoPres.signo  : 0;
       const inversiones    = renovL    ? sumRangeWF(renovL.line.proy,idx)    * renovL.signo    : 0;
       const aportesCapital = aportesL  ? sumRangeWF(aportesL.line.proy,idx)  * aportesL.signo  : 0;
-      const leyesSociales  = leyesL    ? sumRangeWF(leyesL.line.proy,idx)    * leyesL.signo    : 0;
-      const pagoF29        = f29L      ? sumRangeWF(f29L.line.proy,idx)      * f29L.signo      : 0;
-      const otrosEgresosN  = otrosENop ? sumRangeWF(otrosENop.line.proy,idx) * otrosENop.signo : 0;
 
       const fcCapital = callCapital + financiamiento + pagoCreditos + dividendosRec +
-                        otrosIngresosN + inversiones + aportesCapital +
-                        leyesSociales + pagoF29 + otrosEgresosN;
+                        otrosIngresosN + inversiones + aportesCapital;
       const total = fcOp + fcCapital;
+      const saldoFinal = saldoCaja + total;
       const participacion = PARTICIPACION_CONTROLADORA[n] ?? 1;
 
       res[n] = {
         saldoCaja, ingresos, egresosOp, impuestos, fcOp,
         callCapital, financiamiento, pagoCreditos, dividendosRec, otrosIngresosN,
-        inversiones, aportesCapital, leyesSociales, pagoF29, otrosEgresosN,
-        fcCapital, total,
+        inversiones, aportesCapital,
+        fcCapital, total, saldoFinal,
         participacionCtrl: total * participacion,
       };
     });
@@ -3010,8 +3042,8 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
   const totales = useMemo(()=>{
     const keys = ["saldoCaja","ingresos","egresosOp","impuestos","fcOp","callCapital",
                   "financiamiento","pagoCreditos","dividendosRec","otrosIngresosN",
-                  "inversiones","aportesCapital","leyesSociales","pagoF29","otrosEgresosN",
-                  "fcCapital","total","participacionCtrl"];
+                  "inversiones","aportesCapital",
+                  "fcCapital","total","saldoFinal","participacionCtrl"];
     const t = {};
     keys.forEach(k=>{
       t[k] = empNames.reduce((s,n)=>s+(datos[n]?.[k]||0), 0);
@@ -3021,7 +3053,7 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
 
   // Definir filas del waterfall
   const FILAS = [
-    {key:"saldoCaja",      label:"Total Saldo Caja",        tipo:"saldo"},
+    {key:"saldoCaja",      label:"Total Saldo Caja (USD)",  tipo:"saldo"},
     {key:"ingresos",       label:"Ingresos",                 tipo:"op"},
     {key:"egresosOp",      label:"Egresos Operacionales",    tipo:"op"},
     {key:"impuestos",      label:"Impuestos",                tipo:"op"},
@@ -3032,12 +3064,10 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
     {key:"dividendosRec",  label:"Dividendos Recibidos / Ingreso Renovación", tipo:"cap"},
     {key:"inversiones",    label:"Inversiones / Renovaciones", tipo:"cap"},
     {key:"aportesCapital", label:"Aportes de Capital",        tipo:"cap"},
-    {key:"leyesSociales",  label:"Leyes Sociales Laborales",  tipo:"cap"},
-    {key:"pagoF29",        label:"Pago F-29",                 tipo:"cap"},
     {key:"otrosIngresosN", label:"Otros Ingresos No Operacionales", tipo:"cap"},
-    {key:"otrosEgresosN",  label:"Otros Egresos No Operacionales",  tipo:"cap"},
     {key:"fcCapital",      label:"Flujo Caja Capital",        tipo:"subtotal"},
-    {key:"total",          label:"Total",                     tipo:"total"},
+    {key:"total",          label:"Total Flujo del Período",   tipo:"total"},
+    {key:"saldoFinal",     label:"Saldo Final Caja (USD)",    tipo:"saldoFinal"},
   ];
 
   // Formato miles con signo
@@ -3050,7 +3080,7 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
 
   // Color según tipo de fila y valor
   function colorFila(tipo, v) {
-    if(tipo === "saldo") return C.blue;
+    if(tipo === "saldo" || tipo === "saldoFinal") return C.blue;
     if(tipo === "subtotal") return v >= 0 ? C.green : C.red;
     if(tipo === "total") return v >= 0 ? C.green : C.red;
     if(v === 0 || v == null) return C.muted2;
@@ -3298,19 +3328,20 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
           <tbody>
             {FILAS.map((f, i)=>{
               const isSaldo = f.tipo === "saldo";
+              const isSaldoFinal = f.tipo === "saldoFinal";
               const isSubtotal = f.tipo === "subtotal";
               const isTotal = f.tipo === "total";
-              const bg = isSaldo ? `${C.blue}11`
+              const bg = (isSaldo||isSaldoFinal) ? `${C.blue}11`
                        : isTotal ? `${C.accent}22`
                        : isSubtotal ? `${C.green}11`
                        : i%2===0 ? "transparent" : `${C.border}08`;
-              const fontWeight = (isSaldo||isSubtotal||isTotal) ? 800 : 500;
+              const fontWeight = (isSaldo||isSaldoFinal||isSubtotal||isTotal) ? 800 : 500;
 
               return (
                 <tr key={f.key} style={{background:bg,borderBottom:`1px solid ${C.border}33`}}>
                   <td style={{padding:"8px 14px",position:"sticky",left:0,background:bg,
-                    fontWeight, color:isSaldo?C.blue:isTotal?C.accent:isSubtotal?C.green:C.text,
-                    fontSize:isTotal?12:11,zIndex:1}}>
+                    fontWeight, color:(isSaldo||isSaldoFinal)?C.blue:isTotal?C.accent:isSubtotal?C.green:C.text,
+                    fontSize:(isTotal||isSaldoFinal)?12:11,zIndex:1}}>
                     {f.label}
                   </td>
                   {empNames.map(n=>{
@@ -3324,7 +3355,7 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
                   })}
                   <td style={{padding:"8px 14px",textAlign:"right",
                     color:colorFila(f.tipo,totales[f.key]),fontWeight:900,
-                    background:`${C.accent}11`,fontSize:isTotal?12:11}}>
+                    background:`${C.accent}11`,fontSize:(isTotal||isSaldoFinal)?12:11}}>
                     {fmt(totales[f.key])}
                   </td>
                   {mostrarControladora&&(
