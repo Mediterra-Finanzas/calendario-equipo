@@ -37,6 +37,133 @@ async function dbSave(value) {
   } catch(e) { console.error("Error guardando:", e); }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// SISTEMA DE AUDITORÍA — Registra acciones de usuarios
+// Retención: 24 meses · Acceso: solo admin
+// ═══════════════════════════════════════════════════════════════════
+const AUDIT_RETENCION_MESES = 24;
+
+async function auditLoad() {
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=eq.audit_log&select=value`, {
+      headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` }
+    });
+    const data = await res.json();
+    const eventos = data?.[0]?.value?.eventos || [];
+    // Filtrar eventos más antiguos que AUDIT_RETENCION_MESES
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - AUDIT_RETENCION_MESES);
+    return eventos.filter(e => new Date(e.timestamp) >= cutoff);
+  } catch { return []; }
+}
+
+async function auditSave(eventos) {
+  try {
+    // Aplicar retención también al guardar
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - AUDIT_RETENCION_MESES);
+    const limpios = eventos.filter(e => new Date(e.timestamp) >= cutoff);
+    await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
+      method: "POST",
+      headers: {
+        apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`,
+        "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
+      },
+      body: JSON.stringify({ id: "audit_log", value: { eventos: limpios }, updated_at: new Date().toISOString() })
+    });
+  } catch(e) { console.error("Error guardando auditoría:", e); }
+}
+
+// Buffer global: evita race conditions acumulando eventos y grabando cada 5s
+window._auditBuffer = window._auditBuffer || [];
+window._auditAllEvents = window._auditAllEvents || null; // cargados desde Supabase
+window._auditFlushTimer = null;
+
+async function auditFlush() {
+  if(window._auditBuffer.length === 0) return;
+  const nuevos = [...window._auditBuffer];
+  window._auditBuffer = [];
+  if(!window._auditAllEvents) window._auditAllEvents = await auditLoad();
+  window._auditAllEvents = [...window._auditAllEvents, ...nuevos];
+  await auditSave(window._auditAllEvents);
+}
+
+// API principal: auditLog(accion, detalles)
+// accion: "login", "logout", "crear", "editar", "eliminar", "consultar", "exportar",
+//         "aprobar", "rechazar", "cambio_pin", "reset_pin", "cambio_permiso"
+// detalles: { modulo, seccion, descripcion, registroId, campo, valorAnterior, valorNuevo }
+window.auditLog = function(accion, detalles = {}) {
+  try {
+    const usuario = window._auditUsuarioActual;
+    if(!usuario && accion !== "login") return; // sin usuario autenticado, no registrar (excepto logins)
+    const evento = {
+      id: `ev_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+      timestamp: new Date().toISOString(),
+      usuario: usuario?.nombre || detalles.usuario || "—",
+      email: usuario?.email || detalles.email || "",
+      rol: usuario?.rol || "—",
+      accion,
+      modulo: detalles.modulo || "",
+      seccion: detalles.seccion || "",
+      descripcion: detalles.descripcion || "",
+      registroId: detalles.registroId || "",
+      campo: detalles.campo || "",
+      valorAnterior: detalles.valorAnterior !== undefined ? String(detalles.valorAnterior).slice(0,300) : "",
+      valorNuevo: detalles.valorNuevo !== undefined ? String(detalles.valorNuevo).slice(0,300) : "",
+    };
+    window._auditBuffer.push(evento);
+    // Debounce: flush después de 5s de inactividad
+    clearTimeout(window._auditFlushTimer);
+    window._auditFlushTimer = setTimeout(auditFlush, 5000);
+  } catch(e) { console.error("Error registrando auditoría:", e); }
+};
+
+// Helper: registra una edición detectando cambios campo por campo
+window.auditLogDiff = function(modulo, seccion, registroId, descripcion, antes, despues) {
+  try {
+    if(!antes || !despues) return;
+    const keys = new Set([...Object.keys(antes), ...Object.keys(despues)]);
+    keys.forEach(k => {
+      if(k.startsWith("_")) return; // campos internos
+      const vA = antes[k];
+      const vD = despues[k];
+      // Solo registrar si cambió
+      if(JSON.stringify(vA) !== JSON.stringify(vD)) {
+        window.auditLog("editar", {
+          modulo, seccion, registroId, descripcion,
+          campo: k,
+          valorAnterior: typeof vA === "object" ? JSON.stringify(vA) : vA,
+          valorNuevo:    typeof vD === "object" ? JSON.stringify(vD) : vD,
+        });
+      }
+    });
+  } catch(e) { console.error("Error en auditLogDiff:", e); }
+};
+
+// Al cerrar ventana, flush pendiente
+if(typeof window !== "undefined" && !window._auditBeforeUnload) {
+  window._auditBeforeUnload = true;
+  window.addEventListener("beforeunload", () => {
+    if(window._auditBuffer.length > 0) {
+      // Guardado síncrono best-effort usando sendBeacon
+      try {
+        const cutoff = new Date();
+        cutoff.setMonth(cutoff.getMonth() - AUDIT_RETENCION_MESES);
+        const allEvents = [...(window._auditAllEvents||[]), ...window._auditBuffer]
+          .filter(e => new Date(e.timestamp) >= cutoff);
+        const blob = new Blob([JSON.stringify({
+          id: "audit_log",
+          value: { eventos: allEvents },
+          updated_at: new Date().toISOString()
+        })], {type:"application/json"});
+        // Nota: sendBeacon no permite headers custom en Supabase, así que solo flush async
+        auditFlush();
+      } catch {}
+    }
+  });
+}
+
+
 async function enviarEmail(toEmail, nombre, asunto, cuerpo) {
   await fetch("https://api.emailjs.com/api/v1.0/email/send", {
     method:"POST", headers:{"Content-Type":"application/json"},
@@ -226,6 +353,7 @@ const TABS_PERMISOS_CONFIG = {
     {id:"creditos",  label:"💳 Créditos"},
     {id:"nominas",   label:"📋 Nóminas"},
     {id:"params",    label:"⚡ Parámetros"},
+    {id:"auditoria", label:"🔍 Auditoría"},
   ],
 };
 
@@ -271,19 +399,38 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
       const mods = Array.isArray(u.modulos) ? [...u.modulos] : ["tareas"];
       if (mods.includes(modId)) {
         if (mods.length === 1) return u;
+        window.auditLog("cambio_permiso", {modulo:"sistema", seccion:"permisos",
+          descripcion:`Removió acceso al módulo "${modId}" a ${nombreU}`,
+          registroId:nombreU, campo:"modulos", valorAnterior:mods.join(","), valorNuevo:mods.filter(m=>m!==modId).join(",")});
         return { ...u, modulos: mods.filter(m => m !== modId) };
       } else {
+        window.auditLog("cambio_permiso", {modulo:"sistema", seccion:"permisos",
+          descripcion:`Otorgó acceso al módulo "${modId}" a ${nombreU}`,
+          registroId:nombreU, campo:"modulos", valorAnterior:mods.join(","), valorNuevo:[...mods, modId].join(",")});
         return { ...u, modulos: [...mods, modId] };
       }
     }));
   }
 
   function setRol(nombreU, rol) {
-    setUsuarios(prev => prev.map(u => u.nombre === nombreU ? { ...u, rol, modulos: rol === "admin" ? MODULOS_DISPONIBLES.map(m=>m.id) : (Array.isArray(u.modulos) ? u.modulos : ["tareas"]) } : u));
+    setUsuarios(prev => prev.map(u => {
+      if(u.nombre !== nombreU) return u;
+      window.auditLog("cambio_permiso", {modulo:"sistema", seccion:"permisos",
+        descripcion:`Cambió rol de ${nombreU} de "${u.rol}" a "${rol}"`,
+        registroId:nombreU, campo:"rol", valorAnterior:u.rol, valorNuevo:rol});
+      return { ...u, rol, modulos: rol === "admin" ? MODULOS_DISPONIBLES.map(m=>m.id) : (Array.isArray(u.modulos) ? u.modulos : ["tareas"]) };
+    }));
   }
 
   function toggleActivar(nombreU) {
-    setUsuarios(prev => prev.map(u => u.nombre === nombreU ? { ...u, desactivado: !u.desactivado } : u));
+    setUsuarios(prev => prev.map(u => {
+      if(u.nombre !== nombreU) return u;
+      const nuevo = !u.desactivado;
+      window.auditLog(nuevo?"desactivar_usuario":"activar_usuario", {modulo:"sistema", seccion:"permisos",
+        descripcion:`${nuevo?"Desactivó":"Reactivó"} al usuario ${nombreU}`,
+        registroId:nombreU, campo:"desactivado", valorAnterior:u.desactivado||false, valorNuevo:nuevo});
+      return { ...u, desactivado: nuevo };
+    }));
   }
 
   function setTabPerm(nombreU, modulo, tabId, nivel) {
@@ -291,7 +438,11 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
       if(u.nombre !== nombreU) return u;
       const tp = JSON.parse(JSON.stringify(u.tab_permisos || {}));
       if(!tp[modulo]) tp[modulo] = {};
+      const nivelAnt = tp[modulo][tabId] || "editar";
       tp[modulo][tabId] = nivel;
+      window.auditLog("cambio_permiso", {modulo:"sistema", seccion:"permisos",
+        descripcion:`Cambió permiso de ${nombreU} en ${modulo}/${tabId} de "${nivelAnt}" a "${nivel}"`,
+        registroId:nombreU, campo:`${modulo}.${tabId}`, valorAnterior:nivelAnt, valorNuevo:nivel});
       return { ...u, tab_permisos: tp };
     }));
   }
@@ -1165,6 +1316,7 @@ export default function App(){
       const worker = usuarios.find(u=>u.nombre===savedNombre);
       if(worker && !worker.desactivado) {
         setUsuarioActual(worker);
+        window._auditUsuarioActual = worker;
         // Restaurar el módulo donde estaba
         const savedModulo = sessionStorage.getItem('mediterra_modulo');
         if(savedModulo) setModuloActivo(savedModulo);
@@ -1174,6 +1326,11 @@ export default function App(){
       }
     }
   },[cargando, usuarios]); // eslint-disable-line
+
+  // Mantener _auditUsuarioActual sincronizado
+  useEffect(()=>{
+    window._auditUsuarioActual = usuarioActual;
+  },[usuarioActual]);
 
   // Limpiar sesión al hacer logout manual
   // (el logout llama setUsuarioActual(null) — interceptamos eso)
@@ -1252,10 +1409,32 @@ export default function App(){
 
   function getPinActivo(w){return pinsPersonalizados[w.nombre]||w.pin;}
 
+  // Helper central de logout con auditoría
+  function doLogout() {
+    const u = usuarioActual;
+    if(u) window.auditLog("logout", {modulo:"sistema", seccion:"autenticación",
+      descripcion:`${u.nombre} cerró sesión`});
+    // Flush inmediato del buffer antes de limpiar
+    if(window._auditBuffer && window._auditBuffer.length > 0) {
+      try { auditFlush(); } catch {}
+    }
+    setUsuarioActual(null);
+    setModuloActivo(null);
+    sessionStorage.removeItem('mediterra_usuario');
+    sessionStorage.removeItem('mediterra_modulo');
+    window._auditUsuarioActual = null;
+  }
+
   function handleLogin(){
     const emailInput = loginEmail.trim().toLowerCase();
     const w=WORKERS.find(x=>x.email&&x.email.toLowerCase()===emailInput);
-    if(!w){setLoginError("Email no reconocido. Verifica tu dirección.");return;}
+    if(!w){
+      setLoginError("Email no reconocido. Verifica tu dirección.");
+      window.auditLog("login_fallido", {modulo:"sistema", seccion:"autenticación",
+        descripcion:`Intento de login con email no reconocido: ${emailInput}`,
+        usuario:"(desconocido)", email:emailInput});
+      return;
+    }
     const pinOk=getPinActivo(w);
     const pinTemp=pinsPersonalizados[w.nombre+"_temp"];
     const esTemp=pinTemp&&loginPin.trim()===pinTemp;
@@ -1266,13 +1445,22 @@ export default function App(){
         // PIN temporal: guardar worker pendiente y mostrar cambio PIN ANTES de entrar
         setWorkerPendiente(w);
         setModalPin("cambiar");
+        window._auditUsuarioActual = w;
+        window.auditLog("login_pin_temporal", {modulo:"sistema", seccion:"autenticación",
+          descripcion:`${w.nombre} ingresó con PIN temporal — debe cambiarlo`});
       } else {
         // PIN normal: entrar directo
         setUsuarioActual(w);
-      sessionStorage.setItem('mediterra_usuario', w.nombre);
+        sessionStorage.setItem('mediterra_usuario', w.nombre);
+        window._auditUsuarioActual = w;
+        window.auditLog("login", {modulo:"sistema", seccion:"autenticación",
+          descripcion:`${w.nombre} (${w.rol}) inició sesión`});
       }
     }else{
       setLoginError("PIN incorrecto.");
+      window.auditLog("login_fallido", {modulo:"sistema", seccion:"autenticación",
+        descripcion:`PIN incorrecto para ${w.nombre}`,
+        usuario:w.nombre, email:w.email});
     }
   }
 
@@ -1286,6 +1474,9 @@ export default function App(){
     try{
       await enviarEmail(w.email,w.nombre,"PIN temporal - Mediterra",`Tu PIN temporal es: ${temporal}\nIngresa con este PIN y cambialo inmediatamente.\n\nhttps://gestion-grupo-mediterra.vercel.app`);
       setResetMsg("PIN enviado a "+w.email);
+      window.auditLog("reset_pin", {modulo:"sistema", seccion:"autenticación",
+        descripcion:`Se envió PIN temporal a ${w.nombre} (${w.email})`,
+        usuario:w.nombre, email:w.email});
     }catch{setResetMsg("Error al enviar.");}
     setResetEnviando(false);
   }
@@ -1314,8 +1505,11 @@ export default function App(){
       if(workerPendiente){
         setUsuarioActual(workerPendiente);
         sessionStorage.setItem('mediterra_usuario', workerPendiente.nombre);
+        window._auditUsuarioActual = workerPendiente;
         setWorkerPendiente(null);
       }
+      window.auditLog("cambio_pin", {modulo:"sistema", seccion:"autenticación",
+        descripcion:`${worker.nombre} cambió su PIN`});
       alert("PIN cambiado exitosamente!");
     } catch {
       setPinError("Error al guardar. Intenta de nuevo.");
@@ -1349,6 +1543,10 @@ export default function App(){
       const actual=prev[key]?.estadoResp||"gris";
       const sig=ORDEN_SEM[(ORDEN_SEM.indexOf(actual)+1)%ORDEN_SEM.length];
       const nuevo={...prev,[key]:{...prev[key],estadoResp:sig,aprobado:false,estadoSup:sig!=="verde"?"gris":(prev[key]?.estadoSup||"gris")}};
+      // Auditar cambio de estado
+      window.auditLog("editar", {modulo:"tareas", seccion:"ejecución",
+        descripcion:`Cambió estado responsable de "${tarea.nombre}"${numSemana?` (S${numSemana})`:""} de "${SEMAFORO[actual]?.label||actual}" a "${SEMAFORO[sig]?.label||sig}"`,
+        registroId:key, campo:"estadoResp", valorAnterior:actual, valorNuevo:sig});
       if(sig==="verde"){
         // Notificar al supervisor por email
         const supNombre = tareasOverrides[tarea.id]?.supervisor || getSupervisor(tarea.id);
@@ -1377,6 +1575,10 @@ export default function App(){
       if(prev[key]?.estadoResp!=="verde")return prev;
       const actual=prev[key]?.estadoSup||"gris";
       const sig=ORDEN_SEM[(ORDEN_SEM.indexOf(actual)+1)%ORDEN_SEM.length];
+      // Auditar aprobación/cambio supervisor
+      window.auditLog(sig==="verde"?"aprobar":"editar", {modulo:"tareas", seccion:"aprobación",
+        descripcion:`Supervisor cambió aprobación de "${tarea.nombre}" de "${SEMAFORO[actual]?.label||actual}" a "${SEMAFORO[sig]?.label||sig}"`,
+        registroId:key, campo:"estadoSup", valorAnterior:actual, valorNuevo:sig});
       return{...prev,[key]:{...(prev[key]||{estadoResp:"gris",estadoSup:"gris",aprobado:false}),estadoSup:sig,aprobado:sig==="verde"}};
     });
   }
@@ -1673,7 +1875,7 @@ Equipo Mediterra`);
         esSoloConsulta={esSoloConsulta}
         tabPermisos={tabPermisosFinanzas}
         onBack={()=>setModuloActivo(null)}
-        onLogout={()=>{setUsuarioActual(null);setModuloActivo(null);sessionStorage.removeItem('mediterra_usuario');sessionStorage.removeItem('mediterra_modulo');}}
+        onLogout={doLogout}
       />
     </div>
   );
@@ -1686,7 +1888,7 @@ Equipo Mediterra`);
         esSoloConsulta={esSoloConsulta}
         tabPermisos={getTabPermisosModulo(usuarioFresco,"osiris")}
         onBack={()=>setModuloActivo(null)}
-        onLogout={()=>{setUsuarioActual(null);setModuloActivo(null);sessionStorage.removeItem('mediterra_usuario');sessionStorage.removeItem('mediterra_modulo');}}
+        onLogout={doLogout}
         osirisData={osirisData}
         setOsirisData={setOsirisData}
       />
@@ -1841,7 +2043,7 @@ Equipo Mediterra`);
             <button onClick={()=>setTab(tab==="semanal"?"mensual":"semanal")} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>
               {tab==="semanal"?"📆 Ver Mensual":"📅 Ver Semanal"}
             </button>
-            <button onClick={()=>{setUsuarioActual(null);setModuloActivo(null);sessionStorage.removeItem('mediterra_usuario');sessionStorage.removeItem('mediterra_modulo');}} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#fca5a5",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>Salir</button>
+            <button onClick={doLogout} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#fca5a5",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>Salir</button>
           </div>
         </div>
 
@@ -2111,7 +2313,7 @@ Equipo Mediterra`);
       usuario={usuarioFresco || usuarioActual}
       modulosPermitidos={modulosPermitidos}
       onSelectModulo={id=>{setModuloActivo(id);sessionStorage.setItem('mediterra_modulo',id);}}
-      onLogout={()=>{setUsuarioActual(null);sessionStorage.removeItem('mediterra_usuario');sessionStorage.removeItem('mediterra_modulo');}}
+      onLogout={doLogout}
       onCambiarPin={()=>setModalPin("cambiar")}
       esSoloConsulta={esSoloConsulta}
       usuarios={usuarios}
