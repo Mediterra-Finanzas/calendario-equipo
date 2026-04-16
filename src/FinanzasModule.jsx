@@ -3600,7 +3600,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
             isFirstInSeason:mi===0,isMonthHeader:true});
         } else {
           sems.forEach((sw,si)=>{
-            cols.push({type:"week",mes:m,semana:sw,idx:mIdx(m),nSems,
+            cols.push({type:"week",mes:m,semana:sw,idx:mIdx(m),nSems,semIdx:si,
               label:sw,isFirstInSeason:mi===0&&si===0,isFirstInMonth:si===0,
               isLastInMonth:si===sems.length-1});
           });
