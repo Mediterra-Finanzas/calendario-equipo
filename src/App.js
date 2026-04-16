@@ -224,6 +224,7 @@ const TABS_PERMISOS_CONFIG = {
     {id:"flujo",     label:"📈 Flujo Empresas"},
     {id:"bancos",    label:"🏦 Saldos Bancos"},
     {id:"creditos",  label:"💳 Créditos"},
+    {id:"nominas",   label:"📋 Nóminas"},
     {id:"params",    label:"⚡ Parámetros"},
   ],
 };
