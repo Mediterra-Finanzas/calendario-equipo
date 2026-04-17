@@ -4218,95 +4218,61 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
         {label:"Osiris Plant Management"},
       ]}/>
 
-      {/* Tarjetas de módulos */}
-      <div style={{textAlign:"center",marginBottom:28}}>
-        <div style={{fontSize:11,color:"rgba(255,255,255,0.35)",letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>
-          Módulos disponibles
+      {/* Logo + título centrado */}
+      <div style={{textAlign:"center",marginBottom:30}}>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
+          <OsirisLogo height={60}/>
         </div>
-        <h2 style={{margin:0,fontSize:20,fontWeight:900,color:"#fff"}}>¿Qué deseas gestionar?</h2>
+        <div style={{color:"#8b949e",fontSize:13}}>Gestión de Royalties · Contratos · Pedidos</div>
       </div>
 
-      <div style={{display:"flex",gap:20,justifyContent:"center",flexWrap:"wrap",padding:"0 8px"}}>
+      {/* Tarjetas de módulos — estilo Allegria */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16,maxWidth:700,margin:"0 auto 30px"}}>
         {/* Ingresos */}
-        <button onClick={()=>setSubApp("ingresos")}
-          style={{
-            background:"linear-gradient(135deg,#0f2d4a,#0f766e)",
-            border:"1px solid rgba(255,255,255,0.15)",
-            borderRadius:20,padding:"32px 36px",
-            cursor:"pointer",width:280,textAlign:"left",
-            boxShadow:"0 8px 32px rgba(0,0,0,0.3)",
-            transition:"transform 0.15s,box-shadow 0.15s",
-            position:"relative",
-          }}
-          onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow="0 16px 48px rgba(0,0,0,0.4)";}}
-          onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 8px 32px rgba(0,0,0,0.3)";}}>
-          <div style={{fontSize:40,marginBottom:12}}>💰</div>
-          <div style={{fontSize:18,fontWeight:800,color:"#fff",marginBottom:6}}>Ingresos Osiris</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>
-            Royalties, Fee Viveros, Total Pedidos y Resumen de cobros
+        <div onClick={()=>setSubApp("ingresos")}
+          style={{background:"linear-gradient(135deg,#1c2333,#0f766e22)",borderRadius:16,padding:"24px 20px",
+            border:"1px solid #0f766e44",cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
+          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+          onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+          <div style={{fontSize:32,marginBottom:10}}>💰</div>
+          <div style={{fontWeight:800,fontSize:16,color:"#e6edf3",marginBottom:4}}>Ingresos Osiris</div>
+          <div style={{fontSize:11,color:"#8b949e",marginBottom:12}}>Royalties, Fee Viveros, Total Pedidos y Resumen de cobros</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {sinConfirmar>0&&<span style={{fontSize:10,background:"rgba(251,191,36,0.2)",color:"#fbbf24",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{sinConfirmar} por confirmar</span>}
+            {alertasRC>0&&<span style={{fontSize:10,background:"rgba(239,68,68,0.2)",color:"#f87171",padding:"3px 10px",borderRadius:20,fontWeight:700}}>⚠️ {alertasRC} alerta{alertasRC>1?"s":""}</span>}
           </div>
-          {/* badges */}
-          <div style={{display:"flex",gap:6,marginTop:14,flexWrap:"wrap"}}>
-            {sinConfirmar>0&&(
-              <span style={{background:"rgba(251,191,36,0.25)",color:"#fbbf24",borderRadius:20,
-                padding:"2px 10px",fontSize:10,fontWeight:700,border:"1px solid rgba(251,191,36,0.4)"}}>
-                {sinConfirmar} por confirmar
-              </span>
-            )}
-            {alertasRC>0&&(
-              <span style={{background:"rgba(239,68,68,0.25)",color:"#f87171",borderRadius:20,
-                padding:"2px 10px",fontSize:10,fontWeight:700,border:"1px solid rgba(239,68,68,0.4)"}}>
-                ⚠️ {alertasRC} alerta{alertasRC>1?"s":""}
-              </span>
-            )}
-          </div>
-          <div style={{position:"absolute",bottom:18,right:18,fontSize:20,color:"rgba(255,255,255,0.3)"}}>→</div>
-        </button>
+          <div style={{position:"absolute",right:16,bottom:16,fontSize:20,color:"#0f766e44"}}>→</div>
+        </div>
 
         {/* Contratos */}
-        <button onClick={()=>setSubApp("contratos")}
-          style={{
-            background:"linear-gradient(135deg,#1e1b4b,#4338ca)",
-            border:"1px solid rgba(255,255,255,0.15)",
-            borderRadius:20,padding:"32px 36px",
-            cursor:"pointer",width:280,textAlign:"left",
-            boxShadow:"0 8px 32px rgba(0,0,0,0.3)",
-            transition:"transform 0.15s,box-shadow 0.15s",
-            position:"relative",
-          }}
-          onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow="0 16px 48px rgba(0,0,0,0.4)";}}
-          onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="0 8px 32px rgba(0,0,0,0.3)";}}>
-          <div style={{fontSize:40,marginBottom:12}}>📋</div>
-          <div style={{fontSize:18,fontWeight:800,color:"#fff",marginBottom:6}}>Control Contratos</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>
-            Gestión de contratos, firmas, anexos y condiciones comerciales
+        <div onClick={()=>setSubApp("contratos")}
+          style={{background:"linear-gradient(135deg,#1c2333,#4338ca22)",borderRadius:16,padding:"24px 20px",
+            border:"1px solid #4338ca44",cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
+          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+          onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+          <div style={{fontSize:32,marginBottom:10}}>📋</div>
+          <div style={{fontWeight:800,fontSize:16,color:"#e6edf3",marginBottom:4}}>Control Contratos</div>
+          <div style={{fontSize:11,color:"#8b949e",marginBottom:12}}>Gestión de contratos, firmas, anexos y condiciones comerciales</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            <span style={{fontSize:10,background:"rgba(99,102,241,0.2)",color:"#a5b4fc",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{ctData.length} contratos</span>
+            <span style={{fontSize:10,background:"rgba(22,163,74,0.2)",color:"#4ade80",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{ctData.filter(c=>c.firmadoLicenciado&&c.firmadoOsiris).length} firmados</span>
           </div>
-          <div style={{display:"flex",gap:6,marginTop:14}}>
-            <span style={{background:"rgba(99,102,241,0.3)",color:"#a5b4fc",borderRadius:20,
-              padding:"2px 10px",fontSize:10,fontWeight:700,border:"1px solid rgba(99,102,241,0.4)"}}>
-              {ctData.length} contratos
-            </span>
-            <span style={{background:`rgba(22,163,74,0.25)`,color:"#4ade80",borderRadius:20,
-              padding:"2px 10px",fontSize:10,fontWeight:700,border:`1px solid rgba(22,163,74,0.4)`}}>
-              {ctData.filter(c=>c.firmadoLicenciado&&c.firmadoOsiris).length} firmados
-            </span>
-          </div>
-          <div style={{position:"absolute",bottom:18,right:18,fontSize:20,color:"rgba(255,255,255,0.3)"}}>→</div>
-        </button>
+          <div style={{position:"absolute",right:16,bottom:16,fontSize:20,color:"#4338ca44"}}>→</div>
+        </div>
       </div>
 
-      {/* KPI resumen en el hub */}
-      <div style={{marginTop:32,display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap",padding:"0 8px"}}>
+      {/* KPIs globales */}
+      <div style={{display:"flex",gap:12,flexWrap:"wrap",maxWidth:700,margin:"0 auto"}}>
         {[
           ["💵 Por cobrar",     $$(totPend),          "#fbbf24"],
           ["📦 Pedidos",        tpData.length,         "#60a5fa"],
           ["🌿 Royalty filas",  rpData.length,         "#34d399"],
           ["🌱 Fee Vivero",     fvData.filter(r=>!r.pagado).length+" pend.", "#f87171"],
         ].map(([l,v,c])=>(
-          <div key={l} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",
-            borderRadius:12,padding:"12px 20px",textAlign:"center",minWidth:120}}>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{l}</div>
-            <div style={{fontSize:16,fontWeight:800,color:c}}>{v}</div>
+          <div key={l} style={{background:"#21283b",border:"1px solid #30363d",borderLeft:`4px solid ${c}`,
+            borderRadius:10,padding:"12px 16px",flex:1,minWidth:140}}>
+            <div style={{fontSize:10,color:"#8b949e",fontWeight:600,marginBottom:4}}>{l}</div>
+            <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
           </div>
         ))}
       </div>
