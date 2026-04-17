@@ -821,7 +821,7 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
             onMouseLeave={e => { e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="0 4px 24px rgba(0,0,0,0.15)"; }}
           >
             {modulo.id === "osiris"
-              ? <div style={{marginBottom:6}}><OsirisLogoSmall/></div>
+              ? <div style={{marginBottom:12}}><OsirisLogoSmall/></div>
               : modulo.id === "finanzas"
               ? <div style={{marginBottom:12}}>
                   <img src="/med.png" alt="Mediterra"
@@ -832,14 +832,12 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
               ? <div style={{marginBottom:12}}>
                   <img src={ALLEGRIA_LOGO_B64} alt="Allegria Foods"
                     style={{height:44,objectFit:"contain",display:"block"}}
-                    onError={e=>{e.target.onerror=null;e.target.style.display="none";
-                      const fb=document.createElement("div");fb.textContent="🍒";fb.style.fontSize="40px";fb.style.marginBottom="14px";
-                      e.target.parentNode.replaceChild(fb,e.target);}}/>
+                    onError={e=>{e.target.onerror=null;e.target.style.display="none";}}/>
                 </div>
               : <div style={{fontSize:40, marginBottom:14}}>{modulo.icon}</div>
             }
-            {modulo.id !== "osiris" && <div style={{fontSize:17, fontWeight:800, color:"#fff", marginBottom:4}}>{modulo.label}</div>}
-            {modulo.id !== "osiris" && <div style={{fontSize:12, color:"rgba(255,255,255,0.65)"}}>{modulo.sublabel}</div>}
+            <div style={{fontSize:17, fontWeight:800, color:"#fff", marginBottom:4}}>{modulo.label}</div>
+            <div style={{fontSize:12, color:"rgba(255,255,255,0.65)"}}>{modulo.sublabel}</div>
             <div style={{position:"absolute", bottom:18, right:18, fontSize:18, color:"rgba(255,255,255,0.4)"}}>→</div>
           </button>
         ))}
@@ -2349,22 +2347,22 @@ Equipo Mediterra`);
           </div>
         )}
 
-        {/* Header módulo Tareas */}
-        <div style={{background:"#1e3a5f",padding:"14px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <button onClick={()=>setModuloActivo(null)} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>← Hub</button>
-            <img src="/med.png" alt="" style={{height:28,objectFit:"contain"}} onError={e=>{e.target.style.display="none";}}/>
-            <div>
-              <div style={{fontSize:13,fontWeight:900,color:"#fff"}}>Seguimiento de Tareas</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,0.5)"}}>{MESES[mes]} {anio}</div>
+        {/* Header módulo Tareas — estilo breadcrumb unificado */}
+        <div style={{background:"linear-gradient(135deg,#0f1e3a,#1e3a5f)",padding:"14px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,borderRadius:"14px 14px 0 0",margin:"0 0 0 0"}}>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13}}>
+              <button onClick={()=>setModuloActivo(null)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.55)",cursor:"pointer",fontSize:13,fontWeight:500,padding:0}}>Mediterra</button>
+              <span style={{color:"rgba(255,255,255,0.3)"}}>›</span>
+              <span style={{color:"#fff",fontWeight:700,fontSize:14}}>Seguimiento de Tareas</span>
             </div>
+            <div style={{borderLeft:"1px solid rgba(255,255,255,0.15)",paddingLeft:14}}>
+              <img src="/med.png" alt="" style={{height:24,objectFit:"contain"}} onError={e=>{e.target.style.display="none";}}/>
+            </div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.45)"}}>{MESES[mes]} {anio}</div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             {estadoGuardadoUI&&<span style={{fontSize:11,color:"rgba(255,255,255,0.7)"}}>{estadoGuardadoUI.icon} {estadoGuardadoUI.text}</span>}
             {totalVencidas>0&&<button onClick={()=>setModalVencidas(true)} style={{background:"#ef4444",color:"#fff",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer"}}>⚠ {totalVencidas} vencidas</button>}
-            <button onClick={()=>setTab(tab==="semanal"?"mensual":"semanal")} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>
-              {tab==="semanal"?"📆 Ver Mensual":"📅 Ver Semanal"}
-            </button>
             <button onClick={doLogout} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#fca5a5",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>Salir</button>
           </div>
         </div>
