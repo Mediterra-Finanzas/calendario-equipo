@@ -827,6 +827,14 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
                     style={{height:44,objectFit:"contain",display:"block"}}
                     onError={e=>{e.target.style.display="none";}}/>
                 </div>
+              : modulo.id === "allegria"
+              ? <div style={{marginBottom:12}}>
+                  <img src="/allegria-logo.png" alt="Allegria Foods"
+                    style={{height:44,objectFit:"contain",display:"block"}}
+                    onError={e=>{e.target.onerror=null;e.target.style.display="none";
+                      const fb=document.createElement("div");fb.textContent="🍒";fb.style.fontSize="40px";fb.style.marginBottom="14px";
+                      e.target.parentNode.replaceChild(fb,e.target);}}/>
+                </div>
               : <div style={{fontSize:40, marginBottom:14}}>{modulo.icon}</div>
             }
             {modulo.id !== "osiris" && <div style={{fontSize:17, fontWeight:800, color:"#fff", marginBottom:4}}>{modulo.label}</div>}
