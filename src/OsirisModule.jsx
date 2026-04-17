@@ -4223,7 +4223,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
         <div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
           <OsirisLogo height={60}/>
         </div>
-        <div style={{color:"#8b949e",fontSize:13}}>Gestión de Royalties · Contratos · Pedidos</div>
+        <div style={{color:"#8b949e",fontSize:13}}>Genética Diferenciada</div>
       </div>
 
       {/* Tarjetas de módulos — estilo Allegria */}
