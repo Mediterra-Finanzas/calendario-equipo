@@ -1,0 +1,799 @@
+/* eslint-disable */
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+
+// ═══════════════════════════════════════════════════════════════════
+// ALLEGRIA FOODS — Hub de Exportación de Fruta Fresca
+// Módulos: Clientes, Productores, Embarques, Liquidaciones, Anticipos, Cobranza
+// ═══════════════════════════════════════════════════════════════════
+
+const SUPA_URL = "https://bywovqayuzodbzwsriet.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5d292cWF5dXpvZGJ6d3NyaWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODU1MDgsImV4cCI6MjA5MTI2MTUwOH0.s2x2O_CxE6rl8dBqFuyfQdMyRqSyjJQWXJXesmVGXtk";
+
+// Colores
+const C = {
+  bg: "#0d1117", bg2: "#161b22", card: "#1c2333", card2: "#21283b",
+  border: "#30363d", border2: "#484f58", text: "#e6edf3", muted: "#8b949e", muted2: "#484f58",
+  accent: "#b91c1c", accentL: "#ef4444", red: "#ef4444", green: "#16a34a", yellow: "#f59e0b",
+  blue: "#3b82f6", teal: "#0f766e", sl: "#e6edf3", gris: "#8b949e",
+  verdeBg: "#dcfce7", verde: "#16a34a", amBg: "#fef3c7", am: "#d97706",
+  azulBg: "#dbeafe", azul: "#3b82f6", grisBg: "#f1f5f9",
+};
+
+const FRUTAS = ["Cerezas", "Ciruelas", "Arándanos"];
+const ORIGENES = ["Chile", "Perú"];
+const DESTINOS = ["China", "Hong Kong", "Taiwán", "Tailandia", "Corea del Sur", "EE.UU.", "Europa", "Medio Oriente", "India", "Otro"];
+const MONEDAS = ["USD", "EUR", "CLP"];
+const TEMPORADAS = ["2024/2025", "2025/2026", "2026/2027", "2027/2028"];
+const ESTADOS_EMBARQUE = ["Programado", "En tránsito", "En destino", "Entregado", "Liquidado"];
+const ESTADOS_PAGO = ["Pendiente", "Parcial", "Pagado"];
+
+// ── Supabase Load/Save ──
+async function dbLoadAllegria() {
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=eq.allegria&select=value`, {
+      headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` }
+    });
+    const data = await res.json();
+    return data?.[0]?.value ? (typeof data[0].value === "string" ? JSON.parse(data[0].value) : data[0].value) : null;
+  } catch { return null; }
+}
+
+async function dbSaveAllegria(value) {
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
+      method: "POST",
+      headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`,
+        "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ id: "allegria", value, updated_at: new Date().toISOString() })
+    });
+  } catch(e) { console.error("Error guardando Allegria:", e); }
+}
+
+// ── Componentes compartidos ──
+function NavBar({breadcrumbItems=[], onLogout}) {
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+      {breadcrumbItems.map((item,i)=>(
+        <React.Fragment key={i}>
+          {i>0&&<span style={{color:C.muted}}>›</span>}
+          {item.onClick
+            ? <button onClick={item.onClick} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,fontWeight:500,padding:0}}>{item.label}</button>
+            : <span style={{color:C.text,fontWeight:700,fontSize:14}}>{item.label}</span>}
+        </React.Fragment>
+      ))}
+      {onLogout&&<button onClick={onLogout} style={{marginLeft:"auto",background:"rgba(248,113,113,0.2)",border:"none",color:"#fca5a5",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>Salir</button>}
+    </div>
+  );
+}
+
+function Card({children, style={}}) {
+  return <div style={{background:C.card,borderRadius:14,padding:20,border:`1px solid ${C.border}`,marginBottom:16,boxShadow:"0 2px 10px #0001",...style}}>{children}</div>;
+}
+
+function KPI({label, value, color=C.green, sub=""}) {
+  return (
+    <div style={{background:C.card2,borderRadius:10,padding:"12px 16px",border:`1px solid ${C.border}`,borderLeft:`4px solid ${color}`,flex:1,minWidth:140}}>
+      <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:4}}>{label}</div>
+      <div style={{fontSize:20,fontWeight:900,color}}>{value}</div>
+      {sub&&<div style={{fontSize:10,color:C.muted,marginTop:2}}>{sub}</div>}
+    </div>
+  );
+}
+
+const $$=(v)=>{
+  if(v==null||isNaN(v))return "—";
+  const abs=Math.abs(Math.round(v));
+  return `${v<0?"-":""}US$${abs.toLocaleString("es-CL")}`;
+};
+
+// Logo Allegria Foods
+function AllegriaLogo({height=52}) {
+  return (
+    <img src="/allegria-logo.png" alt="Allegria Foods"
+      style={{height, objectFit:"contain", display:"block"}}/>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLIENTES IMPORTADORES
+// ═══════════════════════════════════════════════════════════════════
+function ClientesModule({data, setData, can}) {
+  const [busq, setBusq] = useState("");
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({nombre:"",pais:"",ciudad:"",contacto:"",email:"",telefono:"",frutas:[],notas:""});
+  const [editId, setEditId] = useState(null);
+
+  const filtrado = data.filter(c=>!busq||c.nombre?.toLowerCase().includes(busq.toLowerCase())||c.pais?.toLowerCase().includes(busq.toLowerCase()));
+
+  function guardar() {
+    if(!form.nombre.trim()){alert("Nombre es obligatorio.");return;}
+    if(editId) {
+      setData(prev=>prev.map(c=>c.id===editId?{...c,...form}:c));
+      window.auditLog&&window.auditLog("editar",{modulo:"allegria",seccion:"Clientes",descripcion:`Editó cliente "${form.nombre}"`,registroId:editId});
+    } else {
+      const id=`acli_${Date.now()}`;
+      setData(prev=>[...prev,{...form,id}]);
+      window.auditLog&&window.auditLog("crear",{modulo:"allegria",seccion:"Clientes",descripcion:`Creó cliente "${form.nombre}" · ${form.pais}`,registroId:id});
+    }
+    setForm({nombre:"",pais:"",ciudad:"",contacto:"",email:"",telefono:"",frutas:[],notas:""});
+    setModal(false);setEditId(null);
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="🔍 Buscar cliente..." style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",flex:1,minWidth:200}}/>
+        {can&&<button onClick={()=>{setModal(true);setEditId(null);setForm({nombre:"",pais:"",ciudad:"",contacto:"",email:"",telefono:"",frutas:[],notas:""});}} style={{background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Nuevo Cliente</button>}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:12}}>
+        {filtrado.map(c=>(
+          <Card key={c.id} style={{cursor:can?"pointer":"default"}} >
+            <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+              <div style={{width:44,height:44,borderRadius:"50%",background:`${C.accent}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🏢</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:800,fontSize:14,color:C.text}}>{c.nombre}</div>
+                <div style={{fontSize:11,color:C.muted}}>{c.pais}{c.ciudad?` · ${c.ciudad}`:""}</div>
+                {c.contacto&&<div style={{fontSize:11,color:C.muted,marginTop:4}}>👤 {c.contacto} {c.email?`· ${c.email}`:""}</div>}
+                {c.frutas?.length>0&&(
+                  <div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
+                    {c.frutas.map(f=><span key={f} style={{fontSize:9,background:`${C.accent}22`,color:C.accentL,padding:"2px 8px",borderRadius:12,fontWeight:600}}>{f}</span>)}
+                  </div>
+                )}
+              </div>
+              {can&&<button onClick={()=>{setEditId(c.id);setForm({nombre:c.nombre||"",pais:c.pais||"",ciudad:c.ciudad||"",contacto:c.contacto||"",email:c.email||"",telefono:c.telefono||"",frutas:c.frutas||[],notas:c.notas||""});setModal(true);}} style={{background:C.card2,border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>✏️</button>}
+            </div>
+          </Card>
+        ))}
+        {filtrado.length===0&&<div style={{padding:40,textAlign:"center",color:C.muted2,gridColumn:"1/-1"}}>Sin clientes registrados</div>}
+      </div>
+
+      {/* Modal */}
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(false)}>
+          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:500,width:"100%",border:`1px solid ${C.border}`}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:"0 0 16px",color:C.text}}>{editId?"Editar Cliente":"Nuevo Cliente Importador"}</h3>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {[["Nombre *","nombre"],["País","pais"],["Ciudad","ciudad"],["Contacto","contacto"],["Email","email"],["Teléfono","telefono"]].map(([l,f])=>(
+                <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
+                  <input value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+              ))}
+            </div>
+            <div style={{marginTop:12}}>
+              <div style={{fontSize:10,color:C.muted,marginBottom:4}}>Frutas</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {FRUTAS.map(f=>(
+                  <button key={f} onClick={()=>setForm(p=>({...p,frutas:p.frutas?.includes(f)?p.frutas.filter(x=>x!==f):[...(p.frutas||[]),f]}))}
+                    style={{padding:"4px 12px",borderRadius:20,border:`1px solid ${form.frutas?.includes(f)?C.accent:C.border}`,
+                      background:form.frutas?.includes(f)?`${C.accent}22`:"transparent",color:form.frutas?.includes(f)?C.accentL:C.muted,
+                      cursor:"pointer",fontSize:11,fontWeight:600}}>{f}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{marginTop:12}}>
+              <div style={{fontSize:10,color:C.muted,marginBottom:4}}>Notas</div>
+              <textarea value={form.notas||""} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} rows={2} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",resize:"vertical",boxSizing:"border-box"}}/>
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>{setModal(false);setEditId(null);}} style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={guardar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.accent,color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PRODUCTORES / PROVEEDORES
+// ═══════════════════════════════════════════════════════════════════
+function ProductoresModule({data, setData, can}) {
+  const [busq, setBusq] = useState("");
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({nombre:"",rut:"",pais:"Chile",zona:"",contacto:"",email:"",telefono:"",frutas:[],hectareas:"",notas:""});
+  const [editId, setEditId] = useState(null);
+
+  const filtrado = data.filter(p=>!busq||p.nombre?.toLowerCase().includes(busq.toLowerCase()));
+
+  function guardar() {
+    if(!form.nombre.trim()){alert("Nombre es obligatorio.");return;}
+    if(editId) {
+      setData(prev=>prev.map(p=>p.id===editId?{...p,...form}:p));
+      window.auditLog&&window.auditLog("editar",{modulo:"allegria",seccion:"Productores",descripcion:`Editó productor "${form.nombre}"`,registroId:editId});
+    } else {
+      const id=`aprod_${Date.now()}`;
+      setData(prev=>[...prev,{...form,id}]);
+      window.auditLog&&window.auditLog("crear",{modulo:"allegria",seccion:"Productores",descripcion:`Creó productor "${form.nombre}" · ${form.pais}`,registroId:id});
+    }
+    setForm({nombre:"",rut:"",pais:"Chile",zona:"",contacto:"",email:"",telefono:"",frutas:[],hectareas:"",notas:""});
+    setModal(false);setEditId(null);
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="🔍 Buscar productor..." style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",flex:1,minWidth:200}}/>
+        {can&&<button onClick={()=>{setModal(true);setEditId(null);setForm({nombre:"",rut:"",pais:"Chile",zona:"",contacto:"",email:"",telefono:"",frutas:[],hectareas:"",notas:""});}} style={{background:C.teal,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Nuevo Productor</button>}
+      </div>
+
+      <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${C.border}`}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead><tr style={{background:C.bg2}}>
+            {["Productor","RUT","País","Zona","Contacto","Frutas","Há",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {filtrado.map((p,i)=>(
+              <tr key={p.id} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}08`}}>
+                <td style={{padding:"8px 12px",fontWeight:600,color:C.text}}>{p.nombre}</td>
+                <td style={{padding:"8px 12px",color:C.muted}}>{p.rut||"—"}</td>
+                <td style={{padding:"8px 12px",color:C.muted}}>{p.pais||"—"}</td>
+                <td style={{padding:"8px 12px",color:C.muted}}>{p.zona||"—"}</td>
+                <td style={{padding:"8px 12px",color:C.muted}}>{p.contacto||"—"}</td>
+                <td style={{padding:"8px 12px"}}>{(p.frutas||[]).map(f=><span key={f} style={{fontSize:9,background:`${C.teal}22`,color:C.teal,padding:"1px 6px",borderRadius:10,marginRight:4,fontWeight:600}}>{f}</span>)}</td>
+                <td style={{padding:"8px 12px",color:C.muted,textAlign:"right"}}>{p.hectareas||"—"}</td>
+                <td style={{padding:"8px 12px"}}>
+                  {can&&<button onClick={()=>{setEditId(p.id);setForm({nombre:p.nombre||"",rut:p.rut||"",pais:p.pais||"Chile",zona:p.zona||"",contacto:p.contacto||"",email:p.email||"",telefono:p.telefono||"",frutas:p.frutas||[],hectareas:p.hectareas||"",notas:p.notas||""});setModal(true);}} style={{background:C.card2,border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:10}}>✏️</button>}
+                </td>
+              </tr>
+            ))}
+            {filtrado.length===0&&<tr><td colSpan={8} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin productores</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(false)}>
+          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:520,width:"100%",border:`1px solid ${C.border}`}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:"0 0 16px",color:C.text}}>{editId?"Editar Productor":"Nuevo Productor"}</h3>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {[["Nombre *","nombre"],["RUT","rut"],["País","pais"],["Zona/Región","zona"],["Contacto","contacto"],["Email","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
+                <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
+                  <input value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+              ))}
+            </div>
+            <div style={{marginTop:12}}>
+              <div style={{fontSize:10,color:C.muted,marginBottom:4}}>Frutas</div>
+              <div style={{display:"flex",gap:6}}>{FRUTAS.map(f=>(
+                <button key={f} onClick={()=>setForm(p=>({...p,frutas:p.frutas?.includes(f)?p.frutas.filter(x=>x!==f):[...(p.frutas||[]),f]}))}
+                  style={{padding:"4px 12px",borderRadius:20,border:`1px solid ${form.frutas?.includes(f)?C.teal:C.border}`,background:form.frutas?.includes(f)?`${C.teal}22`:"transparent",color:form.frutas?.includes(f)?C.teal:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>{f}</button>
+              ))}</div>
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>{setModal(false);setEditId(null);}} style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={guardar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.teal,color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EMBARQUES Y CONTENEDORES
+// ═══════════════════════════════════════════════════════════════════
+function EmbarquesModule({data, setData, clientes, productores, can}) {
+  const [busq, setBusq] = useState("");
+  const [filtroFruta, setFiltroFruta] = useState("Todos");
+  const [filtroEstado, setFiltroEstado] = useState("Todos");
+  const [filtroTemp, setFiltroTemp] = useState("Todos");
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({contenedor:"",fruta:"Cerezas",origen:"Chile",destino:"China",cliente:"",productor:"",temporada:"2025/2026",kgNeto:"",cajas:"",etd:"",eta:"",naviera:"",booking:"",bl:"",estado:"Programado",precioFOB:"",notas:""});
+
+  const filtrado = data.filter(e=>
+    (filtroFruta==="Todos"||e.fruta===filtroFruta)&&
+    (filtroEstado==="Todos"||e.estado===filtroEstado)&&
+    (filtroTemp==="Todos"||e.temporada===filtroTemp)&&
+    (!busq||e.contenedor?.toLowerCase().includes(busq.toLowerCase())||e.cliente?.toLowerCase().includes(busq.toLowerCase()))
+  );
+
+  const totKg = filtrado.reduce((s,e)=>s+(Number(e.kgNeto)||0),0);
+  const totFOB = filtrado.reduce((s,e)=>s+(Number(e.kgNeto)||0)*(Number(e.precioFOB)||0),0);
+
+  function guardar() {
+    if(!form.contenedor.trim()){alert("N° contenedor es obligatorio.");return;}
+    const id=`aemb_${Date.now()}`;
+    setData(prev=>[...prev,{...form,id,kgNeto:Number(form.kgNeto)||0,cajas:Number(form.cajas)||0,precioFOB:Number(form.precioFOB)||0}]);
+    window.auditLog&&window.auditLog("crear",{modulo:"allegria",seccion:"Embarques",descripcion:`Creó embarque ${form.contenedor} · ${form.fruta} → ${form.destino}`,registroId:id});
+    setModal(false);
+    setForm({contenedor:"",fruta:"Cerezas",origen:"Chile",destino:"China",cliente:"",productor:"",temporada:"2025/2026",kgNeto:"",cajas:"",etd:"",eta:"",naviera:"",booking:"",bl:"",estado:"Programado",precioFOB:"",notas:""});
+  }
+
+  function upd(id,c,v) {
+    setData(prev=>prev.map(e=>{
+      if(e.id!==id) return e;
+      if(String(e[c]||"")!==String(v||"")) {
+        window.auditLog&&window.auditLog("editar",{modulo:"allegria",seccion:"Embarques",descripcion:`Editó embarque ${e.contenedor}: campo ${c}`,registroId:id,campo:c,valorAnterior:String(e[c]||""),valorNuevo:String(v||"")});
+      }
+      return {...e,[c]:v};
+    }));
+  }
+
+  const estadoColor = {Programado:C.blue,["En tránsito"]:C.yellow,["En destino"]:C.teal,Entregado:C.green,Liquidado:"#8b5cf6"};
+
+  return (
+    <div>
+      {/* KPIs */}
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        <KPI label="📦 Embarques" value={filtrado.length} color={C.blue}/>
+        <KPI label="⚖️ KG Neto Total" value={`${(totKg/1000).toFixed(0)}t`} color={C.teal} sub={`${totKg.toLocaleString("es-CL")} kg`}/>
+        <KPI label="💰 FOB Total" value={$$(totFOB)} color={C.green}/>
+        <KPI label="🚢 En tránsito" value={data.filter(e=>e.estado==="En tránsito").length} color={C.yellow}/>
+      </div>
+
+      {/* Filtros */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center",background:C.card2,borderRadius:10,padding:"8px 12px",border:`1px solid ${C.border}`}}>
+        <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:11,outline:"none",width:160}}/>
+        {[["Fruta",FRUTAS,filtroFruta,setFiltroFruta],["Estado",ESTADOS_EMBARQUE,filtroEstado,setFiltroEstado],["Temporada",TEMPORADAS,filtroTemp,setFiltroTemp]].map(([l,opts,v,set])=>(
+          <div key={l} style={{display:"flex",alignItems:"center",gap:4}}>
+            <span style={{fontSize:10,color:C.muted,fontWeight:600}}>{l}:</span>
+            <select value={v} onChange={e=>set(e.target.value)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card,color:C.text,fontSize:11,outline:"none"}}>
+              <option value="Todos">Todos</option>
+              {opts.map(o=><option key={o}>{o}</option>)}
+            </select>
+          </div>
+        ))}
+        {can&&<button onClick={()=>setModal(true)} style={{marginLeft:"auto",background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Nuevo Embarque</button>}
+      </div>
+
+      {/* Tabla */}
+      <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${C.border}`}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead><tr style={{background:C.bg2}}>
+            {["Contenedor","Fruta","Origen","Destino","Cliente","Productor","KG Neto","FOB/kg","FOB Total","ETD","ETA","Estado","Naviera"].map(h=>
+              <th key={h} style={{padding:"8px 10px",textAlign:h.includes("KG")||h.includes("FOB")?"right":"left",color:C.muted,fontWeight:700,fontSize:10,whiteSpace:"nowrap"}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {filtrado.map((e,i)=>{
+              const fobTotal=(Number(e.kgNeto)||0)*(Number(e.precioFOB)||0);
+              return (
+                <tr key={e.id} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}08`}}>
+                  <td style={{padding:"7px 10px",fontWeight:700,color:C.text}}>{e.contenedor}</td>
+                  <td style={{padding:"7px 10px"}}><span style={{fontSize:10,background:`${C.accent}22`,color:C.accentL,padding:"2px 8px",borderRadius:10,fontWeight:600}}>{e.fruta}</span></td>
+                  <td style={{padding:"7px 10px",color:C.muted}}>{e.origen}</td>
+                  <td style={{padding:"7px 10px",color:C.muted}}>{e.destino}</td>
+                  <td style={{padding:"7px 10px",color:C.text,fontWeight:500}}>{e.cliente||"—"}</td>
+                  <td style={{padding:"7px 10px",color:C.muted}}>{e.productor||"—"}</td>
+                  <td style={{padding:"7px 10px",textAlign:"right",fontWeight:600,color:C.text}}>{(Number(e.kgNeto)||0).toLocaleString("es-CL")}</td>
+                  <td style={{padding:"7px 10px",textAlign:"right",color:C.muted}}>{Number(e.precioFOB)?`$${Number(e.precioFOB).toFixed(2)}`:"—"}</td>
+                  <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.green}}>{fobTotal?$$(fobTotal):"—"}</td>
+                  <td style={{padding:"7px 10px",color:C.muted,fontSize:10}}>{e.etd||"—"}</td>
+                  <td style={{padding:"7px 10px",color:C.muted,fontSize:10}}>{e.eta||"—"}</td>
+                  <td style={{padding:"7px 10px"}}>
+                    {can
+                      ? <select value={e.estado} onChange={ev=>upd(e.id,"estado",ev.target.value)} style={{padding:"3px 6px",borderRadius:6,border:`1px solid ${estadoColor[e.estado]||C.border}`,background:`${estadoColor[e.estado]||C.border}22`,color:estadoColor[e.estado]||C.muted,fontSize:10,fontWeight:700,cursor:"pointer",outline:"none"}}>
+                          {ESTADOS_EMBARQUE.map(s=><option key={s}>{s}</option>)}
+                        </select>
+                      : <span style={{fontSize:10,background:`${estadoColor[e.estado]||C.border}22`,color:estadoColor[e.estado]||C.muted,padding:"2px 8px",borderRadius:10,fontWeight:700}}>{e.estado}</span>
+                    }
+                  </td>
+                  <td style={{padding:"7px 10px",color:C.muted,fontSize:10}}>{e.naviera||"—"}</td>
+                </tr>
+              );
+            })}
+            {filtrado.length===0&&<tr><td colSpan={13} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin embarques</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal nuevo embarque */}
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(false)}>
+          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:600,width:"100%",border:`1px solid ${C.border}`,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:"0 0 16px",color:C.text}}>🚢 Nuevo Embarque</h3>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+              {[["N° Contenedor *","contenedor","text"],["KG Neto","kgNeto","number"],["Cajas","cajas","number"],["Precio FOB/kg (USD)","precioFOB","number"],["ETD","etd","date"],["ETA","eta","date"],["Naviera","naviera","text"],["Booking","booking","text"],["BL","bl","text"]].map(([l,f,t])=>(
+                <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
+                  <input type={t} value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+              ))}
+              {[["Fruta",FRUTAS,"fruta"],["Origen",ORIGENES,"origen"],["Destino",DESTINOS,"destino"],["Estado",ESTADOS_EMBARQUE,"estado"],["Temporada",TEMPORADAS,"temporada"]].map(([l,opts,f])=>(
+                <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
+                  <select value={form[f]} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>{opts.map(o=><option key={o}>{o}</option>)}</select></div>
+              ))}
+              <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Cliente</div>
+                <select value={form.cliente} onChange={e=>setForm(p=>({...p,cliente:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+                  <option value="">— Seleccionar —</option>
+                  {clientes.map(c=><option key={c.id} value={c.nombre}>{c.nombre}</option>)}
+                </select></div>
+              <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Productor</div>
+                <select value={form.productor} onChange={e=>setForm(p=>({...p,productor:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+                  <option value="">— Seleccionar —</option>
+                  {productores.map(p=><option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                </select></div>
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>setModal(false)} style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={guardar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.accent,color:"#fff",cursor:"pointer",fontWeight:700}}>Crear Embarque</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LIQUIDACIONES DE VENTA
+// ═══════════════════════════════════════════════════════════════════
+function LiquidacionesModule({data, setData, embarques, can}) {
+  const [filtroFruta, setFiltroFruta] = useState("Todos");
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({embarqueId:"",precioVenta:"",comisionPct:"",gastosDestino:"",gastosLogistica:"",notas:""});
+
+  const enriched = data.map(l=>{
+    const emb = embarques.find(e=>e.id===l.embarqueId)||{};
+    const kg = Number(emb.kgNeto)||0;
+    const precioVenta = Number(l.precioVenta)||0;
+    const comisionPct = Number(l.comisionPct)||0;
+    const gastosDestino = Number(l.gastosDestino)||0;
+    const gastosLogistica = Number(l.gastosLogistica)||0;
+    const ventaBruta = kg * precioVenta;
+    const comision = ventaBruta * comisionPct / 100;
+    const retornoNeto = ventaBruta - comision - gastosDestino - gastosLogistica;
+    return {...l, emb, kg, ventaBruta, comision, retornoNeto, precioVenta, gastosDestino, gastosLogistica};
+  });
+
+  const filtrado = enriched.filter(l=>filtroFruta==="Todos"||l.emb.fruta===filtroFruta);
+  const totVenta = filtrado.reduce((s,l)=>s+l.ventaBruta,0);
+  const totNeto = filtrado.reduce((s,l)=>s+l.retornoNeto,0);
+
+  function guardar() {
+    if(!form.embarqueId){alert("Selecciona un embarque.");return;}
+    const id=`aliq_${Date.now()}`;
+    setData(prev=>[...prev,{...form,id}]);
+    const emb=embarques.find(e=>e.id===form.embarqueId);
+    window.auditLog&&window.auditLog("crear",{modulo:"allegria",seccion:"Liquidaciones",descripcion:`Creó liquidación para embarque ${emb?.contenedor||form.embarqueId}`,registroId:id});
+    setModal(false);setForm({embarqueId:"",precioVenta:"",comisionPct:"",gastosDestino:"",gastosLogistica:"",notas:""});
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        <KPI label="💰 Venta Bruta" value={$$(totVenta)} color={C.blue}/>
+        <KPI label="📊 Retorno Neto" value={$$(totNeto)} color={C.green}/>
+        <KPI label="📋 Liquidaciones" value={filtrado.length} color={C.muted}/>
+      </div>
+
+      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center"}}>
+        <span style={{fontSize:11,color:C.muted,fontWeight:600}}>Fruta:</span>
+        {["Todos",...FRUTAS].map(f=><button key={f} onClick={()=>setFiltroFruta(f)} style={{padding:"4px 12px",borderRadius:20,border:`1px solid ${filtroFruta===f?C.accent:C.border}`,background:filtroFruta===f?`${C.accent}22`:"transparent",color:filtroFruta===f?C.accentL:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>{f}</button>)}
+        {can&&<button onClick={()=>setModal(true)} style={{marginLeft:"auto",background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Nueva Liquidación</button>}
+      </div>
+
+      <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${C.border}`}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead><tr style={{background:C.bg2}}>
+            {["Contenedor","Fruta","Cliente","Destino","KG","Precio/kg","Venta Bruta","Comisión %","Gastos Destino","Gastos Log.","Retorno Neto"].map(h=>
+              <th key={h} style={{padding:"8px 10px",textAlign:["KG","Precio/kg","Venta Bruta","Comisión %","Gastos Destino","Gastos Log.","Retorno Neto"].includes(h)?"right":"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {filtrado.map((l,i)=>(
+              <tr key={l.id} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}08`}}>
+                <td style={{padding:"7px 10px",fontWeight:700,color:C.text}}>{l.emb.contenedor||"—"}</td>
+                <td style={{padding:"7px 10px"}}><span style={{fontSize:10,background:`${C.accent}22`,color:C.accentL,padding:"2px 8px",borderRadius:10,fontWeight:600}}>{l.emb.fruta||"—"}</span></td>
+                <td style={{padding:"7px 10px",color:C.muted}}>{l.emb.cliente||"—"}</td>
+                <td style={{padding:"7px 10px",color:C.muted}}>{l.emb.destino||"—"}</td>
+                <td style={{padding:"7px 10px",textAlign:"right",color:C.text}}>{l.kg.toLocaleString("es-CL")}</td>
+                <td style={{padding:"7px 10px",textAlign:"right",color:C.muted}}>${l.precioVenta.toFixed(2)}</td>
+                <td style={{padding:"7px 10px",textAlign:"right",fontWeight:600,color:C.blue}}>{$$(l.ventaBruta)}</td>
+                <td style={{padding:"7px 10px",textAlign:"right",color:C.yellow}}>{Number(l.comisionPct)||0}%</td>
+                <td style={{padding:"7px 10px",textAlign:"right",color:C.red}}>{$$(l.gastosDestino)}</td>
+                <td style={{padding:"7px 10px",textAlign:"right",color:C.red}}>{$$(Number(l.gastosLogistica)||0)}</td>
+                <td style={{padding:"7px 10px",textAlign:"right",fontWeight:800,color:l.retornoNeto>=0?C.green:C.red}}>{$$(l.retornoNeto)}</td>
+              </tr>
+            ))}
+            {filtrado.length===0&&<tr><td colSpan={11} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin liquidaciones</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(false)}>
+          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:480,width:"100%",border:`1px solid ${C.border}`}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:"0 0 16px",color:C.text}}>💰 Nueva Liquidación</h3>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Embarque *</div>
+                <select value={form.embarqueId} onChange={e=>setForm(p=>({...p,embarqueId:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+                  <option value="">— Seleccionar embarque —</option>
+                  {embarques.map(e=><option key={e.id} value={e.id}>{e.contenedor} · {e.fruta} · {e.cliente} ({(Number(e.kgNeto)||0).toLocaleString()} kg)</option>)}
+                </select></div>
+              {[["Precio Venta USD/kg","precioVenta","number"],["Comisión %","comisionPct","number"],["Gastos Destino USD","gastosDestino","number"],["Gastos Logística USD","gastosLogistica","number"]].map(([l,f,t])=>(
+                <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
+                  <input type={t} value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>setModal(false)} style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={guardar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.accent,color:"#fff",cursor:"pointer",fontWeight:700}}>Crear</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ANTICIPOS (Productores + Clientes)
+// ═══════════════════════════════════════════════════════════════════
+function AnticiposModule({data, setData, clientes, productores, can}) {
+  const [subTab, setSubTab] = useState("productores");
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({tipo:"productor",entidad:"",monto:"",moneda:"USD",fecha:"",temporada:"2025/2026",fruta:"Cerezas",estado:"Pendiente",nDoc:"",notas:""});
+
+  const anticiposProd = data.filter(a=>a.tipo==="productor");
+  const anticiposCli = data.filter(a=>a.tipo==="cliente");
+  const lista = subTab==="productores" ? anticiposProd : anticiposCli;
+  const totProd = anticiposProd.reduce((s,a)=>s+(Number(a.monto)||0),0);
+  const totCli = anticiposCli.reduce((s,a)=>s+(Number(a.monto)||0),0);
+
+  function guardar() {
+    if(!form.entidad.trim()){alert("Entidad es obligatoria.");return;}
+    const id=`aant_${Date.now()}`;
+    setData(prev=>[...prev,{...form,id,monto:Number(form.monto)||0}]);
+    window.auditLog&&window.auditLog("crear",{modulo:"allegria",seccion:"Anticipos",descripcion:`Creó anticipo ${form.tipo} a "${form.entidad}" por ${$$(Number(form.monto)||0)}`,registroId:id});
+    setModal(false);setForm({tipo:subTab==="productores"?"productor":"cliente",entidad:"",monto:"",moneda:"USD",fecha:"",temporada:"2025/2026",fruta:"Cerezas",estado:"Pendiente",nDoc:"",notas:""});
+  }
+
+  function upd(id,c,v) {
+    setData(prev=>prev.map(a=>a.id===id?{...a,[c]:v}:a));
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        <KPI label="🌱 Anticipos Productores" value={$$(totProd)} color={C.teal} sub={`${anticiposProd.length} registros`}/>
+        <KPI label="👥 Anticipos Clientes" value={$$(totCli)} color={C.blue} sub={`${anticiposCli.length} registros`}/>
+      </div>
+
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
+        {[{id:"productores",label:"🌱 Anticipos Productores"},{id:"clientes",label:"👥 Anticipos Clientes"}].map(t=>(
+          <button key={t.id} onClick={()=>setSubTab(t.id)} style={{padding:"8px 18px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:600,fontSize:12,background:subTab===t.id?C.accent:"transparent",color:subTab===t.id?"#fff":C.muted}}>{t.label}</button>
+        ))}
+        {can&&<button onClick={()=>{setForm(p=>({...p,tipo:subTab==="productores"?"productor":"cliente"}));setModal(true);}} style={{marginLeft:"auto",background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Nuevo Anticipo</button>}
+      </div>
+
+      <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${C.border}`}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead><tr style={{background:C.bg2}}>
+            {[subTab==="productores"?"Productor":"Cliente","Fruta","Temporada","Monto","Moneda","Fecha","N° Doc","Estado"].map(h=>
+              <th key={h} style={{padding:"8px 10px",textAlign:h==="Monto"?"right":"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {lista.map((a,i)=>(
+              <tr key={a.id} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}08`}}>
+                <td style={{padding:"7px 10px",fontWeight:600,color:C.text}}>{a.entidad}</td>
+                <td style={{padding:"7px 10px",color:C.muted}}>{a.fruta||"—"}</td>
+                <td style={{padding:"7px 10px",color:C.muted}}>{a.temporada||"—"}</td>
+                <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.green}}>{$$(Number(a.monto)||0)}</td>
+                <td style={{padding:"7px 10px",color:C.muted}}>{a.moneda||"USD"}</td>
+                <td style={{padding:"7px 10px",color:C.muted,fontSize:10}}>{a.fecha||"—"}</td>
+                <td style={{padding:"7px 10px",color:C.muted}}>{a.nDoc||"—"}</td>
+                <td style={{padding:"7px 10px"}}>
+                  {can
+                    ? <select value={a.estado||"Pendiente"} onChange={e=>upd(a.id,"estado",e.target.value)} style={{padding:"3px 6px",borderRadius:6,border:`1px solid ${a.estado==="Pagado"?C.green:C.yellow}`,background:`${a.estado==="Pagado"?C.green:C.yellow}22`,color:a.estado==="Pagado"?C.green:C.yellow,fontSize:10,fontWeight:700,cursor:"pointer",outline:"none"}}>
+                        {ESTADOS_PAGO.map(s=><option key={s}>{s}</option>)}
+                      </select>
+                    : <span style={{fontSize:10,fontWeight:700,color:a.estado==="Pagado"?C.green:C.yellow}}>{a.estado||"Pendiente"}</span>
+                  }
+                </td>
+              </tr>
+            ))}
+            {lista.length===0&&<tr><td colSpan={8} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin anticipos</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(false)}>
+          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:480,width:"100%",border:`1px solid ${C.border}`}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:"0 0 16px",color:C.text}}>💵 Nuevo Anticipo — {form.tipo==="productor"?"Productor":"Cliente"}</h3>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{form.tipo==="productor"?"Productor":"Cliente"} *</div>
+                <select value={form.entidad} onChange={e=>setForm(p=>({...p,entidad:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+                  <option value="">— Seleccionar —</option>
+                  {(form.tipo==="productor"?productores:clientes).map(x=><option key={x.id} value={x.nombre}>{x.nombre}</option>)}
+                </select></div>
+              {[["Monto","monto","number"],["N° Documento","nDoc","text"],["Fecha","fecha","date"]].map(([l,f,t])=>(
+                <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
+                  <input type={t} value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+              ))}
+              {[["Fruta",FRUTAS,"fruta"],["Temporada",TEMPORADAS,"temporada"],["Moneda",MONEDAS,"moneda"]].map(([l,opts,f])=>(
+                <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
+                  <select value={form[f]} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>{opts.map(o=><option key={o}>{o}</option>)}</select></div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>setModal(false)} style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={guardar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.accent,color:"#fff",cursor:"pointer",fontWeight:700}}>Crear</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COBRANZA Y CUENTAS POR COBRAR
+// ═══════════════════════════════════════════════════════════════════
+function CobranzaModule({data, setData, embarques, liquidaciones, can}) {
+  const enriched = data.map(c=>{
+    const emb = embarques.find(e=>e.id===c.embarqueId)||{};
+    const liq = liquidaciones.find(l=>l.embarqueId===c.embarqueId)||{};
+    return {...c, emb, liq};
+  });
+
+  const totPendiente = enriched.filter(c=>c.estado!=="Pagado").reduce((s,c)=>s+(Number(c.montoPendiente)||0),0);
+  const totCobrado = enriched.filter(c=>c.estado==="Pagado").reduce((s,c)=>s+(Number(c.montoCobrado)||0),0);
+
+  function upd(id,c,v) {
+    setData(prev=>prev.map(x=>x.id===id?{...x,[c]:v}:x));
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        <KPI label="💰 Por Cobrar" value={$$(totPendiente)} color={C.yellow}/>
+        <KPI label="✅ Cobrado" value={$$(totCobrado)} color={C.green}/>
+        <KPI label="📋 Registros" value={enriched.length} color={C.muted}/>
+      </div>
+
+      <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${C.border}`}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead><tr style={{background:C.bg2}}>
+            {["Contenedor","Cliente","Fruta","Monto Pendiente","Monto Cobrado","Fecha Cobro","Estado","N° Doc"].map(h=>
+              <th key={h} style={{padding:"8px 10px",textAlign:h.includes("Monto")?"right":"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {enriched.map((c,i)=>(
+              <tr key={c.id} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}08`}}>
+                <td style={{padding:"7px 10px",fontWeight:700,color:C.text}}>{c.emb.contenedor||"—"}</td>
+                <td style={{padding:"7px 10px",color:C.muted}}>{c.emb.cliente||c.cliente||"—"}</td>
+                <td style={{padding:"7px 10px"}}><span style={{fontSize:10,background:`${C.accent}22`,color:C.accentL,padding:"2px 8px",borderRadius:10,fontWeight:600}}>{c.emb.fruta||"—"}</span></td>
+                <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.yellow}}>{$$(Number(c.montoPendiente)||0)}</td>
+                <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.green}}>{$$(Number(c.montoCobrado)||0)}</td>
+                <td style={{padding:"7px 10px",color:C.muted,fontSize:10}}>{c.fechaCobro||"—"}</td>
+                <td style={{padding:"7px 10px"}}>
+                  {can
+                    ? <select value={c.estado||"Pendiente"} onChange={e=>upd(c.id,"estado",e.target.value)} style={{padding:"3px 6px",borderRadius:6,border:`1px solid ${c.estado==="Pagado"?C.green:C.yellow}`,background:`${c.estado==="Pagado"?C.green:C.yellow}22`,color:c.estado==="Pagado"?C.green:C.yellow,fontSize:10,fontWeight:700,cursor:"pointer",outline:"none"}}>
+                        {ESTADOS_PAGO.map(s=><option key={s}>{s}</option>)}
+                      </select>
+                    : <span style={{fontSize:10,fontWeight:700,color:c.estado==="Pagado"?C.green:C.yellow}}>{c.estado||"Pendiente"}</span>
+                  }
+                </td>
+                <td style={{padding:"7px 10px",color:C.muted}}>{c.nDoc||"—"}</td>
+              </tr>
+            ))}
+            {enriched.length===0&&<tr><td colSpan={8} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin registros de cobranza</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MÓDULO PRINCIPAL — ALLEGRIA FOODS HUB
+// ═══════════════════════════════════════════════════════════════════
+export default function AllegriaModule({usuarioActual, esAdmin, esSoloConsulta, tabPermisos={}, onBack, onLogout}) {
+  const [subApp, setSubApp] = useState(null);
+  const [data, setData] = useState({clientes:[],productores:[],embarques:[],liquidaciones:[],anticipos:[],cobranza:[]});
+  const [cargando, setCargando] = useState(true);
+
+  // Permisos
+  const rolActual = usuarioActual?.rol || "editor";
+  const can = rolActual === "admin" || (rolActual === "editor" && !esSoloConsulta(usuarioActual?.nombre));
+
+  // Cargar datos
+  useEffect(()=>{
+    (async()=>{
+      const d = await dbLoadAllegria();
+      if(d) setData(d);
+      setCargando(false);
+    })();
+  },[]);
+
+  // Auto-guardar
+  const dataRef = useRef(data);
+  useEffect(()=>{dataRef.current=data;},[data]);
+  useEffect(()=>{
+    if(cargando) return;
+    const t=setTimeout(()=>dbSaveAllegria(dataRef.current), 800);
+    return()=>clearTimeout(t);
+  },[data, cargando]);
+
+  const setClientes = fn => setData(p=>({...p, clientes: typeof fn==="function"?fn(p.clientes||[]):fn}));
+  const setProductores = fn => setData(p=>({...p, productores: typeof fn==="function"?fn(p.productores||[]):fn}));
+  const setEmbarques = fn => setData(p=>({...p, embarques: typeof fn==="function"?fn(p.embarques||[]):fn}));
+  const setLiquidaciones = fn => setData(p=>({...p, liquidaciones: typeof fn==="function"?fn(p.liquidaciones||[]):fn}));
+  const setAnticipos = fn => setData(p=>({...p, anticipos: typeof fn==="function"?fn(p.anticipos||[]):fn}));
+  const setCobranza = fn => setData(p=>({...p, cobranza: typeof fn==="function"?fn(p.cobranza||[]):fn}));
+
+  if(cargando) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:C.muted,fontFamily:"sans-serif"}}>Cargando Allegria Foods...</div>;
+
+  // Sub-apps
+  const SUBAPPS = [
+    {id:"clientes",      label:"Clientes Importadores", desc:"Gestión de importadores internacionales", icon:"👥", color:"#b91c1c", stats:`${(data.clientes||[]).length} clientes`},
+    {id:"productores",   label:"Productores",           desc:"Proveedores de fruta fresca",              icon:"🌱", color:"#0f766e", stats:`${(data.productores||[]).length} productores`},
+    {id:"embarques",     label:"Embarques",              desc:"Contenedores, tracking y documentos",     icon:"🚢", color:"#2563eb", stats:`${(data.embarques||[]).length} embarques`},
+    {id:"liquidaciones", label:"Liquidaciones",          desc:"Resultado de venta por embarque",         icon:"💰", color:"#16a34a", stats:`${(data.liquidaciones||[]).length} liquidaciones`},
+    {id:"anticipos",     label:"Anticipos",              desc:"Anticipos a productores y de clientes",   icon:"💵", color:"#d97706", stats:`${(data.anticipos||[]).length} anticipos`},
+    {id:"cobranza",      label:"Cobranza",               desc:"Cuentas por cobrar y seguimiento",        icon:"📋", color:"#7c3aed", stats:`${(data.cobranza||[]).length} registros`},
+  ];
+
+  if(subApp) {
+    const sa = SUBAPPS.find(s=>s.id===subApp);
+    return (
+      <div style={{fontFamily:"sans-serif",background:C.bg,minHeight:"100vh",padding:"20px 20px 40px"}}>
+        <NavBar breadcrumbItems={[
+          {label:"Mediterra", onClick:onBack},
+          {label:"Allegria Foods", onClick:()=>setSubApp(null)},
+          {label:sa?.label||subApp},
+        ]}/>
+        {/* Logo compacto */}
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+          <AllegriaLogo height={36}/>
+          <div>
+            <div style={{fontSize:16,fontWeight:800,color:C.text}}>{sa?.label}</div>
+            <div style={{fontSize:11,color:C.muted}}>{sa?.desc}</div>
+          </div>
+        </div>
+        <Card>
+          {subApp==="clientes"&&<ClientesModule data={data.clientes||[]} setData={setClientes} can={can}/>}
+          {subApp==="productores"&&<ProductoresModule data={data.productores||[]} setData={setProductores} can={can}/>}
+          {subApp==="embarques"&&<EmbarquesModule data={data.embarques||[]} setData={setEmbarques} clientes={data.clientes||[]} productores={data.productores||[]} can={can}/>}
+          {subApp==="liquidaciones"&&<LiquidacionesModule data={data.liquidaciones||[]} setData={setLiquidaciones} embarques={data.embarques||[]} can={can}/>}
+          {subApp==="anticipos"&&<AnticiposModule data={data.anticipos||[]} setData={setAnticipos} clientes={data.clientes||[]} productores={data.productores||[]} can={can}/>}
+          {subApp==="cobranza"&&<CobranzaModule data={data.cobranza||[]} setData={setCobranza} embarques={data.embarques||[]} liquidaciones={data.liquidaciones||[]} can={can}/>}
+        </Card>
+      </div>
+    );
+  }
+
+  // HOME — Allegria Foods Hub
+  return (
+    <div style={{fontFamily:"sans-serif",background:C.bg,minHeight:"100vh",padding:"20px 20px 40px"}}>
+      <NavBar breadcrumbItems={[
+        {label:"Mediterra", onClick:onBack},
+        {label:"Allegria Foods Hub"},
+      ]} onLogout={onLogout}/>
+
+      {/* Logo + título */}
+      <div style={{textAlign:"center",marginBottom:30}}>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:12}}>
+          <AllegriaLogo height={60}/>
+        </div>
+        <div style={{color:C.muted,fontSize:13}}>Exportación de Fruta Fresca · Cerezas · Ciruelas · Arándanos</div>
+      </div>
+
+      {/* Sub-apps */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16,maxWidth:950,margin:"0 auto 30px"}}>
+        {SUBAPPS.map(sa=>(
+          <div key={sa.id} onClick={()=>setSubApp(sa.id)}
+            style={{background:`linear-gradient(135deg,${C.card},${sa.color}22)`,borderRadius:16,padding:"24px 20px",
+              border:`1px solid ${sa.color}44`,cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
+            onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+            onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+            <div style={{fontSize:32,marginBottom:10}}>{sa.icon}</div>
+            <div style={{fontWeight:800,fontSize:16,color:C.text,marginBottom:4}}>{sa.label}</div>
+            <div style={{fontSize:11,color:C.muted,marginBottom:12}}>{sa.desc}</div>
+            <div style={{display:"flex",gap:8}}>
+              <span style={{fontSize:10,background:`${sa.color}22`,color:sa.color,padding:"3px 10px",borderRadius:20,fontWeight:700}}>{sa.stats}</span>
+            </div>
+            <div style={{position:"absolute",right:16,bottom:16,fontSize:20,color:`${sa.color}44`}}>→</div>
+          </div>
+        ))}
+      </div>
+
+      {/* KPIs globales */}
+      <div style={{display:"flex",gap:12,flexWrap:"wrap",maxWidth:950,margin:"0 auto"}}>
+        <KPI label="📦 Embarques" value={(data.embarques||[]).length} color={C.blue}/>
+        <KPI label="🚢 En tránsito" value={(data.embarques||[]).filter(e=>e.estado==="En tránsito").length} color={C.yellow}/>
+        <KPI label="👥 Clientes" value={(data.clientes||[]).length} color={C.accent}/>
+        <KPI label="🌱 Productores" value={(data.productores||[]).length} color={C.teal}/>
+      </div>
+    </div>
+  );
+}
