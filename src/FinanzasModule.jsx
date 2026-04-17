@@ -2737,6 +2737,21 @@ function CeldaEditable({val, onSave, color, canEdit, real=null}) {
   const [editing, setEditing] = useState(false);
   const [tmp, setTmp] = useState("");
 
+  // Evaluar expresión matemática segura: soporta +, -, *, / y paréntesis
+  function evalExpr(str) {
+    if(!str || !str.trim()) return 0;
+    const clean = str.replace(/\s/g,"").replace(/,/g,""); // quitar espacios y comas
+    // Solo permitir números, operadores y paréntesis
+    if(!/^[\d.+\-*/()]+$/.test(clean)) return parseFloat(clean)||0;
+    try { return Function('"use strict";return('+clean+')')(); } catch { return parseFloat(clean)||0; }
+  }
+
+  function commitValue() {
+    const resultado = evalExpr(tmp);
+    onSave(resultado);
+    setEditing(false);
+  }
+
   if(!canEdit) return (
     <span style={{color:val!==0?color:"#4a7aaa",fontWeight:val!==0?600:400,fontSize:9}}>
       {val!==0?$$(val):"—"}
@@ -2744,24 +2759,37 @@ function CeldaEditable({val, onSave, color, canEdit, real=null}) {
     </span>
   );
 
-  if(editing) return (
-    <input
-      type="number" value={tmp} autoFocus
-      onChange={e=>setTmp(e.target.value)}
-      onBlur={()=>{onSave(parseFloat(tmp)||0);setEditing(false);}}
-      onKeyDown={e=>{
-        if(e.key==="Enter"){onSave(parseFloat(tmp)||0);setEditing(false);}
-        if(e.key==="Escape"){setEditing(false);}
-      }}
-      style={{width:72,padding:"2px 4px",background:C.bg,border:`1px solid ${C.accentL}`,
-        borderRadius:4,color:C.accentL,fontSize:9,textAlign:"right",outline:"none"}}
-    />
-  );
+  if(editing) {
+    const preview = evalExpr(tmp);
+    const hasOp = /[+\-*/]/.test(tmp.replace(/^-/,"")); // tiene operadores (ignorando signo negativo)
+    return (
+    <div style={{position:"relative"}}>
+      <input
+        type="text" value={tmp} autoFocus
+        onChange={e=>setTmp(e.target.value)}
+        onBlur={commitValue}
+        onKeyDown={e=>{
+          if(e.key==="Enter"){commitValue();}
+          if(e.key==="Escape"){setEditing(false);}
+        }}
+        style={{width:82,padding:"2px 4px",background:C.bg,border:`1px solid ${C.accentL}`,
+          borderRadius:4,color:C.accentL,fontSize:9,textAlign:"right",outline:"none"}}
+        placeholder="ej: 5000+3000"
+      />
+      {hasOp&&tmp.length>1&&(
+        <div style={{position:"absolute",top:"100%",right:0,marginTop:2,background:C.card2,
+          border:`1px solid ${C.border}`,borderRadius:4,padding:"2px 6px",fontSize:8,
+          color:C.yellow,fontWeight:700,whiteSpace:"nowrap",zIndex:10}}>
+          = {$$(preview)}
+        </div>
+      )}
+    </div>
+  );}
 
   return (
     <span
       onClick={()=>{setTmp(String(val||""));setEditing(true);}}
-      title="Click para editar"
+      title="Click para editar · Soporta sumas: ej. 5000+3000"
       style={{color:val!==0?color:C.muted2,fontWeight:val!==0?600:400,fontSize:9,
         cursor:"pointer",borderBottom:`1px dashed ${C.border2}`,paddingBottom:1}}>
       {val!==0?$$(val):"—"}
