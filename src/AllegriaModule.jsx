@@ -86,10 +86,19 @@ const $$=(v)=>{
   return `${v<0?"-":""}US$${abs.toLocaleString("es-CL")}`;
 };
 
-// Logo Allegria Foods
+// Logo Allegria Foods — intenta png y jpg, con fallback texto
 function AllegriaLogo({height=52}) {
+  const [err, setErr] = React.useState(0);
+  const srcs = ["/allegria-logo.png","/allegria-logo.jpg","/allegria-logo.jpeg","/allegria-logo.PNG"];
+  if(err >= srcs.length) return (
+    <div style={{height,display:"flex",alignItems:"center",gap:8}}>
+      <span style={{fontSize:height*0.5}}>🍒</span>
+      <span style={{fontWeight:900,fontSize:height*0.35,color:"#e6edf3",letterSpacing:"-0.5px"}}>Allegría<span style={{color:"#ef4444",fontWeight:400,marginLeft:4}}>foods</span></span>
+    </div>
+  );
   return (
-    <img src="/allegria-logo.png" alt="Allegria Foods"
+    <img src={srcs[err]} alt="Allegria Foods"
+      onError={()=>setErr(e=>e+1)}
       style={{height, objectFit:"contain", display:"block"}}/>
   );
 }
@@ -427,35 +436,50 @@ function EmbarquesModule({data, setData, clientes, productores, can}) {
 // ═══════════════════════════════════════════════════════════════════
 // LIQUIDACIONES PRODUCTOR
 // ═══════════════════════════════════════════════════════════════════
-const FORMATOS_CAJA = ["2.5 kg","5 kg","2en1 (10 kg)","Otro"];
+const FORMATOS_CAJA_DEFAULT = ["2.5 kg","5 kg","2en1 (10 kg)"];
 
 function LiquidacionesModule({data, setData, embarques, can}) {
   const [filtroFruta, setFiltroFruta] = useState("Todos");
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({embarqueId:"",cajas:"",formatoCaja:"5 kg",formatoOtro:"",precioVenta:"",comisionPct:"",costoMateriales:"",costoServicios:"",gastosDestino:"",gastosLogistica:"",notas:""});
+  const [formatosExtra, setFormatosExtra] = useState([]);
+  const [nuevoFormato, setNuevoFormato] = useState("");
+  const [form, setForm] = useState({embarqueId:"",cajas:"",formatoCaja:"5 kg",fob:"",comisionPct:"",costoMateriales:"",costoServicios:"",gastosLogistica:"",notas:""});
+
+  const FORMATOS_CAJA = [...FORMATOS_CAJA_DEFAULT, ...formatosExtra];
+
+  // Cargar formatos extra del localStorage
+  useEffect(()=>{
+    try { const f = JSON.parse(localStorage.getItem("allegria_formatos")||"[]"); if(Array.isArray(f)) setFormatosExtra(f); } catch{}
+  },[]);
+
+  function agregarFormato() {
+    if(!nuevoFormato.trim()) return;
+    const nuevo = [...formatosExtra, nuevoFormato.trim()];
+    setFormatosExtra(nuevo);
+    try { localStorage.setItem("allegria_formatos", JSON.stringify(nuevo)); } catch{}
+    setNuevoFormato("");
+  }
 
   const enriched = data.map(l=>{
     const emb = embarques.find(e=>e.id===l.embarqueId)||{};
     const kg = Number(emb.kgNeto)||0;
     const cajas = Number(l.cajas)||Number(emb.cajas)||0;
-    const precioVenta = Number(l.precioVenta)||0;
+    const fob = Number(l.fob)||0;
+    const usdPorKg = kg > 0 ? fob / kg : 0;
     const comisionPct = Number(l.comisionPct)||0;
     const costoMat = Number(l.costoMateriales)||0;
     const costoServ = Number(l.costoServicios)||0;
-    const gastosDestino = Number(l.gastosDestino)||0;
     const gastosLogistica = Number(l.gastosLogistica)||0;
-    const ventaBruta = kg * precioVenta;
-    const comision = ventaBruta * comisionPct / 100;
-    const totalCostos = costoMat + costoServ + gastosDestino + gastosLogistica + comision;
-    const retornoNeto = ventaBruta - totalCostos;
+    const comision = fob * comisionPct / 100;
+    const totalCostos = costoMat + costoServ + gastosLogistica + comision;
+    const retornoNeto = fob - totalCostos;
     const retornoPorCaja = cajas > 0 ? retornoNeto / cajas : 0;
     const retornoPorKg = kg > 0 ? retornoNeto / kg : 0;
-    const formato = l.formatoCaja==="Otro" ? (l.formatoOtro||"Otro") : (l.formatoCaja||"—");
-    return {...l, emb, kg, cajas, ventaBruta, comision, costoMat, costoServ, totalCostos, retornoNeto, retornoPorCaja, retornoPorKg, precioVenta, gastosDestino, gastosLogistica, formato};
+    return {...l, emb, kg, cajas, fob, usdPorKg, comision, costoMat, costoServ, totalCostos, retornoNeto, retornoPorCaja, retornoPorKg, gastosLogistica, comisionPct, formatoCaja:l.formatoCaja||"—"};
   });
 
   const filtrado = enriched.filter(l=>filtroFruta==="Todos"||l.emb.fruta===filtroFruta);
-  const totVenta = filtrado.reduce((s,l)=>s+l.ventaBruta,0);
+  const totFOB = filtrado.reduce((s,l)=>s+l.fob,0);
   const totNeto = filtrado.reduce((s,l)=>s+l.retornoNeto,0);
 
   function guardar() {
@@ -464,13 +488,13 @@ function LiquidacionesModule({data, setData, embarques, can}) {
     setData(prev=>[...prev,{...form,id}]);
     const emb=embarques.find(e=>e.id===form.embarqueId);
     window.auditLog&&window.auditLog("crear",{modulo:"allegria",seccion:"Liquidación Productor",descripcion:`Creó liquidación para embarque ${emb?.contenedor||form.embarqueId}`,registroId:id});
-    setModal(false);setForm({embarqueId:"",cajas:"",formatoCaja:"5 kg",formatoOtro:"",precioVenta:"",comisionPct:"",costoMateriales:"",costoServicios:"",gastosDestino:"",gastosLogistica:"",notas:""});
+    setModal(false);setForm({embarqueId:"",cajas:"",formatoCaja:"5 kg",fob:"",comisionPct:"",costoMateriales:"",costoServicios:"",gastosLogistica:"",notas:""});
   }
 
   return (
     <div>
       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-        <KPI label="💰 Venta Bruta" value={$$(totVenta)} color={C.blue}/>
+        <KPI label="💰 FOB Total" value={$$(totFOB)} color={C.blue}/>
         <KPI label="📊 Retorno Neto Productor" value={$$(totNeto)} color={C.green}/>
         <KPI label="📋 Liquidaciones" value={filtrado.length} color={C.muted}/>
       </div>
@@ -484,30 +508,29 @@ function LiquidacionesModule({data, setData, embarques, can}) {
       <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${C.border}`}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
           <thead><tr style={{background:C.bg2}}>
-            {["Contenedor","Fruta","Cliente","Cajas","Formato","KG","USD/kg","Venta Bruta","Comisión","Mat.+Serv.","Gastos Dest.","Gastos Log.","Retorno Neto","$/Caja","$/KG"].map(h=>
-              <th key={h} style={{padding:"8px 8px",textAlign:["Contenedor","Fruta","Cliente","Formato"].includes(h)?"left":"right",color:C.muted,fontWeight:700,fontSize:9,whiteSpace:"nowrap"}}>{h}</th>)}
+            {["Contenedor","Fruta","Productor","Cajas","Formato","KG","FOB","USD/KG","Comisión","Mat.+Serv.","Gastos Log.","Retorno Neto","$/Caja","$/KG"].map(h=>
+              <th key={h} style={{padding:"8px 8px",textAlign:["Contenedor","Fruta","Productor","Formato"].includes(h)?"left":"right",color:C.muted,fontWeight:700,fontSize:9,whiteSpace:"nowrap"}}>{h}</th>)}
           </tr></thead>
           <tbody>
             {filtrado.map((l,i)=>(
               <tr key={l.id} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}08`}}>
                 <td style={{padding:"6px 8px",fontWeight:700,color:C.text,fontSize:11}}>{l.emb.contenedor||"—"}</td>
                 <td style={{padding:"6px 8px"}}><span style={{fontSize:9,background:`${C.accent}22`,color:C.accentL,padding:"2px 6px",borderRadius:10,fontWeight:600}}>{l.emb.fruta||"—"}</span></td>
-                <td style={{padding:"6px 8px",color:C.muted,fontSize:10}}>{l.emb.cliente||"—"}</td>
+                <td style={{padding:"6px 8px",color:C.muted,fontSize:10}}>{l.emb.productor||"—"}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",color:C.text}}>{l.cajas?l.cajas.toLocaleString("es-CL"):"—"}</td>
-                <td style={{padding:"6px 8px",color:C.muted,fontSize:10}}>{l.formato}</td>
+                <td style={{padding:"6px 8px",color:C.muted,fontSize:10}}>{l.formatoCaja}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",color:C.text}}>{l.kg.toLocaleString("es-CL")}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>${l.precioVenta.toFixed(2)}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:C.blue}}>{$$(l.ventaBruta)}</td>
+                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:C.blue}}>{$$(l.fob)}</td>
+                <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{l.usdPorKg?`$${l.usdPorKg.toFixed(2)}`:"—"}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",color:C.yellow}}>{$$(l.comision)}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",color:C.red}}>{$$(l.costoMat+l.costoServ)}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",color:C.red}}>{$$(l.gastosDestino)}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",color:C.red}}>{$$(Number(l.gastosLogistica)||0)}</td>
+                <td style={{padding:"6px 8px",textAlign:"right",color:C.red}}>{$$(l.gastosLogistica)}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,color:l.retornoNeto>=0?C.green:C.red}}>{$$(l.retornoNeto)}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:C.teal}}>{l.retornoPorCaja?`$${l.retornoPorCaja.toFixed(2)}`:"—"}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:C.teal}}>{l.retornoPorKg?`$${l.retornoPorKg.toFixed(2)}`:"—"}</td>
               </tr>
             ))}
-            {filtrado.length===0&&<tr><td colSpan={15} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin liquidaciones</td></tr>}
+            {filtrado.length===0&&<tr><td colSpan={14} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin liquidaciones</td></tr>}
           </tbody>
         </table>
       </div>
@@ -520,19 +543,27 @@ function LiquidacionesModule({data, setData, embarques, can}) {
               <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Embarque *</div>
                 <select value={form.embarqueId} onChange={e=>setForm(p=>({...p,embarqueId:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
                   <option value="">— Seleccionar embarque —</option>
-                  {embarques.map(e=><option key={e.id} value={e.id}>{e.contenedor} · {e.fruta} · {e.cliente} ({(Number(e.kgNeto)||0).toLocaleString()} kg)</option>)}
+                  {embarques.map(e=><option key={e.id} value={e.id}>{e.contenedor} · {e.fruta} · {e.productor||e.cliente} ({(Number(e.kgNeto)||0).toLocaleString()} kg)</option>)}
                 </select></div>
               <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Cantidad Cajas</div>
                 <input type="number" value={form.cajas||""} onChange={e=>setForm(p=>({...p,cajas:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
               <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Formato Caja</div>
                 <select value={form.formatoCaja||"5 kg"} onChange={e=>setForm(p=>({...p,formatoCaja:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
                   {FORMATOS_CAJA.map(f=><option key={f}>{f}</option>)}
-                </select></div>
-              {form.formatoCaja==="Otro"&&(
-                <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Especificar formato</div>
-                  <input type="text" value={form.formatoOtro||""} onChange={e=>setForm(p=>({...p,formatoOtro:e.target.value}))} placeholder="ej: 8 kg" style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
-              )}
-              {[["Precio Venta USD/kg","precioVenta"],["Comisión %","comisionPct"],["Costo Materiales USD","costoMateriales"],["Costo Servicios USD","costoServicios"],["Gastos Destino USD","gastosDestino"],["Gastos Logística USD","gastosLogistica"]].map(([l,f])=>(
+                </select>
+                <div style={{display:"flex",gap:4,marginTop:6}}>
+                  <input type="text" value={nuevoFormato} onChange={e=>setNuevoFormato(e.target.value)} placeholder="+ Nuevo formato" onKeyDown={e=>e.key==="Enter"&&agregarFormato()}
+                    style={{flex:1,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:10,outline:"none"}}/>
+                  <button onClick={agregarFormato} style={{background:C.teal,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:10,fontWeight:700}}>+</button>
+                </div>
+              </div>
+              <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>FOB Total (USD)</div>
+                <input type="number" value={form.fob||""} onChange={e=>setForm(p=>({...p,fob:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+              <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>USD/KG (automático)</div>
+                <div style={{padding:"7px 10px",borderRadius:8,background:C.bg2,color:C.teal,fontSize:13,fontWeight:700,border:`1px solid ${C.border}`}}>
+                  {(()=>{const emb=embarques.find(e=>e.id===form.embarqueId);const kg=Number(emb?.kgNeto)||0;const fob=Number(form.fob)||0;return kg>0?`$${(fob/kg).toFixed(2)}`:"—";})()}
+                </div></div>
+              {[["Comisión %","comisionPct"],["Costo Materiales USD","costoMateriales"],["Costo Servicios USD","costoServicios"],["Gastos Logística USD","gastosLogistica"]].map(([l,f])=>(
                 <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
                   <input type="number" value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
               ))}
