@@ -3562,6 +3562,13 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
   const [proyOverrides,  setProyOverrides]  = useState({});
   const [expandedSubs,   setExpandedSubs]   = useState({});  // ▶ CxC / Préstamos
   const [addedLines,     setAddedLines]      = useState({});  // + conceptos por sección (no persistidos)
+  // Secciones colapsadas — por defecto todas colapsadas, usuario expande
+  const [collapsedSections, setCollapsedSections] = useState(()=>{
+    const o={};
+    if(emp) emp.sections.forEach(s=>{o[s.cat]=true;});
+    return o;
+  });
+  const toggleSection = cat => setCollapsedSections(p=>({...p,[cat]:!p[cat]}));
   // subLines viene de Supabase via prop — clientes/acreedores de CxC y Préstamos
   // addedLines es local — filas extra de concepto (se podrían persistir si se necesita)
 
@@ -3968,26 +3975,76 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
             </tr>
 
             {/* SECCIONES Y LÍNEAS ───────────────────────────────── */}
-            {emp.sections.map(sec=>(
+            {emp.sections.map(sec=>{
+              const isCollapsed = collapsedSections[sec.cat];
+              return (
               <React.Fragment key={sec.cat}>
-                {/* Header sección */}
-                <tr style={{background:`${C.bg}cc`}}>
+                {/* Header sección — clickeable para expandir/colapsar */}
+                <tr style={{background:`${C.bg}cc`,cursor:"pointer"}}
+                  onClick={()=>toggleSection(sec.cat)}>
                   <td style={{padding:"5px 14px",position:"sticky",left:0,
                     background:C.bg,borderRight:`1px solid ${C.border}`,zIndex:1}}>
                     <span style={{fontSize:10,fontWeight:700,color:CAT_COLOR[sec.cat]||C.muted,
-                      textTransform:"uppercase",letterSpacing:"0.5px"}}>
+                      textTransform:"uppercase",letterSpacing:"0.5px",display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:9,transition:"transform 0.15s",display:"inline-block",
+                        transform:isCollapsed?"rotate(0deg)":"rotate(90deg)"}}>▶</span>
                       {CAT_SIGNO[sec.cat]} {sec.label}
+                      {isCollapsed&&<span style={{fontSize:8,color:C.muted,fontWeight:400,textTransform:"none",letterSpacing:0,marginLeft:4}}>({sec.lines.filter(l=>!l.label.startsWith("  ")).length} líneas)</span>}
                     </span>
                   </td>
-                  {colStructure.map(({season:s,collapsed,cols})=>{
-                    const span=collapsed?1:Math.max(cols.length,1);
-                    return <td key={s.key} colSpan={span}
-                      style={{borderLeft:`2px solid ${C.border2}`,background:C.bg}}/>;
+                  {colStructure.map(({season:s,collapsed:sColl,cols})=>{
+                    if(!isCollapsed){
+                      const span=sColl?1:Math.max(cols.length,1);
+                      return <td key={s.key} colSpan={span}
+                        style={{borderLeft:`2px solid ${C.border2}`,background:C.bg}}/>;
+                    }
+                    // Colapsado: mostrar subtotal inline en el header
+                    if(sColl){
+                      const total=s.indices.reduce((a,i)=>{
+                        return a + sec.lines.reduce((b,l)=>{
+                          if(l.label.startsWith("  ")) return b;
+                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
+                          return b + getProy(l.label,i) + subSum;
+                        },0) + (addedLines[sec.cat]||[]).reduce((b,al)=>b+(Number(typeof al==="string"?0:(al.vals||{})[i])||0),0);
+                      },0);
+                      return (
+                        <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontWeight:800,
+                          color:CAT_COLOR[sec.cat],fontSize:10,borderLeft:`2px solid ${C.border2}`,background:C.bg}}>
+                          {total!==0?$$(total):"—"}
+                        </td>
+                      );
+                    }
+                    return cols.map((col,ci)=>{
+                      let v=0;
+                      if(col.type==="month"||col.type==="month_collapsed"||col.isTotalMes){
+                        v = sec.lines.reduce((a,l)=>{
+                          if(l.label.startsWith("  ")) return a;
+                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
+                          return a + getProy(l.label,col.idx) + subSum;
+                        },0) + (addedLines[sec.cat]||[]).reduce((a,al)=>a+(Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0),0);
+                      } else if(col.type==="week"){
+                        v = sec.lines.reduce((a,l)=>{
+                          if(l.label.startsWith("  ")) return a;
+                          const propSem = getProySemana(l.label, col.idx, col.semIdx, col.isLastInMonth);
+                          const subSem = l.subLines && !l.label.includes("Préstamos")
+                            ? sumSubLinesSemana(l.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
+                          return a + propSem + subSem;
+                        },0);
+                      }
+                      return (
+                        <td key={col.key} style={{padding:"5px 5px",textAlign:"right",fontWeight:700,fontSize:9,
+                          color:CAT_COLOR[sec.cat]||C.muted,
+                          borderLeft:ci===0?`2px solid ${C.border2}`:`1px solid ${C.border}22`,
+                          background:C.bg}}>
+                          {v!==0?$$(v):"—"}
+                        </td>
+                      );
+                    });
                   })}
                 </tr>
 
-                {/* Líneas editables */}
-                {sec.lines.map(line=>{
+                {/* Líneas editables — solo si NO está colapsado */}
+                {!isCollapsed && sec.lines.map(line=>{
                   // Indented sub-lines (  Banco X) always visible — they show breakdown of Pago Préstamos
                   return (
                   <React.Fragment key={line.label}>
@@ -4325,7 +4382,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                 })}
 
                 {/* Filas agregadas por el usuario en esta sección */}
-                {(addedLines[sec.cat]||[]).map((al,ali)=>{
+                {!isCollapsed && (addedLines[sec.cat]||[]).map((al,ali)=>{
                   const alLabel = typeof al==="string" ? al : al.label;
                   const alVals  = typeof al==="string" ? {} : (al.vals||{});
                   const updAlVal=(idx,v)=>setAddedLines(p=>{
@@ -4379,7 +4436,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                   );
                 })}
                 {/* Botón + agregar concepto */}
-                {canEdit&&(
+                {!isCollapsed && canEdit&&(
                   <tr>
                     <td colSpan={999} style={{padding:"2px 14px",position:"sticky",left:0,zIndex:1}}>
                       <button onClick={()=>{
@@ -4394,8 +4451,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     </td>
                   </tr>
                 )}
-                {/* Subtotal sección */}
-                <tr style={{background:C.bg2}}>
+                {/* Subtotal sección — solo si expandido (colapsado ya muestra en header) */}
+                {!isCollapsed && <tr style={{background:C.bg2}}>
                   <td style={{padding:"5px 14px",fontWeight:700,color:CAT_COLOR[sec.cat],fontSize:10,
                     position:"sticky",left:0,background:C.bg2,borderRight:`1px solid ${C.border}`,zIndex:1}}>
                     Σ {sec.label}
@@ -4464,7 +4521,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       );
                     });
                   })}
-                </tr>
+                </tr>}
 
                 {/* SALDO CAJA OPERACIONAL — después del subtotal de egr_fijo */}
                 {sec.cat === "egr_fijo" && (() => {
@@ -4557,7 +4614,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                   );
                 })()}
               </React.Fragment>
-            ))}
+              );
+            })}
 
             {/* FLUJO NETO ──────────────────────────────────────── */}
             <tr style={{background:`${C.accent}18`,borderTop:`2px solid ${C.border2}`}}>
