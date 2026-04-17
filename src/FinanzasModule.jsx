@@ -1,662 +1,2712 @@
 /* eslint-disable */
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import OsirisModule from "./OsirisModule.jsx";
-import FinanzasModule from "./FinanzasModule.jsx";
-import AllegriaModule from "./AllegriaModule.jsx";
-const ALLEGRIA_LOGO_B64 = "data:image/jpeg;base64,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AAAAAAAAAAAAAAAKZy5gpnLAuYABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAApnLmCmcsDs3Cjz26c+aaL2I4Uee3TnzTRexAKHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYjhR57dOfNNF7EABwo89unPmmi9iOFHnt05800XsQAHCjz26c+aaL2I4Uee3TnzTRexAAcKPPbpz5povYnGQAP//Z";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
-const EMAILJS_SERVICE  = "service_ahuerta";
-const EMAILJS_TEMPLATE       = "template_c7yup8d";  // Template PIN temporal
-const EMAILJS_TEMPLATE_NOTIF = "template_notif_tarea"; // ← reemplaza con tu template ID
-const EMAILJS_KEY      = "bwCBq7JXlEwCTzWNe";
-const FECHA_INICIO     = new Date(2026, 3, 13);
+// ═══════════════════════════════════════════════════════════════════
+// TIEMPO: Mar-26 → Jun-31 (65 meses)
+// ═══════════════════════════════════════════════════════════════════
+const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+function generarMeses() {
+  const out = [];
+  let y = 2026, m = 3; // Empieza en Apr-26 (Mar-26 eliminado)
+  while (!(y === 2031 && m === 6)) {
+    out.push({ label:`${MN[m]}-${String(y).slice(2)}`, y, m, idx:out.length });
+    m++; if (m > 11) { m = 0; y++; }
+  }
+  out.push({ label:'Jun-31', y:2031, m:5, idx:out.length });
+  return out;
+}
+
+const MESES_INFO = generarMeses();
+const MESES_65   = MESES_INFO.map(x => x.label);
+function seasonOf(mo) { return mo.m >= 6 ? mo.y : mo.y - 1; }
+
+const SEASONS = (() => {
+  const map = {};
+  MESES_INFO.forEach(mo => {
+    const sy  = seasonOf(mo);
+    const key = `${sy}-${sy+1}`;
+    if (!map[key]) map[key] = { key, sy, label:`Temporada ${sy}-${sy+1}`, indices:[], months:[] };
+    map[key].indices.push(mo.idx);
+    map[key].months.push(mo.label);
+  });
+  return Object.values(map);
+})();
+const SEASON_KEYS = SEASONS.map(s => s.key);
+
+const SEMANAS_MES = {
+  "Apr-26":["S14","S15","S16","S17"],
+  "May-26":["S18","S19","S20","S21"],"Jun-26":["S22","S23","S24","S25"],
+  "Jul-26":["S27","S28","S29","S30"],"Aug-26":["S31","S32","S33","S34"],
+  "Sep-26":["S36","S37","S38","S39"],"Oct-26":["S40","S41","S42","S43"],
+  "Nov-26":["S44","S45","S46","S47"],"Dec-26":["S48","S49","S50","S51"],
+  "Jan-27":["S01","S02","S03","S04"],"Feb-27":["S05","S06","S07","S08"],
+  "Mar-27":["S09","S10","S11","S12"],"Apr-27":["S13","S14","S15","S16"],
+  "May-27":["S17","S18","S19","S20"],"Jun-27":["S21","S22","S23","S24"],
+  "Jul-27":["S27","S28","S29","S30"],"Aug-27":["S31","S32","S33","S34"],
+  "Sep-27":["S36","S37","S38","S39"],"Oct-27":["S40","S41","S42","S43"],
+  "Nov-27":["S44","S45","S46","S47"],"Dec-27":["S48","S49","S50","S51"],
+};
+
+const Z65  = () => Array(64).fill(0); // 64 meses: Apr-26 → Jun-31
+function ext(arr) { const r=[...(arr||[])]; while(r.length<64) r.push(0); if(r.length>64) r.splice(64); return r; }
+function mIdx(label) { return MESES_65.indexOf(label); }
+
+// ═══════════════════════════════════════════════════════════════════
+// SUPABASE
+// ═══════════════════════════════════════════════════════════════════
 const SUPA_URL = "https://bywovqayuzodbzwsriet.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5d292cWF5dXpvZGJ6d3NyaWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODU1MDgsImV4cCI6MjA5MTI2MTUwOH0.s2x2O_CxE6rl8dBqFuyfQdMyRqSyjJQWXJXesmVGXtk";
 
 async function dbLoad() {
   try {
-    const res = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=eq.main&select=value`, {
-      headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` }
-    });
-    const data = await res.json();
-    return data?.[0]?.value || null;
-  } catch { return null; }
+    const r = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=eq.finanzas&select=value`,
+      { headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}` }});
+    const d = await r.json();
+    const parsed = d?.[0]?.value ? JSON.parse(d[0].value) : {};
+    console.log("[dbLoad] keys:", Object.keys(parsed), "saldos_bancos keys:", Object.keys(parsed.saldos_bancos||{}).length);
+    return parsed;
+  } catch(e) {
+    console.error("[dbLoad] error:", e);
+    return {};
+  }
 }
-
-async function dbSave(value) {
+async function dbSave(data) {
   try {
-    await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
-      method: "POST",
-      headers: {
-        apikey: SUPA_KEY,
-        Authorization: `Bearer ${SUPA_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates"
-      },
-      body: JSON.stringify({ id: "main", value, updated_at: new Date().toISOString() })
+    const body = JSON.stringify({ id:"finanzas", value:JSON.stringify(data) });
+    const r = await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
+      method:"POST",
+      headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${SUPA_KEY}`,
+        "Content-Type":"application/json", "Prefer":"resolution=merge-duplicates" },
+      body,
     });
-  } catch(e) { console.error("Error guardando:", e); }
+    if(!r.ok) {
+      const txt = await r.text().catch(()=>"");
+      console.error("[dbSave] HTTP",r.status, txt);
+      return false;
+    }
+    return true;
+  } catch(e) {
+    console.error("[dbSave] fetch error:", e);
+    return false;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// SISTEMA DE AUDITORÍA — Registra acciones de usuarios
-// Retención: 24 meses · Acceso: solo admin
+// PARÁMETROS ALLEGRIA FOODS
 // ═══════════════════════════════════════════════════════════════════
-const AUDIT_RETENCION_MESES = 24;
+const FRUTAS      = ['cerezas','ciruelas','arandanos'];
+const FRUTA_LABEL = { cerezas:'Cerezas', ciruelas:'Ciruelas', arandanos:'Arándanos' };
+const FRUTA_EMOJI = { cerezas:'🍒', ciruelas:'🟣', arandanos:'🫐' };
 
-async function auditLoad() {
-  try {
-    const res = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=eq.audit_log&select=value`, {
-      headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` }
-    });
-    const data = await res.json();
-    const eventos = data?.[0]?.value?.eventos || [];
-    // Filtrar eventos más antiguos que AUDIT_RETENCION_MESES
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - AUDIT_RETENCION_MESES);
-    return eventos.filter(e => new Date(e.timestamp) >= cutoff);
-  } catch { return []; }
+function defaultFruta() {
+  return {
+    kg:0, fob_usd_kg:0, desc_exp_pct:8,
+    anticipos_cliente:[],
+    mes_liquidacion:'',
+    anticipos_productor:[],
+    mes_saldo_productor:'',
+    mat_usd_kg:0,
+    srv_usd_kg:0,
+    dist_mat:[],
+    dist_srv:[],
+  };
 }
 
-async function auditSave(eventos) {
-  try {
-    // Aplicar retención también al guardar
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - AUDIT_RETENCION_MESES);
-    const limpios = eventos.filter(e => new Date(e.timestamp) >= cutoff);
-    await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
-      method: "POST",
-      headers: {
-        apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`,
-        "Content-Type": "application/json", Prefer: "resolution=merge-duplicates"
-      },
-      body: JSON.stringify({ id: "audit_log", value: { eventos: limpios }, updated_at: new Date().toISOString() })
-    });
-  } catch(e) { console.error("Error guardando auditoría:", e); }
+function defaultParams() {
+  const p = {};
+  SEASON_KEYS.forEach(sk => {
+    p[sk] = {};
+    FRUTAS.forEach(f => { p[sk][f] = defaultFruta(); });
+  });
+  return p;
 }
 
-// Buffer global: evita race conditions acumulando eventos y grabando cada 5s
-window._auditBuffer = window._auditBuffer || [];
-window._auditAllEvents = window._auditAllEvents || null; // cargados desde Supabase
-window._auditFlushTimer = null;
-
-async function auditFlush() {
-  if(window._auditBuffer.length === 0) return;
-  const nuevos = [...window._auditBuffer];
-  window._auditBuffer = [];
-  if(!window._auditAllEvents) window._auditAllEvents = await auditLoad();
-  window._auditAllEvents = [...window._auditAllEvents, ...nuevos];
-  await auditSave(window._auditAllEvents);
+// ── Parámetros genéricos para cualquier empresa ───────────────────
+// Un "producto" es cualquier línea de ingreso con sus propios
+// parámetros: unidades, precio, descuento, anticipos, materiales, servicios
+function defaultProducto() {
+  return {
+    nombre:"",
+    emoji:"📦",
+    unidades:0,           // cantidad (kg, unidades, há, etc.)
+    unidad_label:"unid.", // etiqueta de la unidad
+    precio_unit:0,        // precio unitario (USD / unidad)
+    desc_pct:0,           // descuento intermediario %
+    mat_unit:0,           // materiales USD / unidad
+    srv_unit:0,           // servicios USD / unidad
+    anticipos_cliente:[],
+    mes_liquidacion:"",
+    anticipos_productor:[],
+    mes_saldo_productor:"",
+    dist_mat:[],
+    dist_srv:[],
+  };
 }
 
-// API principal: auditLog(accion, detalles)
-// accion: "login", "logout", "crear", "editar", "eliminar", "consultar", "exportar",
-//         "aprobar", "rechazar", "cambio_pin", "reset_pin", "cambio_permiso"
-// detalles: { modulo, seccion, descripcion, registroId, campo, valorAnterior, valorNuevo }
-window.auditLog = function(accion, detalles = {}) {
-  try {
-    const usuario = window._auditUsuarioActual;
-    if(!usuario && accion !== "login") return; // sin usuario autenticado, no registrar (excepto logins)
-    const evento = {
-      id: `ev_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-      timestamp: new Date().toISOString(),
-      usuario: usuario?.nombre || detalles.usuario || "—",
-      email: usuario?.email || detalles.email || "",
-      rol: usuario?.rol || "—",
-      accion,
-      modulo: detalles.modulo || "",
-      seccion: detalles.seccion || "",
-      descripcion: detalles.descripcion || "",
-      registroId: detalles.registroId || "",
-      campo: detalles.campo || "",
-      valorAnterior: detalles.valorAnterior !== undefined ? String(detalles.valorAnterior).slice(0,300) : "",
-      valorNuevo: detalles.valorNuevo !== undefined ? String(detalles.valorNuevo).slice(0,300) : "",
+function defaultParamsEmp() {
+  // Estructura: { seasonKey: { productoId: defaultProducto() } }
+  const p = {};
+  SEASON_KEYS.forEach(sk => { p[sk] = {}; });
+  return p;
+}
+
+// Allegria Service: parámetros por especie (cerezas / ciruelas)
+function defaultParamsAllegriaService() {
+  const p = {};
+  SEASON_KEYS.forEach(sk => {
+    p[sk] = {
+      // kg_mes: { "Nov-26": {kg:0, mes_cobro:""} } — cobro indexado por mes de proceso
+      cerezas: { kg_mes:{}, usd_kg:0 },
+      ciruelas:{ kg_mes:{}, usd_kg:0 },
     };
-    window._auditBuffer.push(evento);
-    // Debounce: flush después de 5s de inactividad
-    clearTimeout(window._auditFlushTimer);
-    window._auditFlushTimer = setTimeout(auditFlush, 5000);
-  } catch(e) { console.error("Error registrando auditoría:", e); }
-};
+  });
+  return p;
+}
 
-// Helper: registra una edición detectando cambios campo por campo
-window.auditLogDiff = function(modulo, seccion, registroId, descripcion, antes, despues) {
-  try {
-    if(!antes || !despues) return;
-    const keys = new Set([...Object.keys(antes), ...Object.keys(despues)]);
-    keys.forEach(k => {
-      if(k.startsWith("_")) return; // campos internos
-      const vA = antes[k];
-      const vD = despues[k];
-      // Solo registrar si cambió
-      if(JSON.stringify(vA) !== JSON.stringify(vD)) {
-        window.auditLog("editar", {
-          modulo, seccion, registroId, descripcion,
-          campo: k,
-          valorAnterior: typeof vA === "object" ? JSON.stringify(vA) : vA,
-          valorNuevo:    typeof vD === "object" ? JSON.stringify(vD) : vD,
+// Calcula proyección de ingresos para Allegria Service desde sus parámetros
+function calcAllegriaService(paramsAS) {
+  const ingCerezas  = Z65();
+  const ingCiruelas = Z65();
+  SEASON_KEYS.forEach(sk => {
+    const d = paramsAS?.[sk];
+    if(!d) return;
+    ["cerezas","ciruelas"].forEach(esp => {
+      const p = d[esp]; if(!p) return;
+      const usd = Number(p.usd_kg)||0; if(!usd) return;
+      // Iterar por mes de proceso — cada mes tiene su propio mes_cobro
+      Object.entries(p.kg_mes||{}).forEach(([mesProceso, entry]) => {
+        const kg = Number(typeof entry==="object" ? entry.kg : entry)||0;
+        if(!kg) return;
+        const mesCobro = typeof entry==="object" ? entry.mes_cobro : "";
+        const ingMes   = kg * usd;
+        const targetMes = mesCobro || mesProceso; // fallback: cobrar en mismo mes
+        const i = mIdx(targetMes);
+        if(i >= 0) {
+          if(esp==="cerezas")  ingCerezas[i]  += ingMes;
+          else                 ingCiruelas[i] += ingMes;
+        }
+      });
+    });
+  });
+  return { ingCerezas, ingCiruelas };
+}
+
+// Convierte los params genéricos en arrays de proyección Z65
+// para las líneas de una empresa
+function calcParamsEmp(paramsEmp, lineLabel) {
+  const ing  = Z65();
+  const cost = Z65();
+  const mat  = Z65();
+  const srv  = Z65();
+
+  SEASON_KEYS.forEach(sk => {
+    const season = paramsEmp?.[sk] || {};
+    Object.values(season).forEach(p => {
+      if(!p || p.nombre !== lineLabel) return;
+      const u   = Number(p.unidades)||0;
+      const pr  = Number(p.precio_unit)||0;
+      const desc= (Number(p.desc_pct)||0)/100;
+      const mU  = Number(p.mat_unit)||0;
+      const sU  = Number(p.srv_unit)||0;
+      if(u===0||pr===0) return;
+
+      // Ingresos cliente
+      let antIngTot=0;
+      (p.anticipos_cliente||[]).forEach(a=>{
+        const i=mIdx(a.mes); if(i<0) return;
+        const v=(Number(a.usd_unit)||0)*u;
+        ing[i]+=v; antIngTot+=v;
+      });
+      if(p.mes_liquidacion){
+        const i=mIdx(p.mes_liquidacion);
+        if(i>=0) ing[i]+=Math.max(0,u*pr-antIngTot);
+      }
+
+      // Costo proveedor
+      const pNeto=Math.max(0,pr*(1-desc)-mU-sU);
+      let antCostTot=0;
+      (p.anticipos_productor||[]).forEach(a=>{
+        const i=mIdx(a.mes); if(i<0) return;
+        const v=(Number(a.usd_unit)||0)*u;
+        cost[i]+=v; antCostTot+=v;
+      });
+      if(p.mes_saldo_productor){
+        const i=mIdx(p.mes_saldo_productor);
+        if(i>=0){const s=u*pNeto-antCostTot; if(s>0) cost[i]+=s;}
+      }
+
+      // Materiales
+      const totM=u*mU;
+      if(totM>0)(p.dist_mat||[]).forEach(d=>{
+        const i=mIdx(d.mes); if(i<0) return;
+        mat[i]+=totM*((Number(d.pct)||0)/100);
+      });
+
+      // Servicios
+      const totS=u*sU;
+      if(totS>0)(p.dist_srv||[]).forEach(d=>{
+        const i=mIdx(d.mes); if(i<0) return;
+        srv[i]+=totS*((Number(d.pct)||0)/100);
+      });
+    });
+  });
+  return {ing,cost,mat,srv};
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MOTOR FÓRMULAS — Allegria Foods
+// ═══════════════════════════════════════════════════════════════════
+function calcAllegria(params) {
+  const ing  = { cerezas:Z65(), ciruelas:Z65(), arandanos:Z65() };
+  const cost = { cerezas:Z65(), ciruelas:Z65(), arandanos:Z65() };
+  const mat  = { cerezas:Z65(), ciruelas:Z65(), arandanos:Z65() };
+  const srv  = { cerezas:Z65(), ciruelas:Z65(), arandanos:Z65() };
+  SEASON_KEYS.forEach(sk => {
+    if (!params?.[sk]) return;
+    FRUTAS.forEach(f => {
+      const p   = params[sk]?.[f];
+      if (!p) return;
+      const kg      = Number(p.kg)||0;
+      const fob     = Number(p.fob_usd_kg)||0;
+      const desc    = (Number(p.desc_exp_pct)||0)/100;
+      const matUsd  = Number(p.mat_usd_kg)||0;
+      const srvUsd  = Number(p.srv_usd_kg)||0;
+      if (kg===0||fob===0) return;
+      let totalAntIng = 0;
+      (p.anticipos_cliente||[]).forEach(a => {
+        const i = mIdx(a.mes); if(i<0) return;
+        const v = (Number(a.usd_kg)||0)*kg;
+        ing[f][i] += v; totalAntIng += v;
+      });
+      if (p.mes_liquidacion) {
+        const i = mIdx(p.mes_liquidacion);
+        if (i>=0) ing[f][i] += Math.max(0, kg*fob - totalAntIng);
+      }
+      const precioNetoProd = Math.max(0, fob*(1-desc) - matUsd - srvUsd);
+      let totalAntProd = 0;
+      (p.anticipos_productor||[]).forEach(a => {
+        const i = mIdx(a.mes); if(i<0) return;
+        const v = (Number(a.usd_kg)||0)*kg;
+        cost[f][i] += v; totalAntProd += v;
+      });
+      if (p.mes_saldo_productor) {
+        const i = mIdx(p.mes_saldo_productor);
+        if (i>=0) { const s = kg*precioNetoProd - totalAntProd; if(s>0) cost[f][i] += s; }
+      }
+      const totalMat = kg * matUsd;
+      if (totalMat > 0) {
+        (p.dist_mat||[]).forEach(d => {
+          const i = mIdx(d.mes); if(i<0) return;
+          mat[f][i] += totalMat * ((Number(d.pct)||0)/100);
+        });
+      }
+      const totalSrv = kg * srvUsd;
+      if (totalSrv > 0) {
+        (p.dist_srv||[]).forEach(d => {
+          const i = mIdx(d.mes); if(i<0) return;
+          srv[f][i] += totalSrv * ((Number(d.pct)||0)/100);
         });
       }
     });
-  } catch(e) { console.error("Error en auditLogDiff:", e); }
+  });
+  return { ing, cost, mat, srv };
+}
+
+function semanaDeDate(d) {
+  const date = new Date(d);
+  const jan1 = new Date(date.getFullYear(),0,1);
+  const week = Math.ceil(((date-jan1)/86400000+jan1.getDay()+1)/7);
+  return `S${String(week).padStart(2,"0")}`;
+}
+
+function mesDeDate(d) {
+  const date=new Date(d);
+  return `${MN[date.getMonth()]}-${String(date.getFullYear()).slice(2)}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CRÉDITOS
+// ═══════════════════════════════════════════════════════════════════
+const CREDITOS_DEFAULT = [
+  {n:1,empresa:"Allegria Foods",acreedor:"Zelun",tipo_inst:"Privado",monto:120000,f_venc:"2026-11-30",tipo_cr:"Bullet",tasa:"",cuota:120000,pagado:false},
+  {n:2,empresa:"Allegria Foods",acreedor:"Yiannis",tipo_inst:"Privado",monto:117000,f_venc:"2026-11-30",tipo_cr:"Bullet",tasa:"",cuota:117000,pagado:false},
+  {n:3,empresa:"Allegria Foods",acreedor:"Fresion",tipo_inst:"Privado",monto:136000,f_venc:"2026-11-30",tipo_cr:"Bullet",tasa:"",cuota:136000,pagado:false},
+  {n:4,empresa:"Allegria Foods",acreedor:"Qupai",tipo_inst:"Privado",monto:76864,f_venc:"2026-11-30",tipo_cr:"Bullet",tasa:"",cuota:76864,pagado:false},
+  {n:5,empresa:"Allegria Foods",acreedor:"China Smart",tipo_inst:"Privado",monto:50000,f_venc:"2026-11-30",tipo_cr:"Bullet",tasa:"",cuota:50000,pagado:false},
+  {n:6,empresa:"Allegria Foods",acreedor:"Zelun",tipo_inst:"Privado",monto:70000,f_venc:"2027-05-31",tipo_cr:"Bullet",tasa:"",cuota:70000,pagado:false},
+  {n:7,empresa:"Allegria Foods",acreedor:"Yiannis",tipo_inst:"Privado",monto:117000,f_venc:"2027-05-31",tipo_cr:"Bullet",tasa:"",cuota:117000,pagado:false},
+  {n:8,empresa:"Allegria Foods",acreedor:"Fresion",tipo_inst:"Privado",monto:135000,f_venc:"2027-05-31",tipo_cr:"Bullet",tasa:"",cuota:135000,pagado:false},
+  {n:9,empresa:"Allegria Foods",acreedor:"Qupai",tipo_inst:"Privado",monto:76864,f_venc:"2027-05-31",tipo_cr:"Bullet",tasa:"",cuota:76864,pagado:false},
+  {n:10,empresa:"Allegria Foods",acreedor:"China Smart",tipo_inst:"Privado",monto:50000,f_venc:"2027-05-31",tipo_cr:"Bullet",tasa:"",cuota:50000,pagado:false},
+  {n:11,empresa:"Allegria Foods",acreedor:"Banco BICE",tipo_inst:"Banco",monto:200000,f_venc:"2026-06-02",tipo_cr:"Bullet",tasa:"8.3%",cuota:200000,pagado:false},
+  {n:12,empresa:"Allegria Foods",acreedor:"Banco Santander",tipo_inst:"Banco",monto:105000,f_venc:"2026-06-30",tipo_cr:"Bullet",tasa:"7.6%",cuota:105000,pagado:false},
+  {n:13,empresa:"Allegria Foods",acreedor:"Banco Santander",tipo_inst:"Banco",monto:105000,f_venc:"2026-07-31",tipo_cr:"Bullet",tasa:"7.6%",cuota:105000,pagado:false},
+  {n:14,empresa:"Allegria Foods",acreedor:"Banco Santander",tipo_inst:"Banco",monto:105000,f_venc:"2026-08-11",tipo_cr:"Bullet",tasa:"7.6%",cuota:105000,pagado:false},
+  {n:15,empresa:"Allegria Foods",acreedor:"Banco Santander",tipo_inst:"Banco",monto:105000,f_venc:"2026-09-01",tipo_cr:"Bullet",tasa:"7.6%",cuota:105000,pagado:false},
+  {n:16,empresa:"Allegria Foods",acreedor:"Banco Santander",tipo_inst:"Banco",monto:105000,f_venc:"2026-09-04",tipo_cr:"Bullet",tasa:"7.6%",cuota:105000,pagado:false},
+  {n:17,empresa:"Allegria Foods",acreedor:"Banco Santander",tipo_inst:"Banco",monto:75000,f_venc:"2026-09-25",tipo_cr:"Bullet",tasa:"7.6%",cuota:75000,pagado:false},
+  {n:50,empresa:"Frisku Foods",acreedor:"Banco Security",tipo_inst:"Banco",monto:12637,f_venc:"2026-04-25",tipo_cr:"Cuotas Mensuales",tasa:"10.7%",cuota:12637,pagado:false},
+  {n:51,empresa:"Frisku Foods",acreedor:"Banco Security",tipo_inst:"Banco",monto:12637,f_venc:"2026-05-25",tipo_cr:"Cuotas Mensuales",tasa:"10.7%",cuota:12637,pagado:false},
+  {n:52,empresa:"Frisku Foods",acreedor:"Banco Security",tipo_inst:"Banco",monto:12637,f_venc:"2026-06-25",tipo_cr:"Cuotas Mensuales",tasa:"10.7%",cuota:12637,pagado:false},
+  {n:53,empresa:"Frisku Foods",acreedor:"Banco Security",tipo_inst:"Banco",monto:12637,f_venc:"2026-07-25",tipo_cr:"Cuotas Mensuales",tasa:"10.7%",cuota:12637,pagado:false},
+  {n:54,empresa:"Frisku Foods",acreedor:"Banco Security",tipo_inst:"Banco",monto:12637,f_venc:"2026-08-25",tipo_cr:"Cuotas Mensuales",tasa:"10.7%",cuota:12637,pagado:false},
+  {n:18,empresa:"Frisku Foods",acreedor:"Banco Security",tipo_inst:"Banco",monto:12637,f_venc:"2026-09-25",tipo_cr:"Cuotas Mensuales",tasa:"10.7%",cuota:12637,pagado:false},
+  {n:19,empresa:"Frisku Foods",acreedor:"Banco BICE",tipo_inst:"Banco",monto:52391,f_venc:"2026-04-13",tipo_cr:"Bullet",tasa:"9.7%",cuota:52391,pagado:false},
+  {n:30,empresa:"Osiris",acreedor:"Banco Security",tipo_inst:"Banco",monto:9178,f_venc:"2026-04-30",tipo_cr:"Cuotas Mensuales",tasa:"",cuota:9178,pagado:false},
+  {n:31,empresa:"Osiris",acreedor:"Banco Security",tipo_inst:"Banco",monto:9178,f_venc:"2026-05-31",tipo_cr:"Cuotas Mensuales",tasa:"",cuota:9178,pagado:false},
+  {n:32,empresa:"Osiris",acreedor:"Banco Security",tipo_inst:"Banco",monto:9178,f_venc:"2026-06-30",tipo_cr:"Cuotas Mensuales",tasa:"",cuota:9178,pagado:false},
+  {n:33,empresa:"Osiris",acreedor:"Banco Security",tipo_inst:"Banco",monto:9178,f_venc:"2026-07-31",tipo_cr:"Cuotas Mensuales",tasa:"",cuota:9178,pagado:false},
+  {n:34,empresa:"Osiris",acreedor:"Banco Security",tipo_inst:"Banco",monto:9178,f_venc:"2026-08-31",tipo_cr:"Cuotas Mensuales",tasa:"",cuota:9178,pagado:false},
+  {n:35,empresa:"Osiris",acreedor:"Banco Security",tipo_inst:"Banco",monto:9178,f_venc:"2026-09-30",tipo_cr:"Cuotas Mensuales",tasa:"",cuota:9178,pagado:false},
+  {n:36,empresa:"Osiris",acreedor:"Banco Security",tipo_inst:"Banco",monto:9178,f_venc:"2026-10-31",tipo_cr:"Cuotas Mensuales",tasa:"",cuota:9178,pagado:false},
+  {n:37,empresa:"Osiris",acreedor:"Banco Security",tipo_inst:"Banco",monto:9178,f_venc:"2026-11-30",tipo_cr:"Cuotas Mensuales",tasa:"",cuota:9178,pagado:false},
+  {n:20,empresa:"Osiris",acreedor:"Banco Security",tipo_inst:"Banco",monto:9178,f_venc:"2026-12-05",tipo_cr:"Cuotas Mensuales",tasa:"",cuota:9178,pagado:false},
+  {n:21,empresa:"Osiris",acreedor:"BCI",tipo_inst:"Banco",monto:350000,f_venc:"2026-06-27",tipo_cr:"Bullet",tasa:"9.3%",cuota:350000,pagado:false},
+  {n:22,empresa:"Allegria Service",acreedor:"BCI",tipo_inst:"Banco",monto:395759,f_venc:"2026-11-05",tipo_cr:"Leasing",tasa:"8.5%",cuota:600000,pagado:false},
+  {n:23,empresa:"Allegria Service",acreedor:"BCI",tipo_inst:"Banco",monto:429557,f_venc:"2027-11-05",tipo_cr:"Leasing",tasa:"8.5%",cuota:600000,pagado:false},
+  {n:24,empresa:"Allegria Service",acreedor:"BCI",tipo_inst:"Banco",monto:543447,f_venc:"2028-11-05",tipo_cr:"Leasing",tasa:"8.5%",cuota:677206,pagado:false},
+  {n:25,empresa:"Allegria Service",acreedor:"BCI",tipo_inst:"Banco",monto:589857,f_venc:"2029-11-05",tipo_cr:"Leasing",tasa:"8.5%",cuota:677206,pagado:false},
+  {n:26,empresa:"Allegria Service",acreedor:"BCI",tipo_inst:"Banco",monto:432959,f_venc:"2029-12-05",tipo_cr:"Leasing",tasa:"8.5%",cuota:436040,pagado:false},
+  {n:27,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:53061,f_venc:"2026-06-26",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:53061,pagado:false},
+  {n:28,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:106122,f_venc:"2027-06-29",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:106122,pagado:false},
+  {n:29,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:143720,f_venc:"2028-06-27",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:143720,pagado:false},
+  {n:30,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:143720,f_venc:"2029-06-26",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:143720,pagado:false},
+  {n:31,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:143720,f_venc:"2030-06-26",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:143720,pagado:false},
+  {n:32,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:143720,f_venc:"2031-06-26",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:143720,pagado:false},
+  {n:33,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:34650,f_venc:"2026-06-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:34650,pagado:false},
+  {n:34,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:34650,f_venc:"2026-09-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:34650,pagado:false},
+  {n:35,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:34650,f_venc:"2026-12-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:34650,pagado:false},
+  {n:36,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:550000,f_venc:"2027-01-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:550000,pagado:false},
+  {n:37,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:17325,f_venc:"2027-03-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:17325,pagado:false},
+  {n:38,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:17325,f_venc:"2027-06-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:17325,pagado:false},
+  {n:39,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:17325,f_venc:"2027-09-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:17325,pagado:false},
+  {n:40,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:17325,f_venc:"2027-12-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:17325,pagado:false},
+  {n:41,empresa:"Mediterra",acreedor:"Privado Particular",tipo_inst:"Privado",monto:550000,f_venc:"2028-01-01",tipo_cr:"Inversión",tasa:"12.6%",cuota:550000,pagado:false},
+];
+const CREDITOS_TRIM = {
+  quarters:["Q1 2026","Q2 2026","Q3 2026","Q4 2026","Q1 2027","Q2 2027","Q3 2027","Q4 2027","Q1 2028","Q2 2028","Q3 2028","Q4 2028"],
+  pagos:   [21815,1064994,983763,1517473,922750,1348929,677657,972750,1016426,800196,0,0],
+  saldos:  [8355763,7761667,7667292,6513894,5946569,5287401,5270076,4652751,4102751,3881315,3881315,3881315],
 };
 
-// Al cerrar ventana, flush pendiente
-if(typeof window !== "undefined" && !window._auditBeforeUnload) {
-  window._auditBeforeUnload = true;
-  window.addEventListener("beforeunload", () => {
-    if(window._auditBuffer.length > 0) {
-      // Guardado síncrono best-effort usando sendBeacon
-      try {
-        const cutoff = new Date();
-        cutoff.setMonth(cutoff.getMonth() - AUDIT_RETENCION_MESES);
-        const allEvents = [...(window._auditAllEvents||[]), ...window._auditBuffer]
-          .filter(e => new Date(e.timestamp) >= cutoff);
-        const blob = new Blob([JSON.stringify({
-          id: "audit_log",
-          value: { eventos: allEvents },
-          updated_at: new Date().toISOString()
-        })], {type:"application/json"});
-        // Nota: sendBeacon no permite headers custom en Supabase, así que solo flush async
-        auditFlush();
-      } catch {}
+// Calcula array proy[64] de pagos de préstamos desde CREDITOS para una empresa
+// Coloca cada cuota en el índice del mes de vencimiento (semana más aproximada)
+function calcPrestamosEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
+  const arr = Z65();
+  creditos.filter(c => c.empresa === empresa && !c.pagado).forEach(c => {
+    if(!c.f_venc || !c.cuota) return;
+    const mes = mesDeDate(c.f_venc);
+    const i   = mIdx(mes);
+    if(i >= 0) arr[i] += Number(c.cuota)||0;
+  });
+  return arr;
+}
+
+// Retorna { mes: { semana: monto } } para posicionar en semana exacta de vencimiento
+// Si la semana calculada no está en SEMANAS_MES del mes, usa la última semana del mes
+function semanaVencimientoEnMes(f_venc) {
+  const mes = mesDeDate(f_venc);
+  const sem = semanaDeDate(f_venc);
+  const semsDelMes = SEMANAS_MES[mes] || [];
+  // Si la semana está en el mes → usarla; si no → usar la última semana del mes
+  return { mes, sem: semsDelMes.includes(sem) ? sem : (semsDelMes[semsDelMes.length-1] || sem) };
+}
+
+// ── Genera cuotas de renovación para créditos renovables ya pagados ──────────
+// Usa cuotas_renovacion:[{mes,anio,monto}] para fechas exactas
+const MES_ABR_TO_EN = {
+  "Ene":"Jan","Feb":"Feb","Mar":"Mar","Abr":"Apr","May":"May","Jun":"Jun",
+  "Jul":"Jul","Ago":"Aug","Sep":"Sep","Oct":"Oct","Nov":"Nov","Dic":"Dec"
+};
+
+// Calcula monto real de cada cuota:
+// "Solo Interés"    → interés sobre saldo (capital NO disminuye)
+// "Capital+Interés" → amortización equitativa + interés sobre saldo (capital disminuye)
+// El interés SIEMPRE se agrega automáticamente según tasa anual
+// Mapa abreviatura mes español → número
+const MES_ABR_NUM = {Ene:1,Feb:2,Mar:3,Abr:4,May:5,Jun:6,Jul:7,Ago:8,Sep:9,Oct:10,Nov:11,Dic:12};
+
+function calcMontoRealCuota(cuotas, capital, tasaAnual, mesIngresoAnio) {
+  const cuotasArr = cuotas||[];
+  const n = cuotasArr.length;
+  if(n===0) return [];
+  const tasaMensual = (Number(tasaAnual)||0)/100/12;
+  const nCapital = cuotasArr.filter(cq=>(cq.tipo||"Solo Interés")==="Capital+Interés").length;
+  const amortPorCuota = nCapital>0 ? (Number(capital)||0)/nCapital : 0;
+  let saldo = Number(capital)||0;
+
+  // Fecha base: mes de ingreso del préstamo (para calcular meses exactos)
+  // mesIngresoAnio: "May-26" o similar, o usar primer mes de cuotas
+  let fechaBase = null;
+  if(mesIngresoAnio) {
+    const parts = String(mesIngresoAnio).split("-");
+    if(parts.length===2) {
+      const mesAbr = parts[0]; const anioS = parts[1];
+      const mesN = MES_ABR_NUM[mesAbr]||1;
+      const anioN = anioS.length===2 ? 2000+parseInt(anioS) : parseInt(anioS);
+      fechaBase = {y:anioN, m:mesN};
     }
-  });
-}
-
-
-async function enviarEmail(toEmail, nombre, asunto, cuerpo) {
-  await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({service_id:EMAILJS_SERVICE,template_id:EMAILJS_TEMPLATE,user_id:EMAILJS_KEY,
-      template_params:{nombre,pin_temporal:cuerpo,to_email:toEmail,subject:asunto}})
-  });
-}
-
-// Template separado para notificaciones de tareas (sin texto de PIN)
-async function enviarNotificacion(toEmail, nombre, asunto, mensaje) {
-  await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({service_id:EMAILJS_SERVICE,template_id:EMAILJS_TEMPLATE_NOTIF,user_id:EMAILJS_KEY,
-      template_params:{nombre, message:mensaje, to_email:toEmail, subject:asunto}})
-  });
-}
-// Exponer globalmente para uso desde otros módulos (ej: nóminas)
-window._enviarNotificacion = enviarNotificacion;
-
-const DIAS_SEMANA = ["Lunes","Martes","Miercoles","Jueves","Viernes"];
-const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const FRECUENCIAS = ["Diaria","Semanal","Quincenal","Mensual","Anual","Puntual"];
-
-// Roles del sistema
-const ROLES = [
-  {v:"admin",    l:"Administrador – acceso total"},
-  {v:"editor",   l:"Editor – gestiona sus tareas"},
-  {v:"consulta", l:"Consulta – solo visualiza"},
-];
-
-// Módulos disponibles — agregar aquí nuevos módulos en el futuro
-const MODULOS_DISPONIBLES = [
-  {id:"tareas",   label:"Seguimiento Tareas",      sublabel:"Administración y Finanzas", icon:"📋", color:"#2563eb", bg:"#dbeafe", grad:"linear-gradient(135deg,#1e3a5f,#2563eb)"},
-  {id:"osiris",   label:"Osiris Plant Management", sublabel:"Genética Diferenciada",       icon:"🌿", color:"#0f766e", bg:"#ccfbf1", grad:"linear-gradient(135deg,#0f2d4a,#0f766e)"},
-  {id:"finanzas", label:"Finanzas",                sublabel:"Flujo de Caja Grupo Mediterra", icon:"💼", color:"#0d6b3a", bg:"#d1fae5", grad:"linear-gradient(135deg,#0d2137,#0a3d2b)"},
-  {id:"allegria", label:"Allegria Foods",           sublabel:"Exportación Fruta Fresca",  icon:"🍒", color:"#b91c1c", bg:"#fee2e2", grad:"linear-gradient(135deg,#1a0a0a,#b91c1c)"},
-];
-
-// Feriados de Chile (fijos + variables conocidos 2026-2031)
-// Formato: "MM-DD" para fijos, "YYYY-MM-DD" para variables
-const FERIADOS_FIJOS = [
-  "01-01", // Año Nuevo
-  "05-01", // Día del Trabajo
-  "05-21", // Día de las Glorias Navales
-  "06-20", // Día Nacional de los Pueblos Indígenas (aprox, varía)
-  "06-29", // San Pedro y San Pablo (puede moverse)
-  "07-16", // Virgen del Carmen
-  "08-15", // Asunción de la Virgen
-  "09-18", // Fiestas Patrias
-  "09-19", // Día de las Glorias del Ejército
-  "10-12", // Encuentro de Dos Mundos (puede moverse)
-  "10-31", // Día de las Iglesias Evangélicas
-  "11-01", // Día de Todos los Santos
-  "12-08", // Inmaculada Concepción
-  "12-25", // Navidad
-];
-// Feriados variables (Semana Santa, etc.) — agregar manualmente cada año
-const FERIADOS_VARIABLES = [
-  "2026-04-03","2026-04-04", // Viernes y Sábado Santo 2026
-  "2027-03-26","2027-03-27", // 2027
-  "2028-04-14","2028-04-15", // 2028
-  "2029-03-30","2029-03-31", // 2029
-  "2030-04-19","2030-04-20", // 2030
-  "2031-04-11","2031-04-12", // 2031
-];
-
-function esFeriado(fecha) {
-  const mmdd = `${String(fecha.getMonth()+1).padStart(2,"0")}-${String(fecha.getDate()).padStart(2,"0")}`;
-  if(FERIADOS_FIJOS.includes(mmdd)) return true;
-  const iso = fecha.toISOString().slice(0,10);
-  if(FERIADOS_VARIABLES.includes(iso)) return true;
-  return false;
-}
-
-function diaHabil(anio,mes,dia){
-  const f=new Date(anio,mes,dia);
-  // Avanzar al siguiente día hábil si cae sábado, domingo o feriado
-  let intentos = 0;
-  while(intentos < 10) {
-    const d = f.getDay();
-    if(d === 6) { f.setDate(f.getDate()+2); intentos++; continue; } // Sábado → Lunes
-    if(d === 0) { f.setDate(f.getDate()+1); intentos++; continue; } // Domingo → Lunes
-    if(esFeriado(f)) { f.setDate(f.getDate()+1); intentos++; continue; } // Feriado → siguiente
-    break;
   }
-  return f;
-}
-function mesAnteriorAlInicio(anio,mes){
-  return new Date(anio,mes,1)<new Date(FECHA_INICIO.getFullYear(),FECHA_INICIO.getMonth(),1);
+
+  return cuotasArr.map((cq,i) => {
+    const tipo = cq.tipo||"Solo Interés";
+    // Calcular meses desde fecha base hasta esta cuota
+    let interes = 0;
+    if(tasaMensual > 0 && cq.mes && cq.anio) {
+      const mesN = MES_ABR_NUM[cq.mes]||1;
+      const anioN = parseInt(cq.anio)||2026;
+      let mesesTransc = 0;
+      if(fechaBase) {
+        // Meses desde el ingreso (o última cuota) hasta esta cuota
+        const prevCuota = i===0 ? fechaBase : (() => {
+          const pc = cuotasArr[i-1];
+          return pc?.mes && pc?.anio
+            ? {y:parseInt(pc.anio)||2026, m:MES_ABR_NUM[pc.mes]||1}
+            : fechaBase;
+        })();
+        mesesTransc = (anioN - prevCuota.y)*12 + (mesN - prevCuota.m);
+      } else {
+        // Sin fecha base, asumir período mensual
+        mesesTransc = 1;
+      }
+      mesesTransc = Math.max(1, mesesTransc);
+      interes = Math.round(saldo * tasaMensual * mesesTransc);
+    }
+    let montoReal, amort=0;
+    if(tipo==="Capital+Interés") {
+      amort = Math.round(amortPorCuota);
+      montoReal = amort + interes;
+      saldo = Math.max(0, saldo - amort);
+    } else {
+      montoReal = interes;
+    }
+    return {...cq, montoReal, interes, amort};
+  });
 }
 
-const RECORDATORIOS=[
-  {id:"rec1",titulo:"Emision Factura Corporativo",diaMes:4,destinatarios:["Milagros Becerra"],copia:["Carol Machuca"],
-    mensaje:(n)=>`Estimada ${n.split(" ")[0]}, te recordamos que el dia 4 de este mes corresponde emitir la factura de servicios Corporativo.`},
-  {id:"rec2",titulo:"Emision Factura Frisku",diaMes:25,destinatarios:["Milagros Becerra"],copia:["Carol Machuca"],
-    mensaje:(n)=>`Estimada ${n.split(" ")[0]}, te recordamos que el dia 25 de este mes corresponde emitir la factura de servicios Frisku.`},
-];
-
-function getRecordatoriosActivos(nombre,anio,mes,esAdm){
-  const hoy=new Date();hoy.setHours(0,0,0,0);
-  return RECORDATORIOS
-    .filter(r=>r.destinatarios.includes(nombre)||r.copia.includes(nombre)||esAdm)
-    .map(r=>{const fv=diaHabil(anio,mes,r.diaMes);const fa=new Date(fv);fa.setDate(fv.getDate()-2);const diff=Math.ceil((fv-hoy)/(1000*60*60*24));return{...r,fechaVence:fv,diff,activo:hoy>=fa};})
-    .filter(r=>r.activo);
+function calcRenovacionesEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
+  const arr = Z65();
+  creditos.filter(c => c.empresa === empresa && c.renovable).forEach(c => {
+    const cuotasCalc = calcMontoRealCuota(c.cuotas_renovacion, c.monto_renovacion, c.tasa_anual, c.mes_ingreso_renovacion&&c.anio_ingreso_renovacion?`${c.mes_ingreso_renovacion}-${String(c.anio_ingreso_renovacion).slice(-2)}`:'');
+    cuotasCalc.forEach(cq => {
+      if(!cq.mes || !cq.anio) return;
+      const monto = cq.montoReal || Number(cq.monto) || 0;
+      const mesEn = MES_ABR_TO_EN[cq.mes] || cq.mes;
+      const label = `${mesEn}-${String(cq.anio).slice(2)}`;
+      const i = mIdx(label);
+      if(i >= 0) arr[i] += monto;
+    });
+  });
+  return arr;
 }
 
-const SEMAFORO={
-  verde:   {label:"Completado", color:"#22c55e",bg:"#dcfce7",border:"#86efac"},
-  amarillo:{label:"En proceso", color:"#eab308",bg:"#fef9c3",border:"#fde047"},
-  rojo:    {label:"Pendiente",  color:"#ef4444",bg:"#fee2e2",border:"#fca5a5"},
-  gris:    {label:"Sin iniciar",color:"#9ca3af",bg:"#f3f4f6",border:"#d1d5db"},
-  na:      {label:"No Aplica",  color:"#475569",bg:"#f1f5f9",border:"#94a3b8"},
+function calcRenovacionesDesglose(empresa, creditos=CREDITOS_DEFAULT) {
+  const byAcreedor = {};
+  creditos.filter(c => c.empresa === empresa && c.renovable).forEach(c => {
+    const key = c.acreedor + " (Ren.)";
+    if(!byAcreedor[key]) byAcreedor[key] = Z65();
+    const cuotasConInt = calcMontoRealCuota(c.cuotas_renovacion, c.monto_renovacion, c.tasa_anual, c.mes_ingreso_renovacion&&c.anio_ingreso_renovacion?`${c.mes_ingreso_renovacion}-${String(c.anio_ingreso_renovacion).slice(-2)}`:'');
+    cuotasConInt.forEach(cq => {
+      if(!cq.mes || !cq.anio) return;
+      const monto = cq.montoReal || Number(cq.monto) || 0;
+      const mesEn = MES_ABR_TO_EN[cq.mes] || cq.mes;
+      const label = `${mesEn}-${String(cq.anio).slice(2)}`;
+      const i = mIdx(label);
+      if(i >= 0) byAcreedor[key][i] += monto;
+    });
+  });
+  return byAcreedor;
+}
+
+// Genera array de ingresos por renovación (nuevo préstamo recibido)
+function calcIngresoRenovacionEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
+  const arr = Z65();
+  creditos.filter(c => c.empresa === empresa && c.renovable && c.monto_renovacion && c.mes_ingreso_renovacion && c.anio_ingreso_renovacion).forEach(c => {
+    const mesEn = MES_ABR_TO_EN[c.mes_ingreso_renovacion] || c.mes_ingreso_renovacion;
+    const label = `${mesEn}-${String(c.anio_ingreso_renovacion).slice(2)}`;
+    const i = mIdx(label);
+    if(i >= 0) arr[i] += Number(c.monto_renovacion)||0;
+  });
+  return arr;
+}
+
+
+// Retorna { acreedor: proy[64] } para desglose de ingresos por renovación
+function calcIngresoRenovacionDesglose(empresa, creditos=CREDITOS_DEFAULT) {
+  const byAcreedor = {};
+  creditos.filter(c => c.empresa === empresa && c.renovable && c.monto_renovacion && c.mes_ingreso_renovacion && c.anio_ingreso_renovacion).forEach(c => {
+    const key = c.acreedor + " (Ingr. Ren.)";
+    if(!byAcreedor[key]) byAcreedor[key] = Z65();
+    const mesEn = MES_ABR_TO_EN[c.mes_ingreso_renovacion] || c.mes_ingreso_renovacion;
+    const label = `${mesEn}-${String(c.anio_ingreso_renovacion).slice(2)}`;
+    const i = mIdx(label);
+    if(i >= 0) byAcreedor[key][i] += Number(c.monto_renovacion)||0;
+  });
+  return byAcreedor;
+}
+function calcPrestamosSemanasEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
+  const bySemana = {}; // { "Nov-26": { "S47": 120000 } }
+  creditos.filter(c => c.empresa === empresa && !c.pagado).forEach(c => {
+    if(!c.f_venc || !c.cuota) return;
+    const { mes, sem } = semanaVencimientoEnMes(c.f_venc);
+    const monto = Number(c.cuota)||0;
+    if(!bySemana[mes]) bySemana[mes] = {};
+    bySemana[mes][sem] = (bySemana[mes][sem]||0) + monto;
+  });
+  return bySemana;
+}
+
+// Retorna { acreedor: proy[64] } desglosado por institución
+function calcPrestamosDesglose(empresa, creditos=CREDITOS_DEFAULT) {
+  const byAcreedor = {};
+  creditos.filter(c => c.empresa === empresa && !c.pagado).forEach(c => {
+    if(!c.f_venc || !c.cuota) return;
+    const mes = mesDeDate(c.f_venc);
+    const i   = mIdx(mes);
+    if(i < 0) return;
+    if(!byAcreedor[c.acreedor]) byAcreedor[c.acreedor] = Z65();
+    byAcreedor[c.acreedor][i] += Number(c.cuota)||0;
+  });
+  return byAcreedor;
+}
+
+// Retorna { acreedor: { mes: { semana: monto } } } para vista semanal exacta
+function calcPrestamosDesgloseSemanasEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
+  const bySemana = {}; // { "Zelun": { "Nov-26": { "S47": 120000 } } }
+  creditos.filter(c => c.empresa === empresa && !c.pagado).forEach(c => {
+    if(!c.f_venc || !c.cuota) return;
+    const { mes, sem } = semanaVencimientoEnMes(c.f_venc);
+    const monto = Number(c.cuota)||0;
+    if(!bySemana[c.acreedor]) bySemana[c.acreedor] = {};
+    if(!bySemana[c.acreedor][mes]) bySemana[c.acreedor][mes] = {};
+    bySemana[c.acreedor][mes][sem] = (bySemana[c.acreedor][mes][sem]||0) + monto;
+  });
+  return bySemana;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EMPRESAS ESTÁTICAS
+// ═══════════════════════════════════════════════════════════════════
+const EMPRESAS_STATIC = {
+  'Mediterra': {
+    emoji:'🏢', color:'#1d4ed8', saldo_ini:3601, desc:'Holding · Inversiones Mediterra SpA',
+    sections:[
+      { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
+        {label:'Fee Administración', proy:ext([80000,80000,80000,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500].concat(Array(41).fill(87500)))},
+        {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
+      ]},
+      { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
+        {label:'Costos Variables Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_fijo', label:'Costos Fijos / SG&A', signo:-1, lines:[
+        {label:'Remuneración Administración', proy:ext(Array(24).fill(50000).concat(Array(41).fill(0)))},
+        {label:'Aguinaldo', proy:Z65()},
+        {label:'Vales De Colación', proy:Z65()},
+        {label:'Seguro Complementario Salud', proy:Z65()},
+        {label:'Viáticos', proy:Z65()},
+        {label:'Arriendo Vehículos', proy:Z65()},
+        {label:'Arriendo Oficina', proy:Z65()},
+        {label:'Gastos Legales', proy:Z65()},
+        {label:'Fee Administración', proy:Z65()},
+        {label:'Asesorías Corporativo', proy:Z65()},
+        {label:'Asesorías', proy:Z65()},
+        {label:'Asesorías Contables', proy:Z65()},
+        {label:'Asesorías Computacionales', proy:Z65()},
+        {label:'Teléfonos Celulares', proy:Z65()},
+        {label:'Gastos Computacionales', proy:Z65()},
+        {label:'Artículos De Imprenta Y Librería', proy:Z65()},
+        {label:'Artículos De Aseo', proy:Z65()},
+        {label:'Víveres Consumo Oficina', proy:Z65()},
+        {label:'Gastos Viajes Nacionales', proy:Z65()},
+        {label:'Gastos Viajes Internacionales', proy:Z65()},
+        {label:'Gastos De Movilización, Tag Y Peajes', proy:Z65()},
+        {label:'Alojamiento', proy:Z65()},
+        {label:'Gastos de Representación', proy:Z65()},
+        {label:'Almuerzos', proy:Z65()},
+        {label:'Gastos De Colación Trabajadores', proy:Z65()},
+        {label:'Combustibles', proy:Z65()},
+        {label:'Mantención De Vehículos De Administración', proy:Z65()},
+        {label:'Encomienda Y Correo Nacional', proy:Z65()},
+        {label:'Encomienda Y Corresp. Internacional', proy:Z65()},
+        {label:'Gasto Arriendo Dispensadores', proy:Z65()},
+        {label:'Gastos Bodegaje Documentación', proy:Z65()},
+        {label:'Gastos Bancarios', proy:Z65()},
+        {label:'Patentes Comerciales', proy:Z65()},
+        {label:'Contribuciones Bienes Raíces', proy:Z65()},
+        {label:'Seguros', proy:Z65()},
+        {label:'Gastos Varios', proy:Z65()},
+      ]},
+      { cat:'imp', label:'Impuestos', signo:-1, lines:[
+        {label:'Impuestos Mensuales', proy:Z65()},
+        {label:'Impuestos Anuales', proy:Z65()},
+      ]},
+      { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
+        {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Mediterra'), formula:true, subLines:true},
+        {label:'Otros Ingresos No Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
+        {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Mediterra'), formula:true, subLines:true},
+        {label:'Renovaciones', proy:calcRenovacionesEmpresa('Mediterra'), formula:true, subLines:true},
+        {label:'Aportes de Capital', proy:Z65(), subLines:true},
+        {label:'Leyes Sociales Laborales', proy:Z65()},
+        {label:'Pago F-29', proy:Z65()},
+      ]},
+    ],
+  },
+  'Allegria Service': {
+    emoji:'🏭', color:'#92400e', saldo_ini:5519, desc:'Procesamiento · Packing',
+    sections:[
+      { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
+        {label:'Proceso de Cerezas', proy:ext([0,0,0,0,0,0,0,0,240000,240000,0,1048000,0,0,240000,240000,0,1048000,0,0,240000,240000,0].concat(Array(41).fill(0)))},
+        {label:'Procesos de Ciruelas', proy:Z65()},
+        {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
+      ]},
+      { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
+        {label:'Proveedores Materiales', proy:Z65()},
+        {label:'Proveedores Servicios', proy:Z65()},
+        {label:'Proveedores Varios', proy:Z65()},
+        {label:'Movimiento Línea ELIFAB', proy:Z65()},
+        {label:'Arriendo de Bins', proy:Z65()},
+        {label:'Flete de Bins', proy:Z65()},
+        {label:'Flete Tote', proy:Z65()},
+        {label:'Mantención Elifab', proy:Z65()},
+        {label:'Repuestos Líneas', proy:Z65()},
+        {label:'Mantención Kolfmet', proy:Z65()},
+        {label:'Lavado Totem', proy:Z65()},
+      ]},
+      { cat:'egr_fijo', label:'Costos Fijos / SG&A', signo:-1, lines:[
+        {label:'Remuneración', proy:Z65()},
+        {label:'Aguinaldo', proy:Z65()},
+        {label:'Colación', proy:Z65()},
+        {label:'Vacaciones', proy:Z65()},
+        {label:'Seguro Complementario Salud', proy:Z65()},
+        {label:'Ropa de Trabajo', proy:Z65()},
+        {label:'Asesorías Corporaciones', proy:Z65()},
+        {label:'Teléfonos Celulares', proy:Z65()},
+        {label:'Gastos Computacionales', proy:Z65()},
+        {label:'Arriendo Camionetas', proy:Z65()},
+        {label:'Energía Eléctrica', proy:Z65()},
+        {label:'Gastos Seguros', proy:Z65()},
+        {label:'Artículos De Imprenta Y Librería', proy:Z65()},
+        {label:'Artículos De Aseo', proy:Z65()},
+        {label:'Víveres Consumo Oficina', proy:Z65()},
+        {label:'Gastos Comunes', proy:Z65()},
+        {label:'Arriendo Oficina', proy:Z65()},
+        {label:'Gasto Implementación Factura Electrónica', proy:Z65()},
+        {label:'Gastos De Viajes', proy:Z65()},
+        {label:'Gastos De Movilización, Tag Y Peajes', proy:Z65()},
+        {label:'Combustibles', proy:Z65()},
+        {label:'Gastos De Alojamiento', proy:Z65()},
+        {label:'Gastos Representación Varios', proy:Z65()},
+        {label:'Gastos De Representación Almuerzos', proy:Z65()},
+        {label:'Gastos De Pasajes Viajes Nacionales', proy:Z65()},
+        {label:'Gastos De Pasajes Viajes Internacionales', proy:Z65()},
+        {label:'Gastos De Colación Trabajadores', proy:Z65()},
+        {label:'Mantención De Vehículos De Administración', proy:Z65()},
+        {label:'Encomienda Y Correo Nacional', proy:Z65()},
+        {label:'Encomienda Y Corresp. Internacional', proy:Z65()},
+        {label:'Gasto Arriendo Dispensadores', proy:Z65()},
+        {label:'Gastos Bodegaje Documentación', proy:Z65()},
+        {label:'Gastos Bancarios', proy:Z65()},
+        {label:'Patentes Municipales', proy:Z65()},
+        {label:'Contribuciones Bienes Raíces', proy:Z65()},
+        {label:'Gastos Varios', proy:Z65()},
+        {label:'Asesorías', proy:Z65()},
+        {label:'Asesorías Contables', proy:Z65()},
+        {label:'Asesorías Computacionales', proy:Z65()},
+        {label:'Asesorías Jurídico Legales', proy:Z65()},
+      ]},
+      { cat:'imp', label:'Impuestos', signo:-1, lines:[
+        {label:'Impuestos Mensuales', proy:Z65()},
+        {label:'Impuestos Anuales', proy:Z65()},
+      ]},
+      { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
+        {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Allegria Service'), formula:true, subLines:true},
+        {label:'Otros Ingresos No Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
+        {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Allegria Service'), formula:true, subLines:true},
+        {label:'Renovaciones', proy:calcRenovacionesEmpresa('Allegria Service'), formula:true, subLines:true},
+        {label:'Aportes de Capital', proy:Z65(), subLines:true},
+        {label:'Leyes Sociales Laborales', proy:Z65()},
+        {label:'Otros Egresos No Operacionales', proy:Z65()},
+      ]},
+    ],
+  },
+  'Frisku Foods': {
+    emoji:'🚢', color:'#0e7490', saldo_ini:132828, desc:'Carga contenedores · Logística',
+    sections:[
+      { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
+        {label:'Ingreso Carga Contenedores', proy:ext([0,0,0,50500,35350,101000,50500,35350,0,0,0,50500,35350,101000,50500,35350,0,0,0,50500,35350,101000,0].concat(Array(41).fill(0)))},
+        {label:'Otros Ingresos', proy:Z65()},
+        {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
+      ]},
+      { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
+        {label:'Costo Directo Variable', proy:Z65()},
+      ]},
+      { cat:'egr_fijo', label:'Costos Fijos / SG&A', signo:-1, lines:[
+        {label:'Remuneración Administración', proy:ext(Array(24).fill(25274).concat(Array(41).fill(0)))},
+        {label:'Aguinaldo', proy:Z65()},
+        {label:'Vales De Colación', proy:Z65()},
+        {label:'Seguro Complementario Salud', proy:Z65()},
+        {label:'Viáticos', proy:Z65()},
+        {label:'Arriendo Vehículos', proy:Z65()},
+        {label:'Arriendo Oficina', proy:Z65()},
+        {label:'Gastos Legales', proy:Z65()},
+        {label:'Fee Administración', proy:Z65()},
+        {label:'Asesorías Corporativo', proy:Z65()},
+        {label:'Asesorías', proy:Z65()},
+        {label:'Asesorías Contables', proy:Z65()},
+        {label:'Asesorías Computacionales', proy:Z65()},
+        {label:'Teléfonos Celulares', proy:Z65()},
+        {label:'Gastos Computacionales', proy:Z65()},
+        {label:'Artículos De Imprenta Y Librería', proy:Z65()},
+        {label:'Artículos De Aseo', proy:Z65()},
+        {label:'Víveres Consumo Oficina', proy:Z65()},
+        {label:'Gastos Viajes Nacionales', proy:Z65()},
+        {label:'Gastos Viajes Internacionales', proy:Z65()},
+        {label:'Gastos De Movilización, Tag Y Peajes', proy:Z65()},
+        {label:'Alojamiento', proy:Z65()},
+        {label:'Gastos de Representación', proy:Z65()},
+        {label:'Almuerzos', proy:Z65()},
+        {label:'Gastos De Colación Trabajadores', proy:Z65()},
+        {label:'Combustibles', proy:Z65()},
+        {label:'Mantención De Vehículos De Administración', proy:Z65()},
+        {label:'Encomienda Y Correo Nacional', proy:Z65()},
+        {label:'Encomienda Y Corresp. Internacional', proy:Z65()},
+        {label:'Gasto Arriendo Dispensadores', proy:Z65()},
+        {label:'Gastos Bodegaje Documentación', proy:Z65()},
+        {label:'Gastos Bancarios', proy:Z65()},
+        {label:'Patentes Comerciales', proy:Z65()},
+        {label:'Contribuciones Bienes Raíces', proy:Z65()},
+        {label:'Seguros', proy:Z65()},
+        {label:'Gastos Varios', proy:Z65()},
+      ]},
+      { cat:'imp', label:'Impuestos', signo:-1, lines:[
+        {label:'Impuestos Mensuales', proy:Z65()},
+        {label:'Impuestos Anuales', proy:Z65()},
+      ]},
+      { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
+        {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Frisku Foods'), formula:true, subLines:true},
+        {label:'Otros Ingresos No Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
+        {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Frisku Foods'), formula:true, subLines:true},
+        {label:'Renovaciones', proy:calcRenovacionesEmpresa('Frisku Foods'), formula:true, subLines:true},
+        {label:'Aportes de Capital', proy:Z65(), subLines:true},
+        {label:'Leyes Sociales Laborales', proy:Z65()},
+        {label:'Otros Egresos No Operacionales', proy:Z65()},
+      ]},
+    ],
+  },
+  'Frisku Peru': {
+    emoji:'🇵🇪', color:'#6d28d9', saldo_ini:1251, desc:'Operaciones · Perú',
+    sections:[
+      { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
+        {label:'Otros Ingresos Operacionales', proy:Z65()},
+        {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
+      ]},
+      { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
+        {label:'Costos Variables Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_fijo', label:'Costos Fijos / SG&A', signo:-1, lines:[
+        {label:'Remuneración Administración', proy:Z65()},
+        {label:'Arriendo Vehículos', proy:Z65()},
+        {label:'Arriendo Oficina', proy:Z65()},
+        {label:'Gastos Legales', proy:Z65()},
+        {label:'Fee Administración', proy:Z65()},
+        {label:'Gastos Viajes Nacionales', proy:Z65()},
+        {label:'Gastos Viajes Internacionales', proy:Z65()},
+        {label:'Alojamiento', proy:Z65()},
+        {label:'Gastos de Representación', proy:Z65()},
+        {label:'Almuerzos', proy:Z65()},
+        {label:'Patentes Comerciales', proy:Z65()},
+        {label:'Seguros', proy:Z65()},
+      ]},
+      { cat:'imp', label:'Impuestos', signo:-1, lines:[
+        {label:'Impuestos Mensuales', proy:Z65()},
+        {label:'Impuestos Anuales', proy:Z65()},
+      ]},
+      { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
+        {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Frisku Peru'), formula:true, subLines:true},
+        {label:'Otros Ingresos No Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
+        {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Frisku Peru'), formula:true, subLines:true},
+        {label:'Renovaciones', proy:calcRenovacionesEmpresa('Frisku Peru'), formula:true, subLines:true},
+        {label:'Aportes de Capital', proy:Z65(), subLines:true},
+        {label:'Leyes Sociales Laborales', proy:Z65()},
+        {label:'Otros Egresos No Operacionales', proy:Z65()},
+      ]},
+    ],
+  },
+  'Allpa Farms': {
+    emoji:'🌸', color:'#dc2626', saldo_ini:1828, desc:'Farming cerezas · Chile',
+    sections:[
+      { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
+        {label:'Ingreso Exportación Cerezas', proy:ext([0,0,0,0,0,0,0,152312,304624,0,0,913872,0,0,152312,304624,0,913872,0,0,152312,304624,0].concat(Array(41).fill(0)))},
+        {label:'Ingreso Cerezas Nacionales', proy:Z65()},
+        {label:'Otros Ingresos', proy:Z65()},
+        {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
+      ]},
+      { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
+        {label:'Remuneración Cosecha', proy:Z65()},
+        {label:'Contratista Cosecha', proy:Z65()},
+        {label:'Transporte', proy:Z65()},
+        {label:'Remuneración Operacional', proy:Z65()},
+        {label:'Electricidad', proy:Z65()},
+        {label:'Servicio de Terceros', proy:Z65()},
+        {label:'Flete Nacional', proy:Z65()},
+        {label:'Mantención de Máquinas y Equipos', proy:Z65()},
+        {label:'Mantención Vehículos', proy:Z65()},
+        {label:'Mantención de Campo', proy:Z65()},
+        {label:'Mantención Oficinas', proy:Z65()},
+        {label:'Arriendo de Maquinaria', proy:Z65()},
+        {label:'Arriendo de Equipos', proy:Z65()},
+        {label:'Arriendo de Vehículos', proy:Z65()},
+        {label:'Combustibles y Lubricantes', proy:Z65()},
+        {label:'Ferretería', proy:Z65()},
+        {label:'Mantención de Huerto', proy:Z65()},
+      ]},
+      { cat:'egr_fijo', label:'Costos Fijos / SG&A', signo:-1, lines:[
+        {label:'Remuneración Administración', proy:ext([0,0,0,0,0,0,0,0,0,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400,14400].concat(Array(41).fill(0)))},
+        {label:'Aguinaldo', proy:Z65()},
+        {label:'Vales De Colación', proy:Z65()},
+        {label:'Seguro Complementario Salud', proy:Z65()},
+        {label:'Viáticos', proy:Z65()},
+        {label:'Honorarios Profesionales', proy:Z65()},
+        {label:'Gastos de Representación', proy:Z65()},
+        {label:'Artículos E Insumos de Oficina', proy:Z65()},
+        {label:'Arriendo Oficina', proy:Z65()},
+        {label:'Seguros', proy:Z65()},
+        {label:'Asesoría Técnica', proy:Z65()},
+        {label:'Asesoría Legal', proy:Z65()},
+        {label:'Asesoría Contabilidad', proy:Z65()},
+        {label:'Asesorías Computacionales', proy:Z65()},
+        {label:'Gastos Notariales', proy:Z65()},
+        {label:'Gasto Alojamiento - Traslado - Pasajes', proy:Z65()},
+        {label:'Tag - Peaje', proy:Z65()},
+        {label:'Gasto Internet - Sist Informáticos', proy:Z65()},
+        {label:'Telefonía - Celular', proy:Z65()},
+        {label:'Electricidad', proy:Z65()},
+        {label:'Fee Administración', proy:ext([0,0,0,0,0,0,0,0,0,0,0,371696,0,0,0,0,0,371696,0,0,0,0,0].concat(Array(41).fill(0)))},
+        {label:'Certificaciones', proy:Z65()},
+        {label:'Cafetería', proy:Z65()},
+        {label:'Correo - Gasto Despacho', proy:Z65()},
+        {label:'Estacionamiento', proy:Z65()},
+        {label:'Aseo', proy:Z65()},
+        {label:'Gastos Generales', proy:Z65()},
+        {label:'Patentes', proy:Z65()},
+        {label:'Contribuciones Bienes Raíces', proy:Z65()},
+        {label:'Gastos Bancarios', proy:Z65()},
+        {label:'Combustibles', proy:Z65()},
+        {label:'Mantención De Vehículos De Administración', proy:Z65()},
+        {label:'Gastos Varios', proy:Z65()},
+      ]},
+      { cat:'imp', label:'Impuestos', signo:-1, lines:[
+        {label:'Impuestos Mensuales', proy:Z65()},
+        {label:'Impuestos Anuales', proy:Z65()},
+      ]},
+      { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
+        {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Allpa Farms'), formula:true, subLines:true},
+        {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Otros Ingresos No Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
+        {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Allpa Farms'), formula:true, subLines:true},
+        {label:'Renovaciones', proy:calcRenovacionesEmpresa('Allpa Farms'), formula:true, subLines:true},
+        {label:'Aportes de Capital', proy:Z65(), subLines:true},
+        {label:'Leyes Sociales Laborales', proy:Z65()},
+        {label:'Otros Egresos No Operacionales', proy:Z65()},
+      ]},
+    ],
+  },
+  'Allpa Farms Perú': {
+    emoji:'🫐', color:'#7c3aed', saldo_ini:208000, desc:'Farming arándanos · Perú',
+    sections:[
+      { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
+        {label:'Exportación Arándanos', proy:Z65()},
+        {label:'Venta Arándanos Nacional', proy:Z65()},
+        {label:'Otros Ingresos', proy:Z65()},
+        {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
+      ]},
+      { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
+        {label:'Costo Fruta Exportación', proy:Z65()},
+        {label:'Materiales', proy:Z65()},
+        {label:'Servicios de Packing', proy:Z65()},
+        {label:'Seguros Exportación', proy:Z65()},
+        {label:'Servicios Terceros Exportación', proy:Z65()},
+        {label:'Arriendo Bodegas', proy:Z65()},
+      ]},
+      { cat:'egr_fijo', label:'Costos Fijos / SG&A', signo:-1, lines:[
+        {label:'Remuneración Administración', proy:Z65()},
+        {label:'Arriendo Vehículos', proy:Z65()},
+        {label:'Arriendo Oficina', proy:Z65()},
+        {label:'Gastos Legales', proy:Z65()},
+        {label:'Fee Administración', proy:Z65()},
+        {label:'Gastos Viajes Nacionales', proy:Z65()},
+        {label:'Gastos Viajes Internacionales', proy:Z65()},
+        {label:'Alojamiento', proy:Z65()},
+        {label:'Gastos de Representación', proy:Z65()},
+        {label:'Almuerzos', proy:Z65()},
+        {label:'Patentes Comerciales', proy:Z65()},
+        {label:'Seguros', proy:Z65()},
+      ]},
+      { cat:'imp', label:'Impuestos', signo:-1, lines:[
+        {label:'Impuestos Mensuales', proy:Z65()},
+        {label:'Impuestos Anuales', proy:Z65()},
+      ]},
+      { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
+        {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Allpa Farms Perú'), formula:true, subLines:true},
+        {label:'Otros Ingresos No Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
+        {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Allpa Farms Perú'), formula:true, subLines:true},
+        {label:'Renovaciones', proy:calcRenovacionesEmpresa('Allpa Farms Perú'), formula:true, subLines:true},
+        {label:'Aportes de Capital', proy:Z65(), subLines:true},
+        {label:'Leyes Sociales Laborales', proy:Z65()},
+        {label:'Otros Egresos No Operacionales', proy:Z65()},
+      ]},
+    ],
+  },
+  'Integrity Farms': {
+    emoji:'🌾', color:'#15803d', saldo_ini:604, desc:'Administración agrícola (US$2.000/há)',
+    sections:[
+      { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
+        {label:'Ingreso Administración (us$2.000/ha)', proy:ext([172000,0,0,0,0,0,0,0,0,172000,0,172000,0,0,0,0,0,172000,0,0,0,0,0].concat(Array(41).fill(0)))},
+        {label:'Otros Ingresos', proy:Z65()},
+        {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
+      ]},
+      { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
+        {label:'Costo Directo Variable', proy:Z65()},
+      ]},
+      { cat:'egr_fijo', label:'Costos Fijos / SG&A', signo:-1, lines:[
+        {label:'Remuneración Administración', proy:Z65()},
+        {label:'Aguinaldo', proy:Z65()},
+        {label:'Vales De Colación', proy:Z65()},
+        {label:'Seguro Complementario Salud', proy:Z65()},
+        {label:'Viáticos', proy:Z65()},
+        {label:'Arriendo Vehículos', proy:Z65()},
+        {label:'Arriendo Oficina', proy:Z65()},
+        {label:'Gastos Legales', proy:Z65()},
+        {label:'Fee Administración', proy:Z65()},
+        {label:'Asesorías Corporativo', proy:Z65()},
+        {label:'Asesorías', proy:Z65()},
+        {label:'Asesorías Contables', proy:Z65()},
+        {label:'Asesorías Computacionales', proy:Z65()},
+        {label:'Teléfonos Celulares', proy:Z65()},
+        {label:'Gastos Computacionales', proy:Z65()},
+        {label:'Artículos De Imprenta Y Librería', proy:Z65()},
+        {label:'Artículos De Aseo', proy:Z65()},
+        {label:'Víveres Consumo Oficina', proy:Z65()},
+        {label:'Gastos Viajes Nacionales', proy:Z65()},
+        {label:'Gastos Viajes Internacionales', proy:Z65()},
+        {label:'Gastos De Movilización, Tag Y Peajes', proy:Z65()},
+        {label:'Alojamiento', proy:Z65()},
+        {label:'Gastos de Representación', proy:Z65()},
+        {label:'Almuerzos', proy:Z65()},
+        {label:'Gastos De Colación Trabajadores', proy:Z65()},
+        {label:'Combustibles', proy:Z65()},
+        {label:'Mantención De Vehículos De Administración', proy:Z65()},
+        {label:'Encomienda Y Correo Nacional', proy:Z65()},
+        {label:'Encomienda Y Corresp. Internacional', proy:Z65()},
+        {label:'Gasto Arriendo Dispensadores', proy:Z65()},
+        {label:'Gastos Bodegaje Documentación', proy:Z65()},
+        {label:'Gastos Bancarios', proy:Z65()},
+        {label:'Patentes Comerciales', proy:Z65()},
+        {label:'Contribuciones Bienes Raíces', proy:Z65()},
+        {label:'Seguros', proy:Z65()},
+        {label:'Gastos Varios', proy:Z65()},
+      ]},
+      { cat:'imp', label:'Impuestos', signo:-1, lines:[
+        {label:'Impuestos Mensuales', proy:Z65()},
+        {label:'Impuestos Anuales', proy:Z65()},
+      ]},
+      { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
+        {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingresos Financiamiento', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Integrity Farms'), formula:true, subLines:true},
+        {label:'Otros Ingresos No Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
+        {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Integrity Farms'), formula:true, subLines:true},
+        {label:'Renovaciones', proy:calcRenovacionesEmpresa('Integrity Farms'), formula:true, subLines:true},
+        {label:'Aportes de Capital', proy:Z65(), subLines:true},
+        {label:'Leyes Sociales Laborales', proy:Z65()},
+        {label:'Otros Egresos No Operacionales', proy:Z65()},
+      ]},
+    ],
+  },
+  'Osiris': {
+    emoji:'🌱', color:'#0f766e', saldo_ini:40188, desc:'Royalties · Fee Viveros · Osiris Plant Mgmt',
+    sections:[
+      { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
+        {label:'Royalty por Planta', proy:ext([0,0,0,0,0,0,0,1100000,0,0,0,2200000,0,0,1100000,0,0,2200000,0,0,1100000,0,0].concat(Array(41).fill(0)))},
+        {label:'Royalty Comercial', proy:Z65()},
+        {label:'Fee Vivero', proy:Z65()},
+        {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
+      ]},
+      { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
+        {label:'Costo Directo Variable', proy:Z65()},
+      ]},
+      { cat:'egr_fijo', label:'Costos Fijos / SG&A', signo:-1, lines:[
+        {label:'Remuneración Administración', proy:Z65()},
+        {label:'Aguinaldo', proy:Z65()},
+        {label:'Vales De Colación', proy:Z65()},
+        {label:'Seguro Complementario Salud', proy:Z65()},
+        {label:'Viáticos', proy:Z65()},
+        {label:'Arriendo Vehículos', proy:Z65()},
+        {label:'Arriendo Oficina', proy:Z65()},
+        {label:'Gastos Legales', proy:Z65()},
+        {label:'Fee Administración', proy:Z65()},
+        {label:'Asesorías Corporativo', proy:Z65()},
+        {label:'Asesorías', proy:Z65()},
+        {label:'Asesorías Contables', proy:Z65()},
+        {label:'Asesorías Computacionales', proy:Z65()},
+        {label:'Teléfonos Celulares', proy:Z65()},
+        {label:'Gastos Computacionales', proy:Z65()},
+        {label:'Artículos De Imprenta Y Librería', proy:Z65()},
+        {label:'Artículos De Aseo', proy:Z65()},
+        {label:'Víveres Consumo Oficina', proy:Z65()},
+        {label:'Gastos Viajes Nacionales', proy:Z65()},
+        {label:'Gastos Viajes Internacionales', proy:Z65()},
+        {label:'Gastos De Movilización, Tag Y Peajes', proy:Z65()},
+        {label:'Alojamiento', proy:Z65()},
+        {label:'Gastos de Representación', proy:Z65()},
+        {label:'Almuerzos', proy:Z65()},
+        {label:'Gastos De Colación Trabajadores', proy:Z65()},
+        {label:'Combustibles', proy:Z65()},
+        {label:'Mantención De Vehículos De Administración', proy:Z65()},
+        {label:'Encomienda Y Correo Nacional', proy:Z65()},
+        {label:'Encomienda Y Corresp. Internacional', proy:Z65()},
+        {label:'Gasto Arriendo Dispensadores', proy:Z65()},
+        {label:'Gastos Bodegaje Documentación', proy:Z65()},
+        {label:'Gastos Bancarios', proy:Z65()},
+        {label:'Patentes Comerciales', proy:Z65()},
+        {label:'Contribuciones Bienes Raíces', proy:Z65()},
+        {label:'Seguros', proy:Z65()},
+        {label:'Gastos Varios', proy:Z65()},
+      ]},
+      { cat:'imp', label:'Impuestos', signo:-1, lines:[
+        {label:'Impuestos Mensuales', proy:Z65()},
+        {label:'Impuestos Anuales', proy:Z65()},
+      ]},
+      { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
+        {label:'Capital Calls', proy:Z65(), subLines:true},
+        {label:'Ingreso Renovación', proy:calcIngresoRenovacionEmpresa('Osiris'), formula:true, subLines:true},
+        {label:'Crédito BCI', proy:Z65()},
+        {label:'Otros Ingresos No Operacionales', proy:Z65()},
+      ]},
+      { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
+        {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Osiris'), formula:true, subLines:true},
+        {label:'Renovaciones', proy:calcRenovacionesEmpresa('Osiris'), formula:true, subLines:true},
+        {label:'Aportes de Capital', proy:Z65(), subLines:true},
+        {label:'Leyes Sociales Laborales', proy:Z65()},
+        {label:'Otros Egresos No Operacionales', proy:Z65()},
+      ]},
+    ],
+  },
 };
-const ORDEN_SEM=["gris","verde","amarillo","rojo","na"];
 
-const WORKERS_BASE=[
-  {nombre:"Milagros Becerra",cargo:"Sec. Administrativa",     email:"Mbecerra@grupomediterra.cl",pin:"4827",rol:"editor", modulos:["tareas"],                    esCFO:false},
-  {nombre:"Carol Machuca",   cargo:"Analista Finanzas",       email:"cmachuca@grupomediterra.cl",pin:"3159",rol:"editor", modulos:["tareas","osiris","finanzas"], esCFO:false},
-  {nombre:"Michelle Garcia", cargo:"Contadora General",       email:"mgarcia@grupomediterra.cl", pin:"7413",rol:"editor", modulos:["tareas"],                    esCFO:false},
-  {nombre:"Pablo Duran",     cargo:"Asistente Contable",      email:"pduran@grupomediterra.cl",  pin:"2986",rol:"editor", modulos:["tareas"],                    esCFO:false},
-  {nombre:"Angelo Huerta",   cargo:"Gerencia Adm. y Finanzas",email:"ahuerta@grupomediterra.cl", pin:"6054",rol:"admin",  modulos:["tareas","osiris","finanzas"], esCFO:true},
-];
+function buildAllegria(params) {
+  const { ing, cost, mat, srv } = calcAllegria(params);
+  return {
+    emoji:"🍒", color:"#b91c1c", saldo_ini:17433, desc:"Exportación frutas · Chile", hasFormula:true,
+    sections:[
+      { cat:"ing_op", label:"Ingresos Operacionales", signo:1, lines:[
+        {label:"Anticipo Cerezas",              proy:[...ing.cerezas],   formula:true},
+        {label:"Liquidación Cerezas",           proy:Z65()},
+        {label:"Arándanos Perú",                proy:[...ing.arandanos], formula:true},
+        {label:"Liquidación Ciruelas",          proy:[...ing.ciruelas],  formula:true},
+        {label:"Ingresos por Paltas",           proy:Z65()},
+        {label:"Ingreso por Allegria Service",  proy:Z65()},
+        {label:"Rebates",                       proy:Z65()},
+        {label:"Cuentas por Cobrar",            proy:Z65(), subLines:true},
+      ]},
+      { cat:"egr_var", label:"Egresos Operacionales", signo:-1, lines:[
+        {label:"Costo Fruta Exportación",            proy:[...cost.cerezas],  formula:true},
+        {label:"Materiales",                         proy:[...mat.cerezas],   formula:true},
+        {label:"Servicios de Packing",               proy:[...srv.cerezas],   formula:true},
+        {label:"Comisión Exportadora",               proy:Z65()},
+        {label:"Seguros Exportación",                proy:Z65()},
+        {label:"Servicios Terceros / Arriendo Bodegas", proy:Z65()},
+      ]},
+      { cat:"egr_fijo", label:"Costos Fijos / SG&A", signo:-1, lines:[
+        {label:"Remuneración Administración",   proy:Z65()},
+        {label:"Aguinaldo", proy:Z65()},
+        {label:"Vales De Colación", proy:Z65()},
+        {label:"Seguro Complementario Salud", proy:Z65()},
+        {label:"Viáticos", proy:Z65()},
+        {label:"Arriendo Vehículos",            proy:Z65()},
+        {label:"Arriendo Oficina",              proy:Z65()},
+        {label:"Gastos Legales",                proy:Z65()},
+        {label:"Fee Administración",            proy:Z65()},
+        {label:"Asesorías Corporativo", proy:Z65()},
+        {label:"Asesorías", proy:Z65()},
+        {label:"Asesorías Contables", proy:Z65()},
+        {label:"Asesorías Computacionales", proy:Z65()},
+        {label:"Teléfonos Celulares", proy:Z65()},
+        {label:"Gastos Computacionales", proy:Z65()},
+        {label:"Artículos De Imprenta Y Librería", proy:Z65()},
+        {label:"Artículos De Aseo", proy:Z65()},
+        {label:"Víveres Consumo Oficina", proy:Z65()},
+        {label:"Gastos Viajes Nacionales",      proy:Z65()},
+        {label:"Gastos Viajes Internacionales", proy:Z65()},
+        {label:"Gastos De Movilización, Tag Y Peajes", proy:Z65()},
+        {label:"Alojamiento",                   proy:Z65()},
+        {label:"Gastos de Representación",      proy:Z65()},
+        {label:"Almuerzos",                     proy:Z65()},
+        {label:"Gastos De Colación Trabajadores", proy:Z65()},
+        {label:"Combustibles", proy:Z65()},
+        {label:"Mantención De Vehículos De Administración", proy:Z65()},
+        {label:"Encomienda Y Correo Nacional", proy:Z65()},
+        {label:"Encomienda Y Corresp. Internacional", proy:Z65()},
+        {label:"Gasto Arriendo Dispensadores", proy:Z65()},
+        {label:"Gastos Bodegaje Documentación", proy:Z65()},
+        {label:"Gastos Bancarios", proy:Z65()},
+        {label:"Patentes Comerciales",          proy:Z65()},
+        {label:"Contribuciones Bienes Raíces", proy:Z65()},
+        {label:"Seguros",                       proy:Z65()},
+        {label:"Gastos Varios", proy:Z65()},
+      ]},
+      { cat:"imp", label:"Impuestos", signo:-1, lines:[
+        {label:"Impuestos Mensuales", proy:Z65()},
+        {label:"Impuestos Anuales",   proy:Z65()},
+      ]},
+      { cat:"ing_nop", label:"Ingresos No Operacionales", signo:1, lines:[
+        {label:"Capital Calls",                   proy:Z65()},
+        {label:"Crédito Banco Santander",         proy:Z65()},
+        {label:"Ingreso Renovación",              proy:calcIngresoRenovacionEmpresa("Allegria Foods"), formula:true, subLines:true},
+        {label:"Otros Ingresos No Operacionales", proy:Z65()},
+      ]},
+      { cat:"egr_nop", label:"Egresos No Operacionales", signo:-1, lines:[
+        {label:"Pago Préstamos - Total", proy:calcPrestamosEmpresa("Allegria Foods"), formula:true, subLines:true},
+        {label:"Renovaciones", proy:calcRenovacionesEmpresa("Allegria Foods"), formula:true, subLines:true},
+        {label:"Aportes de Capital", proy:Z65(), subLines:true},
+        {label:"Leyes Sociales Laborales", proy:Z65()},
+        {label:"Otros Egresos No Operacionales", proy:Z65()},
+      ]},
+    ],
+  };
+}
+function buildEmpresas(params) {
+  return { ...EMPRESAS_STATIC, "Allegria Foods": buildAllegria(params) };
+}
 
-const CATEGORIAS={
-  "Finanzas":      {color:"#3b82f6",bg:"#dbeafe"},
-  "Contabilidad":  {color:"#8b5cf6",bg:"#ede9fe"},
-  "Tesoreria":     {color:"#f59e0b",bg:"#fef3c7"},
-  "Tributario":    {color:"#ef4444",bg:"#fee2e2"},
-  "Administracion":{color:"#10b981",bg:"#d1fae5"},
-  "Gerencia":      {color:"#6366f1",bg:"#e0e7ff"},
+// ═══════════════════════════════════════════════════════════════════
+// PALETA — TEMA AZUL MARINO (estilo header Tareas #1e3a5f)
+// ═══════════════════════════════════════════════════════════════════
+const C = {
+  // Fondos
+  bg:     "#0f2342",   // fondo principal — azul marino oscuro
+  bg2:    "#162d52",   // fondo secundario
+  card:   "#1e3a5f",   // card base — igual al header de Tareas
+  card2:  "#243f65",   // card hover / input
+  border: "#2d5080",   // bordes
+  border2:"#3a6494",   // bordes destacados
+
+  // Textos
+  text:   "#e8f0fa",   // texto principal
+  muted:  "#7da8d4",   // texto secundario
+  muted2: "#4a7aaa",   // texto muy tenue
+
+  // Semáforos
+  green:  "#22c55e",
+  red:    "#f87171",
+  blue:   "#60a5fa",
+  yellow: "#fbbf24",
+  orange: "#fb923c",
+
+  // Accent
+  accent: "#2563eb",
+  accentL:"#60a5fa",
 };
 
-const TAREAS_BASE=[
-  {id:"s1", nombre:"Gestion documental",                                   responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:4,diaLimite:28,dependeDe:null},
-  {id:"s2", nombre:"Preparacion de nominas de pago",                       responsable:"Milagros Becerra",supervisor:"Carol Machuca",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:1,diaLimite:5, dependeDe:null},
-  {id:"s3", nombre:"Entrega nominas de pago para revision",                responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:2,diaLimite:7, dependeDe:null},
-  {id:"s4", nombre:"Carga nominas al banco y envio email para aprobacion", responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:3,diaLimite:8, dependeDe:null},
-  {id:"s5", nombre:"Seguimiento documentos",                               responsable:"Milagros Becerra",supervisor:"",               categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:4,diaLimite:28,dependeDe:null},
-  {id:"s6", nombre:"Envio nominas a contabilidad para registros",          responsable:"Milagros Becerra",supervisor:"Pablo Duran",    categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:3,diaLimite:8, dependeDe:null},
-  {id:"s7", nombre:"Registro documentos mercantiles",                      responsable:"Milagros Becerra",supervisor:"",               categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:0,diaLimite:5, dependeDe:null},
-  {id:"s8", nombre:"Revision gastos menores y respaldos",                  responsable:"Milagros Becerra",supervisor:"Carol Machuca",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:2,diaLimite:7, dependeDe:null},
-  {id:"s9", nombre:"Envio de email a Daniel",                              responsable:"Milagros Becerra",supervisor:"",               categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:0,diaLimite:5, dependeDe:null},
-  {id:"s10",nombre:"Gestion con bancos por compra venta de divisas",       responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:2,diaLimite:7, dependeDe:null},
-  {id:"s11",nombre:"Email solicitud anticipo sueldo Allpa y Allegria",     responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Administracion",frecuencia:"Semanal",diaLimiteSem:1,diaLimite:5, dependeDe:null},
-  {id:"s12",nombre:"Tareas de apoyo a Gerencia (reuniones, etc)",          responsable:"Milagros Becerra",supervisor:"Angelo Huerta",  categoria:"Gerencia",      frecuencia:"Semanal",diaLimiteSem:4,diaLimite:28,dependeDe:null},
-  {id:"s13",nombre:"Cobranza de empresas",                                 responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Semanal",diaLimiteSem:0,diaLimite:5, dependeDe:null},
-  {id:"s14",nombre:"Primera Revision nominas de pago",                     responsable:"Carol Machuca",   supervisor:"",               categoria:"Tesoreria",     frecuencia:"Semanal",diaLimiteSem:1,diaLimite:5, dependeDe:"s2"},
-  {id:"s15",nombre:"Registro contable",                                    responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:2,diaLimite:7, dependeDe:null},
-  {id:"s16",nombre:"Conciliaciones",                                       responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:3,diaLimite:7, dependeDe:null},
-  {id:"s17",nombre:"Ingreso movimientos bancarios",                        responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:0,diaLimite:5, dependeDe:null},
-  {id:"s18",nombre:"Registro pagos de nominas",                            responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Semanal",diaLimiteSem:3,diaLimite:8, dependeDe:"s6"},
-  {id:"m1", nombre:"EERR real vs presupuesto + analisis de variaciones",   responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:18,dependeDe:"m11"},
-  {id:"m2", nombre:"Identificacion de riesgos financieros",                responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:20,dependeDe:null},
-  {id:"m3", nombre:"Preparacion planillas anticipo clientes",              responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:5, dependeDe:null},
-  {id:"m4", nombre:"Preparacion planillas anticipo productores",           responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:5, dependeDe:null},
-  {id:"m5", nombre:"Chequeo contratos firmados y cargados en nube",        responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Administracion",frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
-  {id:"m6", nombre:"Revision de proveedores masivo",                       responsable:"Carol Machuca",   supervisor:"",               categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
-  {id:"m7", nombre:"Primera Revision nominas Chile",                       responsable:"Carol Machuca",   supervisor:"",               categoria:"Tesoreria",     frecuencia:"Mensual",diaLimiteSem:0,diaLimite:5, dependeDe:null},
-  {id:"m8", nombre:"Primera Revision nominas Peru",                        responsable:"Carol Machuca",   supervisor:"",               categoria:"Tesoreria",     frecuencia:"Mensual",diaLimiteSem:0,diaLimite:5, dependeDe:null},
-  {id:"m9", nombre:"Retroalimentacion con Gerentes por desviaciones",      responsable:"Carol Machuca",   supervisor:"Angelo Huerta",  categoria:"Finanzas",      frecuencia:"Mensual",diaLimiteSem:0,diaLimite:22,dependeDe:"m1"},
-  {id:"m10",nombre:"Analisis de cuenta",                                   responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
-  {id:"m11",nombre:"Entrega Final Estados Financieros",                    responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:15,dependeDe:"m12"},
-  {id:"m12",nombre:"Preparacion estados financieros grupo",                responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:13,dependeDe:"m13"},
-  {id:"m13",nombre:"Cierre contable",                                      responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
-  {id:"m14",nombre:"Formulario 29",                                        responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Tributario",    frecuencia:"Mensual",diaLimiteSem:0,diaLimite:12,dependeDe:null},
-  {id:"m15",nombre:"Formulario 50",                                        responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Tributario",    frecuencia:"Mensual",diaLimiteSem:0,diaLimite:12,dependeDe:null},
-  {id:"m16",nombre:"Analisis registros contables",                         responsable:"Michelle Garcia", supervisor:"Angelo Huerta",  categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:15,dependeDe:null},
-  {id:"m17",nombre:"Pago Formulario 29",                                   responsable:"Angelo Huerta",   supervisor:"",               categoria:"Tributario",    frecuencia:"Mensual",diaLimiteSem:0,diaLimite:20,dependeDe:"m14"},
-  {id:"m18",nombre:"Pago Formulario 50",                                   responsable:"Angelo Huerta",   supervisor:"",               categoria:"Tributario",    frecuencia:"Mensual",diaLimiteSem:0,diaLimite:20,dependeDe:"m15"},
-  {id:"m19",nombre:"Analisis de cuenta",                                   responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:8, dependeDe:null},
-  {id:"m20",nombre:"Apoyo cierre",                                         responsable:"Pablo Duran",     supervisor:"Michelle Garcia",categoria:"Contabilidad",  frecuencia:"Mensual",diaLimiteSem:0,diaLimite:10,dependeDe:null},
-];
+const $$ = n => {
+  if(n==null||n==="") return "—";
+  const abs=Math.abs(n),s=n<0?"-":"";
+  if(abs>=1_000_000) return `${s}$${(abs/1e6).toFixed(2)}M`;
+  if(abs>=1_000)     return `${s}$${(abs/1e3).toFixed(0)}K`;
+  return `${s}$${abs.toLocaleString()}`;
+};
+const fmtDate = s => {
+  if(!s) return "—";
+  try{const d=new Date(s);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;}
+  catch{return s.slice(0,10);}
+};
+const cf = v => v>=0 ? C.green : C.red;
+const CAT_COLOR={ing_op:C.green,ing_nop:"#34d399",egr_var:C.red,egr_fijo:"#f87171",egr_nop:"#fca5a5",imp:C.orange};
+const CAT_SIGNO={ing_op:"+",ing_nop:"+",egr_var:"−",egr_fijo:"−",egr_nop:"−",imp:"−"};
 
-function semanasDelMes(anio,mes){
-  const semanas=[];const p=new Date(anio,mes,1);const u=new Date(anio,mes+1,0);
-  let f=new Date(p);const d=(f.getDay()+6)%7;f.setDate(f.getDate()-d);
-  while(f<=u){
-    const t=new Date(f);t.setDate(t.getDate()+3);
-    const w1=new Date(t.getFullYear(),0,4);
-    const iso=1+Math.round(((t-w1)/86400000-3+((w1.getDay()+6)%7))/7);
-    const fin=new Date(f);fin.setDate(f.getDate()+6);
-    if(f.getMonth()===mes||fin.getMonth()===mes)semanas.push({num:semanas.length+1,iso,inicioSem:new Date(f)});
-    f.setDate(f.getDate()+7);
-  }
-  return semanas;
+function Card({children,style={}}) {
+  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"16px 18px",...style}}>{children}</div>;
 }
-
-function fechaDiaSemana(ini,ds){const f=new Date(ini);f.setDate(ini.getDate()+ds);return f;}
-function semanaActivaDefault(semanas){
-  const hoy=new Date();hoy.setHours(0,0,0,0);
-  for(const s of semanas){const fin=new Date(s.inicioSem);fin.setDate(s.inicioSem.getDate()+6);if(hoy>=s.inicioSem&&hoy<=fin)return s.num;}
-  return semanas[0]?.num||1;
+function SectionTitle({children}) {
+  return <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:12}}>{children}</div>;
 }
-
-function MediterraLogo({size=80}){
-  return <img src="/med.png" alt="Mediterra" style={{width:size,height:size,objectFit:"contain",display:"block"}}/>;
-}
-
-// ── Helper: qué módulos puede ver este usuario ──────────────
-function modulosDeUsuario(usuario){
-  if(!usuario) return [];
-  if(usuario.rol === "admin") return MODULOS_DISPONIBLES.map(m=>m.id);
-  return Array.isArray(usuario.modulos) ? usuario.modulos : ["tareas"];
-}
-
-function OsirisLogoSmall() {
+function KPI({label,value,color=C.green}) {
   return (
-    <img src="/osiris-logo.jpg" alt="Osiris Plant Management"
-      style={{height:44, objectFit:"contain", display:"block"}}/>
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 16px"}}>
+      <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>{label}</div>
+      <div style={{fontSize:18,fontWeight:800,color}}>{value}</div>
+    </div>
+  );
+}
+function Btn({onClick,active,children,color=C.accent,small=false}) {
+  return (
+    <button onClick={onClick}
+      style={{padding:small?"4px 10px":"6px 14px",borderRadius:8,cursor:"pointer",fontWeight:600,fontSize:small?10:11,
+        border:`1px solid ${active?color:C.border}`,background:active?`${color}33`:"transparent",color:active?color:C.muted}}>
+      {children}
+    </button>
+  );
+}
+function LineChart({months,values,color=C.accentL,h=72}) {
+  const W=460,pad={l:52,r:8,t:6,b:18};
+  const iw=W-pad.l-pad.r,ih=h-pad.t-pad.b;
+  const min=Math.min(...values),max=Math.max(...values),range=max-min||1;
+  const tx=i=>pad.l+(i/(Math.max(values.length-1,1)))*iw;
+  const ty=v=>pad.t+ih-((v-min)/range)*ih;
+  const pts=values.map((v,i)=>[tx(i),ty(v)]);
+  const poly=pts.map(([x,y])=>`${x},${y}`).join(" ");
+  const area=`M${pts[0][0]},${h-pad.b} `+pts.map(([x,y])=>`L${x},${y}`).join(" ")+` L${pts[pts.length-1][0]},${h-pad.b} Z`;
+  const zy=ty(0);
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${h}`} style={{display:"block"}}>
+      <defs><linearGradient id="lgf" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={color} stopOpacity="0.25"/>
+        <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+      </linearGradient></defs>
+      <line x1={pad.l} x2={W-pad.r} y1={zy} y2={zy} stroke={C.border2} strokeWidth={1} strokeDasharray="3,3"/>
+      <path d={area} fill="url(#lgf)"/>
+      <polyline points={poly} fill="none" stroke={color} strokeWidth={1.8} strokeLinejoin="round"/>
+      {pts.map(([x,y],i)=>{const isL=i===pts.length-1;if(!isL&&i%8!==0)return null;return <circle key={i} cx={x} cy={y} r={isL?3:2} fill={cf(values[i])}/>;}) }
+      {months.map((m,i)=>{if(i%8!==0&&i!==months.length-1)return null;return <text key={i} x={tx(i)} y={h-1} textAnchor="middle" fontSize={6} fill={C.muted}>{m}</text>;})}
+      {[0,1].map(p=>(<text key={p} x={pad.l-3} y={pad.t+ih-p*ih+3} textAnchor="end" fontSize={7} fill={C.muted}>{$$(Math.round(min+p*range))}</text>))}
+    </svg>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// PERMISOS POR PESTAÑA — configuración centralizada
-// ══════════════════════════════════════════════════════════════════════
-const TABS_PERMISOS_CONFIG = {
-  tareas: [
-    {id:"diaria",    label:"📋 Diarias"},
-    {id:"semanal",  label:"📅 Semanales"},
-    {id:"quincenal",label:"🗓 Quincenales"},
-    {id:"mensual",  label:"📆 Mensuales"},
-    {id:"anual",    label:"📌 Anuales"},
-    {id:"config",   label:"⚙️ Configuración"},
-  ],
-  osiris: [
-    {id:"contratos",  label:"📄 Contratos"},
-    {id:"royalties",  label:"💰 Royalties / Fee"},
-  ],
-  finanzas: [
-    {id:"dashboard", label:"📊 Dashboard"},
-    {id:"flujo",     label:"📈 Flujo Empresas"},
-    {id:"bancos",    label:"🏦 Saldos Bancos"},
-    {id:"creditos",  label:"💳 Créditos"},
-    {id:"nominas",   label:"📋 Nóminas"},
-    {id:"params",    label:"⚡ Parámetros"},
-    {id:"auditoria", label:"🔍 Auditoría"},
-  ],
-  allegria: [
-    {id:"clientes",      label:"👥 Clientes Importadores"},
-    {id:"productores",   label:"🌱 Productores"},
-    {id:"embarques",     label:"🚢 Embarques"},
-    {id:"liquidaciones", label:"💰 Liquidación Productor"},
-    {id:"liq_cliente",   label:"📥 Liquidación Cliente"},
-    {id:"anticipos",     label:"💵 Anticipos"},
-    {id:"cobranza",      label:"📋 Cobranza"},
-  ],
-};
-
-const NIVELES_PERM = ["editar","ver","sin_acceso"];
-const NIVEL_LABEL  = {editar:"✏️ Editar", ver:"👁 Solo ver", sin_acceso:"🚫 Sin acceso"};
-const NIVEL_COLOR  = {editar:"#166534", ver:"#1d4ed8", sin_acceso:"#991b1b"};
-const NIVEL_BG     = {editar:"#dcfce7", ver:"#dbeafe",  sin_acceso:"#fee2e2"};
-
-// Obtiene el permiso de un usuario sobre una pestaña específica de un módulo
-// Admin siempre tiene "editar". Si no hay config, default = "editar"
-function getTabPerm(usuario, modulo, tabId) {
-  if(!usuario) return "sin_acceso";
-  if(usuario.rol === "admin") return "editar";
-  // config es solo para admin — no-admins no tienen acceso por defecto
-  if(tabId === "config") return usuario.tab_permisos?.[modulo]?.[tabId] ?? "sin_acceso";
-  return usuario.tab_permisos?.[modulo]?.[tabId] ?? "editar";
+// ═══════════════════════════════════════════════════════════════════
+// TAB PARÁMETROS
+// ═══════════════════════════════════════════════════════════════════
+function AnticipList({items,onChange,label}) {
+  const addRow=()=>onChange([...(items||[]),{mes:"",usd_kg:0}]);
+  const updRow=(i,field,val)=>{const n=[...(items||[])];n[i]={...n[i],[field]:val};onChange(n);};
+  const delRow=i=>onChange((items||[]).filter((_,j)=>j!==i));
+  return (
+    <div>
+      {label&&<div style={{fontSize:10,color:C.muted,marginBottom:5,fontWeight:700}}>{label}</div>}
+      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+        {(items||[]).map((row,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+            <select value={row.mes||""} onChange={e=>updRow(i,"mes",e.target.value)}
+              style={{padding:"4px 7px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:row.mes?C.text:C.muted,fontSize:11,outline:"none"}}>
+              <option value="">— mes —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+            <input type="number" value={row.usd_kg||""} placeholder="0"
+              onChange={e=>updRow(i,"usd_kg",parseFloat(e.target.value)||0)}
+              style={{width:80,padding:"4px 7px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11,outline:"none",textAlign:"right"}}/>
+            <span style={{fontSize:10,color:C.muted}}>US$/kg</span>
+            <button onClick={()=>delRow(i)} style={{background:"transparent",border:"none",color:C.red,cursor:"pointer",fontSize:14}}>×</button>
+          </div>
+        ))}
+        <button onClick={addRow} style={{alignSelf:"flex-start",padding:"4px 10px",background:`${C.accent}22`,
+          border:`1px solid ${C.accent}55`,borderRadius:6,color:C.accentL,cursor:"pointer",fontSize:11,fontWeight:600}}>
+          + Agregar mes
+        </button>
+      </div>
+    </div>
+  );
 }
 
-// Devuelve objeto {tabId: nivel} para un usuario+modulo
-function getTabPermisosModulo(usuario, modulo) {
-  if(!usuario) return {};
-  if(usuario.rol === "admin") {
-    const obj = {};
-    (TABS_PERMISOS_CONFIG[modulo]||[]).forEach(t=>{ obj[t.id]="editar"; });
-    return obj;
-  }
-  const base = {};
-  (TABS_PERMISOS_CONFIG[modulo]||[]).forEach(t=>{
-    base[t.id] = usuario.tab_permisos?.[modulo]?.[t.id] ?? "editar";
+function DistList({items,onChange,totalMonto=0,esSemanal=false}) {
+  const addRow=()=>onChange([...(items||[]),{mes:"",pct:0}]);
+  const updRow=(i,field,val)=>{const n=[...(items||[])];n[i]={...n[i],[field]:val};onChange(n);};
+  const delRow=i=>onChange((items||[]).filter((_,j)=>j!==i));
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:5}}>
+      {(items||[]).map((row,i)=>{
+        const monto=totalMonto*((Number(row.pct)||0)/100);
+        const nSems=(SEMANAS_MES[row.mes]||[""]).length;
+        return (
+          <div key={i} style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+            <select value={row.mes||""} onChange={e=>updRow(i,"mes",e.target.value)}
+              style={{padding:"4px 7px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:row.mes?C.text:C.muted,fontSize:11,outline:"none"}}>
+              <option value="">— mes —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+            <input type="number" min="0" max="100" value={row.pct||""} placeholder="0"
+              onChange={e=>updRow(i,"pct",parseFloat(e.target.value)||0)}
+              style={{width:58,padding:"4px 6px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11,outline:"none",textAlign:"right"}}/>
+            <span style={{fontSize:10,color:C.muted}}>%</span>
+            {monto>0&&(
+              <span style={{fontSize:10,color:C.yellow}}>
+                = {$$(monto)}
+                {esSemanal&&nSems>0&&<span style={{color:C.muted}}> ({nSems} sem → {$$(monto/nSems)}/sem)</span>}
+              </span>
+            )}
+            <button onClick={()=>delRow(i)} style={{background:"transparent",border:"none",color:C.red,cursor:"pointer",fontSize:14,marginLeft:"auto"}}>×</button>
+          </div>
+        );
+      })}
+      <button onClick={addRow} style={{alignSelf:"flex-start",padding:"4px 10px",background:`${C.accent}22`,
+        border:`1px solid ${C.accent}55`,borderRadius:6,color:C.accentL,cursor:"pointer",fontSize:11,fontWeight:600}}>
+        + Agregar mes
+      </button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PARÁMETROS POR EMPRESA — componentes reutilizables
+// ═══════════════════════════════════════════════════════════════════
+
+// Parámetros específicos Allegria Foods (frutas) — conservado tal cual
+function ParamsFruta({seasonKey,fruta,params,setParams}) {
+  const p=params?.[seasonKey]?.[fruta]||defaultFruta();
+  const upd=(field,val)=>setParams(prev=>{
+    const next=JSON.parse(JSON.stringify(prev));
+    if(!next[seasonKey]) next[seasonKey]={};
+    if(!next[seasonKey][fruta]) next[seasonKey][fruta]=defaultFruta();
+    next[seasonKey][fruta][field]=val;
+    return next;
   });
-  return base;
+  const kg=Number(p.kg)||0,fob=Number(p.fob_usd_kg)||0;
+  const desc=(Number(p.desc_exp_pct)||0)/100;
+  const matUsd=Number(p.mat_usd_kg)||0, srvUsd=Number(p.srv_usd_kg)||0;
+  const totalIng=kg*fob;
+  const precioNet=Math.max(0,fob*(1-desc)-matUsd-srvUsd);
+  const totalCost=kg*precioNet;
+  const antIngTot=(p.anticipos_cliente||[]).reduce((s,a)=>s+(Number(a.usd_kg)||0)*kg,0);
+  const antCostTot=(p.anticipos_productor||[]).reduce((s,a)=>s+(Number(a.usd_kg)||0)*kg,0);
+  const pctMat=(p.dist_mat||[]).reduce((s,d)=>s+(Number(d.pct)||0),0);
+  const pctSrv=(p.dist_srv||[]).reduce((s,d)=>s+(Number(d.pct)||0),0);
+  const iSt={width:90,padding:"5px 7px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11,outline:"none",textAlign:"right"};
+  const selSt={padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,outline:"none",color:C.text};
+  return (
+    <div style={{background:C.card2,borderRadius:12,padding:16,border:`1px solid ${C.border}`}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+        <span style={{fontSize:22}}>{FRUTA_EMOJI[fruta]}</span>
+        <span style={{fontWeight:800,fontSize:14,color:C.text}}>{FRUTA_LABEL[fruta]}</span>
+        {totalIng>0&&<span style={{fontSize:11,background:`${C.green}22`,color:C.green,borderRadius:20,padding:"2px 10px",fontWeight:700,marginLeft:"auto"}}>
+          Ing: {$$(totalIng)} · Costo: {$$(totalCost)} · Margen: {$$(totalIng-totalCost)}
+        </span>}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:12,marginBottom:14}}>
+        {[["KG a exportar","kg","",""],["FOB US$/kg","fob_usd_kg","$",""],["Desc. exportadora","desc_exp_pct","","%"],["Materiales US$/kg","mat_usd_kg","$",""],["Servicios US$/kg","srv_usd_kg","$",""]].map(([lbl,field,pre,suf])=>(
+          <div key={field}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>{lbl}</div>
+            <div style={{display:"flex",alignItems:"center",gap:3}}>
+              {pre&&<span style={{fontSize:11,color:C.muted}}>{pre}</span>}
+              <input type="number" value={p[field]||""} placeholder="0" onChange={e=>upd(field,parseFloat(e.target.value)||0)} style={iSt}/>
+              {suf&&<span style={{fontSize:11,color:C.muted}}>{suf}</span>}
+            </div>
+          </div>
+        ))}
+        {precioNet>0&&kg>0&&(
+          <div style={{gridColumn:"1/-1",background:`${C.yellow}11`,border:`1px solid ${C.yellow}33`,borderRadius:8,padding:"8px 12px",fontSize:11,color:C.yellow}}>
+            Precio neto productor: <strong>${precioNet.toFixed(3)}/kg</strong>
+          </div>
+        )}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div style={{background:`${C.green}0d`,border:`1px solid ${C.green}33`,borderRadius:10,padding:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:10}}>📥 Cobros al cliente</div>
+          <AnticipList label="Anticipos (US$/kg por mes)" items={p.anticipos_cliente} onChange={v=>upd("anticipos_cliente",v)}/>
+          <div style={{marginTop:10}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Mes liquidación final</div>
+            <select value={p.mes_liquidacion||""} onChange={e=>upd("mes_liquidacion",e.target.value)} style={selSt}>
+              <option value="">— mes —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+            {antIngTot>0&&totalIng>0&&<div style={{fontSize:10,color:C.muted,marginTop:4}}>Anticipos: {$$(antIngTot)} · Liquidación: {$$(Math.max(0,totalIng-antIngTot))}</div>}
+          </div>
+        </div>
+        <div style={{background:`${C.red}0d`,border:`1px solid ${C.red}33`,borderRadius:10,padding:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.red,marginBottom:10}}>📤 Pagos al productor</div>
+          <AnticipList label="Anticipos productor (US$/kg)" items={p.anticipos_productor} onChange={v=>upd("anticipos_productor",v)}/>
+          <div style={{marginTop:10}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Mes saldo productor</div>
+            <select value={p.mes_saldo_productor||""} onChange={e=>upd("mes_saldo_productor",e.target.value)} style={selSt}>
+              <option value="">— mes —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+      {(matUsd>0||srvUsd>0)&&kg>0&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:14}}>
+          {matUsd>0&&(
+            <div style={{background:"rgba(251,191,36,0.07)",border:`1px solid ${C.yellow}44`,borderRadius:10,padding:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.yellow,marginBottom:4}}>📦 Pago Materiales</div>
+              <div style={{fontSize:10,color:C.muted,marginBottom:8}}>
+                Total: <strong style={{color:C.yellow}}>{$$(kg*matUsd)}</strong>
+                {" · "}Asignado: <strong style={{color:pctMat===100?C.green:C.orange}}>{pctMat.toFixed(0)}%</strong>
+              </div>
+              <DistList items={p.dist_mat} onChange={v=>upd("dist_mat",v)} totalMonto={kg*matUsd}/>
+            </div>
+          )}
+          {srvUsd>0&&(
+            <div style={{background:"rgba(96,165,250,0.07)",border:`1px solid ${C.blue}44`,borderRadius:10,padding:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:4}}>⚙️ Pago Servicios</div>
+              <div style={{fontSize:10,color:C.muted,marginBottom:8}}>
+                Total: <strong style={{color:C.blue}}>{$$(kg*srvUsd)}</strong>
+                {" · "}Asignado: <strong style={{color:pctSrv===100?C.green:C.orange}}>{pctSrv.toFixed(0)}%</strong>
+              </div>
+              <DistList items={p.dist_srv} onChange={v=>upd("dist_srv",v)} totalMonto={kg*srvUsd} esSemanal/>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// PANEL DE PERMISOS
-// ══════════════════════════════════════════════════════════════════════
-function PanelPermisos({ usuarios, setUsuarios, onClose }) {
-  const [expandedTabUser, setExpandedTabUser] = useState(null); // nombre del usuario expandido
+// ── Parámetros genéricos: un "producto" por empresa ───────────────
+function ParamsProducto({seasonKey,prodId,paramsEmp,setParamsEmp,empColor="#2563eb"}) {
+  const p = paramsEmp?.[seasonKey]?.[prodId] || defaultProducto();
+  const upd=(field,val)=>setParamsEmp(prev=>{
+    const next=JSON.parse(JSON.stringify(prev));
+    if(!next[seasonKey]) next[seasonKey]={};
+    if(!next[seasonKey][prodId]) next[seasonKey][prodId]=defaultProducto();
+    next[seasonKey][prodId][field]=val;
+    return next;
+  });
 
-  function toggleModulo(nombreU, modId) {
-    setUsuarios(prev => prev.map(u => {
-      if (u.nombre !== nombreU) return u;
-      const mods = Array.isArray(u.modulos) ? [...u.modulos] : ["tareas"];
-      if (mods.includes(modId)) {
-        if (mods.length === 1) return u;
-        window.auditLog("cambio_permiso", {modulo:"sistema", seccion:"permisos",
-          descripcion:`Removió acceso al módulo "${modId}" a ${nombreU}`,
-          registroId:nombreU, campo:"modulos", valorAnterior:mods.join(","), valorNuevo:mods.filter(m=>m!==modId).join(",")});
-        return { ...u, modulos: mods.filter(m => m !== modId) };
-      } else {
-        window.auditLog("cambio_permiso", {modulo:"sistema", seccion:"permisos",
-          descripcion:`Otorgó acceso al módulo "${modId}" a ${nombreU}`,
-          registroId:nombreU, campo:"modulos", valorAnterior:mods.join(","), valorNuevo:[...mods, modId].join(",")});
-        return { ...u, modulos: [...mods, modId] };
-      }
-    }));
-  }
+  const u    = Number(p.unidades)||0;
+  const pr   = Number(p.precio_unit)||0;
+  const desc = (Number(p.desc_pct)||0)/100;
+  const mU   = Number(p.mat_unit)||0;
+  const sU   = Number(p.srv_unit)||0;
+  const totalIng  = u*pr;
+  const pNeto     = Math.max(0, pr*(1-desc)-mU-sU);
+  const totalCost = u*pNeto;
+  const antIngTot =(p.anticipos_cliente||[]).reduce((s,a)=>s+(Number(a.usd_unit)||0)*u,0);
+  const pctMat    =(p.dist_mat||[]).reduce((s,d)=>s+(Number(d.pct)||0),0);
+  const pctSrv    =(p.dist_srv||[]).reduce((s,d)=>s+(Number(d.pct)||0),0);
 
-  function setRol(nombreU, rol) {
-    setUsuarios(prev => prev.map(u => {
-      if(u.nombre !== nombreU) return u;
-      window.auditLog("cambio_permiso", {modulo:"sistema", seccion:"permisos",
-        descripcion:`Cambió rol de ${nombreU} de "${u.rol}" a "${rol}"`,
-        registroId:nombreU, campo:"rol", valorAnterior:u.rol, valorNuevo:rol});
-      return { ...u, rol, modulos: rol === "admin" ? MODULOS_DISPONIBLES.map(m=>m.id) : (Array.isArray(u.modulos) ? u.modulos : ["tareas"]) };
-    }));
-  }
-
-  function toggleActivar(nombreU) {
-    setUsuarios(prev => prev.map(u => {
-      if(u.nombre !== nombreU) return u;
-      const nuevo = !u.desactivado;
-      window.auditLog(nuevo?"desactivar_usuario":"activar_usuario", {modulo:"sistema", seccion:"permisos",
-        descripcion:`${nuevo?"Desactivó":"Reactivó"} al usuario ${nombreU}`,
-        registroId:nombreU, campo:"desactivado", valorAnterior:u.desactivado||false, valorNuevo:nuevo});
-      return { ...u, desactivado: nuevo };
-    }));
-  }
-
-  function setTabPerm(nombreU, modulo, tabId, nivel) {
-    setUsuarios(prev => prev.map(u => {
-      if(u.nombre !== nombreU) return u;
-      const tp = JSON.parse(JSON.stringify(u.tab_permisos || {}));
-      if(!tp[modulo]) tp[modulo] = {};
-      const nivelAnt = tp[modulo][tabId] || "editar";
-      tp[modulo][tabId] = nivel;
-      window.auditLog("cambio_permiso", {modulo:"sistema", seccion:"permisos",
-        descripcion:`Cambió permiso de ${nombreU} en ${modulo}/${tabId} de "${nivelAnt}" a "${nivel}"`,
-        registroId:nombreU, campo:`${modulo}.${tabId}`, valorAnterior:nivelAnt, valorNuevo:nivel});
-      return { ...u, tab_permisos: tp };
-    }));
-  }
-
-  const activos = usuarios.filter(u => !u.desactivado);
-  const inactivos = usuarios.filter(u => u.desactivado);
+  const iSt={width:90,padding:"5px 7px",background:C.card2,border:`1px solid ${C.border}`,
+    borderRadius:6,color:C.text,fontSize:11,outline:"none",textAlign:"right"};
+  const selSt={padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,
+    borderRadius:6,fontSize:11,outline:"none",color:C.text};
 
   return (
-    <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",padding:16}}>
-      <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:820,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px #0006"}}>
-        <div style={{background:"linear-gradient(135deg,#1e3a5f,#2563eb)",borderRadius:"20px 20px 0 0",padding:"20px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <div style={{background:C.card2,borderRadius:12,padding:16,border:`1px solid ${C.border}`}}>
+      {/* Header producto */}
+      <div style={{display:"grid",gridTemplateColumns:"auto 1fr auto auto",gap:10,alignItems:"center",marginBottom:14}}>
+        <input value={p.emoji||"📦"} onChange={e=>upd("emoji",e.target.value)}
+          style={{width:40,padding:"4px 6px",background:C.bg,border:`1px solid ${C.border}`,
+            borderRadius:6,color:C.text,fontSize:16,textAlign:"center",outline:"none"}}/>
+        <input value={p.nombre} onChange={e=>upd("nombre",e.target.value)}
+          placeholder="Nombre del producto / línea..."
+          style={{padding:"6px 10px",background:C.bg,border:`1px solid ${C.border}`,
+            borderRadius:6,color:C.text,fontSize:13,fontWeight:700,outline:"none"}}/>
+        <input value={p.unidad_label||"unid."} onChange={e=>upd("unidad_label",e.target.value)}
+          placeholder="unid."
+          style={{width:60,padding:"5px 7px",background:C.bg,border:`1px solid ${C.border}`,
+            borderRadius:6,color:C.muted,fontSize:11,textAlign:"center",outline:"none"}}/>
+        {totalIng>0&&<span style={{fontSize:11,background:`${C.green}22`,color:C.green,
+          borderRadius:20,padding:"2px 10px",fontWeight:700,whiteSpace:"nowrap"}}>
+          Ing: {$$(totalIng)} · Margen: {$$(totalIng-totalCost)}
+        </span>}
+      </div>
+
+      {/* Campos numéricos */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:12,marginBottom:14}}>
+        {[
+          [`Cantidad (${p.unidad_label||"unid."})`, "unidades", ""],
+          ["Precio US$/unidad",                      "precio_unit","$"],
+          ["Descuento intermediario",                "desc_pct",  "%" ],
+          ["Materiales US$/unidad",                  "mat_unit",  "$" ],
+          ["Servicios US$/unidad",                   "srv_unit",  "$" ],
+        ].map(([lbl,field,pre])=>(
+          <div key={field}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>{lbl}</div>
+            <div style={{display:"flex",alignItems:"center",gap:3}}>
+              {pre&&<span style={{fontSize:11,color:C.muted}}>{pre}</span>}
+              <input type="number" value={p[field]||""} placeholder="0"
+                onChange={e=>upd(field,parseFloat(e.target.value)||0)} style={iSt}/>
+            </div>
+          </div>
+        ))}
+        {pNeto>0&&u>0&&(
+          <div style={{gridColumn:"1/-1",background:`${C.yellow}11`,border:`1px solid ${C.yellow}33`,
+            borderRadius:8,padding:"8px 12px",fontSize:11,color:C.yellow}}>
+            Precio neto proveedor: <strong>${pNeto.toFixed(3)}/unid.</strong>
+            &nbsp;· Costo total proveedor: <strong>{$$(totalCost)}</strong>
+          </div>
+        )}
+      </div>
+
+      {/* Cobros / Pagos */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+        <div style={{background:`${C.green}0d`,border:`1px solid ${C.green}33`,borderRadius:10,padding:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:10}}>📥 Cobros al cliente</div>
+          <div style={{marginBottom:8}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:5,fontWeight:700}}>Anticipos (US$/unid. por mes)</div>
+            <AnticipListGen items={p.anticipos_cliente} onChange={v=>upd("anticipos_cliente",v)}
+              totalUnits={u} label="usd_unit"/>
+          </div>
           <div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",letterSpacing:2,marginBottom:2}}>ADMINISTRACIÓN</div>
-            <div style={{fontSize:17,fontWeight:800,color:"#fff"}}>⚙️ Gestión de Accesos y Permisos</div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Mes liquidación final</div>
+            <select value={p.mes_liquidacion||""} onChange={e=>upd("mes_liquidacion",e.target.value)} style={selSt}>
+              <option value="">— mes —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+            {antIngTot>0&&totalIng>0&&<div style={{fontSize:10,color:C.muted,marginTop:4}}>
+              Anticipos: {$$(antIngTot)} · Liquidación: {$$(Math.max(0,totalIng-antIngTot))}
+            </div>}
           </div>
-          <button onClick={onClose} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,padding:"6px 16px",cursor:"pointer",fontSize:13,fontWeight:600}}>Cerrar ×</button>
         </div>
+        <div style={{background:`${C.red}0d`,border:`1px solid ${C.red}33`,borderRadius:10,padding:12}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.red,marginBottom:10}}>📤 Pagos al proveedor</div>
+          <div style={{marginBottom:8}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:5,fontWeight:700}}>Anticipos (US$/unid. por mes)</div>
+            <AnticipListGen items={p.anticipos_productor} onChange={v=>upd("anticipos_productor",v)}
+              totalUnits={u} label="usd_unit"/>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Mes saldo proveedor</div>
+            <select value={p.mes_saldo_productor||""} onChange={e=>upd("mes_saldo_productor",e.target.value)} style={selSt}>
+              <option value="">— mes —</option>
+              {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
 
-        <div style={{padding:"24px 28px"}}>
-          <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
-            <div style={{fontSize:12,color:"#64748b",fontWeight:600,alignSelf:"center"}}>Módulos:</div>
-            {MODULOS_DISPONIBLES.map(m=>(
-              <span key={m.id} style={{background:m.bg,color:m.color,border:`1px solid ${m.color}44`,borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:700}}>
-                {m.icon} {m.label}
-              </span>
+      {/* Distribución Materiales y Servicios */}
+      {(mU>0||sU>0)&&u>0&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          {mU>0&&(
+            <div style={{background:"rgba(251,191,36,0.07)",border:`1px solid ${C.yellow}44`,borderRadius:10,padding:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.yellow,marginBottom:4}}>📦 Pago Materiales</div>
+              <div style={{fontSize:10,color:C.muted,marginBottom:8}}>
+                Total: <strong style={{color:C.yellow}}>{$$(u*mU)}</strong>
+                {" · "}Asignado: <strong style={{color:pctMat===100?C.green:C.orange}}>{pctMat.toFixed(0)}%</strong>
+              </div>
+              <DistList items={p.dist_mat} onChange={v=>upd("dist_mat",v)} totalMonto={u*mU}/>
+            </div>
+          )}
+          {sU>0&&(
+            <div style={{background:"rgba(96,165,250,0.07)",border:`1px solid ${C.blue}44`,borderRadius:10,padding:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:4}}>⚙️ Pago Servicios</div>
+              <div style={{fontSize:10,color:C.muted,marginBottom:8}}>
+                Total: <strong style={{color:C.blue}}>{$$(u*sU)}</strong>
+                {" · "}Asignado: <strong style={{color:pctSrv===100?C.green:C.orange}}>{pctSrv.toFixed(0)}%</strong>
+              </div>
+              <DistList items={p.dist_srv} onChange={v=>upd("dist_srv",v)} totalMonto={u*sU} esSemanal/>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// AnticipListGen — igual que AnticipList pero con campo configurable (usd_unit en vez de usd_kg)
+function AnticipListGen({items,onChange,totalUnits=0,label="usd_unit"}) {
+  const addRow=()=>onChange([...(items||[]),{mes:"",[label]:0}]);
+  const updRow=(i,field,val)=>{const n=[...(items||[])];n[i]={...n[i],[field]:val};onChange(n);};
+  const delRow=i=>onChange((items||[]).filter((_,j)=>j!==i));
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:5}}>
+      {(items||[]).map((row,i)=>(
+        <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+          <select value={row.mes||""} onChange={e=>updRow(i,"mes",e.target.value)}
+            style={{padding:"4px 7px",background:C.card2,border:`1px solid ${C.border}`,
+              borderRadius:6,color:row.mes?C.text:C.muted,fontSize:11,outline:"none"}}>
+            <option value="">— mes —</option>
+            {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+          </select>
+          <input type="number" value={row[label]||""} placeholder="0"
+            onChange={e=>updRow(i,label,parseFloat(e.target.value)||0)}
+            style={{width:80,padding:"4px 7px",background:C.card2,border:`1px solid ${C.border}`,
+              borderRadius:6,color:C.text,fontSize:11,outline:"none",textAlign:"right"}}/>
+          <span style={{fontSize:10,color:C.muted}}>$/unid</span>
+          {row[label]&&totalUnits>0&&(
+            <span style={{fontSize:10,color:C.yellow}}>=&nbsp;{$$((Number(row[label])||0)*totalUnits)}</span>
+          )}
+          <button onClick={()=>delRow(i)} style={{background:"transparent",border:"none",color:C.red,cursor:"pointer",fontSize:14}}>×</button>
+        </div>
+      ))}
+      <button onClick={addRow} style={{alignSelf:"flex-start",padding:"4px 10px",background:`${C.accent}22`,
+        border:`1px solid ${C.accent}55`,borderRadius:6,color:C.accentL,cursor:"pointer",fontSize:11,fontWeight:600}}>
+        + Agregar mes
+      </button>
+    </div>
+  );
+}
+
+
+
+
+// ── Parámetros Allpa Farms ────────────────────────────────────────
+
+function defaultParamsAllpa() {
+  const p = {};
+  SEASON_KEYS.forEach(sk => {
+    p[sk] = {
+      variedades: [], // [{nombre, kg_mes:{mes:kg}, usd_kg:0, anticipos:[{mes,usd_kg}], mes_liq:""}]
+      cosecha: { usd_kg:0, semanas_pago:[] }, // costos de cosecha
+      transporte: { costo_persona:0, personas:0, meses_pago:[] },
+    };
+  });
+  return p;
+}
+
+function calcAllpa(paramsAF) {
+  const ingArr  = Z65();
+  const costArr = Z65(); // remuneración cosecha
+  const trspArr = Z65(); // transporte
+
+  SEASON_KEYS.forEach(sk => {
+    const d = paramsAF?.[sk];
+    if(!d) return;
+
+    // Ingresos por variedad
+    (d.variedades||[]).forEach(v => {
+      const usd = Number(v.usd_kg)||0;
+      const totalKg = Object.values(v.kg_mes||{}).reduce((s,k)=>s+(Number(k)||0),0);
+      if(!totalKg||!usd) return;
+      // Anticipos
+      let antTot = 0;
+      (v.anticipos||[]).forEach(a => {
+        const kgAnt = (Number(a.usd_kg)||0)*totalKg;
+        const i = mIdx(a.mes); if(i>=0){ ingArr[i]+=kgAnt; antTot+=kgAnt; }
+      });
+      // Liquidación
+      if(v.mes_liq) {
+        const i = mIdx(v.mes_liq);
+        if(i>=0) ingArr[i] += Math.max(0, totalKg*usd - antTot);
+      }
+    });
+
+    // Costo cosecha (remuneración)
+    const cosecha = d.cosecha||{};
+    const usdCos  = Number(cosecha.usd_kg)||0;
+    if(usdCos>0) {
+      const totalKgAll = (d.variedades||[]).reduce((s,v)=>
+        s+Object.values(v.kg_mes||{}).reduce((a,k)=>a+(Number(k)||0),0), 0);
+      const totalCos = totalKgAll * usdCos;
+      (cosecha.semanas_pago||[]).forEach(sp=>{
+        const i=mIdx(sp.mes); if(i>=0) costArr[i]+=totalCos*((Number(sp.pct)||0)/100);
+      });
+    }
+
+    // Transporte
+    const trsp = d.transporte||{};
+    const totalTrsp = (Number(trsp.costo_persona)||0)*(Number(trsp.personas)||0);
+    if(totalTrsp>0) {
+      (trsp.meses_pago||[]).forEach(mp=>{
+        const i=mIdx(mp); if(i>=0) trspArr[i]+=totalTrsp;
+      });
+    }
+  });
+  return {ingArr, costArr, trspArr};
+}
+
+function ParamsAllpa({selSeason, paramsAF, setParamsAF, readOnly}) {
+  const [selVar, setSelVar] = useState(null);
+  const [subTab, setSubTab] = useState("variedades"); // "variedades" | "cosecha" | "transporte"
+
+  const d = paramsAF?.[selSeason] || {variedades:[], cosecha:{usd_kg:0,semanas_pago:[]}, transporte:{costo_persona:0,personas:0,meses_pago:[]}};
+  const variedades = d.variedades||[];
+  const season = SEASONS.find(s=>s.key===selSeason);
+
+  function updVar(vi, field, val) {
+    setParamsAF(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason]) next[selSeason]={variedades:[],cosecha:{usd_kg:0,semanas_pago:[]},transporte:{costo_persona:0,personas:0,meses_pago:[]}};
+      const n=Number(val)||0;
+      next[selSeason].variedades[vi][field]=["usd_kg"].includes(field)?n:val;
+      return next;
+    });
+  }
+  function updVarKg(vi, mes, val) {
+    setParamsAF(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason].variedades[vi].kg_mes) next[selSeason].variedades[vi].kg_mes={};
+      if(!val||Number(val)===0) delete next[selSeason].variedades[vi].kg_mes[mes];
+      else next[selSeason].variedades[vi].kg_mes[mes]=Number(val)||0;
+      return next;
+    });
+  }
+  function updVarAnt(vi, ai, field, val) {
+    setParamsAF(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason].variedades[vi].anticipos) next[selSeason].variedades[vi].anticipos=[];
+      next[selSeason].variedades[vi].anticipos[ai][field]=field==="usd_kg"?Number(val)||0:val;
+      return next;
+    });
+  }
+  function addVar() {
+    setParamsAF(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason]) next[selSeason]={variedades:[],cosecha:{usd_kg:0,semanas_pago:[]},transporte:{costo_persona:0,personas:0,meses_pago:[]}};
+      const idx=(next[selSeason].variedades||[]).length;
+      next[selSeason].variedades=[...( next[selSeason].variedades||[]),{nombre:"",kg_mes:{},usd_kg:0,anticipos:[],mes_liq:""}];
+      setSelVar(idx);
+      return next;
+    });
+  }
+  function updCosecha(field, val) {
+    setParamsAF(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason].cosecha) next[selSeason].cosecha={usd_kg:0,semanas_pago:[]};
+      next[selSeason].cosecha[field]=field==="usd_kg"?Number(val)||0:val;
+      return next;
+    });
+  }
+  function updTransporte(field, val) {
+    setParamsAF(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason].transporte) next[selSeason].transporte={costo_persona:0,personas:0,meses_pago:[]};
+      next[selSeason].transporte[field]=["costo_persona","personas"].includes(field)?Number(val)||0:val;
+      return next;
+    });
+  }
+
+  const iSt={padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11,outline:"none"};
+  const selSt={...iSt};
+  const totalKgAll=variedades.reduce((s,v)=>s+Object.values(v.kg_mes||{}).reduce((a,k)=>a+(Number(k)||0),0),0);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {/* Sub-tabs */}
+      <div style={{display:"flex",gap:6}}>
+        {[{id:"variedades",label:"🍒 Variedades"},
+          {id:"cosecha",   label:"👷 Cosecha"},
+          {id:"transporte",label:"🚚 Transporte"}].map(t=>(
+          <button key={t.id} onClick={()=>setSubTab(t.id)}
+            style={{padding:"6px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
+              border:`1px solid ${subTab===t.id?"#dc2626":C.border}`,
+              background:subTab===t.id?"#dc262633":"transparent",
+              color:subTab===t.id?"#dc2626":C.muted}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* VARIEDADES */}
+      {subTab==="variedades"&&(
+        <div style={{display:"flex",gap:12}}>
+          {/* Lista variedades */}
+          <div style={{width:180,flexShrink:0}}>
+            <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Variedades</div>
+            {variedades.map((v,vi)=>(
+              <button key={vi} onClick={()=>setSelVar(vi===selVar?null:vi)}
+                style={{width:"100%",padding:"7px 10px",borderRadius:8,cursor:"pointer",fontSize:11,
+                  fontWeight:selVar===vi?700:400,textAlign:"left",marginBottom:4,
+                  border:`1px solid ${selVar===vi?"#dc2626":C.border}`,
+                  background:selVar===vi?"#dc262622":C.card,color:selVar===vi?"#dc2626":C.text}}>
+                🍒 {v.nombre||`Variedad ${vi+1}`}
+              </button>
             ))}
+            {!readOnly&&<button onClick={addVar}
+              style={{width:"100%",padding:"7px 10px",borderRadius:8,cursor:"pointer",fontSize:11,
+                border:`1px dashed ${C.border2}`,background:"transparent",color:C.accentL}}>
+              + Nueva variedad
+            </button>}
           </div>
 
-          <div style={{fontSize:12,color:"#94a3b8",fontWeight:700,marginBottom:8,letterSpacing:1}}>USUARIOS ACTIVOS</div>
-          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>
-            {activos.map(u => {
-              const mods = Array.isArray(u.modulos) ? u.modulos : (u.rol==="admin"?["tareas","osiris"]:["tareas"]);
-              const isExpanded = expandedTabUser === u.nombre;
-              return (
-                <div key={u.nombre} style={{background:"#f8fafc",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-                  {/* Fila principal */}
-                  <div style={{padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
-                    <div style={{flex:1,minWidth:160}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>{u.nombre}</span>
-                        <span style={{fontSize:10,background:u.rol==="admin"?"#fef3c7":u.rol==="consulta"?"#ede9fe":"#dcfce7",color:u.rol==="admin"?"#92400e":u.rol==="consulta"?"#6d28d9":"#166534",borderRadius:20,padding:"1px 8px",fontWeight:700}}>
-                          {u.rol==="admin"?"Admin":u.rol==="consulta"?"Consulta":"Editor"}
-                        </span>
+          {/* Detalle variedad seleccionada */}
+          {selVar!==null&&variedades[selVar]&&(()=>{
+            const v=variedades[selVar];
+            const totalKg=Object.values(v.kg_mes||{}).reduce((s,k)=>s+(Number(k)||0),0);
+            const antTot=(v.anticipos||[]).reduce((s,a)=>s+(Number(a.usd_kg)||0)*totalKg,0);
+            return (
+              <div style={{flex:1,display:"flex",flexDirection:"column",gap:10}}>
+                <Card>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                    <div>
+                      <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Nombre variedad</div>
+                      <input value={v.nombre||""} onChange={e=>updVar(selVar,"nombre",e.target.value)}
+                        placeholder="Ej: Regina, Lapins…" style={{...iSt,width:"100%",boxSizing:"border-box"}} disabled={readOnly}/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Retorno US$/kg</div>
+                      <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                        <span style={{fontSize:10,color:C.muted}}>$</span>
+                        <input type="number" step="0.01" value={v.usd_kg||""} placeholder="0.00"
+                          onChange={e=>updVar(selVar,"usd_kg",e.target.value)}
+                          style={{...iSt,width:90,textAlign:"right"}} disabled={readOnly}/>
                       </div>
-                      <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{u.cargo}</div>
                     </div>
-
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                      <span style={{fontSize:11,color:"#64748b",fontWeight:600}}>Acceso a:</span>
-                      {MODULOS_DISPONIBLES.map(m=>{
-                        const tiene = u.rol==="admin" || mods.includes(m.id);
-                        return (
-                          <label key={m.id} style={{display:"flex",alignItems:"center",gap:5,cursor:u.rol==="admin"?"not-allowed":"pointer",
-                            background:tiene?m.bg:"#f1f5f9",border:`1px solid ${tiene?m.color+"66":"#d1d5db"}`,
-                            borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:600,color:tiene?m.color:"#94a3b8",
-                            opacity:u.rol==="admin"?0.7:1}}>
-                            <input type="checkbox" checked={tiene} disabled={u.rol==="admin"}
-                              onChange={()=>toggleModulo(u.nombre,m.id)}
-                              style={{cursor:u.rol==="admin"?"not-allowed":"pointer",accentColor:m.color}}/>
-                            {m.icon} {m.label}
-                          </label>
-                        );
-                      })}
-                    </div>
-
-                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                      <select value={u.rol} onChange={e=>setRol(u.nombre,e.target.value)}
-                        style={{padding:"5px 8px",borderRadius:8,border:"1px solid #d1d5db",fontSize:11,cursor:"pointer",background:"#fff"}}>
-                        <option value="editor">Editor</option>
-                        <option value="consulta">Consulta</option>
-                        <option value="admin">Admin</option>
+                    <div>
+                      <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Mes liquidación</div>
+                      <select value={v.mes_liq||""} onChange={e=>updVar(selVar,"mes_liq",e.target.value)}
+                        style={selSt} disabled={readOnly}>
+                        <option value="">— mes —</option>
+                        {MESES_65.map(m=><option key={m}>{m}</option>)}
                       </select>
-                      {u.rol!=="admin"&&(
-                        <button onClick={()=>setExpandedTabUser(isExpanded?null:u.nombre)}
-                          style={{background:isExpanded?"#e0e7ff":"#f1f5f9",color:isExpanded?"#4f46e5":"#64748b",border:"none",
-                            borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>
-                          🗂 Pestañas {isExpanded?"▴":"▾"}
-                        </button>
-                      )}
-                      <button onClick={()=>toggleActivar(u.nombre)}
-                        style={{background:"#fee2e2",color:"#991b1b",border:"none",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>
-                        Desactivar
-                      </button>
                     </div>
                   </div>
-                  {u.rol==="admin"&&<div style={{padding:"0 18px 10px",fontSize:10,color:"#64748b"}}>⚙️ Admin tiene acceso automático a todos los módulos y pestañas</div>}
+                  {totalKg>0&&Number(v.usd_kg)>0&&(
+                    <div style={{marginTop:8,fontSize:11,color:C.green,fontWeight:600}}>
+                      Total: {totalKg.toLocaleString()} kg · {$$(totalKg*Number(v.usd_kg))}
+                      {antTot>0&&<span style={{color:C.muted,marginLeft:6}}>
+                        (anticipos: {$$(antTot)} · liq: {$$(Math.max(0,totalKg*Number(v.usd_kg)-antTot))})
+                      </span>}
+                    </div>
+                  )}
+                </Card>
 
-                  {/* Sección permisos por pestaña (expandible) */}
-                  {isExpanded&&u.rol!=="admin"&&(
-                    <div style={{borderTop:"1px solid #e2e8f0",background:"#fff",padding:"16px 18px"}}>
-                      <div style={{fontSize:12,fontWeight:700,color:"#1e293b",marginBottom:12}}>
-                        🗂 Permisos por pestaña — <span style={{color:"#64748b",fontWeight:500}}>define qué puede ver/editar en cada pestaña de cada módulo</span>
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:14}}>
-                        {MODULOS_DISPONIBLES.filter(m=>u.rol==="admin"||mods.includes(m.id)).map(mod=>{
-                          const tabs = TABS_PERMISOS_CONFIG[mod.id] || [];
-                          if(tabs.length===0) return null;
-                          return (
-                            <div key={mod.id} style={{background:"#f8fafc",borderRadius:10,padding:"12px 14px",border:`1px solid ${mod.color}33`}}>
-                              <div style={{fontSize:11,fontWeight:700,color:mod.color,marginBottom:10}}>
-                                {mod.icon} {mod.label}
-                              </div>
-                              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                                {tabs.map(tab=>{
-                                  const nivel = getTabPerm(u, mod.id, tab.id);
-                                  return (
-                                    <div key={tab.id} style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                                      <div style={{minWidth:160,fontSize:12,color:"#374151",fontWeight:500}}>{tab.label}</div>
-                                      <div style={{display:"flex",gap:5}}>
-                                        {NIVELES_PERM.map(n=>(
-                                          <button key={n} onClick={()=>setTabPerm(u.nombre,mod.id,tab.id,n)}
-                                            style={{padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",border:"none",
-                                              background:nivel===n?NIVEL_BG[n]:"#e2e8f0",
-                                              color:nivel===n?NIVEL_COLOR[n]:"#64748b",
-                                              outline:nivel===n?`2px solid ${NIVEL_COLOR[n]}`:"none"}}>
-                                            {NIVEL_LABEL[n]}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                {/* Kg por mes */}
+                <Card>
+                  <SectionTitle>Kg por mes — {season?.label}</SectionTitle>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
+                    {(season?.months||[]).map(mes=>{
+                      const kg=v.kg_mes?.[mes]||"";
+                      return (
+                        <div key={mes} style={{background:C.bg,borderRadius:6,padding:"6px 8px",
+                          border:`1px solid ${kg?C.border2:C.border}`}}>
+                          <div style={{fontSize:9,color:kg?C.accentL:C.muted,fontWeight:600,marginBottom:3}}>{mes}</div>
+                          <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                            <input type="number" value={kg} placeholder="0"
+                              onChange={e=>updVarKg(selVar,mes,e.target.value)}
+                              style={{width:"100%",padding:"3px 5px",background:C.card2,
+                                border:`1px solid ${C.border}`,borderRadius:5,
+                                color:C.text,fontSize:10,outline:"none",textAlign:"right"}}
+                              disabled={readOnly}/>
+                            <span style={{fontSize:9,color:C.muted}}>kg</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+
+                {/* Anticipos */}
+                <Card>
+                  <SectionTitle>Anticipos cliente</SectionTitle>
+                  {(v.anticipos||[]).map((a,ai)=>(
+                    <div key={ai} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+                      <select value={a.mes||""} onChange={e=>updVarAnt(selVar,ai,"mes",e.target.value)}
+                        style={{...selSt,width:110}} disabled={readOnly}>
+                        <option value="">— mes —</option>
+                        {MESES_65.map(m=><option key={m}>{m}</option>)}
+                      </select>
+                      <span style={{fontSize:10,color:C.muted}}>$</span>
+                      <input type="number" step="0.01" value={a.usd_kg||""} placeholder="US$/kg"
+                        onChange={e=>updVarAnt(selVar,ai,"usd_kg",e.target.value)}
+                        style={{...iSt,width:80,textAlign:"right"}} disabled={readOnly}/>
+                      <span style={{fontSize:10,color:C.muted}}>/kg</span>
+                      {totalKg>0&&Number(a.usd_kg)>0&&(
+                        <span style={{fontSize:10,color:C.yellow}}>{$$(Number(a.usd_kg)*totalKg)}</span>
+                      )}
+                      {!readOnly&&<button onClick={()=>updVar(selVar,"anticipos",(v.anticipos||[]).filter((_,j)=>j!==ai))}
+                        style={{background:"#fee2e2",border:"none",borderRadius:5,padding:"2px 7px",cursor:"pointer",color:"#991b1b",fontSize:11}}>×</button>}
+                    </div>
+                  ))}
+                  {!readOnly&&<button onClick={()=>updVar(selVar,"anticipos",[...(v.anticipos||[]),{mes:"",usd_kg:0}])}
+                    style={{padding:"5px 12px",borderRadius:7,border:`1px dashed ${C.border2}`,background:"transparent",color:C.accentL,cursor:"pointer",fontSize:11}}>
+                    + Agregar anticipo
+                  </button>}
+                </Card>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* COSECHA */}
+      {subTab==="cosecha"&&(
+        <Card>
+          <SectionTitle>Costo Remuneración Cosecha</SectionTitle>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+            <div>
+              <div style={{fontSize:10,color:C.muted,marginBottom:4}}>US$/kg cosechado</div>
+              <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                <span style={{fontSize:10,color:C.muted}}>$</span>
+                <input type="number" step="0.001" value={d.cosecha?.usd_kg||""} placeholder="0.000"
+                  onChange={e=>updCosecha("usd_kg",e.target.value)}
+                  style={{...iSt,width:100,textAlign:"right"}} disabled={readOnly}/>
+                <span style={{fontSize:10,color:C.muted}}>/kg</span>
+              </div>
+              {totalKgAll>0&&Number(d.cosecha?.usd_kg)>0&&(
+                <div style={{fontSize:10,color:C.red,marginTop:4}}>
+                  Total cosecha: {$$(totalKgAll*Number(d.cosecha.usd_kg))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:8}}>Semanas/meses de pago (%)</div>
+            {(d.cosecha?.semanas_pago||[]).map((sp,i)=>(
+              <div key={i} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+                <select value={sp.mes||""} onChange={e=>{
+                  const arr=[...(d.cosecha?.semanas_pago||[])];arr[i]={...sp,mes:e.target.value};
+                  updCosecha("semanas_pago",arr);}}
+                  style={{...selSt,width:110}} disabled={readOnly}>
+                  <option value="">— mes —</option>
+                  {MESES_65.map(m=><option key={m}>{m}</option>)}
+                </select>
+                <input type="number" min="0" max="100" value={sp.pct||""} placeholder="%"
+                  onChange={e=>{const arr=[...(d.cosecha?.semanas_pago||[])];arr[i]={...sp,pct:Number(e.target.value)||0};updCosecha("semanas_pago",arr);}}
+                  style={{...iSt,width:60,textAlign:"right"}} disabled={readOnly}/>
+                <span style={{fontSize:10,color:C.muted}}>%</span>
+                {totalKgAll>0&&Number(d.cosecha?.usd_kg)>0&&Number(sp.pct)>0&&(
+                  <span style={{fontSize:10,color:C.red}}>{$$(totalKgAll*Number(d.cosecha.usd_kg)*(Number(sp.pct)/100))}</span>
+                )}
+                {!readOnly&&<button onClick={()=>updCosecha("semanas_pago",(d.cosecha?.semanas_pago||[]).filter((_,j)=>j!==i))}
+                  style={{background:"#fee2e2",border:"none",borderRadius:5,padding:"2px 7px",cursor:"pointer",color:"#991b1b",fontSize:11}}>×</button>}
+              </div>
+            ))}
+            {!readOnly&&<button onClick={()=>updCosecha("semanas_pago",[...(d.cosecha?.semanas_pago||[]),{mes:"",pct:0}])}
+              style={{padding:"5px 12px",borderRadius:7,border:`1px dashed ${C.border2}`,background:"transparent",color:C.accentL,cursor:"pointer",fontSize:11}}>
+              + Agregar mes de pago
+            </button>}
+          </div>
+        </Card>
+      )}
+
+      {/* TRANSPORTE */}
+      {subTab==="transporte"&&(
+        <Card>
+          <SectionTitle>Costo Transporte</SectionTitle>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+            <div>
+              <div style={{fontSize:10,color:C.muted,marginBottom:4}}>Costo por persona (US$)</div>
+              <input type="number" value={d.transporte?.costo_persona||""} placeholder="0"
+                onChange={e=>updTransporte("costo_persona",e.target.value)}
+                style={{...iSt,width:"100%",boxSizing:"border-box",textAlign:"right"}} disabled={readOnly}/>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:C.muted,marginBottom:4}}>N° personas</div>
+              <input type="number" value={d.transporte?.personas||""} placeholder="0"
+                onChange={e=>updTransporte("personas",e.target.value)}
+                style={{...iSt,width:"100%",boxSizing:"border-box",textAlign:"right"}} disabled={readOnly}/>
+            </div>
+          </div>
+          {Number(d.transporte?.costo_persona)>0&&Number(d.transporte?.personas)>0&&(
+            <div style={{fontSize:11,color:C.red,fontWeight:600,marginBottom:10}}>
+              Total transporte: {$$(Number(d.transporte.costo_persona)*Number(d.transporte.personas))}
+            </div>
+          )}
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:8}}>Meses de pago</div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {MESES_65.filter((_,i)=>i<18).map(mes=>{
+                const sel=(d.transporte?.meses_pago||[]).includes(mes);
+                return (
+                  <button key={mes} onClick={()=>{
+                    if(readOnly) return;
+                    const cur=d.transporte?.meses_pago||[];
+                    updTransporte("meses_pago",sel?cur.filter(m=>m!==mes):[...cur,mes]);
+                  }} style={{padding:"4px 8px",borderRadius:6,fontSize:10,cursor:"pointer",
+                    border:`1px solid ${sel?"#dc2626":C.border}`,
+                    background:sel?"#dc262622":"transparent",
+                    color:sel?"#dc2626":C.muted}}>
+                    {mes}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ── Parámetros Integrity Farms ────────────────────────────────────
+function defaultParamsIntegrity() {
+  // { seasonKey: { clientes: [{nombre, ha, usd_ha, mes_cobro}] } }
+  const p = {};
+  SEASON_KEYS.forEach(sk => { p[sk] = { clientes: [] }; });
+  return p;
+}
+
+function calcIntegrity(paramsIF) {
+  const ingArr = Z65();
+  SEASON_KEYS.forEach(sk => {
+    const clientes = paramsIF?.[sk]?.clientes || [];
+    clientes.forEach(cli => {
+      const ha     = Number(cli.ha)     || 0;
+      const usd_ha = Number(cli.usd_ha) || 0;
+      if(!ha || !usd_ha || !cli.mes_cobro) return;
+      const i = mIdx(cli.mes_cobro);
+      if(i >= 0) ingArr[i] += ha * usd_ha;
+    });
+  });
+  return ingArr;
+}
+
+function ParamsIntegrity({selSeason, paramsIF, setParamsIF, readOnly}) {
+  const clientes = paramsIF?.[selSeason]?.clientes || [];
+
+  function updCli(ci, field, val) {
+    if(readOnly) return;
+    setParamsIF(prev=>{
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason]) next[selSeason]={clientes:[]};
+      if(!next[selSeason].clientes) next[selSeason].clientes=[];
+      if(!next[selSeason].clientes[ci]) next[selSeason].clientes[ci]={nombre:"",ha:0,usd_ha:2000,mes_cobro:""};
+      next[selSeason].clientes[ci][field]=field==="ha"||field==="usd_ha"?Number(val)||0:val;
+      return next;
+    });
+  }
+  function addCli() {
+    if(readOnly) return;
+    setParamsIF(prev=>{
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason]) next[selSeason]={clientes:[]};
+      next[selSeason].clientes=[...( next[selSeason].clientes||[]),{nombre:"",ha:0,usd_ha:2000,mes_cobro:""}];
+      return next;
+    });
+  }
+  function delCli(ci) {
+    if(readOnly) return;
+    setParamsIF(prev=>{
+      const next = JSON.parse(JSON.stringify(prev));
+      next[selSeason].clientes=next[selSeason].clientes.filter((_,i)=>i!==ci);
+      return next;
+    });
+  }
+
+  const totalHa  = clientes.reduce((s,c)=>s+(Number(c.ha)||0),0);
+  const totalIng = clientes.reduce((s,c)=>s+(Number(c.ha)||0)*(Number(c.usd_ha)||0),0);
+  const iSt = {padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,
+    borderRadius:6,color:C.text,fontSize:11,outline:"none"};
+
+  return (
+    <Card>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <SectionTitle>Clientes Administración de Campos</SectionTitle>
+        {totalIng>0&&(
+          <span style={{fontSize:12,fontWeight:700,color:C.green}}>
+            {totalHa.toLocaleString()} há · {$$(totalIng)}
+          </span>
+        )}
+      </div>
+
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead>
+            <tr style={{background:C.bg2}}>
+              {["Cliente / Campo","Há a cobrar","US$/Há","Mes de cobro","Subtotal",...(readOnly?[]:[""])].map(h=>(
+                <th key={h} style={{padding:"7px 10px",fontWeight:600,fontSize:10,color:C.muted,
+                  textAlign:["Há a cobrar","US$/Há","Subtotal"].includes(h)?"right":"left",
+                  borderBottom:`1px solid ${C.border}`,textTransform:"uppercase"}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {clientes.map((cli,ci)=>{
+              const subtotal=(Number(cli.ha)||0)*(Number(cli.usd_ha)||0);
+              return (
+                <tr key={ci} style={{borderBottom:`1px solid ${C.border}22`}}>
+                  <td style={{padding:"6px 10px"}}>
+                    <input value={cli.nombre||""} onChange={e=>updCli(ci,"nombre",e.target.value)}
+                      placeholder="Nombre cliente / campo…" disabled={readOnly}
+                      style={{...iSt,width:180}}/>
+                  </td>
+                  <td style={{padding:"6px 10px",textAlign:"right"}}>
+                    <input type="number" value={cli.ha||""} onChange={e=>updCli(ci,"ha",e.target.value)}
+                      placeholder="0" disabled={readOnly} style={{...iSt,width:80,textAlign:"right"}}/>
+                  </td>
+                  <td style={{padding:"6px 10px",textAlign:"right"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:3,justifyContent:"flex-end"}}>
+                      <span style={{fontSize:10,color:C.muted}}>$</span>
+                      <input type="number" value={cli.usd_ha||""} onChange={e=>updCli(ci,"usd_ha",e.target.value)}
+                        placeholder="2000" disabled={readOnly} style={{...iSt,width:80,textAlign:"right"}}/>
+                    </div>
+                  </td>
+                  <td style={{padding:"6px 10px"}}>
+                    <select value={cli.mes_cobro||""} onChange={e=>updCli(ci,"mes_cobro",e.target.value)}
+                      disabled={readOnly} style={{...iSt,width:110}}>
+                      <option value="">— mes —</option>
+                      {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </td>
+                  <td style={{padding:"6px 10px",textAlign:"right",fontWeight:700,
+                    color:subtotal>0?C.green:C.muted}}>
+                    {subtotal>0?$$(subtotal):"—"}
+                  </td>
+                  {!readOnly&&(
+                    <td style={{padding:"6px 10px"}}>
+                      <button onClick={()=>delCli(ci)}
+                        style={{background:"#fee2e2",border:"none",borderRadius:6,
+                          padding:"3px 8px",cursor:"pointer",color:"#991b1b",fontSize:11}}>×</button>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+            {clientes.length===0&&(
+              <tr><td colSpan={6} style={{padding:20,textAlign:"center",color:C.muted}}>
+                Sin clientes. Agrega uno →
+              </td></tr>
+            )}
+            {clientes.length>0&&(
+              <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                <td style={{padding:"7px 10px",fontWeight:800,color:C.text}}>TOTAL</td>
+                <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.text}}>
+                  {totalHa.toLocaleString()} há
+                </td>
+                <td/><td/>
+                <td style={{padding:"7px 10px",textAlign:"right",fontWeight:800,color:C.green}}>
+                  {$$(totalIng)}
+                </td>
+                {!readOnly&&<td/>}
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {!readOnly&&(
+        <button onClick={addCli}
+          style={{marginTop:12,padding:"7px 18px",borderRadius:8,cursor:"pointer",fontSize:11,
+            fontWeight:600,border:`1px dashed ${C.border2}`,background:"transparent",color:C.accentL}}>
+          + Agregar cliente
+        </button>
+      )}
+    </Card>
+  );
+}
+
+// ── Parámetros Allegria Service ───────────────────────────────────
+const ESP_AS = ["cerezas","ciruelas"];
+const ESP_AS_EMOJI = {cerezas:"🍒",ciruelas:"🟣"};
+const ESP_AS_LABEL = {cerezas:"Cerezas",ciruelas:"Ciruelas"};
+
+function ParamsAllegriaService({selSeason, paramsAS, setParamsAS, readOnly}) {
+  const [selEsp, setSelEsp] = useState("cerezas");
+
+  const d = paramsAS?.[selSeason]?.[selEsp] || {kg_mes:{},usd_kg:0,mes_cobro:""};
+
+  function upd(field, val) {
+    if(readOnly) return;
+    setParamsAS(prev=>{
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason]) next[selSeason]={};
+      if(!next[selSeason][selEsp]) next[selSeason][selEsp]={kg_mes:{},usd_kg:0,mes_cobro:""};
+      next[selSeason][selEsp][field] = val;
+      return next;
+    });
+  }
+  function updKgMes(mes, field, val) {
+    if(readOnly) return;
+    setParamsAS(prev=>{
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason]) next[selSeason]={};
+      if(!next[selSeason][selEsp]) next[selSeason][selEsp]={kg_mes:{},usd_kg:0};
+      if(!next[selSeason][selEsp].kg_mes) next[selSeason][selEsp].kg_mes={};
+      const cur = next[selSeason][selEsp].kg_mes[mes]||{kg:0,mes_cobro:""};
+      if(field==="kg" && (val===0||val==="")) {
+        delete next[selSeason][selEsp].kg_mes[mes];
+      } else {
+        next[selSeason][selEsp].kg_mes[mes] = {...cur,[field]:field==="kg"?Number(val)||0:val};
+      }
+      return next;
+    });
+  }
+
+  // Meses de la temporada seleccionada
+  const season = SEASONS.find(s=>s.key===selSeason);
+  const mesesTemp = season?.months||[];
+  // Compatible: entry puede ser número (legacy) u objeto {kg, mes_cobro}
+  const getKg  = entry => typeof entry==="object" ? Number(entry.kg)||0  : Number(entry)||0;
+  const getCob = entry => typeof entry==="object" ? entry.mes_cobro||""  : "";
+  const totalKg  = Object.values(d.kg_mes||{}).reduce((s,v)=>s+getKg(v),0);
+  const totalIng = totalKg * (Number(d.usd_kg)||0);
+
+  const iSt = {width:90,padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,
+    borderRadius:6,color:C.text,fontSize:11,outline:"none",textAlign:"right"};
+  const selSt = {padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,
+    borderRadius:6,fontSize:11,outline:"none",color:C.text};
+
+  return (
+    <Card>
+      {/* Selector especie */}
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        {ESP_AS.map(esp=>(
+          <button key={esp} onClick={()=>setSelEsp(esp)}
+            style={{padding:"6px 18px",borderRadius:20,cursor:"pointer",
+              fontWeight:600,fontSize:12,
+              background:selEsp===esp?"#92400e":"transparent",
+              color:selEsp===esp?"#fff":C.muted,
+              border:`1px solid ${selEsp===esp?"#92400e":C.border}`}}>
+            {ESP_AS_EMOJI[esp]} {ESP_AS_LABEL[esp]}
+          </button>
+        ))}
+      </div>
+
+      <div style={{background:C.card2,borderRadius:12,padding:16,border:`1px solid ${C.border}`}}>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+          <span style={{fontSize:22}}>{ESP_AS_EMOJI[selEsp]}</span>
+          <span style={{fontWeight:800,fontSize:14,color:C.text}}>{ESP_AS_LABEL[selEsp]}</span>
+          {totalIng>0&&(
+            <span style={{fontSize:11,background:`${C.green}22`,color:C.green,
+              borderRadius:20,padding:"2px 10px",fontWeight:700,marginLeft:"auto"}}>
+              Total kg: {totalKg.toLocaleString()} · Ingreso: {$$(totalIng)}
+            </span>
+          )}
+        </div>
+
+        {/* US$/kg y mes de cobro */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          <div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:4}}>Tarifa proceso (US$/kg)</div>
+            <div style={{display:"flex",alignItems:"center",gap:4}}>
+              <span style={{fontSize:11,color:C.muted}}>$</span>
+              <input type="number" step="0.001" value={d.usd_kg||""} placeholder="0.000"
+                onChange={e=>upd("usd_kg",parseFloat(e.target.value)||0)}
+                style={iSt} disabled={readOnly}/>
+              <span style={{fontSize:10,color:C.muted}}>/kg</span>
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:4}}>Mes cobro</div>
+            <div style={{fontSize:10,color:C.accentL}}>Se define por mes de proceso →</div>
+          </div>
+        </div>
+
+        {/* Kg por mes */}
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:8}}>
+            Kg a procesar por mes — {season?.label}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
+            {mesesTemp.map(mes=>{
+              const entry = d.kg_mes?.[mes];
+              const kg    = entry ? getKg(entry) : 0;
+              const cob   = entry ? getCob(entry) : "";
+              const ingMes = kg * (Number(d.usd_kg)||0);
+              return (
+                <div key={mes} style={{background:C.bg,borderRadius:8,padding:"8px 10px",
+                  border:`1px solid ${kg?C.border2:C.border}`}}>
+                  <div style={{fontSize:10,color:kg?C.accentL:C.muted,fontWeight:600,marginBottom:6}}>{mes}</div>
+                  {/* Kg a procesar */}
+                  <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
+                    <input type="number" value={kg||""} placeholder="0 kg"
+                      onChange={e=>updKgMes(mes,"kg",e.target.value)}
+                      style={{width:"100%",padding:"4px 6px",background:C.card2,
+                        border:`1px solid ${C.border}`,borderRadius:6,
+                        color:C.text,fontSize:11,outline:"none",textAlign:"right"}}
+                      disabled={readOnly}/>
+                    <span style={{fontSize:9,color:C.muted,flexShrink:0}}>kg</span>
+                  </div>
+                  {/* Mes de cobro para este proceso */}
+                  {kg>0&&(
+                    <select value={cob} onChange={e=>updKgMes(mes,"mes_cobro",e.target.value)}
+                      style={{width:"100%",padding:"3px 5px",background:C.card2,
+                        border:`1px solid ${cob?C.border2:C.border}`,borderRadius:5,
+                        fontSize:10,color:cob?C.text:C.muted,outline:"none"}}
+                      disabled={readOnly}>
+                      <option value="">cobrar en…</option>
+                      {MESES_65.map(m=><option key={m} value={m}>{m}</option>)}
+                    </select>
+                  )}
+                  {ingMes>0&&(
+                    <div style={{fontSize:9,color:C.green,marginTop:3,textAlign:"right"}}>
+                      {$$(ingMes)}{cob&&cob!==mes?<span style={{color:C.muted}}> → {cob}</span>:null}
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
-
-          {inactivos.length>0&&(
-            <>
-              <div style={{fontSize:12,color:"#94a3b8",fontWeight:700,marginBottom:8,letterSpacing:1}}>USUARIOS INACTIVOS</div>
-              {inactivos.map(u=>(
-                <div key={u.nombre} style={{background:"#f8fafc",borderRadius:12,padding:"12px 18px",border:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center",opacity:0.6,marginBottom:8}}>
-                  <div>
-                    <span style={{fontWeight:600,fontSize:13,color:"#64748b"}}>{u.nombre}</span>
-                    <span style={{fontSize:11,background:"#fee2e2",color:"#991b1b",borderRadius:20,padding:"1px 8px",marginLeft:8,fontWeight:700}}>Inactivo</span>
-                  </div>
-                  <button onClick={()=>toggleActivar(u.nombre)}
-                    style={{background:"#dcfce7",color:"#166534",border:"none",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>
-                    Activar
-                  </button>
-                </div>
-              ))}
-            </>
+          {totalKg>0&&Number(d.usd_kg)>0&&(
+            <div style={{marginTop:10,background:`${C.green}15`,border:`1px solid ${C.green}33`,
+              borderRadius:8,padding:"8px 12px",fontSize:11,color:C.green}}>
+              ✓ Total: <strong>{$$(totalIng)}</strong>
+              <span style={{color:C.muted,marginLeft:6}}>
+                ({totalKg.toLocaleString()} kg × ${Number(d.usd_kg).toFixed(3)}/kg)
+                — cobros distribuidos por mes de proceso
+              </span>
+            </div>
           )}
+        </div>
+      </div>
+    </Card>
+  );
+}
 
-          {/* ── Agregar nuevo usuario ── */}
-          <NuevoUsuarioForm setUsuarios={setUsuarios}/>
+// ── TabParametros GENÉRICO para todas las empresas ─────────────────
+function TabParametros({empNombre,empColor="#2563eb",
+  params,setParams,           // Allegria Foods (frutas)
+  paramsEmp,setParamsEmp,     // Otras empresas (productos genéricos)
+  paramsAS,setParamsAS,       // Allegria Service (kg × especie)
+  paramsIF,setParamsIF,       // Integrity Farms (clientes × há)
+  paramsAF,setParamsAF,       // Allpa Farms (variedades × kg)
+  paramsFrisku,setParamsFrisku, // Frisku Foods (contenedores × especie)
+  readOnly=false}) {
 
-          <div style={{background:"#dbeafe",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#1d4ed8",marginTop:8}}>
-            💾 Los cambios se guardan automáticamente en tiempo real.
+  const [selSeason,setSelSeason] = useState(SEASON_KEYS[0]);
+  const [selFruta, setSelFruta]  = useState("cerezas");
+  const [selProd,  setSelProd]   = useState(null);   // id producto seleccionado
+
+  const esAllegria        = empNombre === "Allegria Foods";
+  const esFrisku          = empNombre === "Frisku Foods";
+  const esAllegriaService = empNombre === "Allegria Service";
+  const esIntegrity       = empNombre === "Integrity Farms";
+  const esAllpa           = empNombre === "Allpa Farms";
+
+  // Productos de esta empresa en la temporada seleccionada
+  const productos = paramsEmp?.[selSeason] || {};
+  const prodIds   = Object.keys(productos);
+
+  function addProducto() {
+    if(readOnly) return;
+    const id = `prod_${Date.now()}`;
+    setParamsEmp(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(!next[selSeason]) next[selSeason]={};
+      next[selSeason][id]={...defaultProducto(),nombre:"Nuevo producto"};
+      return next;
+    });
+    setSelProd(id);
+  }
+
+  function delProducto(id) {
+    if(readOnly) return;
+    setParamsEmp(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(next[selSeason]) delete next[selSeason][id];
+      return next;
+    });
+    if(selProd===id) setSelProd(null);
+  }
+
+  // Resumen Allegria
+  const resumenAllegria = useMemo(()=>{
+    if(!esAllegria) return [];
+    return SEASONS.flatMap(s=>FRUTAS.map(f=>{
+      const p=params?.[s.key]?.[f];
+      const kg=Number(p?.kg)||0,fob=Number(p?.fob_usd_kg)||0;
+      const desc=(Number(p?.desc_exp_pct)||0)/100;
+      const matUsd=Number(p?.mat_usd_kg)||0,srvUsd=Number(p?.srv_usd_kg)||0;
+      const ing=kg*fob;
+      const costFruta=kg*Math.max(0,fob*(1-desc)-matUsd-srvUsd);
+      const costMat=kg*matUsd, costSrv=kg*srvUsd;
+      const cost=costFruta+costMat+costSrv;
+      if(kg===0&&fob===0) return null;
+      return {season:s.label,fruta:f,kg,fob,ing,costFruta,costMat,costSrv,cost,margen:ing-cost};
+    }).filter(Boolean));
+  },[params, esAllegria]);
+
+  // Resumen genérico
+  const resumenEmp = useMemo(()=>{
+    if(esAllegria) return [];
+    return SEASONS.flatMap(s=>{
+      const prods=paramsEmp?.[s.key]||{};
+      return Object.entries(prods).map(([id,p])=>{
+        const u=Number(p.unidades)||0,pr=Number(p.precio_unit)||0;
+        const desc=(Number(p.desc_pct)||0)/100;
+        const mU=Number(p.mat_unit)||0,sU=Number(p.srv_unit)||0;
+        const ing=u*pr;
+        const cost=u*Math.max(0,pr*(1-desc));
+        if(u===0&&pr===0) return null;
+        return {season:s.label,id,nombre:p.nombre||"Sin nombre",emoji:p.emoji||"📦",
+          u,pr,ing,cost,mat:u*mU,srv:u*sU,margen:ing-cost};
+      }).filter(Boolean);
+    });
+  },[paramsEmp,esAllegria]);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      {readOnly&&(
+        <div style={{background:`${C.accent}22`,border:`1px solid ${C.blue}44`,borderRadius:10,
+          padding:"10px 16px",fontSize:12,color:C.blue}}>
+          👁 Estás en modo solo lectura.
+        </div>
+      )}
+
+      {/* Selector temporada — siempre visible */}
+      <Card>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+          <SectionTitle>
+            ⚡ Parámetros — {empNombre}
+            <span style={{fontSize:10,color:C.muted,fontWeight:400,marginLeft:8}}>
+              Define los productos/líneas de ingreso con sus anticipos y distribuciones
+            </span>
+          </SectionTitle>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:0}}>
+          {SEASONS.map(s=>(
+            <Btn key={s.key} active={selSeason===s.key}
+              onClick={()=>{setSelSeason(s.key);setSelProd(null);}}
+              color={empColor}>{s.label}</Btn>
+          ))}
+        </div>
+      </Card>
+
+      {/* ── ALLEGRIA FOODS: selector fruta ── */}
+      {esAllegria&&(
+        <Card>
+          <div style={{display:"flex",gap:6,marginBottom:16}}>
+            {FRUTAS.map(f=>(
+              <button key={f} onClick={()=>setSelFruta(f)}
+                style={{padding:"6px 18px",borderRadius:20,border:"none",cursor:"pointer",
+                  fontWeight:600,fontSize:12,
+                  background:selFruta===f?"#b91c1c":C.card2,
+                  color:selFruta===f?"#fff":C.muted}}>
+                {FRUTA_EMOJI[f]} {FRUTA_LABEL[f]}
+              </button>
+            ))}
+          </div>
+          <ParamsFruta key={`${selSeason}-${selFruta}`}
+            seasonKey={selSeason} fruta={selFruta}
+            params={params} setParams={setParams}/>
+        </Card>
+      )}
+
+      {/* ── ALLPA FARMS: variedades, kg, retorno, costos ── */}
+      {esAllpa&&(
+        <ParamsAllpa
+          selSeason={selSeason}
+          paramsAF={paramsAF||defaultParamsAllpa()}
+          setParamsAF={setParamsAF||function(){}}
+          readOnly={readOnly}/>
+      )}
+
+      {/* ── INTEGRITY FARMS: clientes × há × mes cobro ── */}
+      {esIntegrity&&(
+        <ParamsIntegrity
+          selSeason={selSeason}
+          paramsIF={paramsIF||defaultParamsIntegrity()}
+          setParamsIF={setParamsIF||function(){}}
+          readOnly={readOnly}/>
+      )}
+
+      {/* ── ALLEGRIA SERVICE: kg por especie × mes ── */}
+      {esAllegriaService&&(
+        <ParamsAllegriaService
+          selSeason={selSeason}
+          paramsAS={paramsAS||defaultParamsAllegriaService()}
+          setParamsAS={setParamsAS||function(){}}
+          readOnly={readOnly}/>
+      )}
+
+      {/* ── FRISKU FOODS: contenedores × especie × mes ── */}
+      {esFrisku&&(
+        <ParamsFrisku
+          selSeason={selSeason}
+          paramsFrisku={paramsFrisku||defaultParamsFrisku()}
+          setParamsFrisku={setParamsFrisku||function(){}}
+          readOnly={readOnly}/>
+      )}
+
+      {/* ── OTRAS EMPRESAS: lista de productos ── */}
+      {!esAllegria&&!esAllegriaService&&!esIntegrity&&!esAllpa&&!esFrisku&&(
+        <div style={{display:"flex",gap:14}}>
+          {/* Panel izquierdo: lista productos */}
+          <div style={{width:200,flexShrink:0,display:"flex",flexDirection:"column",gap:6}}>
+            <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",
+              letterSpacing:1,marginBottom:4}}>Productos / Líneas</div>
+            {prodIds.length===0&&(
+              <div style={{fontSize:11,color:C.muted2,padding:"8px 0"}}>
+                Sin productos. Agrega uno →
+              </div>
+            )}
+            {prodIds.map(id=>{
+              const prod=productos[id];
+              const isActive=selProd===id;
+              return (
+                <div key={id} style={{display:"flex",alignItems:"center",gap:4}}>
+                  <button onClick={()=>setSelProd(id)}
+                    style={{flex:1,padding:"7px 10px",borderRadius:8,cursor:"pointer",
+                      fontSize:11,fontWeight:isActive?700:400,textAlign:"left",
+                      border:`1px solid ${isActive?empColor:C.border}`,
+                      background:isActive?`${empColor}22`:C.card,
+                      color:isActive?empColor:C.text,overflow:"hidden",
+                      whiteSpace:"nowrap",textOverflow:"ellipsis"}}>
+                    {prod.emoji||"📦"} {prod.nombre||"Sin nombre"}
+                  </button>
+                  {!readOnly&&(
+                    <button onClick={()=>delProducto(id)}
+                      style={{padding:"4px 7px",borderRadius:6,border:"none",
+                        background:"transparent",color:C.red,cursor:"pointer",fontSize:13}}>
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {!readOnly&&(
+              <button onClick={addProducto}
+                style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",fontSize:11,
+                  fontWeight:600,border:`1px dashed ${C.border2}`,
+                  background:"transparent",color:C.accentL,marginTop:4}}>
+                + Nuevo producto
+              </button>
+            )}
+          </div>
+
+          {/* Panel derecho: detalle del producto seleccionado */}
+          <div style={{flex:1}}>
+            {selProd&&productos[selProd] ? (
+              <ParamsProducto
+                key={`${selSeason}-${selProd}`}
+                seasonKey={selSeason}
+                prodId={selProd}
+                paramsEmp={paramsEmp}
+                setParamsEmp={setParamsEmp}
+                empColor={empColor}
+              />
+            ) : (
+              <div style={{background:C.card,borderRadius:12,padding:32,
+                textAlign:"center",border:`1px dashed ${C.border}`,color:C.muted,fontSize:13}}>
+                {prodIds.length===0
+                  ? `Haz click en ${readOnly ? "" : '"+ Nuevo producto"'} para comenzar`
+                  : "Selecciona un producto de la lista"}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Resumen proyectado */}
+      {!esAllegriaService&&!esIntegrity&&!esAllpa&&(resumenAllegria.length>0||resumenEmp.length>0)&&(
+        <Card>
+          <SectionTitle>Resumen Proyectado — Todas las Temporadas</SectionTitle>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <thead><tr style={{background:C.bg2}}>
+                {(esAllegria
+                  ? ["Temporada","Producto","Unidades","Precio","Ingreso","C.Fruta","C.Mat","C.Srv","Costo Total","Margen"]
+                  : ["Temporada","Producto","Unidades","Precio","Ingreso","Costo","Mat","Srv","Margen"]
+                ).map(h=>(
+                  <th key={h} style={{padding:"7px 10px",fontWeight:600,fontSize:10,color:C.muted,
+                    textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,
+                    textAlign:["Temporada","Producto"].includes(h)?"left":"right"}}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {(esAllegria?resumenAllegria:resumenEmp).map((r,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${C.border}22`}}>
+                    <td style={{padding:"6px 10px",color:C.muted,fontSize:11}}>{r.season}</td>
+                    <td style={{padding:"6px 10px",fontWeight:600,color:C.text}}>
+                      {esAllegria
+                        ? <>{FRUTA_EMOJI[r.fruta]} {FRUTA_LABEL[r.fruta]}</>
+                        : <>{r.emoji} {r.nombre}</>}
+                    </td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:C.text}}>
+                      {(esAllegria?r.kg:r.u).toLocaleString()}
+                    </td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:C.yellow}}>
+                      ${(esAllegria?r.fob:r.pr).toFixed(2)}
+                    </td>
+                    <td style={{padding:"6px 10px",textAlign:"right",fontWeight:700,color:C.green}}>{$$(r.ing)}</td>
+                    {esAllegria&&<td style={{padding:"6px 10px",textAlign:"right",color:C.red}}>{$$(r.costFruta)}</td>}
+                    <td style={{padding:"6px 10px",textAlign:"right",color:C.orange}}>{(esAllegria?r.costMat:r.mat)>0?$$((esAllegria?r.costMat:r.mat)):"—"}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:C.blue}}>{(esAllegria?r.costSrv:r.srv)>0?$$((esAllegria?r.costSrv:r.srv)):"—"}</td>
+                    {!esAllegria&&<td style={{padding:"6px 10px",textAlign:"right",color:C.red,fontWeight:700}}>{$$(r.cost)}</td>}
+                    <td style={{padding:"6px 10px",textAlign:"right",fontWeight:700,color:cf(r.margen)}}>{$$(r.margen)}</td>
+                  </tr>
+                ))}
+                <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                  <td colSpan={4} style={{padding:"8px 10px",fontWeight:800,color:C.text}}>TOTAL</td>
+                  <td style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:C.green}}>
+                    {$$((esAllegria?resumenAllegria:resumenEmp).reduce((s,r)=>s+r.ing,0))}
+                  </td>
+                  <td colSpan={esAllegria?4:3}/>
+                  <td style={{padding:"8px 10px",textAlign:"right",fontWeight:800,color:cf(
+                    (esAllegria?resumenAllegria:resumenEmp).reduce((s,r)=>s+r.margen,0))}}>
+                    {$$((esAllegria?resumenAllegria:resumenEmp).reduce((s,r)=>s+r.margen,0))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// MODAL INGRESO REAL
+// ═══════════════════════════════════════════════════════════════════
+function ModalIngreso({emp,empNombre,mes,semana,existing,onSave,onClose}) {
+  const allLines=emp.sections.flatMap(s=>s.lines.map(l=>({cat:s.cat,label:l.label,signo:s.signo})));
+  const [vals,setVals]=useState(()=>{
+    const init={};
+    allLines.forEach(l=>{init[l.label]=existing?.[l.label]!=null?String(existing[l.label]):"";});
+    return init;
+  });
+  const [saving,setSaving]=useState(false);
+  const totalIng=allLines.filter(l=>l.signo>0).reduce((a,l)=>a+(Number(vals[l.label])||0),0);
+  const totalEgr=allLines.filter(l=>l.signo<0).reduce((a,l)=>a+(Number(vals[l.label])||0),0);
+
+  const setVal=useCallback((label,val)=>{
+    setVals(prev=>({...prev,[label]:val}));
+  },[]);
+
+  async function handleSave(){
+    setSaving(true);
+    const clean={};
+    allLines.forEach(l=>{if(Number(vals[l.label])||0) clean[l.label]=Number(vals[l.label]);});
+    await onSave(empNombre,mes,semana,clean);
+    setSaving(false);
+    onClose();
+  }
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:500,
+      display:"flex",alignItems:"flex-start",justifyContent:"center",padding:20,overflowY:"auto"}}>
+      <div style={{background:C.bg2,border:`1px solid ${emp.color}55`,borderRadius:16,
+        width:540,maxWidth:"95vw",boxShadow:"0 24px 64px rgba(0,0,0,0.7)"}}>
+        <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:22}}>{emp.emoji}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:800,color:C.text}}>{empNombre}</div>
+            <div style={{fontSize:11,color:C.muted}}>{semana} · {mes}</div>
+          </div>
+          <button onClick={onClose} style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:20,lineHeight:1}}>×</button>
+        </div>
+        <div style={{padding:"14px 20px",maxHeight:"62vh",overflowY:"auto"}}>
+          {emp.sections.map(sec=>(
+            <div key={sec.cat} style={{marginBottom:16}}>
+              <div style={{fontSize:10,fontWeight:700,color:CAT_COLOR[sec.cat]||C.muted,
+                textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:8,
+                padding:"4px 0",borderBottom:`1px solid ${C.border}`}}>
+                {CAT_SIGNO[sec.cat]} {sec.label}
+              </div>
+              {sec.lines.map(line=>(
+                <RealLineInput key={line.label} label={line.label} value={vals[line.label]||""} onChange={v=>setVal(line.label,v)}/>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div style={{padding:"12px 20px",borderTop:`1px solid ${C.border}`}}>
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {[["ING",totalIng,C.green],["EGR",totalEgr,C.red],["NETO",totalIng-totalEgr,cf(totalIng-totalEgr)]].map(([l,v,c])=>(
+              <div key={l} style={{flex:1,background:C.card2,borderRadius:8,padding:"7px 10px",border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:9,color:C.muted}}>{l}</div>
+                <div style={{fontWeight:800,color:c,fontSize:13}}>{$$(v)}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button onClick={onClose} style={{padding:"7px 18px",borderRadius:8,
+              border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12}}>
+              Cancelar
+            </button>
+            <button onClick={handleSave} disabled={saving}
+              style={{padding:"7px 18px",borderRadius:8,border:"none",
+                background:saving?"#555":emp.color,color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+              {saving?"Guardando…":"💾 Guardar"}
+            </button>
           </div>
         </div>
       </div>
@@ -664,2097 +2714,6631 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
   );
 }
 
-// Formulario nuevo usuario — separado para mantener su propio estado
-function NuevoUsuarioForm({setUsuarios}) {
-  const [open,setOpen]=useState(false);
-  const [form,setForm]=useState({nombre:"",cargo:"",email:"",pin:"",rol:"editor",modulos:["tareas"]});
-  const [err,setErr]=useState("");
+function RealLineInput({label,value,onChange}) {
+  return (
+    <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:8,alignItems:"center",marginBottom:5}}>
+      <div style={{fontSize:11,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{label}</div>
+      <input
+        type="number" min="0" placeholder="0"
+        value={value}
+        onChange={e=>onChange(e.target.value)}
+        style={{padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,
+          borderRadius:6,color:C.text,fontSize:11,textAlign:"right",outline:"none",
+          width:"100%",boxSizing:"border-box"}}
+      />
+    </div>
+  );
+}
 
-  function guardar(){
-    setErr("");
-    if(!form.nombre.trim()){setErr("El nombre es obligatorio.");return;}
-    if(!form.email.trim()){setErr("El email es obligatorio.");return;}
-    if(!form.pin.trim()||form.pin.length<4){setErr("El PIN debe tener al menos 4 dígitos.");return;}
-    setUsuarios(prev=>{
-      if(prev.find(u=>u.nombre===form.nombre)){setErr("Ya existe un usuario con ese nombre.");return prev;}
-      const mods=form.rol==="admin"?MODULOS_DISPONIBLES.map(m=>m.id):form.modulos;
-      return[...prev,{...form,modulos:mods,esCFO:form.rol==="admin",desactivado:false}];
+// ═══════════════════════════════════════════════════════════════════
+// CELDA EDITABLE INLINE — click para editar valor proyectado
+// ═══════════════════════════════════════════════════════════════════
+function CeldaEditable({val, onSave, color, canEdit, real=null}) {
+  const [editing, setEditing] = useState(false);
+  const [tmp, setTmp] = useState("");
+
+  if(!canEdit) return (
+    <span style={{color:val!==0?color:"#4a7aaa",fontWeight:val!==0?600:400,fontSize:9}}>
+      {val!==0?$$(val):"—"}
+      {real!=null&&real!==0&&<div style={{fontSize:7,color:C.yellow}}>R:{$$(real)}</div>}
+    </span>
+  );
+
+  if(editing) return (
+    <input
+      type="number" value={tmp} autoFocus
+      onChange={e=>setTmp(e.target.value)}
+      onBlur={()=>{onSave(parseFloat(tmp)||0);setEditing(false);}}
+      onKeyDown={e=>{
+        if(e.key==="Enter"){onSave(parseFloat(tmp)||0);setEditing(false);}
+        if(e.key==="Escape"){setEditing(false);}
+      }}
+      style={{width:72,padding:"2px 4px",background:C.bg,border:`1px solid ${C.accentL}`,
+        borderRadius:4,color:C.accentL,fontSize:9,textAlign:"right",outline:"none"}}
+    />
+  );
+
+  return (
+    <span
+      onClick={()=>{setTmp(String(val||""));setEditing(true);}}
+      title="Click para editar"
+      style={{color:val!==0?color:C.muted2,fontWeight:val!==0?600:400,fontSize:9,
+        cursor:"pointer",borderBottom:`1px dashed ${C.border2}`,paddingBottom:1}}>
+      {val!==0?$$(val):"—"}
+      {real!=null&&real!==0&&<div style={{fontSize:7,color:C.yellow}}>R:{$$(real)}</div>}
+    </span>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HELPERS — Saldo banco indexado a semana
+// ═══════════════════════════════════════════════════════════════════
+function getSaldoBancoParaSemana(saldosBancos, empNombre, mesIdx, semIdx=0) {
+  if(!saldosBancos||mesIdx<0) return null;
+  const mesInfo=MESES_INFO[mesIdx]; if(!mesInfo) return null;
+  const fechaLimite=new Date(mesInfo.y, mesInfo.m, 1+semIdx*7);
+  const porCuenta={};
+  Object.entries(saldosBancos).forEach(([key,rec])=>{
+    const parts=key.split("||");
+    if(parts[0]!==empNombre) return;
+    if(!rec?.monto||!rec?.fecha) return;
+    const f=new Date(rec.fecha);
+    if(f<fechaLimite){
+      const cuentaKey=`${parts[1]}||${parts[2]||rec.moneda||"usd"}`;
+      if(!porCuenta[cuentaKey]||new Date(porCuenta[cuentaKey].fecha)<f) porCuenta[cuentaKey]=rec;
+    }
+  });
+  let total=0,found=false;
+  Object.values(porCuenta).forEach(rec=>{
+    const moneda=rec.moneda||"usd";
+    if(moneda==="usd") total+=Number(rec.monto)||0;
+    else if(rec.usd!=null) total+=Number(rec.usd)||0;
+    found=true;
+  });
+  return found?total:null;
+}
+
+function getSaldoBancoInicial(saldosBancos, empNombre, fallback) {
+  if(!saldosBancos) return fallback;
+  // Agrupar por banco+moneda para no perder cuentas
+  const porCuenta={};
+  Object.entries(saldosBancos).forEach(([key,rec])=>{
+    const parts=key.split("||");
+    if(parts[0]!==empNombre) return;
+    if(!rec?.monto||!rec?.fecha) return;
+    const cuentaKey=`${parts[1]}||${parts[2]||rec.moneda||"usd"}`;
+    if(!porCuenta[cuentaKey]||new Date(porCuenta[cuentaKey].fecha)<new Date(rec.fecha)) porCuenta[cuentaKey]=rec;
+  });
+  let total=0,found=false;
+  Object.values(porCuenta).forEach(rec=>{total+=Number(rec.monto)||0;found=true;});
+  return found?total:fallback;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONSOLIDADO — dentro de Flujo Empresas
+// ═══════════════════════════════════════════════════════════════════
+function Consolidado({empresas,saldosBancos}) {
+  const empNames=Object.keys(empresas);
+  const [vistaConsolidado,setVistaConsolidado]=useState("sumada");
+  const [agrup,setAgrup]=useState("mes");
+  const [openSeason,setOpenSeason]=useState(()=>{const o={};SEASON_KEYS.forEach((k,i)=>{o[k]=i<2;});return o;});
+
+  const flujoPorEmp=useMemo(()=>{
+    const res={};
+    empNames.forEach(n=>{
+      const arr=Z65();
+      empresas[n].sections.forEach(sec=>sec.lines.forEach(l=>l.proy.forEach((v,i)=>{arr[i]+=(v||0)*sec.signo;})));
+      res[n]=arr;
     });
-    setForm({nombre:"",cargo:"",email:"",pin:"",rol:"editor",modulos:["tareas"]});
-    setOpen(false);setErr("");
+    return res;
+  },[empresas]); // eslint-disable-line
+
+  const saldoIniPorEmp=useMemo(()=>{
+    const res={};
+    empNames.forEach(n=>{res[n]=getSaldoBancoInicial(saldosBancos,n,empresas[n].saldo_ini);});
+    return res;
+  },[saldosBancos,empresas]); // eslint-disable-line
+
+  const acumPorEmp=useMemo(()=>{
+    const res={};
+    empNames.forEach(n=>{let a=saldoIniPorEmp[n];res[n]=(flujoPorEmp[n]||[]).map(f=>{a+=f;return a;});});
+    return res;
+  },[flujoPorEmp,saldoIniPorEmp]); // eslint-disable-line
+
+  const flujoConsolidado=useMemo(()=>{
+    const arr=Z65();
+    empNames.forEach(n=>(flujoPorEmp[n]||[]).forEach((v,i)=>{arr[i]+=v;}));
+    return arr;
+  },[flujoPorEmp]); // eslint-disable-line
+
+  const saldoIniConsolidado=useMemo(
+    ()=>empNames.reduce((s,n)=>s+(saldoIniPorEmp[n]||0),0),
+    [saldoIniPorEmp] // eslint-disable-line
+  );
+
+  const acumConsolidado=useMemo(()=>{
+    let a=saldoIniConsolidado;
+    return flujoConsolidado.map(f=>{a+=f;return a;});
+  },[flujoConsolidado,saldoIniConsolidado]);
+
+  const cols=useMemo(()=>{
+    if(agrup==="temporada") return SEASONS.map(s=>({key:s.key,label:s.label,indices:s.indices,tipo:"temporada",isFirstInSeason:true,nSems:1}));
+    return SEASONS.flatMap(s=>{
+      if(!openSeason[s.key]) return [{key:s.key,label:s.label,indices:s.indices,tipo:"season_col",collapsed:true,isFirstInSeason:true,nSems:1}];
+      if(agrup==="mes") return s.months.map((m,mi)=>({key:`${s.key}-${m}`,label:m,indices:[mIdx(m)],tipo:"mes",isFirstInSeason:mi===0,nSems:1,mes:m}));
+      return s.months.flatMap((m,mi)=>{
+        const sems=SEMANAS_MES[m]||[];const nSems=sems.length||1;const midx=mIdx(m);
+        return sems.map((sw,si)=>({key:`${m}-${sw}`,label:sw,indices:[midx],tipo:"semana",nSems,mes:m,labelMes:m,semIdx:si,isFirstInSeason:mi===0&&si===0,isFirstInMes:si===0}));
+      });
+    });
+  },[agrup,openSeason]);
+
+  function colVal(arr,col){
+    const sum=col.indices.reduce((a,i)=>a+(arr[i]||0),0);
+    return agrup==="semana"&&!col.collapsed?sum/(col.nSems||1):sum;
   }
 
-  function toggleMod(id){
-    setForm(p=>{
-      const mods=p.modulos.includes(id)?p.modulos.filter(m=>m!==id):[...p.modulos,id];
-      return{...p,modulos:mods};
-    });
+  function saldoBancoParaCol(empNombre,col){
+    const fallback=saldoIniPorEmp[empNombre]||0;
+    if(col.tipo==="temporada"||col.collapsed) return fallback;
+    if(agrup==="mes") return getSaldoBancoParaSemana(saldosBancos,empNombre,col.indices[0],0)??fallback;
+    return getSaldoBancoParaSemana(saldosBancos,empNombre,col.indices[0],col.semIdx??0)??fallback;
   }
+
+  const THead=()=>(
+    <thead>
+      <tr style={{background:C.bg}}>
+        <th style={{padding:"9px 14px",textAlign:"left",color:C.muted,fontSize:10,position:"sticky",left:0,background:C.bg,zIndex:4,minWidth:180,borderRight:`1px solid ${C.border}`}}>
+          {vistaConsolidado==="sumada"?"Concepto":"Empresa / Concepto"}
+        </th>
+        {cols.map(col=>(
+          <th key={col.key} onClick={col.collapsed?()=>setOpenSeason(p=>({...p,[col.key]:true})):undefined}
+            style={{padding:"7px 7px",textAlign:"center",
+              background:col.collapsed?C.bg2:col.tipo==="temporada"?C.card:C.bg,
+              borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}22`,
+              fontSize:col.tipo==="temporada"?10:9,fontWeight:col.tipo==="temporada"?800:600,
+              color:col.collapsed?C.accentL:col.tipo==="temporada"?"#fff":col.isFirstInSeason?C.accentL:C.muted,
+              whiteSpace:"nowrap",minWidth:col.tipo==="temporada"?110:col.collapsed?80:agrup==="semana"?44:68,
+              cursor:col.collapsed?"pointer":"default"}}>
+            {col.collapsed?`▸ ${col.label}`:col.label}
+          </th>
+        ))}
+      </tr>
+      {agrup==="semana"&&(()=>{
+        const rendered={};const cells=[];
+        cols.forEach((col,ci)=>{
+          if(col.collapsed){cells.push(<th key={`gap-${ci}`} style={{borderLeft:`2px solid ${C.border2}`,background:C.bg2}}/>);return;}
+          if(col.tipo==="temporada"||rendered[col.mes]) return;
+          const count=cols.filter(c=>c.mes===col.mes&&!c.collapsed).length;
+          rendered[col.mes]=true;
+          cells.push(<th key={`mh-${col.mes}`} colSpan={count} style={{padding:"4px 6px",textAlign:"center",background:C.card,fontSize:9,fontWeight:700,color:C.accentL,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}44`,whiteSpace:"nowrap"}}>{col.labelMes}</th>);
+        });
+        return(<tr style={{background:C.bg2}}><th style={{position:"sticky",left:0,background:C.bg2,zIndex:3,borderRight:`1px solid ${C.border}`}}/>{cells}</tr>);
+      })()}
+    </thead>
+  );
+
+  const FilaSaldoBanco=({nombre})=>(
+    <tr style={{background:`${C.blue}15`,borderBottom:`2px solid ${C.border2}`}}>
+      <td style={{padding:"7px 14px",position:"sticky",left:0,zIndex:1,background:`${C.blue}15`,borderRight:`1px solid ${C.border}`}}>
+        <div style={{fontSize:11,fontWeight:700,color:C.blue}}>🏦 Saldo Banco USD</div>
+        <div style={{fontSize:9,color:C.muted}}>{nombre==="_consolidado"?`Suma ${empNames.length} empresas · último registro previo al período`:"último registro previo al período"}</div>
+      </td>
+      {cols.map(col=>{
+        const val=nombre==="_consolidado"
+          ?empNames.reduce((s,n)=>s+(saldoBancoParaCol(n,col)||0),0)
+          :(saldoBancoParaCol(nombre,col)||0);
+        return(<td key={col.key} style={{padding:"6px 5px",textAlign:"right",fontWeight:700,fontSize:9,color:C.blue,background:`${C.blue}0d`,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>{$$(val)}</td>);
+      })}
+    </tr>
+  );
+
+  const FilasFlujoYAcum=({flujoArr,acumArr,color=C.accentL,isTotal=false})=>(
+    <>
+      <tr style={{background:`${color}1a`,borderTop:`2px solid ${C.border2}`}}>
+        <td style={{padding:"8px 14px",fontWeight:800,color,fontSize:isTotal?12:11,position:"sticky",left:0,background:C.card,zIndex:1,borderRight:`1px solid ${C.border}`}}>
+          {isTotal?"Σ FLUJO NETO CONSOLIDADO":"Flujo Neto"}
+        </td>
+        {cols.map(col=>{const v=colVal(flujoArr,col);return(<td key={col.key} style={{padding:"7px 5px",textAlign:"right",fontWeight:isTotal?900:700,fontSize:isTotal?10:9,color:cf(v),background:`${cf(v)===C.green?C.green:C.red}0a`,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}22`}}>{$$(v)}</td>);})}
+      </tr>
+      <tr style={{background:`${C.blue}0a`}}>
+        <td style={{padding:"8px 14px",fontWeight:800,color:C.blue,fontSize:isTotal?12:11,position:"sticky",left:0,background:C.card,zIndex:1,borderRight:`1px solid ${C.border}`}}>
+          {isTotal?"Σ SALDO ACUMULADO CONSOLIDADO":"Saldo Acumulado"}
+        </td>
+        {cols.map(col=>{const lastIdx=col.indices[col.indices.length-1];const v=acumArr[lastIdx]||0;return(<td key={col.key} style={{padding:"7px 5px",textAlign:"right",fontWeight:isTotal?900:700,fontSize:isTotal?10:9,color:cf(v),borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}22`}}>{$$(v)}</td>);})}
+      </tr>
+    </>
+  );
 
   return(
-    <div style={{marginTop:16}}>
-      <button onClick={()=>setOpen(v=>!v)}
-        style={{background:open?"#1e3a5f":"#f1f5f9",color:open?"#fff":"#1e293b",border:"1px solid #e2e8f0",
-          borderRadius:10,padding:"9px 20px",cursor:"pointer",fontSize:13,fontWeight:700,width:"100%",textAlign:"left"}}>
-        {open?"✕ Cancelar":"+ Agregar nuevo usuario"}
-      </button>
-      {open&&(
-        <div style={{background:"#f8fafc",borderRadius:12,border:"1px solid #e2e8f0",padding:"18px 20px",marginTop:8}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#1e293b",marginBottom:14}}>Nuevo usuario</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-            {[["Nombre completo *","nombre","text"],["Cargo","cargo","text"],["Email *","email","email"],["PIN (mín. 4 dígitos) *","pin","password"]].map(([lbl,campo,tipo])=>(
-              <div key={campo}>
-                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:4}}>{lbl}</div>
-                <input type={tipo} value={form[campo]} onChange={e=>setForm(p=>({...p,[campo]:e.target.value}))}
-                  style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",outline:"none"}}/>
-              </div>
-            ))}
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      {/* KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
+        <KPI label="Saldo Inicial Consolidado" value={$$(saldoIniConsolidado)} color={C.blue}/>
+        <KPI label="Flujo Total 65m" value={$$(flujoConsolidado.reduce((a,b)=>a+b,0))} color={cf(flujoConsolidado.reduce((a,b)=>a+b,0))}/>
+        <KPI label="Mínimo Acumulado" value={$$(Math.min(...acumConsolidado))} color={C.red}/>
+        <KPI label="Saldo Final Jun-31" value={$$(acumConsolidado[acumConsolidado.length-1])} color={cf(acumConsolidado[acumConsolidado.length-1])}/>
+        <KPI label="Empresas" value={empNames.length} color={C.yellow}/>
+      </div>
+      {/* Gráfico */}
+      <Card>
+        <SectionTitle>Flujo Acumulado Consolidado · {empNames.length} empresas · Mar-26 → Jun-31</SectionTitle>
+        <LineChart months={MESES_65} values={acumConsolidado} color={C.accentL}/>
+        {Math.min(...acumConsolidado)<0&&(
+          <div style={{marginTop:8,padding:"8px 12px",background:`${C.red}18`,border:`1px solid ${C.red}33`,borderRadius:8,fontSize:11,color:C.muted}}>
+            ⚠️ Mínimo proyectado: <strong style={{color:C.red}}>{$$(Math.min(...acumConsolidado))}</strong>
           </div>
-          <div style={{marginBottom:12}}>
-            <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Rol</div>
-            <div style={{display:"flex",gap:8}}>
-              {[["editor","Editor","#dcfce7","#166534"],["consulta","Consulta","#ede9fe","#6d28d9"],["admin","Admin","#fef3c7","#92400e"]].map(([v,l,bg,col])=>(
-                <button key={v} onClick={()=>setForm(p=>({...p,rol:v,modulos:v==="admin"?MODULOS_DISPONIBLES.map(m=>m.id):p.modulos}))}
-                  style={{padding:"6px 16px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
-                    background:form.rol===v?bg:"#e2e8f0",color:form.rol===v?col:"#64748b"}}>
-                  {l}
+        )}
+      </Card>
+      {/* Controles */}
+      <Card>
+        <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-start"}}>
+          <div>
+            <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Vista</div>
+            <div style={{display:"flex",gap:0,borderRadius:8,overflow:"hidden",border:`1px solid ${C.border}`}}>
+              {[{id:"sumada",label:"🏛 Sumada"},{id:"por_empresa",label:"🏢 Por empresa"},{id:"waterfall",label:"📊 Waterfall"}].map(v=>(
+                <button key={v.id} onClick={()=>setVistaConsolidado(v.id)}
+                  style={{padding:"7px 18px",border:"none",cursor:"pointer",fontWeight:vistaConsolidado===v.id?800:500,fontSize:12,
+                    background:vistaConsolidado===v.id?C.accent:"transparent",
+                    color:vistaConsolidado===v.id?"#fff":C.muted,transition:"all 0.15s"}}>
+                  {v.label}
                 </button>
               ))}
             </div>
           </div>
-          {form.rol!=="admin"&&(
-            <div style={{marginBottom:12}}>
-              <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:6}}>Acceso a módulos</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {MODULOS_DISPONIBLES.map(m=>(
-                  <label key={m.id} style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",
-                    background:form.modulos.includes(m.id)?m.bg:"#f1f5f9",
-                    border:`1px solid ${form.modulos.includes(m.id)?m.color+"66":"#d1d5db"}`,
-                    borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:600,
-                    color:form.modulos.includes(m.id)?m.color:"#94a3b8"}}>
-                    <input type="checkbox" checked={form.modulos.includes(m.id)} onChange={()=>toggleMod(m.id)}
-                      style={{accentColor:m.color}}/>
-                    {m.icon} {m.label}
-                  </label>
-                ))}
+          <div>
+            <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Agrupación</div>
+            <div style={{display:"flex",gap:6}}>
+              {[{id:"temporada",label:"🗓 Temporada"},{id:"mes",label:"📅 Mes"},{id:"semana",label:"📊 Semana"}].map(a=>(
+                <Btn key={a.id} active={agrup===a.id} onClick={()=>setAgrup(a.id)} color={C.accent}>{a.label}</Btn>
+              ))}
+            </div>
+          </div>
+          {agrup!=="temporada"&&(
+            <div>
+              <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Temporadas</div>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                {SEASONS.map(s=>(<Btn key={s.key} small active={!!openSeason[s.key]} onClick={()=>setOpenSeason(p=>({...p,[s.key]:!p[s.key]}))} color={C.muted}>{openSeason[s.key]?"▾":"▸"} T{s.sy}</Btn>))}
               </div>
             </div>
           )}
-          {err&&<div style={{color:"#ef4444",fontSize:12,marginBottom:8}}>{err}</div>}
-          <button onClick={guardar}
-            style={{padding:"9px 24px",borderRadius:8,background:"#2563eb",color:"#fff",border:"none",
-              cursor:"pointer",fontSize:13,fontWeight:700}}>
-            💾 Guardar usuario
-          </button>
         </div>
+      </Card>
+
+      {/* Vista sumada */}
+      {vistaConsolidado==="sumada"&&(
+        <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`}}>
+          <table id="flujo-table-consolidado" style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
+            <THead/>
+            <tbody>
+              <FilaSaldoBanco nombre="_consolidado"/>
+              <FilasFlujoYAcum flujoArr={flujoConsolidado} acumArr={acumConsolidado} color={C.accentL} isTotal/>
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Vista por empresa */}
+      {vistaConsolidado==="por_empresa"&&(
+        <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`}}>
+          <table style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
+            <THead/>
+            <tbody>
+              {empNames.map((n,ei)=>{
+                const emp=empresas[n];
+                return(
+                  <React.Fragment key={n}>
+                    <tr style={{background:`${emp.color}22`}}>
+                      <td colSpan={cols.length+1} style={{padding:"8px 14px",position:"sticky",left:0,background:`${emp.color}22`,borderTop:ei>0?`3px solid ${C.border2}`:"none"}}>
+                        <div style={{fontSize:13,fontWeight:900,color:emp.color}}>{emp.emoji} {n}</div>
+                        <div style={{fontSize:10,color:C.muted}}>{emp.desc}</div>
+                      </td>
+                    </tr>
+                    <FilaSaldoBanco nombre={n}/>
+                    {emp.sections.map(sec=>(
+                      <React.Fragment key={sec.cat}>
+                        <tr style={{background:C.bg2}}>
+                          <td style={{padding:"5px 14px",position:"sticky",left:0,background:C.bg2,borderRight:`1px solid ${C.border}`,zIndex:1}}>
+                            <span style={{fontSize:10,fontWeight:700,color:CAT_COLOR[sec.cat]||C.muted,textTransform:"uppercase",letterSpacing:"0.5px"}}>{CAT_SIGNO[sec.cat]} {sec.label}</span>
+                          </td>
+                          {cols.map(col=>(<td key={col.key} style={{borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}11`,background:C.bg2}}/>))}
+                        </tr>
+                        {sec.lines.map(line=>(
+                          <tr key={line.label} style={{borderBottom:`1px solid ${C.border}11`}}>
+                            <td style={{padding:"5px 14px 5px 22px",color:C.text,fontSize:11,position:"sticky",left:0,background:C.card,zIndex:1,borderRight:`1px solid ${C.border}`,whiteSpace:"nowrap",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis"}}>{line.label}</td>
+                            {cols.map(col=>{
+                              const v=colVal(line.proy,col);
+                              return(<td key={col.key} style={{padding:"4px 5px",textAlign:"right",fontSize:9,fontWeight:v!==0?600:400,color:v!==0?(sec.signo>0?C.green:C.red):C.muted2,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>{v!==0?$$(v):"—"}</td>);
+                            })}
+                          </tr>
+                        ))}
+                        <tr style={{background:C.bg2}}>
+                          <td style={{padding:"5px 14px",fontWeight:700,fontSize:10,color:CAT_COLOR[sec.cat]||C.muted,position:"sticky",left:0,background:C.bg2,borderRight:`1px solid ${C.border}`,zIndex:1}}>Σ {sec.label}</td>
+                          {cols.map(col=>{const v=sec.lines.reduce((a,l)=>a+colVal(l.proy,col),0);return(<td key={col.key} style={{padding:"5px 5px",textAlign:"right",fontWeight:700,fontSize:9,color:CAT_COLOR[sec.cat]||C.muted,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}22`}}>{v!==0?$$(v):"—"}</td>);})}
+                        </tr>
+                      </React.Fragment>
+                    ))}
+                    <FilasFlujoYAcum flujoArr={flujoPorEmp[n]||Z65()} acumArr={acumPorEmp[n]||Z65()} color={emp.color} isTotal={false}/>
+                  </React.Fragment>
+                );
+              })}
+              <tr><td colSpan={cols.length+1} style={{height:6,background:`linear-gradient(90deg,${C.accent}66,${C.border})`}}/></tr>
+              <FilaSaldoBanco nombre="_consolidado"/>
+              <FilasFlujoYAcum flujoArr={flujoConsolidado} acumArr={acumConsolidado} color={C.accentL} isTotal/>
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Vista Waterfall — Conceptos × Empresas por temporada */}
+      {vistaConsolidado==="waterfall"&&(
+        <WaterfallConsolidado empresas={empresas} saldosBancos={saldosBancos}/>
       )}
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// PANTALLA HUB
-// ══════════════════════════════════════════════════════════════════════
-function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCambiarPin, esSoloConsulta, usuarios, setUsuarios }) {
-  const hoy = new Date();
-  const fechaStr = hoy.toLocaleDateString("es-CL", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
-  const [mostrarPermisos, setMostrarPermisos] = useState(false);
+// ═══════════════════════════════════════════════════════════════════
+// WATERFALL CONSOLIDADO — Filas = Conceptos, Columnas = Empresas
+// Estructura tipo estado de flujo ejecutivo para presentación a directorio
+// ═══════════════════════════════════════════════════════════════════
 
-  return (
-    <div style={{minHeight:"100vh", background:"#ffffff", fontFamily:"sans-serif", padding:"0 0 40px",
-      position:"relative",overflow:"hidden"}}>
-      {/* Fondo decorativo fruticultura */}
-      <div style={{position:"fixed",inset:0,zIndex:0,pointerEvents:"none",
-        background:"linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(241,245,249,0.95) 40%, rgba(220,252,231,0.15) 100%)",
-      }}>
-        <div style={{position:"absolute",top:"15%",right:"-5%",width:400,height:400,borderRadius:"50%",
-          background:"radial-gradient(circle, rgba(220,252,231,0.4) 0%, transparent 70%)"}}/>
-        <div style={{position:"absolute",bottom:"10%",left:"-8%",width:500,height:500,borderRadius:"50%",
-          background:"radial-gradient(circle, rgba(254,226,226,0.3) 0%, transparent 70%)"}}/>
-        <div style={{position:"absolute",top:"60%",right:"10%",width:300,height:300,borderRadius:"50%",
-          background:"radial-gradient(circle, rgba(219,234,254,0.3) 0%, transparent 70%)"}}/>
-        <div style={{position:"absolute",bottom:"5%",right:"20%",fontSize:180,opacity:0.04,transform:"rotate(-15deg)"}}>🍒</div>
-        <div style={{position:"absolute",top:"20%",left:"5%",fontSize:140,opacity:0.04,transform:"rotate(10deg)"}}>🫐</div>
-        <div style={{position:"absolute",top:"45%",right:"3%",fontSize:120,opacity:0.03,transform:"rotate(-20deg)"}}>🌿</div>
-      </div>
-      <div style={{position:"relative",zIndex:1}}>
+// Participaciones de controladora por empresa (%). Ajustables según realidad del grupo.
+const PARTICIPACION_CONTROLADORA = {
+  "Mediterra":1.00,
+  "Allegria Foods":1.00,
+  "Allegria Service":0.80,
+  "Frisku Foods":0.54,
+  "Frisku Peru":0.54,
+  "Osiris":1.00,
+  "Integrity Farms":0.80,
+  "Allpa Farms":0.50,
+  "Allpa Farms Perú":0.26,
+};
 
-      {mostrarPermisos && (
-        <PanelPermisos usuarios={usuarios} setUsuarios={setUsuarios} onClose={()=>setMostrarPermisos(false)}/>
-      )}
-
-      <div style={{padding:"24px 32px 0", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12, borderBottom:"1px solid #e2e8f0", paddingBottom:16}}>
-        <div style={{display:"flex", alignItems:"center", gap:14}}>
-          <MediterraLogo size={52}/>
-          <div>
-            <div style={{fontSize:10, letterSpacing:4, color:"#0f766e", fontWeight:700, textTransform:"uppercase"}}>MEDITERRA</div>
-            <div style={{fontSize:18, fontWeight:800, color:"#1e293b", lineHeight:1.2}}>Gestión Grupo Mediterra</div>
-          </div>
-        </div>
-        <div style={{display:"flex", gap:8, alignItems:"center", flexWrap:"wrap"}}>
-          <div style={{fontSize:11, color:"#64748b", textAlign:"right"}}>
-            <div style={{textTransform:"capitalize"}}>{fechaStr}</div>
-            <div>Hola, <strong style={{color:"#1e293b"}}>{usuario.nombre.split(" ")[0]}</strong> · {usuario.cargo}</div>
-          </div>
-          {usuario.rol === "admin" && (
-            <button onClick={()=>setMostrarPermisos(true)}
-              style={{background:"#f1f5f9", border:"1px solid #e2e8f0", color:"#1e293b", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600}}>
-              ⚙️ Permisos
-            </button>
-          )}
-          {!esSoloConsulta(usuario.nombre) &&
-            <button onClick={onCambiarPin} style={{background:"#f1f5f9", border:"1px solid #e2e8f0", color:"#1e293b", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12}}>🔑 PIN</button>
-          }
-          <button onClick={onLogout} style={{background:"#fee2e2", border:"1px solid #fca5a5", color:"#991b1b", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12}}>Salir</button>
-        </div>
-      </div>
-
-      <div style={{textAlign:"center", padding:"40px 24px 28px"}}>
-        <div style={{fontSize:28, fontWeight:900, color:"#1e293b", marginBottom:6}}>Hola, {usuario.nombre.split(" ")[0]} 👋</div>
-        <h2 style={{margin:0, fontSize:18, fontWeight:500, color:"#64748b", lineHeight:1.4}}>¿Qué deseas gestionar hoy?</h2>
-        {modulosPermitidos.length === 0 && (
-          <p style={{color:"#94a3b8", fontSize:14, marginTop:16}}>No tienes módulos asignados. Contacta al administrador.</p>
-        )}
-      </div>
-
-      <div style={{display:"flex", gap:24, justifyContent:"center", flexWrap:"wrap", padding:"0 32px", maxWidth:900, margin:"0 auto"}}>
-        {MODULOS_DISPONIBLES.filter(m => modulosPermitidos.includes(m.id)).map(modulo => (
-          <button key={modulo.id} onClick={() => onSelectModulo(modulo.id)}
-            style={{
-              background: modulo.grad,
-              border: "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 20,
-              padding: "32px 36px",
-              cursor: "pointer",
-              width: 280,
-              textAlign: "left",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
-              transition: "transform 0.15s, box-shadow 0.15s",
-              position: "relative",
-              overflow: "hidden",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.transform="translateY(-4px)"; e.currentTarget.style.boxShadow="0 12px 40px rgba(0,0,0,0.25)"; }}
-            onMouseLeave={e => { e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="0 4px 24px rgba(0,0,0,0.15)"; }}
-          >
-            {modulo.id === "osiris"
-              ? <div style={{marginBottom:12}}><OsirisLogoSmall/></div>
-              : modulo.id === "finanzas"
-              ? <div style={{marginBottom:12}}>
-                  <img src="/med.png" alt="Mediterra"
-                    style={{height:44,objectFit:"contain",display:"block"}}
-                    onError={e=>{e.target.style.display="none";}}/>
-                </div>
-              : modulo.id === "allegria"
-              ? <div style={{marginBottom:12}}>
-                  <img src={ALLEGRIA_LOGO_B64} alt="Allegria Foods"
-                    style={{height:44,objectFit:"contain",display:"block"}}
-                    onError={e=>{e.target.onerror=null;e.target.style.display="none";}}/>
-                </div>
-              : <div style={{fontSize:40, marginBottom:14}}>{modulo.icon}</div>
-            }
-            <div style={{fontSize:17, fontWeight:800, color:"#fff", marginBottom:4}}>{modulo.label}</div>
-            <div style={{fontSize:12, color:"rgba(255,255,255,0.65)"}}>{modulo.sublabel}</div>
-            <div style={{position:"absolute", bottom:18, right:18, fontSize:18, color:"rgba(255,255,255,0.4)"}}>→</div>
-          </button>
-        ))}
-
-      </div>
-
-      <div style={{textAlign:"center", marginTop:56, fontSize:10, color:"#cbd5e1", letterSpacing:2}}>
-        © {new Date().getFullYear()} GRUPO MEDITERRA · TODOS LOS DERECHOS RESERVADOS
-      </div>
-      </div>{/* cierre z-index:1 */}
-    </div>
-  );
+// Helpers de agregación
+function sumRangeWF(arr, indices) {
+  if(!arr || !indices) return 0;
+  return indices.reduce((s,i)=>s+(Number(arr[i])||0), 0);
+}
+function findLineWF(emp, labelBuscado) {
+  for(const sec of (emp.sections||[])) {
+    for(const ln of (sec.lines||[])) {
+      if(ln.label === labelBuscado) return {line:ln, signo:sec.signo};
+    }
+  }
+  return null;
+}
+function sumCatWF(emp, cat, indices) {
+  const sec = (emp.sections||[]).find(s=>s.cat===cat);
+  if(!sec) return 0;
+  return sec.lines.reduce((s,ln)=>s+sumRangeWF(ln.proy,indices), 0) * sec.signo;
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// CONFIG TAB — Gestión de tareas (componente separado para poder usar hooks)
-// ══════════════════════════════════════════════════════════════════════
-function ConfigTab({todasTareas,getFrecuencia,WORKERS,CATEGORIAS,FRECUENCIAS,
-  editandoTarea,setEditandoTarea,formEditTarea,setFormEditTarea,
-  tareasOverrides,setTareasOverrides,setTareasConfig,guardarAhora,puedeEditConfig}){
-  const [cfgFiltroPersona,setCfgFiltroPersona]=useState("");
-  const [cfgFiltroFrec,setCfgFiltroFrec]=useState("");
-
-  const FREC_META={
-    "Diaria":    {icon:"📋",desc:"Lunes a Viernes",   bg:"#eff6ff",color:"#1d4ed8"},
-    "Semanal":   {icon:"📅",desc:"Una vez por semana", bg:"#f0fdf4",color:"#16a34a"},
-    "Quincenal": {icon:"🗓",desc:"1ra y 2da quincena", bg:"#fefce8",color:"#ca8a04"},
-    "Mensual":   {icon:"📆",desc:"Una vez al mes",     bg:"#fdf4ff",color:"#9333ea"},
-    "Anual":     {icon:"📌",desc:"Una vez al año",     bg:"#fff7ed",color:"#ea580c"},
-  };
-
-  const tareasFiltradas=todasTareas().filter(t=>{
-    if(cfgFiltroPersona && t.responsable!==cfgFiltroPersona) return false;
-    if(cfgFiltroFrec    && getFrecuencia(t.id)!==cfgFiltroFrec) return false;
-    return true;
+// Saldo banco en USD por empresa (suma todas las monedas convertidas)
+function getSaldoBancoUSD(saldosBancos, empNombre) {
+  if(!saldosBancos) return 0;
+  const HOY = new Date();
+  const porCuenta = {};
+  Object.entries(saldosBancos).forEach(([key, rec])=>{
+    const parts = key.split("||");
+    if(parts[0]!==empNombre) return;
+    if(!rec?.monto || !rec?.fecha) return;
+    const f = new Date(rec.fecha);
+    if(f > HOY) return;
+    const cuentaKey = `${parts[1]}||${parts[2]||rec.moneda||"usd"}`;
+    const existente = porCuenta[cuentaKey];
+    if(!existente || new Date(existente.fecha) < f) porCuenta[cuentaKey] = rec;
   });
+  let total = 0;
+  Object.values(porCuenta).forEach(rec=>{
+    const moneda = rec.moneda || "usd";
+    if(moneda === "usd") total += Number(rec.monto)||0;
+    else if(rec.usd != null) total += Number(rec.usd)||0;
+  });
+  return total;
+}
 
-  const FREC_ORDER=["Diaria","Semanal","Quincenal","Mensual","Anual"];
-  const grupos=FREC_ORDER.map(frec=>({frec,tareas:tareasFiltradas.filter(t=>getFrecuencia(t.id)===frec)})).filter(g=>g.tareas.length>0);
+function WaterfallConsolidado({empresas, saldosBancos}) {
+  const empNames = Object.keys(empresas);
+  const [temporadaSel, setTemporadaSel] = useState(SEASONS[0]?.key || "");
+  const [mostrarControladora, setMostrarControladora] = useState(true);
 
-  function guardarTarea(t){
-    const upd={...formEditTarea};
-    // Ensure diaLimiteSem is included if not changed
-    if(upd.diaLimiteSem===undefined) upd.diaLimiteSem = tareasOverrides[t.id]?.diaLimiteSem??t.diaLimiteSem??0;
-    setTareasOverrides(prev=>({...prev,[t.id]:upd}));
-    setTareasConfig(prev=>({...prev,[t.id]:{...prev[t.id],...upd}}));
-    setEditandoTarea(null);
-    setTimeout(()=>guardarAhora(),300);
+  const temporada = SEASONS.find(s=>s.key===temporadaSel) || SEASONS[0];
+  const idx = temporada?.indices || [];
+
+  // Construir conceptos por empresa
+  const datos = useMemo(()=>{
+    const res = {};
+    empNames.forEach(n=>{
+      const emp = empresas[n];
+      // Saldo Caja desde Saldos Bancos (convertido a USD)
+      const saldoCaja = getSaldoBancoUSD(saldosBancos, n);
+
+      // Ingresos Operacionales
+      const ingresos = sumCatWF(emp, "ing_op", idx);
+
+      // Egresos Operacionales: egr_var + egr_fijo + Leyes Sociales + F-29 + Otros Egresos No Op.
+      const egresosBase = sumCatWF(emp, "egr_var", idx) + sumCatWF(emp, "egr_fijo", idx);
+      const leyesL    = findLineWF(emp,"Leyes Sociales Laborales");
+      const f29L      = findLineWF(emp,"Pago F-29");
+      const otrosENop = findLineWF(emp,"Otros Egresos No Operacionales");
+      const leyesSociales = leyesL    ? sumRangeWF(leyesL.line.proy,idx)    * leyesL.signo    : 0;
+      const pagoF29       = f29L      ? sumRangeWF(f29L.line.proy,idx)      * f29L.signo      : 0;
+      const otrosEgresosN = otrosENop ? sumRangeWF(otrosENop.line.proy,idx) * otrosENop.signo : 0;
+      const egresosOp = egresosBase + leyesSociales + pagoF29 + otrosEgresosN;
+
+      // Impuestos
+      const impuestos = sumCatWF(emp, "imp", idx);
+      const fcOp = ingresos + egresosOp + impuestos;
+
+      // Bloque de capital
+      const callCap   = findLineWF(emp,"Capital Calls");
+      const finInL    = findLineWF(emp,"Ingresos Financiamiento");
+      const ingRenL   = findLineWF(emp,"Ingreso Renovación");
+      const otrosINop = findLineWF(emp,"Otros Ingresos No Operacionales");
+      const pagoPres  = findLineWF(emp,"Pago Préstamos - Total");
+      const renovL    = findLineWF(emp,"Renovaciones");
+      const aportesL  = findLineWF(emp,"Aportes de Capital");
+
+      const callCapital    = callCap   ? sumRangeWF(callCap.line.proy,idx)   * callCap.signo   : 0;
+      const financiamiento = finInL    ? sumRangeWF(finInL.line.proy,idx)    * finInL.signo    : 0;
+      const dividendosRec  = ingRenL   ? sumRangeWF(ingRenL.line.proy,idx)   * ingRenL.signo   : 0;
+      const otrosIngresosN = otrosINop ? sumRangeWF(otrosINop.line.proy,idx) * otrosINop.signo : 0;
+      const pagoCreditos   = pagoPres  ? sumRangeWF(pagoPres.line.proy,idx)  * pagoPres.signo  : 0;
+      const inversiones    = renovL    ? sumRangeWF(renovL.line.proy,idx)    * renovL.signo    : 0;
+      const aportesCapital = aportesL  ? sumRangeWF(aportesL.line.proy,idx)  * aportesL.signo  : 0;
+
+      const fcCapital = callCapital + financiamiento + pagoCreditos + dividendosRec +
+                        otrosIngresosN + inversiones + aportesCapital;
+      const total = fcOp + fcCapital;
+      const saldoFinal = saldoCaja + total;
+      const participacion = PARTICIPACION_CONTROLADORA[n] ?? 1;
+
+      res[n] = {
+        saldoCaja, ingresos, egresosOp, impuestos, fcOp,
+        callCapital, financiamiento, pagoCreditos, dividendosRec, otrosIngresosN,
+        inversiones, aportesCapital,
+        fcCapital, total, saldoFinal,
+        participacionCtrl: total * participacion,
+      };
+    });
+    return res;
+  }, [empresas, saldosBancos, idx]); // eslint-disable-line
+
+  // Totales consolidados (suma horizontal)
+  const totales = useMemo(()=>{
+    const keys = ["saldoCaja","ingresos","egresosOp","impuestos","fcOp","callCapital",
+                  "financiamiento","pagoCreditos","dividendosRec","otrosIngresosN",
+                  "inversiones","aportesCapital",
+                  "fcCapital","total","saldoFinal","participacionCtrl"];
+    const t = {};
+    keys.forEach(k=>{
+      t[k] = empNames.reduce((s,n)=>s+(datos[n]?.[k]||0), 0);
+    });
+    return t;
+  }, [datos, empNames]);
+
+  // Definir filas del waterfall
+  const FILAS = [
+    {key:"saldoCaja",      label:"Total Saldo Caja (USD)",  tipo:"saldo"},
+    {key:"ingresos",       label:"Ingresos",                 tipo:"op"},
+    {key:"egresosOp",      label:"Egresos Operacionales",    tipo:"op"},
+    {key:"impuestos",      label:"Impuestos",                tipo:"op"},
+    {key:"fcOp",           label:"Flujo Caja Operacional",   tipo:"subtotal"},
+    {key:"callCapital",    label:"Call de Capital",          tipo:"cap"},
+    {key:"financiamiento", label:"Financiamiento",           tipo:"cap"},
+    {key:"pagoCreditos",   label:"Pago Créditos / Leasing / Hipotecarios", tipo:"cap"},
+    {key:"dividendosRec",  label:"Dividendos Recibidos / Ingreso Renovación", tipo:"cap"},
+    {key:"inversiones",    label:"Inversiones / Renovaciones", tipo:"cap"},
+    {key:"aportesCapital", label:"Aportes de Capital",        tipo:"cap"},
+    {key:"otrosIngresosN", label:"Otros Ingresos No Operacionales", tipo:"cap"},
+    {key:"fcCapital",      label:"Flujo Caja Capital",        tipo:"subtotal"},
+    {key:"total",          label:"Total Flujo del Período",   tipo:"total"},
+    {key:"saldoFinal",     label:"Saldo Final Caja (USD)",    tipo:"saldoFinal"},
+  ];
+
+  // Formato miles con signo
+  function fmt(v) {
+    if(v === 0 || v == null || isNaN(v)) return "—";
+    const abs = Math.abs(Math.round(v));
+    const s = v < 0 ? "-" : "";
+    return `${s}${abs.toLocaleString("es-CL")}`;
+  }
+
+  // Color según tipo de fila y valor
+  function colorFila(tipo, v) {
+    if(tipo === "saldo" || tipo === "saldoFinal") return C.blue;
+    if(tipo === "subtotal") return v >= 0 ? C.green : C.red;
+    if(tipo === "total") return v >= 0 ? C.green : C.red;
+    if(v === 0 || v == null) return C.muted2;
+    return v >= 0 ? C.text : C.red;
+  }
+
+  // Export Excel
+  async function exportarExcel() {
+    if(!window.JSZip) {
+      await new Promise((res,rej)=>{
+        const s=document.createElement("script");
+        s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+        s.onload=res;s.onerror=rej;document.head.appendChild(s);
+      });
+    }
+    const headers = ["Concepto", ...empNames, "Total Consolidado"];
+    if(mostrarControladora) headers.push("Participación Controladora");
+    const rows = FILAS.map(f=>{
+      const row = [f.label];
+      empNames.forEach(n=>{
+        row.push(datos[n]?.[f.key]||0);
+      });
+      row.push(totales[f.key]||0);
+      if(mostrarControladora) {
+        if(f.key === "total") row.push(totales.participacionCtrl||0);
+        else row.push("");
+      }
+      return row;
+    });
+
+    function colLetter(n){let s="";n++;while(n>0){n--;s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26);}return s;}
+    function escXml(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+    const nCols = headers.length;
+    const lastCol = colLetter(nCols-1);
+    let rowsXml = "";
+
+    // Título
+    rowsXml += `<row r="1" ht="28" customHeight="1"><c r="A1" t="inlineStr" s="5"><is><t>Flujo de Caja Consolidado — Grupo Mediterra</t></is></c></row>`;
+    rowsXml += `<row r="2" ht="18" customHeight="1"><c r="A2" t="inlineStr" s="6"><is><t>${escXml(temporada.label)} · Exportado ${new Date().toLocaleDateString("es-CL")}</t></is></c></row>`;
+    rowsXml += `<row r="3" ht="10" customHeight="1"></row>`;
+
+    // Headers
+    rowsXml += `<row r="4" ht="24" customHeight="1">`;
+    headers.forEach((h,c)=>{rowsXml+=`<c r="${colLetter(c)}4" t="inlineStr" s="1"><is><t>${escXml(h)}</t></is></c>`;});
+    rowsXml += `</row>`;
+
+    // Data
+    rows.forEach((row,ri)=>{
+      const r = ri+5;
+      const fila = FILAS[ri];
+      const esSubtotal = fila.tipo==="subtotal";
+      const esTotal = fila.tipo==="total";
+      const esSaldo = fila.tipo==="saldo";
+      rowsXml += `<row r="${r}" ht="20" customHeight="1">`;
+      row.forEach((val,c)=>{
+        const addr = `${colLetter(c)}${r}`;
+        let estilo = 0; // normal
+        if(c===0) {
+          // Columna concepto
+          if(esTotal) estilo = 8;           // bold + fondo total
+          else if(esSubtotal) estilo = 7;   // bold + fondo subtotal
+          else if(esSaldo) estilo = 9;      // bold + fondo saldo
+          else estilo = 0;
+        } else {
+          // Columnas numéricas
+          if(typeof val === "number") {
+            if(esTotal) estilo = 12;
+            else if(esSubtotal) estilo = 11;
+            else if(esSaldo) estilo = 13;
+            else estilo = 10;
+          } else {
+            estilo = 0;
+          }
+        }
+        if(typeof val === "number" && val !== 0) {
+          rowsXml += `<c r="${addr}" s="${estilo}"><v>${val}</v></c>`;
+        } else {
+          rowsXml += `<c r="${addr}" t="inlineStr" s="${estilo}"><is><t>${escXml(val)}</t></is></c>`;
+        }
+      });
+      rowsXml += `</row>`;
+    });
+
+    const tableRef = `A4:${lastCol}${rows.length+4}`;
+    const merges = [`A1:${lastCol}1`,`A2:${lastCol}2`];
+    const mergesXml = `<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>`;
+
+    const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <numFmts count="1"><numFmt numFmtId="164" formatCode='#,##0;[Red]-#,##0'/></numFmts>
+  <fonts count="8">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><sz val="11"/><b/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font/><font/><font/>
+    <font><sz val="16"/><b/><color rgb="FF0F2D4A"/><name val="Calibri"/></font>
+    <font><sz val="11"/><i/><color rgb="FF64748B"/><name val="Calibri"/></font>
+    <font><sz val="11"/><b/><color rgb="FF0F2D4A"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="6">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF0F2D4A"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFDCFCE7"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FFE2E8F0"/></left><right style="thin"><color rgb="FFE2E8F0"/></right><top style="thin"><color rgb="FFE2E8F0"/></top><bottom style="thin"><color rgb="FFE2E8F0"/></bottom></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="14">
+    <xf numFmtId="0"   fontId="0" fillId="0" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="0"   fontId="1" fillId="2" borderId="0" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf/><xf/><xf/>
+    <xf numFmtId="0"   fontId="5" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+    <xf numFmtId="0"   fontId="6" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+    <xf numFmtId="0"   fontId="7" fillId="4" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="0"   fontId="7" fillId="5" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="0"   fontId="7" fillId="3" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="7" fillId="4" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="7" fillId="5" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="7" fillId="3" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+  </cellXfs>
+</styleSheet>`;
+
+    const colWidths = [38, ...empNames.map(()=>16), 18];
+    if(mostrarControladora) colWidths.push(22);
+    const colsXml = `<cols>${colWidths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`;
+
+    const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="4" xSplit="1" topLeftCell="B5" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>
+  ${colsXml}
+  <sheetData>${rowsXml}</sheetData>
+  ${mergesXml}
+</worksheet>`;
+
+    const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <bookViews><workbookView/></bookViews>
+  <sheets><sheet name="Flujo Consolidado" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+
+    const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+    const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+
+    const pkgRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+    const zip = new window.JSZip();
+    zip.file("[Content_Types].xml", contentTypes);
+    zip.file("_rels/.rels", pkgRels);
+    zip.file("xl/workbook.xml", wbXml);
+    zip.file("xl/_rels/workbook.xml.rels", wbRels);
+    zip.file("xl/worksheets/sheet1.xml", sheetXml);
+    zip.file("xl/styles.xml", stylesXml);
+
+    const blob = await zip.generateAsync({type:"blob"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Flujo_Consolidado_${temporada.key}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    window.auditLog&&window.auditLog("exportar", {modulo:"finanzas", seccion:"Flujo Consolidado Waterfall",
+      descripcion:`Exportó flujo consolidado waterfall — ${temporada.label}`});
   }
 
   return (
     <div>
-      {/* Filtros */}
-      <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
-        <div style={{fontWeight:700,fontSize:15,color:"#1e293b",marginRight:8}}>⚙️ Gestión de Tareas</div>
-        <select value={cfgFiltroPersona} onChange={e=>setCfgFiltroPersona(e.target.value)}
-          style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
-          <option value="">👤 Todas las personas</option>
-          {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]} {w.nombre.split(" ")[1]||""}</option>)}
-        </select>
-        <select value={cfgFiltroFrec} onChange={e=>setCfgFiltroFrec(e.target.value)}
-          style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
-          <option value="">🔁 Todas las frecuencias</option>
-          {FRECUENCIAS.map(f=><option key={f}>{f}</option>)}
-        </select>
-        {!puedeEditConfig&&(
-          <span style={{marginLeft:"auto",background:"#fef3c7",borderRadius:8,padding:"4px 10px",fontSize:11,color:"#92400e"}}>Solo lectura</span>
-        )}
-      </div>
+      {/* Controles */}
+      <Card>
+        <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-end"}}>
+          <div>
+            <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Temporada</div>
+            <select value={temporadaSel} onChange={e=>setTemporadaSel(e.target.value)}
+              style={{padding:"7px 12px",borderRadius:8,border:`1px solid ${C.border}`,
+                background:C.card,color:C.text,fontSize:12,outline:"none",minWidth:180}}>
+              {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.muted,cursor:"pointer"}}>
+              <input type="checkbox" checked={mostrarControladora}
+                onChange={e=>setMostrarControladora(e.target.checked)}/>
+              Mostrar Participación Controladora
+            </label>
+          </div>
+          <button onClick={exportarExcel}
+            style={{marginLeft:"auto",padding:"8px 16px",borderRadius:8,background:C.teal,
+              color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}}>
+            📥 Exportar Excel
+          </button>
+        </div>
+      </Card>
 
-      {grupos.length===0&&(
-        <div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>Sin tareas con los filtros seleccionados</div>
-      )}
+      {/* Tabla Waterfall */}
+      <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`,marginTop:12}}>
+        <table style={{borderCollapse:"collapse",fontSize:11,width:"100%",minWidth:1000}}>
+          <thead>
+            <tr style={{background:C.bg2}}>
+              <th style={{padding:"10px 14px",textAlign:"left",color:C.muted,fontWeight:700,
+                fontSize:10,textTransform:"uppercase",letterSpacing:0.5,position:"sticky",left:0,
+                background:C.bg2,minWidth:240,zIndex:2}}>
+                {temporada?.label || "—"}
+              </th>
+              {empNames.map(n=>(
+                <th key={n} style={{padding:"10px 10px",textAlign:"right",color:C.muted,
+                  fontWeight:700,fontSize:10,minWidth:105}}>
+                  {n}
+                  <div style={{fontSize:9,color:C.muted2,fontWeight:400,marginTop:2}}>
+                    {empresas[n]?.emoji || ""}
+                  </div>
+                </th>
+              ))}
+              <th style={{padding:"10px 14px",textAlign:"right",color:C.text,fontWeight:900,
+                fontSize:10,background:`${C.accent}22`,minWidth:120}}>
+                TOTAL
+              </th>
+              {mostrarControladora&&(
+                <th style={{padding:"10px 14px",textAlign:"right",color:C.text,fontWeight:900,
+                  fontSize:10,background:`${C.teal}22`,minWidth:140}}>
+                  PART. CONTROLADORA
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {FILAS.map((f, i)=>{
+              const isSaldo = f.tipo === "saldo";
+              const isSaldoFinal = f.tipo === "saldoFinal";
+              const isSubtotal = f.tipo === "subtotal";
+              const isTotal = f.tipo === "total";
+              const bg = (isSaldo||isSaldoFinal) ? `${C.blue}11`
+                       : isTotal ? `${C.accent}22`
+                       : isSubtotal ? `${C.green}11`
+                       : i%2===0 ? "transparent" : `${C.border}08`;
+              const fontWeight = (isSaldo||isSaldoFinal||isSubtotal||isTotal) ? 800 : 500;
 
-      {grupos.map(({frec,tareas})=>{
-        const meta=FREC_META[frec]||{icon:"📋",desc:"",bg:"#f8fafc",color:"#64748b"};
-        return (
-          <div key={frec} style={{marginBottom:24}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,padding:"8px 14px",
-              background:meta.bg,borderRadius:10,border:`1px solid ${meta.color}33`}}>
-              <span style={{fontSize:16}}>{meta.icon}</span>
-              <span style={{fontWeight:800,fontSize:14,color:meta.color}}>{frec}</span>
-              <span style={{fontSize:11,color:"#64748b"}}>— {meta.desc}</span>
-              <span style={{marginLeft:"auto",background:`${meta.color}22`,color:meta.color,
-                borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{tareas.length} tareas</span>
-            </div>
-            <div style={{overflowX:"auto",borderRadius:10,boxShadow:"0 1px 3px #0001"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",background:"#fff",fontSize:12}}>
-                <thead>
-                  <tr style={{background:"#1e293b",color:"#fff"}}>
-                    {["Tarea","Responsable","Supervisor","Categoría","Frecuencia","Fecha Venc.","Depende De",""].map(h=>(
-                      <th key={h} style={{padding:"7px 10px",textAlign:"left",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tareas.map((t,ti)=>{
-                    const isEditing=editandoTarea===t.id;
-                    const cat=CATEGORIAS[t.categoria]||{color:"#64748b",bg:"#f1f5f9"};
-                    const ovr=tareasOverrides[t.id]||{};
-                    const fechaVenc=ovr.fechaVenc||t.fechaVenc||"";
-                    const depDe=ovr.dependeDe!==undefined?ovr.dependeDe:t.dependeDe;
-                    if(isEditing) return (
-                      <tr key={t.id} style={{background:"#eff6ff",borderBottom:"2px solid #3b82f6"}}>
-                        <td style={{padding:"5px 8px"}}>
-                          <input value={formEditTarea.nombre||""} onChange={e=>setFormEditTarea(p=>({...p,nombre:e.target.value}))}
-                            style={{width:"100%",padding:"4px 7px",borderRadius:6,border:"1px solid #3b82f6",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
-                        </td>
-                        <td style={{padding:"5px 6px"}}>
-                          <select value={formEditTarea.responsable||""} onChange={e=>setFormEditTarea(p=>({...p,responsable:e.target.value}))}
-                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
-                            <option value="">—</option>
-                            {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
-                          </select>
-                        </td>
-                        <td style={{padding:"5px 6px"}}>
-                          <select value={formEditTarea.supervisor||""} onChange={e=>setFormEditTarea(p=>({...p,supervisor:e.target.value}))}
-                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
-                            <option value="">—</option>
-                            {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
-                          </select>
-                        </td>
-                        <td style={{padding:"5px 6px"}}>
-                          <select value={formEditTarea.categoria||""} onChange={e=>setFormEditTarea(p=>({...p,categoria:e.target.value}))}
-                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
-                            {Object.keys(CATEGORIAS).map(c=><option key={c}>{c}</option>)}
-                          </select>
-                        </td>
-                        <td style={{padding:"5px 6px"}}>
-                          <select value={formEditTarea.frecuencia||getFrecuencia(t.id)} onChange={e=>setFormEditTarea(p=>({...p,frecuencia:e.target.value}))}
-                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
-                            {FRECUENCIAS.map(f=><option key={f}>{f}</option>)}
-                          </select>
-                          {(formEditTarea.frecuencia||getFrecuencia(t.id))==="Semanal"&&(
-                            <select value={formEditTarea.diaLimiteSem!==undefined?formEditTarea.diaLimiteSem:(tareasOverrides[t.id]?.diaLimiteSem??t.diaLimiteSem??0)}
-                              onChange={e=>setFormEditTarea(p=>({...p,diaLimiteSem:Number(e.target.value)}))}
-                              style={{marginTop:4,width:"100%",padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}>
-                              {["Lunes","Martes","Miércoles","Jueves","Viernes"].map((d,i)=>(
-                                <option key={i} value={i}>{d}</option>
-                              ))}
-                            </select>
-                          )}
-                        </td>
-                        <td style={{padding:"5px 6px"}}>
-                          <input type="date" value={formEditTarea.fechaVenc||""} onChange={e=>setFormEditTarea(p=>({...p,fechaVenc:e.target.value}))}
-                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none"}}/>
-                        </td>
-                        <td style={{padding:"5px 6px"}}>
-                          <select value={formEditTarea.dependeDe||""} onChange={e=>setFormEditTarea(p=>({...p,dependeDe:e.target.value||null}))}
-                            style={{padding:"4px 6px",borderRadius:6,border:"1px solid #3b82f6",fontSize:11,outline:"none",maxWidth:140}}>
-                            <option value="">Sin dependencia</option>
-                            {todasTareas().filter(x=>x.id!==t.id).map(x=>(
-                              <option key={x.id} value={x.id}>{x.id}: {x.nombre.slice(0,25)}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td style={{padding:"5px 8px",whiteSpace:"nowrap"}}>
-                          <button onClick={()=>guardarTarea(t)}
-                            style={{padding:"4px 10px",borderRadius:6,background:"#2563eb",color:"#fff",
-                              border:"none",cursor:"pointer",fontSize:11,marginRight:4}}>✓ Guardar</button>
-                          <button onClick={()=>setEditandoTarea(null)}
-                            style={{padding:"4px 8px",borderRadius:6,background:"#f1f5f9",
-                              color:"#64748b",border:"1px solid #d1d5db",cursor:"pointer",fontSize:11}}>✕</button>
-                        </td>
-                      </tr>
-                    );
+              return (
+                <tr key={f.key} style={{background:bg,borderBottom:`1px solid ${C.border}33`}}>
+                  <td style={{padding:"8px 14px",position:"sticky",left:0,background:bg,
+                    fontWeight, color:(isSaldo||isSaldoFinal)?C.blue:isTotal?C.accent:isSubtotal?C.green:C.text,
+                    fontSize:(isTotal||isSaldoFinal)?12:11,zIndex:1}}>
+                    {f.label}
+                  </td>
+                  {empNames.map(n=>{
+                    const v = datos[n]?.[f.key] || 0;
                     return (
-                      <tr key={t.id} style={{borderBottom:"1px solid #f1f5f9",background:ti%2===0?"#fff":"#fafafa"}}>
-                        <td style={{padding:"7px 10px",fontWeight:500,maxWidth:280}}>
-                          <div>{ovr.nombre||t.nombre}</div>
-                          <div style={{fontSize:10,color:"#94a3b8"}}>{t.id}</div>
-                        </td>
-                        <td style={{padding:"7px 10px"}}>
-                          <span style={{background:"#dbeafe",color:"#1d4ed8",borderRadius:20,padding:"2px 8px",fontSize:11}}>
-                            {(ovr.responsable||t.responsable)?.split(" ")[0]}
-                          </span>
-                        </td>
-                        <td style={{padding:"7px 10px",color:"#64748b",fontSize:11}}>
-                          {(ovr.supervisor||t.supervisor)?.split(" ")[0]||"—"}
-                        </td>
-                        <td style={{padding:"7px 10px"}}>
-                          <span style={{background:cat.bg,color:cat.color,borderRadius:20,padding:"2px 8px",fontSize:10}}>
-                            {ovr.categoria||t.categoria}
-                          </span>
-                        </td>
-                        <td style={{padding:"7px 10px"}}>
-                          <span style={{background:"#f0fdf4",color:"#16a34a",borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:600}}>
-                            {getFrecuencia(t.id)}
-                          </span>
-                          {getFrecuencia(t.id)==="Semanal"&&(
-                            <div style={{fontSize:10,color:"#64748b",marginTop:2}}>
-                              {["Lunes","Martes","Miércoles","Jueves","Viernes"][tareasOverrides[t.id]?.diaLimiteSem??t.diaLimiteSem??0]}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{padding:"7px 10px",whiteSpace:"nowrap"}}>
-                          {fechaVenc
-                            ? <span style={{background:"#fef3c7",color:"#92400e",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:600}}>
-                                📅 {new Date(fechaVenc+"T12:00:00").toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"})}
-                              </span>
-                            : <span style={{color:"#94a3b8",fontSize:11}}>— sin fecha —</span>}
-                        </td>
-                        <td style={{padding:"7px 10px",fontSize:11}}>
-                          {depDe
-                            ? <span style={{background:"#fef3c7",color:"#92400e",borderRadius:20,padding:"2px 8px",fontSize:10}}>→ {depDe}</span>
-                            : <span style={{color:"#d1d5db"}}>—</span>}
-                        </td>
-                        <td style={{padding:"7px 8px"}}>
-                          {puedeEditConfig&&(
-                            <button onClick={()=>{
-                              setEditandoTarea(t.id);
-                              setFormEditTarea({
-                                nombre:     ovr.nombre||t.nombre,
-                                responsable:ovr.responsable||t.responsable,
-                                supervisor: ovr.supervisor||t.supervisor,
-                                categoria:  ovr.categoria||t.categoria,
-                                frecuencia: getFrecuencia(t.id),
-                                fechaVenc:  fechaVenc,
-                                dependeDe:  depDe,
-                              });
-                            }}
-                              style={{padding:"3px 10px",borderRadius:6,background:"#f8fafc",
-                                border:"1px solid #d1d5db",cursor:"pointer",fontSize:11,color:"#475569"}}>✏️ Editar</button>
-                          )}
-                        </td>
-                      </tr>
+                      <td key={n} style={{padding:"8px 10px",textAlign:"right",
+                        color:colorFila(f.tipo,v),fontWeight,fontSize:11}}>
+                        {fmt(v)}
+                      </td>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })}
+                  <td style={{padding:"8px 14px",textAlign:"right",
+                    color:colorFila(f.tipo,totales[f.key]),fontWeight:900,
+                    background:`${C.accent}11`,fontSize:(isTotal||isSaldoFinal)?12:11}}>
+                    {fmt(totales[f.key])}
+                  </td>
+                  {mostrarControladora&&(
+                    <td style={{padding:"8px 14px",textAlign:"right",
+                      color:isTotal?colorFila("total",totales.participacionCtrl):C.muted2,
+                      fontWeight:isTotal?900:500,
+                      background:`${C.teal}08`,fontSize:isTotal?12:11}}>
+                      {isTotal ? fmt(totales.participacionCtrl) : "—"}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{marginTop:10,fontSize:10,color:C.muted,fontStyle:"italic",padding:"0 4px"}}>
+        💡 Cifras en USD · Valores positivos = ingresos / saldo · Valores negativos = egresos · Participación Controladora calcula solo sobre el Total según el % de propiedad de cada entidad.
+      </div>
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// APP PRINCIPAL
-// ══════════════════════════════════════════════════════════════════════
-export default function App(){
-  const hoy=new Date();
+// ═══════════════════════════════════════════════════════════════════
+// FLUJO POR EMPRESA — v2: totales mes/temporada + edición + saldo banco
+// ═══════════════════════════════════════════════════════════════════
+function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBancos,onSaveProy,subLines={},onSaveSubLines,creditosData=CREDITOS_DEFAULT}) {
+  const emp=empresas[empNombre];
+  const [vista,setVista]=useState("mensual");
+  const [openSeason,setOpenSeason]=useState({[SEASON_KEYS[0]]:true,[SEASON_KEYS[1]]:true});
+  const [openMonth,setOpenMonth]=useState({});
+  const [showReal,setShowReal]=useState(false);
+  const [modalSem,setModalSem]=useState(null);
+  // Overrides de proyección editados por el usuario: { lineLabel: { idx: valor | {_sem0,_sem1,_sem2,_sem3} } }
+  const [proyOverrides,  setProyOverrides]  = useState({});
+  const [expandedSubs,   setExpandedSubs]   = useState({});  // ▶ CxC / Préstamos
+  const [addedLines,     setAddedLines]      = useState({});  // + conceptos por sección (no persistidos)
+  // subLines viene de Supabase via prop — clientes/acreedores de CxC y Préstamos
+  // addedLines es local — filas extra de concepto (se podrían persistir si se necesita)
 
-  // ── Título y favicon de Mediterra ────────────────────────────────
-  useEffect(()=>{
-    document.title = "Gestión Mediterra";
-    // Buscar o crear el favicon
-    let link = document.querySelector("link[rel*='icon']");
-    if(!link) {
-      link = document.createElement("link");
-      link.rel = "icon";
-      document.head.appendChild(link);
+  const toggleSeason=key=>setOpenSeason(p=>({...p,[key]:!p[key]}));
+  const toggleMonth=mes=>setOpenMonth(p=>({...p,[mes]:!p[mes]}));
+  const isMonthOpen=mes=>openMonth[mes]!==false;
+
+  // ── Semana ISO actual (ej: "S16") ─────────────────────────────
+  const semanaHoy = useMemo(()=>{
+    const hoy = new Date();
+    const jan1 = new Date(hoy.getFullYear(),0,4);
+    const week = 1+Math.round(((hoy-jan1)/86400000-3+((jan1.getDay()+6)%7))/7);
+    return `S${String(week).padStart(2,"0")}`;
+  },[]);
+  // Mes actual exacto ej "Apr-26" — evita mostrar saldo banco en años futuros con misma semana
+  const mesHoyLabel = useMemo(()=>{
+    const hoy = new Date();
+    const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${mn[hoy.getMonth()]}-${String(hoy.getFullYear()).slice(2)}`;
+  },[]);
+  // ── Saldo banco en USD: toma TODAS las monedas, convierte a USD ──
+  // Para USD: usa el monto directo
+  // Para otras monedas (PEN, CLP, EUR): usa el campo "usd" guardado en Supabase
+  const saldoBancoUSD = useMemo(()=>{
+    if(!saldosBancos) return null;
+    const HOY = new Date();
+    // Agrupar por banco+moneda (no solo banco) para no perder cuentas en distintas monedas
+    const porCuenta = {};
+    Object.entries(saldosBancos).forEach(([key, rec])=>{
+      const parts = key.split("||");
+      if(parts[0]!==empNombre) return;
+      if(!rec?.monto || !rec?.fecha) return;
+      const f = new Date(rec.fecha);
+      if(f > HOY) return;
+      // key único por banco+moneda
+      const cuentaKey = `${parts[1]}||${parts[2]||rec.moneda||"usd"}`;
+      const existente = porCuenta[cuentaKey];
+      if(!existente || new Date(existente.fecha) < f) porCuenta[cuentaKey] = rec;
+    });
+    let total = 0, found = false;
+    Object.values(porCuenta).forEach(rec=>{
+      const moneda = rec.moneda || "usd";
+      if(moneda === "usd") {
+        total += Number(rec.monto)||0;
+      } else if(rec.usd != null) {
+        total += Number(rec.usd)||0;
+      }
+      found = true;
+    });
+    return found ? total : null;
+  },[saldosBancos, empNombre]);
+
+  // ── Valor proyectado efectivo (base + override) ────────────────
+  // Si override es objeto {_sem0,_sem1,_sem2,_sem3}: suma SOLO las semanas definidas por el usuario
+  //   (las semanas no editadas son 0, el usuario tomó control del mes)
+  // Si override es número: usa ese número como total del mes (retrocompatibilidad)
+  // Si no hay override: usa el valor base de la fórmula/proyección
+  const getProy = useCallback((lineLabel, idx) => {
+    const ov = proyOverrides[lineLabel]?.[idx];
+    // Obtener valor base
+    let base = 0;
+    for(const sec of emp.sections){
+      const l = sec.lines.find(x=>x.label===lineLabel);
+      if(l){ base = l.proy[idx]||0; break; }
     }
-    link.type = "image/png";
-    link.href = "/mediterra-logo.png"; // Logo colocado en /public
+    if(ov === undefined) return base;
+    if(typeof ov === "number") return ov;
+    // ov es objeto con semanas: suma solo las semanas que el usuario ingresó
+    if(typeof ov === "object" && ov !== null) {
+      let total = 0;
+      for(let s=0; s<4; s++){
+        const k = `_sem${s}`;
+        if(ov[k] !== undefined) total += Number(ov[k])||0;
+      }
+      return total;
+    }
+    return base;
+  },[proyOverrides, emp]);
+
+  // Valor proyectado específico de UNA semana (0-3) del mes idx
+  // Lógica:
+  // - Sin override: muestra el valor base COMPLETO en la primera semana del mes (0), resto en 0
+  //   (los parámetros apuntan a un mes específico, no tiene sentido prorratear)
+  // - Con override mensual antiguo (number): muestra en última semana
+  // - Con override semanal (objeto): solo muestra lo que el usuario ingresó en esa semana específica
+  const getProySemana = useCallback((lineLabel, idx, semIdx, isLastInMonth) => {
+    const ov = proyOverrides[lineLabel]?.[idx];
+    let base = 0;
+    for(const sec of emp.sections){
+      const l = sec.lines.find(x=>x.label===lineLabel);
+      if(l){ base = l.proy[idx]||0; break; }
+    }
+    if(ov === undefined) {
+      // Sin override: mostrar el valor base COMPLETO en la primera semana
+      return semIdx === 0 ? base : 0;
+    }
+    if(typeof ov === "number") {
+      // Override mensual antiguo: mostrar solo en última semana
+      return isLastInMonth ? ov : 0;
+    }
+    if(typeof ov === "object" && ov !== null) {
+      const k = `_sem${semIdx}`;
+      // Solo el valor ingresado por el usuario en esa semana exacta
+      return ov[k] !== undefined ? (Number(ov[k])||0) : 0;
+    }
+    return 0;
+  },[proyOverrides, emp]);
+
+  // ── Helpers para sumar subLines (CxC, Capital Calls, Aportes, etc) ─
+  // Soporta formato nuevo "idx_semIdx" y formato antiguo "idx"
+  const sumSubLinesMes = useCallback((lineLabel, idx) => {
+    const list = subLines[lineLabel] || [];
+    let total = 0;
+    list.forEach(sl=>{
+      if(typeof sl === "string") return;
+      const vals = sl.vals || {};
+      let hasSem = false;
+      for(let s=0; s<4; s++){
+        const k = `${idx}_${s}`;
+        if(vals[k] !== undefined){ total += Number(vals[k])||0; hasSem = true; }
+      }
+      if(!hasSem && vals[idx] !== undefined) total += Number(vals[idx])||0;
+    });
+    return total;
+  },[subLines]);
+
+  const sumSubLinesSemana = useCallback((lineLabel, idx, semIdx, isLastInMonth) => {
+    const list = subLines[lineLabel] || [];
+    let total = 0;
+    list.forEach(sl=>{
+      if(typeof sl === "string") return;
+      const vals = sl.vals || {};
+      const kSem = `${idx}_${semIdx}`;
+      if(vals[kSem] !== undefined) {
+        total += Number(vals[kSem])||0;
+      } else {
+        // Retrocompatibilidad: si no hay valor por semana pero hay mensual antiguo, mostrar en última semana
+        const hasAnySem = [0,1,2,3].some(s=>vals[`${idx}_${s}`]!==undefined);
+        if(!hasAnySem && vals[idx] !== undefined && isLastInMonth) {
+          total += Number(vals[idx])||0;
+        }
+      }
+    });
+    return total;
+  },[subLines]);
+
+  // Guardar override semanal (o mensual si semIdx no se especifica)
+  const handleEditProy = useCallback((lineLabel, idx, nuevoVal, semIdx) => {
+    setProyOverrides(prev=>{
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[lineLabel]) next[lineLabel]={};
+      if(semIdx != null) {
+        // Override semanal: mantener objeto con claves _sem0.._sem3
+        const current = next[lineLabel][idx];
+        if(typeof current === "object" && current !== null) {
+          next[lineLabel][idx] = { ...current, [`_sem${semIdx}`]: nuevoVal };
+        } else {
+          // Si había un número (override mensual antiguo) o nada, crear objeto
+          next[lineLabel][idx] = { [`_sem${semIdx}`]: nuevoVal };
+        }
+      } else {
+        // Override mensual directo (vista mensual)
+        next[lineLabel][idx] = nuevoVal;
+      }
+      // Persistir async
+      if(onSaveProy) onSaveProy(empNombre, lineLabel, idx, next[lineLabel][idx]);
+      return next;
+    });
+  },[empNombre, onSaveProy]);
+
+  // Cargar overrides desde realData cuando cambia la empresa
+  useEffect(()=>{
+    const ov = realData?.[empNombre]?._proyOverrides || {};
+    setProyOverrides(ov);
+  },[realData, empNombre]);
+
+  const realMensual=useMemo(()=>{
+    const rm={};
+    MESES_65.forEach(mes=>{
+      const sd=realData?.[empNombre]?.[mes]||{};
+      const lines={};
+      Object.values(sd).forEach(sv=>{
+        if(typeof sv==="object"&&!Array.isArray(sv)){
+          Object.entries(sv).forEach(([lbl,v])=>{lines[lbl]=(lines[lbl]||0)+(Number(v)||0);});
+        }
+      });
+      rm[mes]=lines;
+    });
+    return rm;
+  },[realData,empNombre]);
+
+  // Flujo con overrides aplicados
+  const {flujoArr, acumArr} = useMemo(()=>{
+    const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
+    const fa = MESES_65.map((_,i)=>{
+      let f=0;
+      emp.sections.forEach(sec=>{
+        sec.lines.forEach(l=>{
+          // Usar getProy que maneja tanto overrides mensuales como objeto por semanas
+          const v = getProy(l.label, i);
+          f += v * sec.signo;
+          // Include subLines (CxC/Préstamos sub-items) in flujo
+          if(l.subLines)(subLines[l.label]||[]).forEach(sl=>{
+            if(typeof sl === "string") return;
+            const vals = sl.vals || {};
+            // Sumar formato nuevo (idx_semIdx) + formato antiguo (idx como número)
+            let sv = 0;
+            let hasSem = false;
+            for(let s=0; s<4; s++){
+              const k = `${i}_${s}`;
+              if(vals[k] !== undefined){ sv += Number(vals[k])||0; hasSem = true; }
+            }
+            if(!hasSem && vals[i] !== undefined) sv = Number(vals[i])||0;
+            f += sv * sec.signo;
+          });
+        });
+        // Include user-added lines in flujo
+        (addedLines[sec.cat]||[]).forEach(al=>{
+          const av=Number(typeof al==="string"?0:(al.vals||{})[i])||0;
+          f += av * sec.signo;
+        });
+      });
+      return f;
+    });
+    let a = saldoIni;
+    const aa = fa.map(f=>{a+=f;return a;});
+    return {flujoArr:fa, acumArr:aa};
+  },[emp, proyOverrides, saldoBancoUSD, addedLines, subLines, getProy]); // eslint-disable-line
+
+  // Flujo neto por mes (para totales mensuales en vista semanal)
+  const flujoMes = useMemo(()=>{
+    const fm={};
+    MESES_65.forEach((mes,i)=>{ fm[mes]=flujoArr[i]; });
+    return fm;
+  },[flujoArr]);
+
+  const colStructure=useMemo(()=>{
+    return SEASONS.map(s=>{
+      if(!openSeason[s.key]) return {season:s,collapsed:true,cols:[]};
+      if(vista==="mensual"){
+        return {season:s,collapsed:false,cols:s.months.map(m=>({
+          type:"month",mes:m,idx:mIdx(m),nSems:1,
+          label:m,isFirstInSeason:s.months[0]===m
+        }))};
+      }
+      const cols=[];
+      s.months.forEach((m,mi)=>{
+        const sems=SEMANAS_MES[m]||[];
+        const nSems=sems.length||1;
+        const open=isMonthOpen(m);
+        if(!open){
+          cols.push({type:"month_collapsed",mes:m,idx:mIdx(m),nSems,label:m,
+            isFirstInSeason:mi===0,isMonthHeader:true});
+        } else {
+          sems.forEach((sw,si)=>{
+            cols.push({type:"week",mes:m,semana:sw,idx:mIdx(m),nSems,semIdx:si,
+              label:sw,isFirstInSeason:mi===0&&si===0,isFirstInMonth:si===0,
+              isLastInMonth:si===sems.length-1});
+          });
+          // Columna total mensual al final
+          cols.push({type:"month_total",mes:m,idx:mIdx(m),nSems,
+            label:`Σ ${m}`,isFirstInSeason:false,isMonthHeader:false,isTotalMes:true});
+        }
+      });
+      return {season:s,collapsed:false,cols};
+    });
+  },[openSeason,openMonth,vista,emp]); // eslint-disable-line
+
+  // ── helper: valor efectivo de una línea en una col ─────────────
+  function getValCol(line, col) {
+    const rawMes = getProy(line.label, col.idx);
+    if(col.type==="month_collapsed" || col.type==="month" || col.type==="month_total") {
+      return rawMes;
+    }
+    // semana: valor mensual / nSems
+    return rawMes / col.nSems;
+  }
+
+  function renderTabla() {
+    const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
+
+    return (
+      <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`}}>
+        <table style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
+          <thead>
+            {/* Fila 1: temporadas */}
+            <tr style={{background:C.bg}}>
+              <th style={{padding:"8px 14px",textAlign:"left",color:C.muted,fontSize:10,
+                position:"sticky",left:0,background:C.bg,zIndex:3,minWidth:210,
+                borderRight:`1px solid ${C.border}`}}>
+                Línea {canEdit&&<span style={{fontSize:8,color:C.accentL,marginLeft:4}}>✏️ editable</span>}
+              </th>
+              {colStructure.map(({season:s,collapsed,cols})=>{
+                const span=collapsed?1:Math.max(cols.length,1);
+                return (
+                  <th key={s.key} colSpan={span} onClick={()=>toggleSeason(s.key)}
+                    style={{padding:"7px 10px",textAlign:"center",
+                      background:!collapsed?C.card:C.bg,
+                      borderLeft:`2px solid ${C.border2}`,cursor:"pointer",
+                      fontSize:10,fontWeight:700,color:"#fff",whiteSpace:"nowrap"}}>
+                    {!collapsed?"▾":"▸"} {s.label}
+                  </th>
+                );
+              })}
+            </tr>
+            {/* Fila 2 (semanal): headers de mes */}
+            {vista==="semanal"&&(
+              <tr style={{background:C.bg2}}>
+                <th style={{position:"sticky",left:0,background:C.bg2,zIndex:3,borderRight:`1px solid ${C.border}`}}/>
+                {colStructure.map(({season:s,collapsed,cols})=>{
+                  if(collapsed) return <th key={s.key} style={{borderLeft:`2px solid ${C.border2}`,background:C.bg2}}/>;
+                  const byMes={};
+                  cols.forEach(col=>{
+                    if(!byMes[col.mes]) byMes[col.mes]={mes:col.mes,count:0,isFirstInSeason:col.isFirstInSeason};
+                    byMes[col.mes].count++;
+                  });
+                  return Object.values(byMes).map(({mes,count,isFirstInSeason})=>(
+                    <th key={`${s.key}-mh-${mes}`} colSpan={count}
+                      onClick={()=>toggleMonth(mes)}
+                      style={{padding:"4px 6px",textAlign:"center",
+                        background:isMonthOpen(mes)?C.card:C.bg,
+                        borderLeft:isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}44`,
+                        cursor:"pointer",fontSize:9,fontWeight:700,
+                        color:isMonthOpen(mes)?C.accentL:C.muted,whiteSpace:"nowrap"}}>
+                      {isMonthOpen(mes)?"▾":"▸"} {mes}
+                    </th>
+                  ));
+                })}
+              </tr>
+            )}
+            {/* Fila 3: semanas / meses */}
+            <tr style={{background:C.bg}}>
+              <th style={{position:"sticky",left:0,background:C.bg,zIndex:3,borderRight:`1px solid ${C.border}`}}/>
+              {colStructure.map(({season:s,collapsed,cols})=>{
+                if(collapsed) return (
+                  <th key={s.key} style={{padding:"4px 8px",color:C.muted,fontSize:9,
+                    borderLeft:`2px solid ${C.border2}`,textAlign:"center",background:C.bg}}>
+                    {s.months.length}m
+                  </th>
+                );
+                return cols.map((col,ci)=>{
+                  const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                  const isTot=col.isTotalMes;
+                  return (
+                    <th key={`${s.key}-${col.label}-${ci}`}
+                      style={{padding:"4px 6px",textAlign:"center",
+                        color:isTot?C.yellow:col.type==="month_collapsed"?C.accentL:C.muted,
+                        fontSize:isTot?8:col.type==="month_collapsed"?9:8,
+                        fontWeight:isTot?800:col.type==="month_collapsed"?700:500,
+                        whiteSpace:"nowrap",
+                        minWidth:isTot?70:vista==="semanal"?46:68,
+                        background:isTot?`${C.yellow}18`:C.bg,
+                        borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}55`:`1px solid ${C.border}11`,
+                        cursor:col.type==="month_collapsed"?"pointer":"default"}}
+                      onClick={col.type==="month_collapsed"?()=>toggleMonth(col.mes):undefined}>
+                      {col.type==="month_collapsed"?`▸ ${col.label}`:col.label}
+                    </th>
+                  );
+                });
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {/* FILA SALDO BANCO ──────────────────────────────────── */}
+            <tr style={{background:`${C.blue}18`,borderBottom:`2px solid ${C.border2}`}}>
+              <td style={{padding:"7px 14px",position:"sticky",left:0,
+                background:`${C.blue}18`,borderRight:`1px solid ${C.border}`,zIndex:1}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.blue}}>🏦 Saldo Banco (USD)</div>
+                <div style={{fontSize:9,color:C.muted}}>
+                  {saldoBancoUSD!=null
+                    ? `${mesHoyLabel} ${semanaHoy} · desde Saldos Bancos`
+                    : `sin saldo registrado`}
+                </div>
+              </td>
+              {colStructure.map(({season:s,collapsed,cols})=>{
+                if(collapsed) return (
+                  <td key={s.key} style={{padding:"7px 8px",textAlign:"right",
+                    fontSize:11,color:C.blue,borderLeft:`2px solid ${C.border2}`}}>
+                    {""}
+                  </td>
+                );
+                return cols.map((col,ci)=>{
+                  const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                  // Mostrar saldo solo en la semana actual (semanaHoy)
+                  // Vista mensual: mostrar en el mes que contiene la semana actual
+                  // Vista semanal: mostrar solo en la columna de la semana actual
+                  // Comparar mes exacto (incluyendo año) para no repetir en años futuros
+                  const esMesActual = col.type==="month" && col.mes===mesHoyLabel;
+                  const esSemActual = col.type==="week" && col.semana===semanaHoy && col.mes===mesHoyLabel;
+                  const esMesColapsado = col.type==="month_collapsed" && col.mes===mesHoyLabel;
+                  const mostrar = (vista==="mensual" && esMesActual) ||
+                                  (vista==="semanal" && (esSemActual||esMesColapsado));
+                  return (
+                    <td key={`banco-${col.mes}-${ci}`}
+                      style={{padding:"6px 5px",textAlign:"right",fontWeight:700,
+                        fontSize:9,color:C.blue,
+                        background:mostrar?`${C.blue}20`:`${C.blue}08`,
+                        borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                      {mostrar && saldoBancoUSD!=null ? $$(saldoBancoUSD) : ""}
+                    </td>
+                  );
+                });
+              })}
+            </tr>
+
+            {/* SECCIONES Y LÍNEAS ───────────────────────────────── */}
+            {emp.sections.map(sec=>(
+              <React.Fragment key={sec.cat}>
+                {/* Header sección */}
+                <tr style={{background:`${C.bg}cc`}}>
+                  <td style={{padding:"5px 14px",position:"sticky",left:0,
+                    background:C.bg,borderRight:`1px solid ${C.border}`,zIndex:1}}>
+                    <span style={{fontSize:10,fontWeight:700,color:CAT_COLOR[sec.cat]||C.muted,
+                      textTransform:"uppercase",letterSpacing:"0.5px"}}>
+                      {CAT_SIGNO[sec.cat]} {sec.label}
+                    </span>
+                  </td>
+                  {colStructure.map(({season:s,collapsed,cols})=>{
+                    const span=collapsed?1:Math.max(cols.length,1);
+                    return <td key={s.key} colSpan={span}
+                      style={{borderLeft:`2px solid ${C.border2}`,background:C.bg}}/>;
+                  })}
+                </tr>
+
+                {/* Líneas editables */}
+                {sec.lines.map(line=>{
+                  // Indented sub-lines (  Banco X) always visible — they show breakdown of Pago Préstamos
+                  return (
+                  <React.Fragment key={line.label}>
+                  <tr style={{borderBottom:`1px solid ${C.border}11`}}>
+                    <td style={{padding:"5px 14px",color:line.formula?C.yellow:C.text,fontSize:11,
+                      position:"sticky",left:0,background:C.card,zIndex:1,
+                      borderRight:`1px solid ${C.border}`,whiteSpace:"nowrap",
+                      maxWidth:240,overflow:"hidden",textOverflow:"ellipsis"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:3}}>
+                        {line.formula&&<span style={{fontSize:9}}>⚡</span>}
+                        {proyOverrides[line.label]&&<span style={{fontSize:8,color:C.accentL}} title="Editado">●</span>}
+                        {line.subLines&&(
+                          <button onClick={()=>setExpandedSubs(p=>({...p,[line.label]:!p[line.label]}))}
+                            style={{background:"none",border:"none",cursor:"pointer",padding:"0 1px",
+                              color:C.blue,fontSize:9,fontWeight:700,flexShrink:0}}>
+                            {expandedSubs[line.label]?"▼":"▶"}
+                          </button>
+                        )}
+                        <span style={{paddingLeft:line.label.startsWith("  ")?10:0}}>{line.label.trim()}</span>
+                      </div>
+                      {line.subLines&&expandedSubs[line.label]&&canEdit&&(
+                        <div style={{marginTop:3,paddingLeft:14}}>
+                          <button onClick={()=>{
+                            const isAportes=line.label==="Aportes de Capital";
+                            const isFin=line.label.includes("Financiamiento")||line.label.includes("Crédito")||line.label==="Capital Calls";
+                            const msg=isAportes?"Empresa que recibe el aporte:"
+                              :isFin?"Institución / detalle:"
+                              :line.label.includes("Cobrar")?"Nombre del cliente:":"Nombre del acreedor:";
+                            const n=prompt(msg);
+                            if(!n?.trim())return;
+                            const cur=subLines[line.label]||[];
+                            if(onSaveSubLines) onSaveSubLines(line.label,[...cur,{label:n.trim(),vals:{}}]);
+                          }} style={{fontSize:9,color:C.blue,background:"none",border:`1px dashed ${C.blue}44`,
+                            borderRadius:4,padding:"2px 8px",cursor:"pointer"}}>
+                            {line.label==="Aportes de Capital"?"+ agregar empresa"
+                             :line.label.includes("Financiamiento")||line.label.includes("Crédito")||line.label==="Capital Calls"?"+ agregar institución"
+                             :line.label.includes("Cobrar")?"+ agregar cliente":"+ agregar acreedor"}
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    {colStructure.map(({season:s,collapsed,cols})=>{
+                      if(collapsed){
+                        const total=s.indices.reduce((a,i)=>a+getProy(line.label,i),0);
+                        return (
+                          <td key={s.key} style={{padding:"5px 8px",textAlign:"right",
+                            color:total!==0?(sec.signo>0?C.green:C.red):C.muted2,
+                            fontSize:10,fontWeight:total!==0?600:400,
+                            borderLeft:`2px solid ${C.border2}`,background:C.card}}>
+                            {/* Total temporada para esta línea */}
+                            <div style={{fontSize:8,color:C.muted,marginBottom:1}}>Total T</div>
+                            {total!==0?$$(total):"—"}
+                          </td>
+                        );
+                      }
+                      return cols.map((col,ci)=>{
+                        const isTot=col.isTotalMes;
+                        const valMesProp=getProy(line.label,col.idx);
+                        // Si la línea tiene subLines, sumar los subLines al valor mostrado en el padre
+                        const sumSubMes = line.subLines && !line.label.includes("Préstamos")
+                          ? sumSubLinesMes(line.label, col.idx) : 0;
+                        const valMes = valMesProp + sumSubMes;
+                        // Show full monthly value: on monthly view always
+                        // For Pago Préstamos: use exact semana of vencimiento in weekly view
+                        let val;
+                        if(isTot||col.type==="month"||col.type==="month_collapsed"){
+                          val=valMes;
+                        } else if(line.formula&&line.label.includes("Préstamos")&&col.type==="week"){
+                          const semMap=calcPrestamosSemanasEmpresa(empNombre, creditosData);
+                          val=(semMap[col.mes]?.[col.semana])||0;
+                        } else if(col.type==="week") {
+                          // Cada semana tiene su propio valor independiente
+                          const propValSem = getProySemana(line.label, col.idx, col.semIdx, col.isLastInMonth);
+                          const subValSem = line.subLines && !line.label.includes("Préstamos")
+                            ? sumSubLinesSemana(line.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
+                          val = propValSem + subValSem;
+                        } else {
+                          val=col.isLastInMonth?valMes:0;
+                        }
+                        const real=vista==="mensual"?(realMensual[col.mes]?.[line.label]||null):null;
+                        const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                        // Permite editar líneas con fórmula SOLO si el mes pertenece a la temporada actual 2025-2026
+                        const esTemporadaActual = SEASONS[0]?.indices?.includes(col.idx);
+                        const formulaBloquea = line.formula && !esTemporadaActual;
+                        const isEditable=canEdit && !formulaBloquea && !isTot && col.type!=="month_collapsed";
+                        return (
+                          <td key={`${col.mes}-${col.label}-${line.label}-${ci}`}
+                            style={{padding:"4px 5px",textAlign:"right",fontSize:9,
+                              background:isTot?`${C.yellow}12`:C.card,
+                              borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                            {isTot ? (
+                              // Columna total mes: siempre solo muestra, no edita
+                              <span style={{color:val!==0?(sec.signo>0?C.green:C.red):C.muted2,
+                                fontWeight:val!==0?700:400,fontSize:9}}>
+                                {val!==0?$$(val):"—"}
+                              </span>
+                            ) : col.type==="month_collapsed" ? (
+                              <CeldaEditable
+                                val={val}
+                                color={sec.signo>0?C.green:C.red}
+                                canEdit={canEdit && !formulaBloquea}
+                                real={real}
+                                onSave={v=>handleEditProy(line.label,col.idx,v)}
+                              />
+                            ) : (
+                              <CeldaEditable
+                                val={val}
+                                color={sec.signo>0?C.green:C.red}
+                                canEdit={isEditable}
+                                real={real}
+                                onSave={v=>{
+                                  // Guardar valor para esa semana específica (no se prorratea, no se distribuye)
+                                  handleEditProy(line.label, col.idx, v, col.semIdx);
+                                }}
+                              />
+                            )}
+                          </td>
+                        );
+                      });
+                    })}
+                  </tr>
+                  {/* SubLines: clientes/acreedores con montos por mes */}
+                  {/* For Pago Préstamos: auto-generate rows from calcPrestamosDesglose */}
+                  {line.subLines&&expandedSubs[line.label]&&line.label.includes("Préstamos")&&(()=>{
+                    const desglose      = calcPrestamosDesglose(empNombre, creditosData);
+                    const desgloseSemsn = calcPrestamosDesgloseSemanasEmpresa(empNombre, creditosData);
+                    return Object.entries(desglose).map(([acreedor, proyArr])=>{
+                      const semMap = desgloseSemsn[acreedor]||{};
+                      return (
+                      <tr key={`prest-${acreedor}`} style={{borderBottom:`1px solid ${C.border}11`,background:`${C.red}06`}}>
+                        <td style={{padding:"4px 14px 4px 28px",fontSize:10,position:"sticky",left:0,
+                          background:`${C.red}06`,zIndex:1,borderRight:`1px solid ${C.border}`,color:C.muted}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{color:C.red,fontSize:9}}>↳</span>
+                            <span style={{fontWeight:600}}>{acreedor}</span>
+                          </div>
+                        </td>
+                        {colStructure.map(({season:s,collapsed,cols})=>{
+                          if(collapsed){
+                            const tot=s.indices.reduce((a,i)=>a+(proyArr[i]||0),0);
+                            return <td key={s.key} style={{padding:"4px 6px",textAlign:"right",fontSize:9,
+                              color:tot?C.red:C.muted2,fontWeight:tot?700:400,
+                              borderLeft:`2px solid ${C.border2}`}}>{tot?$$(tot):"—"}</td>;
+                          }
+                          return cols.map((col,ci)=>{
+                            const isTot=col.isTotalMes;
+                            // Vista mensual: usar proy mensual
+                            // Vista semanal: usar semana exacta de vencimiento
+                            let disp=0;
+                            if(isTot||col.type==="month"||col.type==="month_collapsed"){
+                              disp=proyArr[col.idx]||0;
+                            } else if(col.type==="week"&&col.mes&&col.semana){
+                              disp=(semMap[col.mes]?.[col.semana])||0;
+                            }
+                            const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                            return (
+                              <td key={`pr-${acreedor}-${col.mes||""}-${ci}`}
+                                style={{padding:"4px 5px",textAlign:"right",fontSize:9,
+                                  background:isTot?`${C.yellow}12`:`${C.red}06`,
+                                  borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                                <span style={{color:disp?C.red:C.muted2,fontWeight:disp?700:400}}>
+                                  {disp?$$(disp):"—"}
+                                </span>
+                              </td>
+                            );
+                          });
+                        })}
+                      </tr>
+                      );
+                    });
+                  })()}
+                  {/* Renovaciones sub-rows */}
+                  {line.subLines&&expandedSubs[line.label]&&line.label==="Renovaciones"&&(()=>{
+                    const desgloseRen = calcRenovacionesDesglose(empNombre, creditosData);
+                    return Object.entries(desgloseRen).map(([acreedor, proyArr])=>(
+                      <tr key={`ren-${acreedor}`} style={{borderBottom:`1px solid ${C.border}11`,background:`${C.orange}06`}}>
+                        <td style={{padding:"4px 14px 4px 28px",fontSize:10,position:"sticky",left:0,
+                          background:`${C.orange}06`,zIndex:1,borderRight:`1px solid ${C.border}`,color:C.muted}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{color:C.orange,fontSize:9}}>↺</span>
+                            <span style={{fontWeight:600}}>{acreedor}</span>
+                          </div>
+                        </td>
+                        {colStructure.map(({season:s,collapsed,cols})=>{
+                          if(collapsed){
+                            const tot=s.indices.reduce((a,i)=>a+(proyArr[i]||0),0);
+                            return <td key={s.key} style={{padding:"4px 6px",textAlign:"right",fontSize:9,
+                              color:tot?C.orange:C.muted2,fontWeight:tot?700:400,
+                              borderLeft:`2px solid ${C.border2}`}}>{tot?$$(tot):"—"}</td>;
+                          }
+                          return cols.map((col,ci)=>{
+                            const raw=proyArr[col.idx]||0;
+                            const disp=col.isTotalMes||col.type==="month"||col.type==="month_collapsed"||col.isLastInMonth?raw:0;
+                            const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                            return (
+                              <td key={`ren-${acreedor}-${col.mes||""}-${ci}`}
+                                style={{padding:"4px 5px",textAlign:"right",fontSize:9,
+                                  background:col.isTotalMes?`${C.yellow}12`:`${C.orange}06`,
+                                  borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                                <span style={{color:disp?C.orange:C.muted2,fontWeight:disp?700:400}}>
+                                  {disp?$$(disp):"—"}
+                                </span>
+                              </td>
+                            );
+                          });
+                        })}
+                      </tr>
+                    ));
+                  })()}
+                  {/* Ingreso Renovación sub-rows */}
+                  {line.subLines&&expandedSubs[line.label]&&line.label==="Ingreso Renovación"&&(()=>{
+                    const desgloseIng = calcIngresoRenovacionDesglose(empNombre, creditosData);
+                    return Object.entries(desgloseIng).map(([acreedor, proyArr])=>(
+                      <tr key={`ingr-${acreedor}`} style={{borderBottom:`1px solid ${C.border}11`,background:`${C.blue}06`}}>
+                        <td style={{padding:"4px 14px 4px 28px",fontSize:10,position:"sticky",left:0,
+                          background:`${C.blue}06`,zIndex:1,borderRight:`1px solid ${C.border}`,color:C.muted}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{color:C.blue,fontSize:9}}>↺</span>
+                            <span style={{fontWeight:600}}>{acreedor}</span>
+                          </div>
+                        </td>
+                        {colStructure.map(({season:s,collapsed,cols})=>{
+                          if(collapsed){
+                            const tot=s.indices.reduce((a,i)=>a+(proyArr[i]||0),0);
+                            return <td key={s.key} style={{padding:"4px 6px",textAlign:"right",fontSize:9,
+                              color:tot?C.blue:C.muted2,fontWeight:tot?700:400,
+                              borderLeft:`2px solid ${C.border2}`}}>{tot?$$(tot):"—"}</td>;
+                          }
+                          return cols.map((col,ci)=>{
+                            const raw=proyArr[col.idx]||0;
+                            const disp=col.isTotalMes||col.type==="month"||col.type==="month_collapsed"||col.isLastInMonth?raw:0;
+                            const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                            return (
+                              <td key={`ingr-${acreedor}-${col.mes||""}-${ci}`}
+                                style={{padding:"4px 5px",textAlign:"right",fontSize:9,
+                                  background:col.isTotalMes?`${C.yellow}12`:`${C.blue}06`,
+                                  borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                                <span style={{color:disp?C.blue:C.muted2,fontWeight:disp?700:400}}>
+                                  {disp?$$(disp):"—"}
+                                </span>
+                              </td>
+                            );
+                          });
+                        })}
+                      </tr>
+                    ));
+                  })()}
+                  {/* For CxC/Capital Calls: use saved subLines from Supabase */}
+                  {line.subLines&&expandedSubs[line.label]&&!line.label.includes("Préstamos")&&(subLines[line.label]||[]).map((sl,sli)=>{
+                    const slLabel=typeof sl==="string"?sl:sl.label;
+                    const slVals =typeof sl==="string"?{}:(sl.vals||{});
+                    // Guarda un valor semanal: la clave es "idx_semIdx" (ej: "2_0") o "idx" para mensual antiguo
+                    const updSlVal=(idx,v,semIdx)=>{
+                      const key = semIdx != null ? `${idx}_${semIdx}` : String(idx);
+                      const arr=(subLines[line.label]||[]).map((x,xi)=>xi===sli?{label:slLabel,vals:{...slVals,[key]:v}}:x);
+                      if(onSaveSubLines) onSaveSubLines(line.label,arr);
+                    };
+                    // Helper: obtener valor de un subLine para (idx, semIdx)
+                    const getSlVal = (idx, semIdx) => {
+                      const keySem = `${idx}_${semIdx}`;
+                      if(slVals[keySem] !== undefined) return Number(slVals[keySem])||0;
+                      return 0;
+                    };
+                    // Helper: valor total del mes (suma todas las semanas + key mensual antiguo)
+                    const getSlValMes = (idx) => {
+                      let total = 0;
+                      let hasSem = false;
+                      for(let s=0; s<4; s++){
+                        const k = `${idx}_${s}`;
+                        if(slVals[k] !== undefined) {
+                          total += Number(slVals[k])||0;
+                          hasSem = true;
+                        }
+                      }
+                      // Retrocompatibilidad: si hay valor mensual antiguo sin semanas, usarlo
+                      if(!hasSem && slVals[idx] !== undefined) return Number(slVals[idx])||0;
+                      return total;
+                    };
+                    return (
+                      <tr key={`sl-${line.label}-${sli}`} style={{borderBottom:`1px solid ${C.border}11`,background:`${C.blue}06`}}>
+                        <td style={{padding:"4px 14px 4px 28px",fontSize:10,position:"sticky",left:0,
+                          background:`${C.blue}06`,zIndex:1,borderRight:`1px solid ${C.border}`,color:C.muted}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{color:C.blue}}>↳</span><span>{slLabel}</span>
+                            {canEdit&&<button onClick={()=>{
+                              if(onSaveSubLines) onSaveSubLines(line.label,(subLines[line.label]||[]).filter((_,j)=>j!==sli));
+                            }} style={{marginLeft:4,background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10}}>×</button>}
+                          </div>
+                        </td>
+                        {colStructure.map(({season:s,collapsed,cols})=>{
+                          if(collapsed){
+                            const tot=s.indices.reduce((a,i)=>a+getSlValMes(i),0);
+                            return <td key={s.key} style={{padding:"4px 6px",textAlign:"right",fontSize:9,
+                              color:tot?C.blue:C.muted2,borderLeft:`2px solid ${C.border2}`}}>{tot?$$(tot):"—"}</td>;
+                          }
+                          return cols.map((col,ci)=>{
+                            const isTot=col.isTotalMes;
+                            // Valor a mostrar
+                            let disp;
+                            if(isTot) {
+                              disp = getSlValMes(col.idx);
+                            } else if(col.type==="month_collapsed" || col.type==="month") {
+                              disp = getSlValMes(col.idx);
+                            } else if(col.type==="week") {
+                              // Valor específico de la semana
+                              disp = getSlVal(col.idx, col.semIdx);
+                            } else {
+                              disp = 0;
+                            }
+                            const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                            return (
+                              <td key={`sl-${sli}-${col.mes||""}-${ci}`}
+                                style={{padding:"4px 5px",textAlign:"right",fontSize:9,
+                                  background:isTot?`${C.yellow}12`:`${C.blue}06`,
+                                  borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                                {isTot
+                                  ? <span style={{color:disp?C.blue:C.muted2,fontWeight:disp?700:400}}>{disp?$$(disp):"—"}</span>
+                                  : <CeldaEditable val={disp} color={C.blue}
+                                      canEdit={canEdit&&col.type!=="month_collapsed"}
+                                      onSave={v=>{
+                                        // Guardar tal cual, sin multiplicar
+                                        if(col.type==="week") updSlVal(col.idx, v, col.semIdx);
+                                        else updSlVal(col.idx, v);
+                                      }}/>
+                                }
+                              </td>
+                            );
+                          });
+                        })}
+                      </tr>
+                    );
+                  })}
+                  </React.Fragment>
+                  );
+                })}
+
+                {/* Filas agregadas por el usuario en esta sección */}
+                {(addedLines[sec.cat]||[]).map((al,ali)=>{
+                  const alLabel = typeof al==="string" ? al : al.label;
+                  const alVals  = typeof al==="string" ? {} : (al.vals||{});
+                  const updAlVal=(idx,v)=>setAddedLines(p=>{
+                    const arr=[...(p[sec.cat]||[])];
+                    arr[ali]={label:alLabel,vals:{...alVals,[idx]:v}};
+                    return {...p,[sec.cat]:arr};
+                  });
+                  return (
+                  <tr key={`al-${sec.cat}-${ali}`} style={{borderBottom:`1px solid ${C.border}11`,background:C.card}}>
+                    <td style={{padding:"5px 14px",fontSize:11,position:"sticky",left:0,background:C.card,zIndex:1,
+                      borderRight:`1px solid ${C.border}`,whiteSpace:"nowrap",
+                      maxWidth:240,overflow:"hidden",textOverflow:"ellipsis"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:3,color:C.text}}>
+                        {canEdit&&<button onClick={()=>setAddedLines(p=>({...p,[sec.cat]:(p[sec.cat]||[]).filter((_,i)=>i!==ali)}))}
+                          style={{background:"none",border:"none",color:"#ef444488",cursor:"pointer",fontSize:10,
+                            padding:0,flexShrink:0}}>×</button>}
+                        <span>{alLabel}</span>
+                      </div>
+                    </td>
+                    {colStructure.map(({season:s,collapsed,cols})=>{
+                      if(collapsed){
+                        const tot=s.indices.reduce((a,i)=>a+(Number(alVals[i])||0),0);
+                        return <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontSize:9,
+                          color:tot?CAT_COLOR[sec.cat]:C.muted2,fontWeight:tot?600:400,
+                          borderLeft:`2px solid ${C.border2}`}}>{tot?$$(tot):"—"}</td>;
+                      }
+                      return cols.map((col,ci)=>{
+                        const isTot=col.isTotalMes;
+                        const rawVal=Number(alVals[col.idx])||0;
+                        const disp=isTot?rawVal:(col.type==="month"||col.type==="month_collapsed"||col.isLastInMonth?rawVal:0);
+                        const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                        return (
+                          <td key={`al-${ali}-${col.mes||""}-${ci}`}
+                            style={{padding:"4px 5px",textAlign:"right",fontSize:9,
+                              background:isTot?`${C.yellow}12`:C.card,
+                              borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                            {isTot?(
+                              <span style={{color:disp?(sec.signo>0?C.green:C.red):C.muted2,fontWeight:disp?700:400}}>
+                                {disp?$$(disp):"—"}
+                              </span>
+                            ):(
+                              <CeldaEditable val={disp} color={sec.signo>0?C.green:C.red}
+                                canEdit={canEdit&&col.type!=="month_collapsed"}
+                                onSave={v=>updAlVal(col.idx, col.type==="month_collapsed"?v:v*(col.nSems||1))}/>
+                            )}
+                          </td>
+                        );
+                      });
+                    })}
+                  </tr>
+                  );
+                })}
+                {/* Botón + agregar concepto */}
+                {canEdit&&(
+                  <tr>
+                    <td colSpan={999} style={{padding:"2px 14px",position:"sticky",left:0,zIndex:1}}>
+                      <button onClick={()=>{
+                        const nombre=prompt(`Nueva línea en "${sec.label}":`);
+                        if(!nombre?.trim())return;
+                        setAddedLines(p=>({...p,[sec.cat]:[...(p[sec.cat]||[]),{label:nombre.trim(),vals:{}}]}));
+                      }} style={{fontSize:9,color:CAT_COLOR[sec.cat]||C.muted,background:"none",
+                        border:`1px dashed ${CAT_COLOR[sec.cat]||C.border}44`,
+                        borderRadius:4,padding:"2px 10px",cursor:"pointer"}}>
+                        + agregar concepto
+                      </button>
+                    </td>
+                  </tr>
+                )}
+                {/* Subtotal sección */}
+                <tr style={{background:C.bg2}}>
+                  <td style={{padding:"5px 14px",fontWeight:700,color:CAT_COLOR[sec.cat],fontSize:10,
+                    position:"sticky",left:0,background:C.bg2,borderRight:`1px solid ${C.border}`,zIndex:1}}>
+                    Σ {sec.label}
+                  </td>
+                  {colStructure.map(({season:s,collapsed,cols})=>{
+                    if(collapsed){
+                      const total=s.indices.reduce((a,i)=>{
+                        const linTot = sec.lines.reduce((b,l)=>{
+                          if(l.label.startsWith("  ")) return b;
+                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
+                          return b + getProy(l.label,i) + subSum;
+                        },0);
+                        const addSum = (addedLines[sec.cat]||[]).reduce((b,al)=>b+(Number(typeof al==="string"?0:(al.vals||{})[i])||0),0);
+                        return a + linTot + addSum;
+                      },0);
+                      return (
+                        <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontWeight:800,
+                          color:CAT_COLOR[sec.cat],fontSize:10,borderLeft:`2px solid ${C.border2}`,background:C.bg2}}>
+                          <div style={{fontSize:8,color:C.muted,marginBottom:1}}>Total T</div>
+                          {total!==0?$$(total):"—"}
+                        </td>
+                      );
+                    }
+                    return cols.map((col,ci)=>{
+                      const isTot=col.isTotalMes;
+                      // Vista semanal: subtotal suma los valores semanales reales
+                      // Vista mensual o Σ mes: suma todos los valores del mes
+                      let baseTotal = 0, addedTotal = 0;
+                      if(isTot || col.type==="month" || col.type==="month_collapsed") {
+                        // Columna total mes: suma mensual completa (línea padre + sus subLines)
+                        baseTotal = sec.lines.reduce((a,l)=>{
+                          if(l.label.startsWith("  ")) return a;
+                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
+                          return a + getProy(l.label,col.idx) + subSum;
+                        },0);
+                        addedTotal = (addedLines[sec.cat]||[]).reduce((a,al)=>{
+                          const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
+                          return a+v;
+                        },0);
+                      } else if(col.type==="week") {
+                        // Columna de semana: suma los valores semanales de cada línea + subLines de esa semana
+                        baseTotal = sec.lines.reduce((a,l)=>{
+                          if(l.label.startsWith("  ")) return a;
+                          const propSem = getProySemana(l.label, col.idx, col.semIdx, col.isLastInMonth);
+                          const subSem = l.subLines && !l.label.includes("Préstamos")
+                            ? sumSubLinesSemana(l.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
+                          return a + propSem + subSem;
+                        }, 0);
+                        // addedLines son mensuales, mostrar solo en primera semana
+                        addedTotal = col.semIdx === 0 ?
+                          (addedLines[sec.cat]||[]).reduce((a,al)=>{
+                            const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
+                            return a+v;
+                          },0) : 0;
+                      }
+                      const total=baseTotal+addedTotal;
+                      const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                      return (
+                        <td key={`sub-${col.mes}-${col.label}-${ci}`}
+                          style={{padding:"4px 5px",textAlign:"right",fontWeight:isTot?800:700,
+                            color:CAT_COLOR[sec.cat],fontSize:isTot?10:9,
+                            background:isTot?`${C.yellow}18`:C.bg2,
+                            borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                          {total!==0?$$(total):"—"}
+                        </td>
+                      );
+                    });
+                  })}
+                </tr>
+
+                {/* SALDO CAJA OPERACIONAL — después del subtotal de egr_fijo */}
+                {sec.cat === "egr_fijo" && (() => {
+                  // Suma de una sección específica en un mes (getProy + subLines)
+                  const sumSeccionMes = (catBuscar, idx) => {
+                    const s = emp.sections.find(x=>x.cat===catBuscar);
+                    if(!s) return 0;
+                    let total = 0;
+                    s.lines.forEach(l=>{
+                      if(l.label.startsWith("  ")) return;
+                      total += getProy(l.label, idx);
+                      if(l.subLines && !l.label.includes("Préstamos")) {
+                        total += sumSubLinesMes(l.label, idx);
+                      }
+                    });
+                    (addedLines[s.cat]||[]).forEach(al=>{
+                      const v = Number(typeof al==="string" ? 0 : (al.vals||{})[idx]) || 0;
+                      total += v;
+                    });
+                    return total * s.signo;
+                  };
+                  const sumSeccionSemana = (catBuscar, idx, semIdx, isLastInMonth) => {
+                    const s = emp.sections.find(x=>x.cat===catBuscar);
+                    if(!s) return 0;
+                    let total = 0;
+                    s.lines.forEach(l=>{
+                      if(l.label.startsWith("  ")) return;
+                      total += getProySemana(l.label, idx, semIdx, isLastInMonth);
+                      if(l.subLines && !l.label.includes("Préstamos")) {
+                        total += sumSubLinesSemana(l.label, idx, semIdx, isLastInMonth);
+                      }
+                    });
+                    // addedLines son mensuales: mostrar solo en primera semana
+                    if(semIdx === 0) {
+                      (addedLines[s.cat]||[]).forEach(al=>{
+                        const v = Number(typeof al==="string" ? 0 : (al.vals||{})[idx]) || 0;
+                        total += v;
+                      });
+                    }
+                    return total * s.signo;
+                  };
+                  // Cálculo para un período: Saldo Caja + Ingresos Op + Egresos Op (var + fijo)
+                  // Usamos saldoBancoUSD como saldo caja inicial
+                  const saldoCaja = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
+                  return (
+                    <tr style={{background:`${C.teal}11`, borderTop:`1px solid ${C.teal}44`, borderBottom:`1px solid ${C.teal}44`}}>
+                      <td style={{padding:"6px 14px",fontWeight:800,color:C.teal,fontSize:11,
+                        position:"sticky",left:0,background:`${C.teal}11`,borderRight:`1px solid ${C.border}`,zIndex:1}}>
+                        💰 Saldo Caja Operacional
+                      </td>
+                      {colStructure.map(({season:s,collapsed,cols})=>{
+                        if(collapsed){
+                          const acumFlujoOp = s.indices.reduce((a,i)=>
+                            a + sumSeccionMes("ing_op", i) + sumSeccionMes("egr_var", i) + sumSeccionMes("egr_fijo", i), 0);
+                          const saldoOp = saldoCaja + acumFlujoOp;
+                          return (
+                            <td key={s.key} style={{padding:"6px 8px",textAlign:"right",fontWeight:800,
+                              fontSize:10,color:cf(saldoOp),borderLeft:`2px solid ${C.border2}`,background:`${C.teal}11`}}>
+                              <div style={{fontSize:8,color:C.muted,marginBottom:1}}>Total T</div>
+                              {$$(saldoOp)}
+                            </td>
+                          );
+                        }
+                        return cols.map((col,ci)=>{
+                          const isTot = col.isTotalMes;
+                          let flujoOp = 0;
+                          if(isTot || col.type==="month" || col.type==="month_collapsed") {
+                            flujoOp = sumSeccionMes("ing_op", col.idx) + sumSeccionMes("egr_var", col.idx) + sumSeccionMes("egr_fijo", col.idx);
+                          } else if(col.type==="week") {
+                            flujoOp = sumSeccionSemana("ing_op", col.idx, col.semIdx, col.isLastInMonth)
+                                    + sumSeccionSemana("egr_var", col.idx, col.semIdx, col.isLastInMonth)
+                                    + sumSeccionSemana("egr_fijo", col.idx, col.semIdx, col.isLastInMonth);
+                          }
+                          // Saldo operacional = saldo inicial + flujo operacional acumulado hasta ese punto
+                          // Mostramos el valor del período (no acumulado) para que sea consistente con la estructura
+                          const saldoOp = saldoCaja + flujoOp;
+                          const isFirst = col.isFirstInSeason || col.isFirstInMonth;
+                          return (
+                            <td key={`sco-${col.mes}-${col.label}-${ci}`}
+                              style={{padding:"5px 5px",textAlign:"right",fontWeight:isTot?900:800,
+                                fontSize:isTot?10:9,color:cf(saldoOp),
+                                background:isTot?`${C.yellow}18`:`${C.teal}11`,
+                                borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                              {$$(saldoOp)}
+                            </td>
+                          );
+                        });
+                      })}
+                    </tr>
+                  );
+                })()}
+              </React.Fragment>
+            ))}
+
+            {/* FLUJO NETO ──────────────────────────────────────── */}
+            <tr style={{background:`${C.accent}18`,borderTop:`2px solid ${C.border2}`}}>
+              <td style={{padding:"7px 14px",fontWeight:800,color:C.accentL,fontSize:11,
+                position:"sticky",left:0,background:C.card,borderRight:`1px solid ${C.border}`,zIndex:1}}>
+                FLUJO NETO
+              </td>
+              {colStructure.map(({season:s,collapsed,cols})=>{
+                if(collapsed){
+                  const total=s.indices.reduce((a,i)=>a+flujoArr[i],0);
+                  return (
+                    <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,
+                      fontSize:11,color:cf(total),borderLeft:`2px solid ${C.border2}`}}>
+                      <div style={{fontSize:8,color:C.muted,marginBottom:1}}>Total T</div>
+                      {$$(total)}
+                    </td>
+                  );
+                }
+                return cols.map((col,ci)=>{
+                  const isTot=col.isTotalMes;
+                  const nSems=col.type==="month_collapsed"||isTot?1:col.nSems;
+                  const val=flujoArr[col.idx]/nSems;
+                  const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                  return (
+                    <td key={`flujo-${col.mes}-${col.label}-${ci}`}
+                      style={{padding:"6px 5px",textAlign:"right",fontWeight:isTot?900:800,
+                        fontSize:isTot?10:9,color:cf(val),
+                        background:isTot?`${C.yellow}18`:"transparent",
+                        borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                      {$$(val)}
+                    </td>
+                  );
+                });
+              })}
+            </tr>
+
+            {/* SALDO ACUMULADO ─────────────────────────────────── */}
+            <tr style={{background:`${C.blue}11`}}>
+              <td style={{padding:"7px 14px",fontWeight:800,color:C.blue,fontSize:11,
+                position:"sticky",left:0,background:C.card,borderRight:`1px solid ${C.border}`,zIndex:1}}>
+                SALDO ACUM.
+              </td>
+              {colStructure.map(({season:s,collapsed,cols})=>{
+                if(collapsed){
+                  const last=s.indices[s.indices.length-1];
+                  return (
+                    <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,
+                      fontSize:11,color:cf(acumArr[last]),borderLeft:`2px solid ${C.border2}`}}>
+                      <div style={{fontSize:8,color:C.muted,marginBottom:1}}>Fin T</div>
+                      {$$(acumArr[last])}
+                    </td>
+                  );
+                }
+                return cols.map((col,ci)=>{
+                  const isTot=col.isTotalMes;
+                  const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                  return (
+                    <td key={`acum-${col.mes}-${col.label}-${ci}`}
+                      style={{padding:"6px 5px",textAlign:"right",fontWeight:isTot?900:700,
+                        fontSize:isTot?10:9,color:cf(acumArr[col.idx]),
+                        background:isTot?`${C.yellow}18`:"transparent",
+                        borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
+                      {$$(acumArr[col.idx])}
+                    </td>
+                  );
+                });
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {/* Header empresa */}
+      <div style={{background:`${emp.color}15`,border:`1px solid ${emp.color}44`,borderRadius:12,
+        padding:"14px 18px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+        <span style={{fontSize:28}}>{emp.emoji}</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:900,color:C.text}}>{empNombre}</div>
+          <div style={{fontSize:11,color:C.muted}}>{emp.desc}</div>
+          {emp.hasFormula&&<div style={{fontSize:10,color:C.yellow,marginTop:2}}>⚡ Calculado desde Parámetros</div>}
+        </div>
+        <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+          {[
+            {l:"Saldo Banco USD", v:saldoBancoUSD!=null?saldoBancoUSD:emp.saldo_ini, c:C.blue,
+              sub:saldoBancoUSD!=null?"desde Saldos Bancos":"saldo base"},
+            {l:"Flujo total",     v:flujoArr.reduce((a,b)=>a+b,0), c:cf(flujoArr.reduce((a,b)=>a+b,0))},
+            {l:"Saldo Jun-31",   v:acumArr[acumArr.length-1], c:cf(acumArr[acumArr.length-1])},
+          ].map(k=>(
+            <div key={k.l} style={{textAlign:"right"}}>
+              <div style={{fontSize:9,color:C.muted,textTransform:"uppercase"}}>{k.l}</div>
+              {k.sub&&<div style={{fontSize:8,color:C.muted2}}>{k.sub}</div>}
+              <div style={{fontSize:13,fontWeight:800,color:k.c}}>{$$(k.v)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Controles */}
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <Btn active={vista==="mensual"} onClick={()=>setVista("mensual")} color={emp.color}>📅 Mensual</Btn>
+        <Btn active={vista==="semanal"} onClick={()=>setVista("semanal")} color={emp.color}>📊 Semanal</Btn>
+        <div style={{marginLeft:8,display:"flex",gap:5,flexWrap:"wrap"}}>
+          <span style={{fontSize:10,color:C.muted,alignSelf:"center"}}>Temporadas:</span>
+          {SEASONS.map(s=>(
+            <Btn key={s.key} small active={!!openSeason[s.key]} onClick={()=>toggleSeason(s.key)} color={C.muted}>
+              {openSeason[s.key]?"▾":"▸"} T{s.sy}
+            </Btn>
+          ))}
+        </div>
+        {canEdit&&(
+          <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+            {Object.keys(proyOverrides).length>0&&(
+              <button onClick={()=>{
+                  setProyOverrides({});
+                  if(onSaveProy) onSaveProy(empNombre,"_clear_all",0,0);
+                }}
+                style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${C.red}`,
+                  background:`${C.red}18`,color:C.red,cursor:"pointer",fontSize:11,fontWeight:600}}>
+                ↺ Restablecer proyección
+              </button>
+            )}
+            <button onClick={()=>setShowReal(v=>!v)}
+              style={{padding:"6px 14px",borderRadius:8,
+                border:`1px solid ${showReal?emp.color:C.border}`,
+                background:showReal?`${emp.color}22`:"transparent",
+                color:showReal?emp.color:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>
+              ✏️ Ingresar Real
+            </button>
+          </div>
+        )}
+      </div>
+
+      {canEdit&&(
+        <div style={{background:`${C.accentL}15`,border:`1px solid ${C.accentL}33`,borderRadius:8,
+          padding:"7px 14px",fontSize:11,color:C.accentL}}>
+          💡 Haz click en cualquier valor proyectado para editarlo. Los cambios se guardan automáticamente.
+          {Object.keys(proyOverrides).length>0&&
+            <span style={{marginLeft:8,color:C.yellow}}>● {Object.keys(proyOverrides).length} línea(s) con valores modificados</span>}
+        </div>
+      )}
+
+      {renderTabla()}
+
+      {/* Panel ingreso real */}
+      {showReal&&canEdit&&(
+        <Card>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <SectionTitle>Datos reales por semana</SectionTitle>
+            <button onClick={()=>setShowReal(false)}
+              style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:16}}>×</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {SEASONS.flatMap(s=>s.months).map(mes=>{
+              const sd=realData?.[empNombre]?.[mes]||{};
+              return (
+                <div key={mes} style={{background:C.card2,borderRadius:8,padding:"10px 14px"}}>
+                  <div style={{fontWeight:700,fontSize:12,color:C.text,marginBottom:8}}>{mes}</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {(SEMANAS_MES[mes]||["S-única"]).map(sem=>{
+                      const has=sd[sem]&&Object.keys(sd[sem]).length>0;
+                      return (
+                        <button key={sem} onClick={()=>setModalSem({mes,semana:sem})}
+                          style={{padding:"5px 12px",borderRadius:8,cursor:"pointer",fontSize:11,
+                            fontWeight:has?700:400,
+                            border:`1px solid ${has?emp.color:C.border}`,
+                            background:has?`${emp.color}22`:"transparent",
+                            color:has?emp.color:C.muted}}>
+                          {sem}{has&&" ✓"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <SectionTitle>Saldo Acumulado — Mar-26 → Jun-31</SectionTitle>
+        <LineChart months={MESES_65} values={acumArr} color={emp.color}/>
+      </Card>
+
+      {modalSem&&(
+        <ModalIngreso
+          emp={emp}
+          empNombre={empNombre}
+          mes={modalSem.mes}
+          semana={modalSem.semana}
+          existing={realData?.[empNombre]?.[modalSem.mes]?.[modalSem.semana]}
+          onSave={onSaveReal}
+          onClose={()=>setModalSem(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════════
+function Dashboard({empresas, saldosBancos}) {
+  const gmAcum=useMemo(()=>{
+    let acc=Object.values(empresas).reduce((s,e)=>s+e.saldo_ini,0);
+    return MESES_65.map((_,i)=>{let f=0;Object.values(empresas).forEach(e=>e.sections.forEach(sec=>sec.lines.forEach(l=>{f+=(l.proy[i]||0)*sec.signo;})));acc+=f;return acc;});
+  },[empresas]);
+  const EMPRESAS_CHILE = ["Mediterra","Allegria Foods","Allegria Service","Frisku Foods","Allpa Farms","Osiris","Integrity Farms"];
+  const EMPRESAS_PERU  = ["Allpa Farms Perú","Frisku Peru"];
+  const HOY_DASH = new Date();
+  function saldoDeEmpresas(empList) {
+    if(!saldosBancos) return 0;
+    let total = 0;
+    empList.forEach(empNombre=>{
+      const porCuenta = {};
+      Object.entries(saldosBancos).forEach(([key,rec])=>{
+        const parts = key.split("||");
+        if(parts[0]!==empNombre||!rec?.monto||!rec?.fecha) return;
+        const f = new Date(rec.fecha);
+        if(f>HOY_DASH) return;
+        const cuentaKey=`${parts[1]}||${parts[2]||rec.moneda||"usd"}`;
+        if(!porCuenta[cuentaKey]||new Date(porCuenta[cuentaKey].fecha)<f) porCuenta[cuentaKey]=rec;
+      });
+      Object.values(porCuenta).forEach(rec=>{
+        const moneda = rec.moneda||"usd";
+        if(moneda==="usd") total+=Number(rec.monto)||0;
+        else if(rec.usd!=null) total+=Number(rec.usd)||0;
+      });
+    });
+    return total;
+  }
+  const saldoCajaChile = saldoDeEmpresas(EMPRESAS_CHILE);
+  const saldoCajaPerU  = saldoDeEmpresas(EMPRESAS_PERU);
+  const empTotals=Object.entries(empresas).map(([n,e])=>({n,totalIng:e.sections.filter(s=>s.signo>0).flatMap(s=>s.lines).reduce((a,l)=>a+l.proy.reduce((b,v)=>b+v,0),0)})).filter(e=>e.totalIng>0).sort((a,b)=>b.totalIng-a.totalIng);
+  const maxIng=empTotals[0]?.totalIng||1;
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>
+        <KPI label={`🇨🇱 Saldo Banco Chile`}  value={$$(saldoCajaChile)}  color={C.green}/>
+        <KPI label={`🇵🇪 Saldo Banco Perú`}   value={$$(saldoCajaPerU)}   color={"#7c3aed"}/>
+        <KPI label="Créditos Totales Q1-26" value={$$(8355763)}                 color={C.red}/>
+        <KPI label="Mínimo Acum. (65m)"     value={$$(Math.min(...gmAcum))}     color={C.red}/>
+        <KPI label="Saldo Final Jun-31"     value={$$(gmAcum[gmAcum.length-1])} color={cf(gmAcum[gmAcum.length-1])}/>
+      </div>
+      <Card>
+        <SectionTitle>Flujo Acumulado Consolidado — Mar-26 → Jun-31 (6 Temporadas)</SectionTitle>
+        <LineChart months={MESES_65} values={gmAcum} color={C.accentL}/>
+        <div style={{marginTop:8,padding:"8px 12px",background:`${C.red}18`,border:`1px solid ${C.red}33`,borderRadius:8,fontSize:11,color:C.muted}}>
+          ⚠️ Mínimo proyectado: <strong style={{color:C.red}}>{$$(Math.min(...gmAcum))}</strong>
+        </div>
+      </Card>
+      <Card>
+        <SectionTitle>Ingresos Proyectados 65m por Empresa</SectionTitle>
+        {empTotals.map(({n,totalIng})=>{
+          const e=empresas[n];
+          return (
+            <div key={n} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
+              <div style={{width:148,fontSize:11,color:C.text,flexShrink:0}}>{e.emoji} {n}</div>
+              <div style={{flex:1,background:C.card2,borderRadius:4,height:12,overflow:"hidden"}}>
+                <div style={{width:`${(totalIng/maxIng)*100}%`,height:"100%",background:e.color,borderRadius:4,opacity:0.75}}/>
+              </div>
+              <div style={{width:80,textAlign:"right",fontSize:11,fontWeight:700,color:C.green,flexShrink:0}}>{$$(totalIng)}</div>
+            </div>
+          );
+        })}
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CRÉDITOS
+// ═══════════════════════════════════════════════════════════════════
+function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canEdit=false}) {
+  const [busq,setBusq]=useState("");
+  const [filtEmp,setFiltEmp]=useState("Todas");
+  const [filtPagado,setFiltPagado]=useState("Todos"); // "Todos" | "Pendientes" | "Pagados"
+  const [modal,setModal]=useState(false);
+  const [editId,setEditId]=useState(null);
+  const EMPTY_FORM = {
+    empresa:"",acreedor:"",tipo_inst:"",monto:"",f_venc:"",tipo_cr:"Bullet",tasa:"",cuota:"",
+    // Renovación
+    renovable:false,
+    tasa_anual:"",              // % tasa anual
+    cuotas_renovacion:[],       // [{mes:"Jun",anio:"2027",monto:"120000"}]
+    monto_renovacion:"",        // monto ingreso nuevo préstamo
+    mes_ingreso_renovacion:"",  // mes en que se recibe el nuevo préstamo
+    anio_ingreso_renovacion:"", // año en que se recibe el nuevo préstamo
+  };
+  const [form,setForm]=useState(EMPTY_FORM);
+
+  function openNew(){ setForm(EMPTY_FORM); setEditId(null); setModal(true); }
+  function openEdit(c){ setForm({...c,monto:String(c.monto),cuota:String(c.cuota)}); setEditId(c.n); setModal(true); }
+  function guardar(){
+    if(!form.empresa||!form.acreedor||!form.monto||!form.f_venc){alert("Empresa, acreedor, monto y fecha son obligatorios.");return;}
+    const item={...form,monto:parseFloat(form.monto)||0,cuota:parseFloat(form.cuota||form.monto)||0,pagado:false,n:editId||Date.now()};
+    const next=editId?creditosData.map(c=>c.n===editId?item:c):[...creditosData,item];
+    if(onSaveCreditos) onSaveCreditos(next);
+    setModal(false);
+  }
+  function togglePagado(n, value){
+    // value: true=pagado, false=pendiente (undefined=toggle)
+    const next=creditosData.map(c=>c.n===n?{...c,pagado:value!==undefined?value:!c.pagado}:c);
+    if(onSaveCreditos) onSaveCreditos(next);
+  }
+  function eliminar(n){
+    if(!window.confirm("¿Eliminar este crédito?")) return;
+    if(onSaveCreditos) onSaveCreditos(creditosData.filter(c=>c.n!==n));
+  }
+  const empList=["Todas",...new Set(creditosData.map(c=>c.empresa))];
+  const filtered=creditosData.filter(c=>{
+    if(filtEmp!=="Todas"&&c.empresa!==filtEmp) return false;
+    if(filtPagado==="Pendientes"&&c.pagado) return false;
+    if(filtPagado==="Pagados"&&!c.pagado) return false;
+    if(busq&&![c.empresa,c.acreedor].some(s=>s.toLowerCase().includes(busq.toLowerCase()))) return false;
+    return true;
+  });
+  const deudaEmp={};creditosData.forEach(c=>{
+    if(!deudaEmp[c.empresa]) deudaEmp[c.empresa]=0;
+    // Deuda original (si no está pagado)
+    if(!c.pagado) deudaEmp[c.empresa]+=c.monto;
+    // Deuda renovación (cuotas pendientes de capital)
+    if(c.renovable)(c.cuotas_renovacion||[]).forEach(cq=>{
+      if((cq.tipo||'Solo Interés')==='Capital+Interés') deudaEmp[c.empresa]+=(Number(cq.monto)||0);
+    });
+  });
+  const deudaList=Object.entries(deudaEmp).sort((a,b)=>b[1]-a[1]);
+  const maxD=deudaList[0]?.[1]||1;
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+        <KPI label="Deuda Total Q1-2026" value={$$(CREDITOS_TRIM.saldos[0])} color={C.red}/>
+        <KPI label="Pagos Q1-2026"       value={$$(CREDITOS_TRIM.pagos[0])}  color={C.yellow}/>
+        <KPI label="N° Créditos"         value={creditosData.length}             color={C.blue}/>
+        <KPI label="Renovables"          value={creditosData.filter(c=>c.renovable).length} color={C.orange}/>
+      </div>
+      <Card>
+        <SectionTitle>Deuda por Empresa</SectionTitle>
+        {deudaList.map(([n,monto])=>{const e=empresas[n]||{emoji:"🏢",color:C.blue};return (
+          <div key={n} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
+            <div style={{width:148,fontSize:11,color:C.text,flexShrink:0}}>{e.emoji} {n}</div>
+            <div style={{flex:1,background:C.card2,borderRadius:4,height:12,overflow:"hidden"}}><div style={{width:`${(monto/maxD)*100}%`,height:"100%",background:C.red,borderRadius:4,opacity:0.6}}/></div>
+            <div style={{width:80,textAlign:"right",fontSize:11,fontWeight:700,color:C.red,flexShrink:0}}>{$$(monto)}</div>
+          </div>
+        );})}
+      </Card>
+      <Card style={{padding:"12px 16px"}}>
+        <SectionTitle>Saldo Deuda por Trimestre</SectionTitle>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr style={{background:C.bg2}}>
+              {["Trimestre","Pagos","Saldo Deuda"].map(h=><th key={h} style={{padding:"7px 12px",fontWeight:600,fontSize:10,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,textAlign:h==="Trimestre"?"left":"right"}}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {CREDITOS_TRIM.quarters.map((q,i)=>(
+                <tr key={q} style={{borderBottom:`1px solid ${C.border}22`}}>
+                  <td style={{padding:"7px 12px",fontWeight:600,color:C.text}}>{q}</td>
+                  <td style={{padding:"7px 12px",textAlign:"right",color:C.yellow,fontWeight:600}}>{$$(CREDITOS_TRIM.pagos[i])}</td>
+                  <td style={{padding:"7px 12px",textAlign:"right",fontWeight:700,color:C.red}}>{$$(CREDITOS_TRIM.saldos[i])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        {canEdit&&<button onClick={openNew}
+          style={{padding:"7px 16px",borderRadius:8,background:C.blue,border:"none",
+            color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+          + Nuevo Crédito
+        </button>}
+        <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="🔍 Buscar…"
+          style={{padding:"7px 12px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none",flexGrow:1,minWidth:160}}/>
+        <select value={filtEmp} onChange={e=>setFiltEmp(e.target.value)}
+          style={{padding:"7px 12px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none"}}>
+          {empList.map(e=><option key={e}>{e}</option>)}
+        </select>
+        <select value={filtPagado} onChange={e=>setFiltPagado(e.target.value)}
+          style={{padding:"7px 12px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none"}}>
+          {["Todos","Pendientes","Pagados"].map(v=><option key={v}>{v}</option>)}
+        </select>
+      </div>
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+            <thead><tr style={{background:C.bg2}}>
+              {["#","Empresa","Acreedor","Tipo","Monto","Cuota","Vencimiento","Tasa","Renovación",...(canEdit?["Acciones"]:[])
+              ].map(h=><th key={h} style={{padding:"8px 12px",fontWeight:600,fontSize:10,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,textAlign:["Monto","Cuota","Tasa"].includes(h)?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {filtered.map(c=>{
+                const vencProx=new Date(c.f_venc)<=new Date("2026-12-31");
+                const e=empresas[c.empresa]||{emoji:"🏢",color:C.blue};
+                return (
+                  <tr key={c.n} style={{borderBottom:`1px solid ${C.border}22`,
+                    opacity:c.pagado?0.5:1,
+                    background:c.pagado?`${C.green}08`:vencProx?`${C.yellow}08`:"transparent"}}>
+                    <td style={{padding:"7px 12px",color:C.muted}}>{c.n}</td>
+                    <td style={{padding:"7px 12px",fontWeight:600,color:e.color,whiteSpace:"nowrap"}}>{e.emoji} {c.empresa}</td>
+                    <td style={{padding:"7px 12px",color:C.text}}>{c.acreedor}</td>
+                    <td style={{padding:"7px 12px"}}><span style={{fontSize:9,padding:"2px 7px",borderRadius:20,background:C.card2,border:`1px solid ${C.border}`,color:C.muted}}>{c.tipo_cr}</span></td>
+                    <td style={{padding:"7px 12px",textAlign:"right",fontWeight:700,color:c.pagado?C.green:C.red}}>
+                      {c.pagado?<span>✓ {$$(c.monto)}</span>:$$(c.monto)}
+                    {c.renovable&&<span style={{fontSize:9,marginLeft:4,background:`${C.orange}22`,color:C.orange,borderRadius:10,padding:"1px 5px"}}>🔄 Renov.</span>}
+                    </td>
+                    <td style={{padding:"7px 12px",textAlign:"right",color:C.yellow}}>{$$(c.cuota)}</td>
+                    <td style={{padding:"7px 12px",whiteSpace:"nowrap",color:vencProx?C.orange:C.muted}}>{fmtDate(c.f_venc)}{vencProx&&" ⚠️"}</td>
+                    <td style={{padding:"7px 12px",textAlign:"right",color:C.muted}}>{c.tasa||"—"}</td>
+                    <td style={{padding:"7px 10px",textAlign:"center",fontSize:10}}>
+                      {c.renovable ? (
+                        <div>
+                          <div style={{color:C.orange,fontWeight:700}}>🔄 {c.forma_pago||"Bullet"}</div>
+                          {c.meses_pago&&c.meses_pago.length>0&&(
+                            <div style={{color:C.muted,fontSize:9}}>{c.meses_pago.join(",")}</div>
+                          )}
+                          {c.cuota_renovacion&&(
+                            <div style={{color:C.red,fontSize:9}}>{$$(Number(c.cuota_renovacion))}/cuota</div>
+                          )}
+                        </div>
+                      ) : <span style={{color:C.muted2}}>—</span>}
+                    </td>
+                    {canEdit&&(
+                      <td style={{padding:"6px 8px",whiteSpace:"nowrap"}}>
+                        <div style={{display:"flex",gap:4}}>
+                          <select value={c.pagado?"pagado":"pendiente"}
+                            onChange={e=>togglePagado(c.n,e.target.value==="pagado")}
+                            style={{padding:"3px 7px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
+                              border:`1px solid ${c.pagado?"#86efac":"#fde68a"}`,
+                              background:c.pagado?"#dcfce7":"#fef9c3",
+                              color:c.pagado?"#166534":"#854d0e",outline:"none"}}>
+                            <option value="pendiente">⏳ Pendiente</option>
+                            <option value="pagado">✓ Pagado</option>
+                          </select>
+                          <button onClick={()=>openEdit(c)}
+                            style={{padding:"3px 8px",borderRadius:6,border:`1px solid ${C.border}`,cursor:"pointer",fontSize:11,background:"transparent",color:C.muted}}>
+                            ✏️
+                          </button>
+                          <button onClick={()=>eliminar(c.n)}
+                            style={{padding:"3px 8px",borderRadius:6,border:"none",cursor:"pointer",fontSize:11,background:"#fee2e2",color:"#991b1b"}}>
+                            ×
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Saldo deuda por empresa al cierre de temporada (junio) */}
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px 8px",borderBottom:`1px solid ${C.border}`}}>
+          <SectionTitle>Saldo Deuda por Empresa — Cierre de Temporada (Junio)</SectionTitle>
+          <div style={{fontSize:10,color:C.muted}}>
+            Deuda pendiente por empresa al 30 de junio de cada año
+          </div>
+        </div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+            <thead>
+              <tr style={{background:C.bg2}}>
+                <th style={{padding:"8px 14px",fontWeight:700,fontSize:11,color:C.text,
+                  textAlign:"left",borderBottom:`1px solid ${C.border}`,
+                  position:"sticky",left:0,background:C.bg2,zIndex:1,minWidth:180}}>
+                  Empresa
+                </th>
+                {["Jun-26","Jun-27","Jun-28","Jun-29","Jun-30","Jun-31"].map(t=>(
+                  <th key={t} style={{padding:"8px 14px",fontWeight:600,fontSize:10,
+                    color:C.muted,textAlign:"right",borderBottom:`1px solid ${C.border}`,
+                    textTransform:"uppercase",whiteSpace:"nowrap"}}>
+                    {t}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(()=>{
+                const CIERRES = [
+                  ["Jun-26","2026-06-30"],["Jun-27","2027-06-30"],
+                  ["Jun-28","2028-06-30"],["Jun-29","2029-06-30"],
+                  ["Jun-30","2030-06-30"],["Jun-31","2031-06-30"],
+                ];
+                const emps = [...new Set(creditosData.map(c=>c.empresa))].sort();
+                return emps.map(emp=>{
+                  const e = empresas[emp]||{emoji:"🏢",color:C.blue};
+                  const empCreds = creditosData.filter(c=>c.empresa===emp);
+                  const saldos = CIERRES.map(([,fecha])=>
+                    empCreds.reduce((s,c)=>{
+                      // Deuda original pendiente
+                      let d = (!c.pagado && c.f_venc>fecha) ? (Number(c.cuota)||0) : 0;
+                      // Cuotas de renovación pendientes (Capital+Interés aún no vencidas)
+                      if(c.renovable)(c.cuotas_renovacion||[]).forEach(cq=>{
+                        if((cq.tipo||'Solo Interés')==='Capital+Interés'){
+                          const mesEn = ({Ene:'Jan',Feb:'Feb',Mar:'Mar',Abr:'Apr',May:'May',Jun:'Jun',Jul:'Jul',Ago:'Aug',Sep:'Sep',Oct:'Oct',Nov:'Nov',Dic:'Dec'})[cq.mes]||cq.mes;
+                          const fCuota = cq.anio&&cq.mes ? `${cq.anio}-${String(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(mesEn)+1).padStart(2,'0')}-28` : '';
+                          if(fCuota>fecha) d+=Number(cq.monto)||0;
+                        }
+                      });
+                      return s+d;
+                    },0)
+                  );
+                  const hasSaldo = saldos.some(s=>s>0);
+                  if(!hasSaldo) return null;
+                  // Total inicial = saldo al cierre anterior (antes de Jun-26 = total deuda)
+                  const totalInicial = empCreds.reduce((s,c)=>{
+                    let d = Number(c.cuota)||0;
+                    if(c.renovable)(c.cuotas_renovacion||[]).forEach(cq=>{
+                      if((cq.tipo||'Solo Interés')==='Capital+Interés') d+=Number(cq.monto)||0;
+                    });
+                    return s+d;
+                  },0);
+                  return (
+                    <tr key={emp} style={{borderBottom:`1px solid ${C.border}22`}}
+                      onMouseEnter={e2=>e2.currentTarget.style.background=`${C.card2}`}
+                      onMouseLeave={e2=>e2.currentTarget.style.background="transparent"}>
+                      <td style={{padding:"8px 14px",position:"sticky",left:0,
+                        background:C.card,zIndex:1,borderRight:`1px solid ${C.border}22`}}>
+                        <div style={{fontWeight:700,color:e.color,fontSize:11}}>
+                          {e.emoji} {emp}
+                        </div>
+                        <div style={{fontSize:9,color:C.muted,marginTop:1}}>
+                          Total: {$$(totalInicial)}
+                        </div>
+                      </td>
+                      {saldos.map((saldo,i)=>{
+                        const prev = i===0 ? totalInicial : saldos[i-1];
+                        const pagado = prev - saldo;
+                        const pct = totalInicial>0 ? Math.round((1-saldo/totalInicial)*100) : 100;
+                        return (
+                          <td key={i} style={{padding:"8px 14px",textAlign:"right"}}>
+                            {saldo>0 ? (
+                              <div>
+                                <div style={{fontWeight:800,fontSize:12,
+                                  color:saldo<totalInicial*0.3?C.yellow:C.red}}>
+                                  {$$(saldo)}
+                                </div>
+                                {pagado>0&&(
+                                  <div style={{fontSize:9,color:C.green,marginTop:1}}>
+                                    ↓ {$$(pagado)} pagado
+                                  </div>
+                                )}
+                                <div style={{fontSize:9,color:C.muted,marginTop:1}}>
+                                  {100-pct}% pendiente
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{color:C.green,fontWeight:700,fontSize:12}}>✓ Saldado</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                }).filter(Boolean);
+              })()}
+            </tbody>
+            {/* Fila total consolidado */}
+            <tfoot>
+              <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                <td style={{padding:"8px 14px",fontWeight:800,color:C.text,fontSize:11,
+                  position:"sticky",left:0,background:C.bg2,zIndex:1}}>
+                  TOTAL GRUPO
+                </td>
+                {(()=>{
+                  const CIERRES_F = [
+                    "2026-06-30","2027-06-30","2028-06-30",
+                    "2029-06-30","2030-06-30","2031-06-30"
+                  ];
+                  const MES_ABREV = {Ene:'01',Feb:'02',Mar:'03',Abr:'04',May:'05',Jun:'06',Jul:'07',Ago:'08',Sep:'09',Oct:'10',Nov:'11',Dic:'12'};
+                  return CIERRES_F.map((fecha,i)=>{
+                    const total = creditosData.reduce((s,c)=>{
+                      let d = (!c.pagado && c.f_venc>fecha)?(Number(c.cuota)||0):0;
+                      if(c.renovable)(c.cuotas_renovacion||[]).forEach(cq=>{
+                        if((cq.tipo||'Solo Interés')==='Capital+Interés'){
+                          const fCuota=cq.anio&&cq.mes?`\${cq.anio}-\${MES_ABREV[cq.mes]||'06'}-28`:'';
+                          if(fCuota>fecha) d+=Number(cq.monto)||0;
+                        }
+                      });
+                      return s+d;
+                    },0);
+                    return (
+                      <td key={i} style={{padding:"8px 14px",textAlign:"right",
+                        fontWeight:800,fontSize:12,color:total?C.red:C.green}}>
+                        {total?$$(total):"✓ Saldado"}
+                      </td>
+                    );
+                  });
+                })()}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </Card>
+
+      {/* Cronograma de pagos por empresa */}
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px 8px",borderBottom:`1px solid ${C.border}`}}>
+          <SectionTitle>Timeline de Pagos por Acreedor</SectionTitle>
+          <div style={{fontSize:10,color:C.muted}}>Cronograma visual: cuotas originales → renovaciones por empresa y acreedor</div>
+        </div>
+        {(()=>{
+          // Agrupar por empresa → acreedor
+          const byEmp = {};
+          creditosData.forEach(c=>{
+            if(!byEmp[c.empresa]) byEmp[c.empresa]={};
+            if(!byEmp[c.empresa][c.acreedor]) byEmp[c.empresa][c.acreedor]=[];
+            byEmp[c.empresa][c.acreedor].push(c);
+          });
+          const MES_A = {Ene:"Jan",Feb:"Feb",Mar:"Mar",Abr:"Apr",May:"May",Jun:"Jun",Jul:"Jul",Ago:"Aug",Sep:"Sep",Oct:"Oct",Nov:"Nov",Dic:"Dec"};
+          return Object.entries(byEmp).map(([emp,acreedores])=>{
+            const e=empresas[emp]||{emoji:"🏢",color:C.muted};
+            return (
+              <div key={emp} style={{borderBottom:`1px solid ${C.border}`,padding:"12px 16px"}}>
+                <div style={{fontSize:12,fontWeight:800,color:e.color,marginBottom:10}}>{e.emoji} {emp}</div>
+                {Object.entries(acreedores).map(([acreedor,creds])=>{
+                  // Construir eventos del timeline para este acreedor
+                  const eventos = [];
+                  // Cuotas originales
+                  creds.forEach(c=>{
+                    eventos.push({fecha:c.f_venc,label:mesDeDate(c.f_venc),monto:c.cuota,tipo:"original",pagado:c.pagado,id:c.n});
+                  });
+                  // Cuotas de renovación
+                  creds.filter(c=>c.renovable&&(c.cuotas_renovacion||[]).length>0).forEach(c=>{
+                    const cuotasCalc=calcMontoRealCuota(c.cuotas_renovacion,c.monto_renovacion,c.tasa_anual,c.mes_ingreso_renovacion&&c.anio_ingreso_renovacion?`${c.mes_ingreso_renovacion}-${String(c.anio_ingreso_renovacion).slice(-2)}`:'');
+                    cuotasCalc.forEach((cq,ci)=>{
+                      if(!cq.mes||!cq.anio) return;
+                      const mesEn=MES_A[cq.mes]||cq.mes;
+                      const label=`${mesEn}-${String(cq.anio).slice(2)}`;
+                      const fecha=`${cq.anio}-${String(Object.values(MES_A).indexOf(mesEn)+1).padStart(2,"0")}-15`;
+                      eventos.push({fecha,label,monto:cq.montoReal||0,tipo:cq.tipo||"Solo Interés",pagado:false,id:`ren-${c.n}-${ci}`,isRen:true});
+                    });
+                  });
+                  // Ingreso de renovación
+                  creds.filter(c=>c.renovable&&c.monto_renovacion&&c.mes_ingreso_renovacion&&c.anio_ingreso_renovacion).forEach(c=>{
+                    const mesEn=MES_A[c.mes_ingreso_renovacion]||c.mes_ingreso_renovacion;
+                    const label=`${mesEn}-${String(c.anio_ingreso_renovacion).slice(2)}`;
+                    const fecha=`${c.anio_ingreso_renovacion}-${String(Object.values(MES_A).indexOf(mesEn)+1).padStart(2,"0")}-01`;
+                    eventos.push({fecha,label,monto:Number(c.monto_renovacion),tipo:"ingreso",pagado:false,id:`ing-${c.n}`,isIngreso:true});
+                  });
+                  // Ordenar cronológicamente
+                  eventos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+                  if(eventos.length===0) return null;
+                  return (
+                    <div key={acreedor} style={{marginBottom:10}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6}}>{acreedor}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:0,overflowX:"auto",paddingBottom:4}}>
+                        {eventos.map((ev,ei)=>{
+                          const isLast=ei===eventos.length-1;
+                          const bgColor=ev.isIngreso?"#22c55e22":ev.isRen?(ev.tipo==="Capital+Interés"?"#3b82f622":"#f59e0b22"):`${C.bg}`;
+                          const borderColor=ev.isIngreso?"#22c55e":ev.isRen?(ev.tipo==="Capital+Interés"?C.blue:C.orange):(ev.pagado?"#22c55e44":C.border);
+                          const textColor=ev.isIngreso?"#22c55e":ev.isRen?(ev.tipo==="Capital+Interés"?C.blue:C.orange):C.red;
+                          return (
+                            <React.Fragment key={ev.id}>
+                              <div style={{flexShrink:0,background:bgColor,borderRadius:8,
+                                padding:"6px 10px",border:`1px solid ${borderColor}`,
+                                opacity:ev.pagado?0.45:1,minWidth:70,textAlign:"center"}}>
+                                {ev.isIngreso&&<div style={{fontSize:8,color:"#22c55e",fontWeight:700,marginBottom:1}}>💰 INGRESO</div>}
+                                {ev.isRen&&!ev.isIngreso&&<div style={{fontSize:8,color:ev.tipo==="Capital+Interés"?C.blue:C.orange,fontWeight:700,marginBottom:1}}>🔄 {ev.tipo==="Capital+Interés"?"CAP+INT":"INT"}</div>}
+                                <div style={{fontSize:10,fontWeight:700,color:C.yellow}}>{ev.label}</div>
+                                <div style={{fontSize:11,fontWeight:800,color:textColor}}>{$$(ev.monto)}</div>
+                                {ev.pagado&&<div style={{fontSize:8,color:"#22c55e"}}>✓</div>}
+                              </div>
+                              {!isLast&&<div style={{width:16,height:1,background:`${C.border}`,flexShrink:0,marginTop:8}}>
+                                <div style={{width:"100%",height:"100%",background:C.muted2}}/>
+                              </div>}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          });
+        })()}
+      </Card>
+
+      {/* Modal nuevo / editar crédito */}
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:400,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:C.bg2,border:`1px solid ${C.blue}55`,borderRadius:16,
+            width:520,maxWidth:"95vw",boxShadow:"0 24px 64px rgba(0,0,0,0.7)"}}>
+            <div style={{padding:"14px 20px",borderBottom:`1px solid ${C.border}`,
+              display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>🏦</span>
+              <span style={{fontSize:13,fontWeight:800,color:C.text}}>
+                {editId?"Editar":"Nuevo"} Crédito
+              </span>
+              <button onClick={()=>setModal(false)}
+                style={{marginLeft:"auto",background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>×</button>
+            </div>
+            <div style={{padding:"16px 20px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {[
+                ["Empresa","empresa","select",["Mediterra","Allegria Foods","Allegria Service","Frisku Foods","Osiris","Integrity Farms","Allpa Farms","Allpa Farms Perú","Frisku Peru"]],
+                ["Acreedor / Institución","acreedor","text",null],
+                ["Tipo institución","tipo_inst","text",null],
+                ["Tipo crédito","tipo_cr","select",["Bullet","Cuotas Mensuales","Leasing","Crédito Hipotecario","Inversión","Otro"]],
+                ["Monto total (USD)","monto","number",null],
+                ["Cuota (USD)","cuota","number",null],
+                ["Fecha vencimiento","f_venc","date",null],
+                ["Tasa (%)","tasa","text",null],
+              ].map(([lbl,field,type,opts])=>(
+                <div key={field}>
+                  <div style={{fontSize:10,color:C.muted,marginBottom:3,fontWeight:600}}>{lbl}</div>
+                  {opts&&Array.isArray(opts)?(
+                    <select value={form[field]||""} onChange={e=>setForm(p=>(({...p,[field]:e.target.value})))}
+                      style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,
+                        borderRadius:8,color:C.text,fontSize:12,outline:"none"}}>
+                      <option value="">— seleccionar —</option>
+                      {opts.map(o=><option key={o}>{o}</option>)}
+                    </select>
+                  ):(
+                    <input type={type} value={form[field]||""}
+                      onChange={e=>setForm(p=>(({...p,[field]:e.target.value})))}
+                      style={{width:"100%",padding:"7px 10px",background:C.card2,
+                        border:`1px solid ${C.border}`,borderRadius:8,color:C.text,
+                        fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Sección Renovación */}
+            <div style={{padding:"12px 20px",borderTop:`1px solid ${C.border}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:12,fontWeight:700,color:C.text}}>
+                  <input type="checkbox" checked={form.renovable||false}
+                    onChange={e=>setForm(p=>({
+                      ...p,
+                      renovable:e.target.checked,
+                      // Auto-llenar monto renovación con el monto del crédito
+                      monto_renovacion:e.target.checked&&!p.monto_renovacion?p.monto:p.monto_renovacion,
+                    }))}
+                    style={{width:14,height:14}}/>
+                  🔄 Crédito Renovable
+                </label>
+                {form.renovable&&<span style={{fontSize:10,color:C.green,fontWeight:600}}>
+                  Al pagarse, genera cuotas de renovación en el flujo
+                </span>}
+              </div>
+              {form.renovable&&(
+                <div style={{background:`${C.green}08`,border:`1px solid ${C.green}33`,borderRadius:10,padding:"12px 14px"}}>
+
+                  {/* Ingreso del préstamo renovado */}
+                  <div style={{marginBottom:12,padding:"8px 12px",background:`${C.blue}11`,borderRadius:8,border:`1px solid ${C.blue}33`}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:8}}>💰 Ingreso Nuevo Préstamo (Ing. No Operacional)</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                      <div>
+                        <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Monto Nuevo Préstamo (USD)</div>
+                        <input type="number" value={form.monto_renovacion||""} onChange={e=>setForm(p=>({...p,monto_renovacion:e.target.value}))}
+                          placeholder="Ej: 500000"
+                          style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                      </div>
+                      <div>
+                        <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Mes Ingreso</div>
+                        <select value={form.mes_ingreso_renovacion||""} onChange={e=>setForm(p=>({...p,mes_ingreso_renovacion:e.target.value,anio_ingreso_renovacion:p.anio_ingreso_renovacion||(p.f_venc?new Date(p.f_venc).getFullYear():new Date().getFullYear())}))}
+                          style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none"}}>
+                          <option value="">— mes —</option>
+                          {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].map(m=><option key={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Año Ingreso</div>
+                        <input type="number" value={form.anio_ingreso_renovacion||""} onChange={e=>setForm(p=>({...p,anio_ingreso_renovacion:e.target.value}))}
+                          placeholder={form.f_venc?String(new Date(form.f_venc).getFullYear()):"2026"}
+                          style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cuotas de pago de la renovación */}
+                  <div style={{marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.green}}>📅 Cuotas de Pago Renovación</div>
+                      <button type="button" onClick={()=>setForm(p=>({...p,cuotas_renovacion:[...(p.cuotas_renovacion||[]),{mes:"",anio:"",monto:""}]}))}
+                        style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:"1px dashed #86efac",background:"transparent",color:C.green,cursor:"pointer"}}>
+                        + Agregar cuota
+                      </button>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1.5fr 0.8fr 0.8fr 1fr auto",gap:8,marginBottom:6,alignItems:"end"}}>
+                      <div style={{fontSize:10,color:C.muted,fontWeight:600}}>Tipo</div>
+                      <div style={{fontSize:10,color:C.muted,fontWeight:600}}>Mes</div>
+                      <div style={{fontSize:10,color:C.muted,fontWeight:600}}>Año</div>
+                      <div style={{fontSize:10,color:C.muted,fontWeight:600}}>Monto calculado</div>
+                      <div/>
+                    </div>
+                    {(form.cuotas_renovacion||[]).length===0&&(
+                      <div style={{fontSize:11,color:C.muted2,fontStyle:"italic"}}>Sin cuotas definidas — agrega al menos una</div>
+                    )}
+                    {(form.cuotas_renovacion||[]).map((cq,ci)=>{
+                      // Calcular monto automático con interés sobre saldo
+                      const _cap = Number(form.monto_renovacion)||0;
+                      const _n = (form.cuotas_renovacion||[]).length;
+                      const _nCap = (form.cuotas_renovacion||[]).filter(c=>(c.tipo||"Solo Interés")==="Capital+Interés").length;
+                      const _tMens = ((Number(form.tasa_anual)||0)/100)/12;
+                      const _amort = _nCap>0?_cap/_nCap:0;
+                      // Calcular saldo hasta esta cuota
+                      let _saldo = _cap;
+                      for(let _j=0;_j<ci;_j++){
+                        if(((form.cuotas_renovacion||[])[_j]?.tipo||"Solo Interés")==="Capital+Interés") _saldo=Math.max(0,_saldo-_amort);
+                      }
+                      // Meses desde ingreso (o cuota anterior) hasta esta cuota
+                      const _prevMes = ci===0
+                        ? (form.mes_ingreso_renovacion&&form.anio_ingreso_renovacion?{y:parseInt(form.anio_ingreso_renovacion),m:MES_ABR_NUM[form.mes_ingreso_renovacion]||1}:null)
+                        : ((form.cuotas_renovacion||[])[ci-1]?.mes&&(form.cuotas_renovacion||[])[ci-1]?.anio?{y:parseInt((form.cuotas_renovacion||[])[ci-1].anio),m:MES_ABR_NUM[(form.cuotas_renovacion||[])[ci-1].mes]||1}:null);
+                      const _thisMes = cq.mes&&cq.anio?{y:parseInt(cq.anio),m:MES_ABR_NUM[cq.mes]||1}:null;
+                      const _meses = _prevMes&&_thisMes?Math.max(1,(_thisMes.y-_prevMes.y)*12+(_thisMes.m-_prevMes.m)):1;
+                      const _interes = Math.round(_saldo*_tMens*_meses);
+                      const _esCap = (cq.tipo||"Solo Interés")==="Capital+Interés";
+                      const _montoCalc = _esCap?Math.round(_amort)+_interes:_interes;
+                      return (
+                      <div key={ci} style={{display:"grid",gridTemplateColumns:"1.5fr 0.8fr 0.8fr 1fr auto",gap:8,marginBottom:6,alignItems:"center"}}>
+                        <select value={cq.tipo||"Solo Interés"} onChange={e=>{const arr=[...(form.cuotas_renovacion||[])];arr[ci]={...cq,tipo:e.target.value};setForm(p=>({...p,cuotas_renovacion:arr}));}}
+                          style={{padding:"6px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:11,outline:"none"}}>
+                          {["Solo Interés","Capital+Interés"].map(t=><option key={t}>{t}</option>)}
+                        </select>
+                        <select value={cq.mes||""} onChange={e=>{const arr=[...(form.cuotas_renovacion||[])];arr[ci]={...cq,mes:e.target.value};setForm(p=>({...p,cuotas_renovacion:arr}));}}
+                          style={{padding:"6px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+                          <option value="">— mes —</option>
+                          {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].map(m=><option key={m}>{m}</option>)}
+                        </select>
+                        <input type="number" value={cq.anio||""} placeholder="2026"
+                          onChange={e=>{const arr=[...(form.cuotas_renovacion||[])];arr[ci]={...cq,anio:e.target.value};setForm(p=>({...p,cuotas_renovacion:arr}));}}
+                          style={{padding:"6px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}/>
+                        <div style={{background:C.card2,borderRadius:6,padding:"5px 8px",border:`1px solid ${_esCap?C.blue:C.orange}`}}>
+                          <div style={{fontWeight:700,fontSize:12,color:_esCap?C.blue:C.orange}}>{$$(_montoCalc)}</div>
+                          <div style={{fontSize:9,color:C.muted}}>
+                            {_esCap?`Cap: ${$$(Math.round(_amort))} + Int: ${$$(Math.round(_interes))}`:`Int: ${$$(Math.round(_interes))}`}
+                          </div>
+                        </div>
+                        <button type="button" onClick={()=>setForm(p=>({...p,cuotas_renovacion:(p.cuotas_renovacion||[]).filter((_,j)=>j!==ci)}))}
+                          style={{padding:"4px 8px",borderRadius:6,background:"#fee2e2",border:"none",color:"#991b1b",cursor:"pointer",fontSize:11}}>×</button>
+                      </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Tasa */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Tasa Anual (%)</div>
+                      <input type="number" step="0.1" value={form.tasa_anual||""} onChange={e=>setForm(p=>({...p,tasa_anual:e.target.value}))}
+                        placeholder="Ej: 8.5"
+                        style={{width:"100%",padding:"7px 10px",background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                    </div>
+                    <div style={{display:"flex",alignItems:"flex-end",paddingBottom:4}}>
+                      <div style={{fontSize:10,color:C.muted,fontStyle:"italic"}}>
+                        {(form.cuotas_renovacion||[]).length>0&&(
+                          <>Total cuotas: <strong style={{color:C.green}}>{$$((()=>{const calc=calcMontoRealCuota(form.cuotas_renovacion,form.monto_renovacion,form.tasa_anual,form.mes_ingreso_renovacion&&form.anio_ingreso_renovacion?`${form.mes_ingreso_renovacion}-${String(form.anio_ingreso_renovacion).slice(-2)}`:'');return calc.reduce((s,c)=>s+(c.montoReal||0),0);})())}</strong></>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+            <div style={{padding:"12px 20px",borderTop:`1px solid ${C.border}`,
+              display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <button onClick={()=>setModal(false)}
+                style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,
+                  background:"transparent",color:C.muted,cursor:"pointer",fontSize:12}}>
+                Cancelar
+              </button>
+              <button onClick={guardar}
+                style={{padding:"8px 18px",borderRadius:8,border:"none",
+                  background:C.blue,color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                💾 Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SALDOS BANCOS
+// ═══════════════════════════════════════════════════════════════════
+const BANCOS = ["BCI","BICE","Security","Chile","Santander","Scotiabank Perú","BBVA Perú"];
+const MONEDAS = [
+  {id:"clp", label:"CLP $", symbol:"$", flag:"🇨🇱"},
+  {id:"usd", label:"USD $", symbol:"$", flag:"🇺🇸"},
+  {id:"eur", label:"EUR €", symbol:"€", flag:"🇪🇺"},
+  {id:"pen", label:"PEN S/", symbol:"S/", flag:"🇵🇪"},
+];
+
+function fmtMoneda(v,sym) {
+  if(!v&&v!==0) return "—";
+  const abs=Math.abs(v),s=v<0?"-":"";
+  if(abs>=1_000_000) return `${s}${sym}${(abs/1e6).toFixed(2)}M`;
+  if(abs>=1_000)     return `${s}${sym}${(abs/1e3).toFixed(1)}K`;
+  return `${s}${sym}${abs.toLocaleString()}`;
+}
+
+const EMPRESAS_LIST = [
+  "Mediterra","Allegria Foods","Allegria Service",
+  "Frisku Foods","Frisku Peru","Allpa Farms",
+  "Allpa Farms Perú","Integrity Farms","Osiris"
+];
+const BANCOS_CHILE = ["BCI","BICE","Security","Chile","Santander"];
+const BANCOS_PERU  = ["Scotiabank Perú","BBVA Perú"];
+
+function generarCuentasFijas() {
+  const cuentas = [];
+  EMPRESAS_LIST.forEach(emp => {
+    const esPeruana = emp.includes("Perú") || emp === "Frisku Peru";
+    const bancos  = esPeruana ? BANCOS_PERU  : BANCOS_CHILE;
+    const monedas = esPeruana ? ["pen","usd"] : ["clp","usd","eur"];
+    bancos.forEach(banco => {
+      monedas.forEach(moneda => {
+        cuentas.push({ emp, banco, moneda, key:`${emp}||${banco}||${moneda}` });
+      });
+    });
+  });
+  return cuentas;
+}
+const CUENTAS_FIJAS = generarCuentasFijas();
+
+async function fetchFX() {
+  try {
+    const r = await fetch("https://open.er-api.com/v6/latest/USD");
+    const d = await r.json();
+    if(d.result !== "success") return null;
+    const rates = d.rates;
+    const clpRate = rates.CLP || null;
+    const eurRate = rates.EUR || null;
+    const penRate = rates.PEN || null;
+    return {
+      clp: clpRate ? 1/clpRate : null,
+      eur: eurRate ? 1/eurRate : null,
+      pen: penRate ? 1/penRate : null,
+      usd: 1,
+      clpRaw: clpRate,
+      eurRaw: eurRate ? 1/eurRate : null,
+      penRaw: penRate,
+      ts: new Date().toLocaleTimeString("es-CL"),
+    };
+  } catch { return null; }
+}
+
+function toUSD(monto, moneda, fx) {
+  if (!fx || monto == null) return null;
+  return monto * (fx[moneda] ?? 0);
+}
+
+function SaldosBancos({saldos,onSave,canEdit}) {
+  const [fx,setFx]         = useState(null);
+  const [fxLoading,setFxLoading] = useState(false);
+  const [fxError,setFxError]     = useState(false);
+  const [fecha,setFecha]   = useState(()=>new Date().toISOString().slice(0,10));
+  const [saving,setSaving] = useState(false);
+  const [edits,setEdits]   = useState({});
+  const [dirty,setDirty]   = useState({});
+  const [collapsed,setCollapsed] = useState({});
+  const toggleEmp = emp => setCollapsed(p=>({...p,[emp]:!p[emp]}));
+
+  useEffect(()=>{
+    setFxLoading(true);
+    fetchFX().then(r=>{
+      if(r) setFx(r); else setFxError(true);
+      setFxLoading(false);
+    });
   },[]);
 
-  const [usuarioActual,setUsuarioActual]=useState(null);
-  const [moduloActivo,setModuloActivo]=useState(null);
-  const [loginNombre,setLoginNombre]=useState("");
-  const [loginEmail,setLoginEmail]=useState("");
-  const [resetEmail,setResetEmail]=useState("");
-  const [loginPin,setLoginPin]=useState("");
-  const [loginError,setLoginError]=useState("");
-
-  // ── Auto-reload on new Vercel deploy ─────────────────────────────
-  useEffect(()=>{
-    // URL de producción fija — evita redirigir a URLs internas protegidas de Vercel
-    const PROD_URL = 'https://gestion-grupo-mediterra.vercel.app';
-    let currentBundle = null;
-    async function checkNewDeploy() {
-      try {
-        const res = await fetch(`${PROD_URL}/`, {cache:'no-store'});
-        if(!res.ok) return; // si la URL falla, no hacer nada
-        const html = await res.text();
-        const match = html.match(/\/static\/js\/main\.[a-f0-9]+\.js/);
-        const bundle = match ? match[0] : null;
-        if(!bundle) return;
-        if(currentBundle === null) { currentBundle = bundle; }
-        else if(bundle !== currentBundle) {
-          // Recargar siempre a la URL de producción
-          window.location.href = PROD_URL;
-        }
-      } catch(e) {}
-    }
-    const initialCheck = setTimeout(checkNewDeploy, 5000);
-    const interval = setInterval(checkNewDeploy, 30 * 1000);
-    return () => { clearTimeout(initialCheck); clearInterval(interval); };
-  }, []);
-  // ─────────────────────────────────────────────────────────────────
-  const [pinsPersonalizados,setPinsPersonalizados]=useState({});
-  const [modalPin,setModalPin]=useState(null);
-  const [workerPendiente,setWorkerPendiente]=useState(null); // usuario que entró con PIN temporal
-  const [resetNombre,setResetNombre]=useState("");
-  const [resetEnviando,setResetEnviando]=useState(false);
-  const [resetMsg,setResetMsg]=useState("");
-  const [pinActual,setPinActual]=useState("");
-  const [pinNuevo,setPinNuevo]=useState("");
-  const [pinConfirm,setPinConfirm]=useState("");
-  const [pinError,setPinError]=useState("");
-
-  const [mes,setMes]=useState(hoy.getMonth());
-  const [anio,setAnio]=useState(hoy.getFullYear());
-  const semanas=semanasDelMes(anio,mes);
-
-  const [usuarios,setUsuarios]=useState(WORKERS_BASE);
-  const [tabUsuarios,setTabUsuarios]=useState("lista");
-  const [usuarioEditando,setUsuarioEditando]=useState(null);
-  const [formUsuario,setFormUsuario]=useState({nombre:"",cargo:"",email:"",pin:"",rol:"editor",modulos:["tareas"]});
-  const [copiarDe,setCopiarDe]=useState("");
-
-  // Usuario activo — siempre usar el más fresco del array, con fallback
-  const usuarioFresco = usuarioActual
-    ? (usuarios.find(u=>u.nombre===usuarioActual.nombre) || usuarioActual)
-    : null;
-
-  // Módulos permitidos — admin tiene todo, resto usa su array
-  const modulosDeUsuarioSeguro = (u) => {
-    if(!u) return [];
-    if(u.rol==="admin") return MODULOS_DISPONIBLES.map(m=>m.id);
-    return Array.isArray(u.modulos) ? u.modulos : ["tareas"];
-  };
-
-  const WORKERS=usuarios.filter(u=>!u.desactivado);
-  const getWorker=(nombre)=>usuarios.find(u=>u.nombre===nombre);
-  const getRol=(nombre)=>getWorker(nombre)?.rol||"editor";
-  const esAdmin=(nombre)=>getRol(nombre)==="admin";
-  const esSoloConsulta=(nombre)=>getRol(nombre)==="consulta";
-
-  const [tareasExtra,setTareasExtra]=useState([]);
-  const [tareasConfig,setTareasConfig]=useState(()=>{
-    const c={};TAREAS_BASE.forEach(t=>{c[t.id]={supervisor:t.supervisor,diaLimiteSem:t.diaLimiteSem,diaLimite:t.diaLimite,frecuencia:t.frecuencia,bloqueada:false,dependeDe:t.dependeDe||null};});return c;
-  });
-  const [tareasOverrides,setTareasOverrides]=useState({});
-  const todasTareas=useCallback(()=>{
-    const base=[...TAREAS_BASE,...tareasExtra];
-    return base.map(t=>tareasOverrides[t.id]?{...t,...tareasOverrides[t.id]}:t);
-  },[tareasExtra,tareasOverrides]);
-  const getConfig=(id)=>tareasConfig[id]||{supervisor:"",diaLimiteSem:0,diaLimite:10,frecuencia:"Semanal",bloqueada:false,dependeDe:null};
-  const getSupervisor=(id)=>tareasConfig[id]?.supervisor??TAREAS_BASE.find(t=>t.id===id)?.supervisor??"";
-  const getFrecuencia=(id)=>tareasOverrides[id]?.frecuencia||tareasConfig[id]?.frecuencia||TAREAS_BASE.find(t=>t.id===id)?.frecuencia||"Semanal";
-  const isBloqueada=(id)=>tareasConfig[id]?.bloqueada||false;
-  const getDependeDe=(id)=>tareasConfig[id]?.dependeDe??null;
-  const getTareaById=(id)=>todasTareas().find(t=>t.id===id);
-
-  const [estados,setEstados]=useState(()=>{
-    const est={};
-    TAREAS_BASE.filter(t=>t.frecuencia==="Semanal").forEach(t=>{semanasDelMes(hoy.getMonth(),hoy.getFullYear()).forEach(s=>{est[`${t.id}_s${s.num}`]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});});
-    TAREAS_BASE.filter(t=>t.frecuencia!=="Semanal").forEach(t=>{est[t.id]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});
-    return est;
-  });
-  const [comentarios,setComentarios]=useState({});
-  const [supervisores,setSupervisores]=useState(()=>{const d={};TAREAS_BASE.forEach(t=>{d[t.id]=t.supervisor||"";});return d;});
-  const [tab,setTab]=useState("semanal");
-  const [semanaActiva,setSemanaActiva]=useState(()=>semanaActivaDefault(semanasDelMes(hoy.getMonth(),hoy.getFullYear())));
-  const [guardado,setGuardado]=useState("idle");
-  const [cargando,setCargando]=useState(true);
-  const [editComentario,setEditComentario]=useState(null);
-  const [textoComentario,setTextoComentario]=useState("");
-  const [filtroPersona,setFiltroPersona]=useState("");
-  const [modalEmail,setModalEmail]=useState(null);
-  const [recsDone,setRecsDone]=useState({});
-  const [recsComentarios,setRecsComentarios]=useState({});
-  const [editRecComentario,setEditRecComentario]=useState(null);
-  const [textoRecComentario,setTextoRecComentario]=useState("");
-  const [modalNotif,setModalNotif]=useState(null);
-  const [modalVencidas,setModalVencidas]=useState(false);
-  const [textoNotif,setTextoNotif]=useState("");
-  const [enviandoNotif,setEnviandoNotif]=useState(false);
-  const [nuevaTarea,setNuevaTarea]=useState({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:"",fechaPuntual:""});
-  const [mostrarFormTarea,setMostrarFormTarea]=useState(false);
-  const [editandoTarea,setEditandoTarea]=useState(null);
-  const [formEditTarea,setFormEditTarea]=useState({});
-
-  const [osirisData,setOsirisData]=useState({});
-
-  function recKey(id){return `${id}_${mes}_${anio}`;}
-
-  useEffect(()=>{
-    const s=semanasDelMes(anio,mes);
-    setSemanaActiva(semanaActivaDefault(s));
-    setEstados(prev=>{
-      const n={...prev};
-      todasTareas().filter(t=>getFrecuencia(t.id)!=="Mensual").forEach(t=>{
-        s.forEach(sw=>{const k=`${t.id}_s${sw.num}`;if(!n[k])n[k]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});
-      });
-      return n;
+  function refreshFX(){
+    setFxLoading(true);setFxError(false);
+    fetchFX().then(r=>{
+      if(r){setFx(r);setFxError(false);}else setFxError(true);
+      setFxLoading(false);
     });
-  },[mes,anio]); // eslint-disable-line
+  }
+
+  function getVal(key){
+    if(edits[key]!==undefined) return edits[key];
+    const s=saldos?.[key];
+    return s?.monto!=null ? String(s.monto) : "";
+  }
+
+  function handleChange(key,val){
+    setEdits(p=>({...p,[key]:val}));
+    setDirty(p=>({...p,[key]:true}));
+  }
+
+  async function handleGuardar(){
+    if(!Object.keys(dirty).length) return;
+    setSaving(true);
+    const next=JSON.parse(JSON.stringify(saldos||{}));
+    Object.keys(dirty).forEach(key=>{
+      const c=CUENTAS_FIJAS.find(x=>x.key===key);
+      if(!c) return;
+      const val=parseFloat(edits[key]);
+      if(isNaN(val)) { delete next[key]; return; }
+      next[key]={
+        empresa:c.emp, banco:c.banco, moneda:c.moneda,
+        monto:val, fecha,
+        semana:semanaDeDate(fecha), mes:mesDeDate(fecha),
+        usd: fx ? toUSD(val,c.moneda,fx) : null,
+      };
+    });
+    await onSave(next);
+    setDirty({});
+    setSaving(false);
+  }
+
+  const totalesEmpresa = useMemo(()=>{
+    const t={};
+    EMPRESAS_LIST.forEach(emp=>{
+      let sum=0;
+      CUENTAS_FIJAS.filter(c=>c.emp===emp).forEach(c=>{
+        const s=saldos?.[c.key];
+        if(!s||s.monto==null) return;
+        // Si FX cargado: convertir en vivo
+        if(fx) {
+          const usdVal=toUSD(s.monto,c.moneda,fx);
+          if(usdVal!=null) sum+=usdVal;
+        } else if(s.usd!=null) {
+          // Usar valor USD guardado en Supabase como fallback
+          sum+=Number(s.usd)||0;
+        } else if(c.moneda==="usd") {
+          // USD directo sin conversión
+          sum+=Number(s.monto)||0;
+        }
+        // CLP/EUR/PEN sin FX y sin usd guardado: no suma (evita mostrar valor incorrecto)
+      });
+      t[emp]=sum; // siempre número, 0 si no hay saldo
+    });
+    return t;
+  },[saldos,fx]);
+
+  const totalUSD = useMemo(()=>{
+    return Object.values(totalesEmpresa).reduce((a,b)=>a+b,0);
+  },[totalesEmpresa]);
+
+  const hasDirty=Object.keys(dirty).length>0;
+  const sym=(id)=>MONEDAS.find(m=>m.id===id)?.symbol||"$";
+
+  const porEmpresa = useMemo(()=>{
+    const m={};
+    CUENTAS_FIJAS.forEach(c=>{
+      if(!m[c.emp]) m[c.emp]=[];
+      m[c.emp].push(c);
+    });
+    return m;
+  },[]);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
+        <div style={{background:C.card,border:`2px solid ${C.accent}`,borderRadius:10,
+          padding:"12px 16px",gridColumn:"span 2"}}>
+          <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:4}}>
+            💵 Total Consolidado USD
+            {fxLoading&&<span style={{marginLeft:6,fontSize:9,color:C.yellow}}>actualizando…</span>}
+            {fxError&&<span style={{marginLeft:6,fontSize:9,color:C.red}}>⚠️ sin paridad</span>}
+          </div>
+          <div style={{fontSize:22,fontWeight:900,color:totalUSD!=null?cf(totalUSD):C.muted}}>
+            {totalUSD!=null?`$${totalUSD.toLocaleString("es-CL",{maximumFractionDigits:0})} USD`:"—"}
+          </div>
+        </div>
+        {[
+          {id:"clp",label:"1 USD =",val:fx?.clpRaw,fmt:v=>`$${Math.round(v).toLocaleString("es-CL")} CLP`},
+          {id:"eur",label:"1 EUR =",val:fx?.eurRaw,fmt:v=>`$${v.toFixed(4)} USD`},
+          {id:"pen",label:"1 USD =",val:fx?.penRaw,fmt:v=>`S/${v.toFixed(3)} PEN`},
+        ].map(p=>(
+          <div key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:9,color:C.muted,marginBottom:3}}>{p.label}</div>
+            <div style={{fontSize:14,fontWeight:700,color:C.yellow}}>
+              {p.val!=null?p.fmt(p.val):fxLoading?"…":"—"}
+            </div>
+          </div>
+        ))}
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",
+          display:"flex",flexDirection:"column",justifyContent:"center"}}>
+          <button onClick={refreshFX} disabled={fxLoading}
+            style={{padding:"6px 10px",borderRadius:7,border:"none",fontSize:11,fontWeight:600,
+              background:fxLoading?C.card2:C.accent,color:"#fff",cursor:fxLoading?"default":"pointer"}}>
+            {fxLoading?"⟳ …":"🔄 Actualizar FX"}
+          </button>
+          {fx?.ts&&<div style={{fontSize:9,color:C.muted,marginTop:4,textAlign:"center"}}>Última: {fx.ts}</div>}
+        </div>
+      </div>
+
+      {/* ── Dashboard resumen por empresa ─────────────────────── */}
+      <Card>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+          <SectionTitle>Resumen por empresa · USD</SectionTitle>
+          {fxLoading&&<span style={{fontSize:10,color:C.yellow}}>⟳ Actualizando FX…</span>}
+          {fxError&&<span style={{fontSize:10,color:C.orange}}>⚠️ Sin FX en vivo — usando valores guardados</span>}
+        </div>
+        {(()=>{
+          const maxVal=Math.max(...EMPRESAS_LIST.map(n=>totalesEmpresa[n]||0),1);
+          return(
+            <div style={{display:"flex",flexDirection:"column",gap:7}}>
+              {EMPRESAS_LIST.map(emp=>{
+                const e=EMPRESAS_STATIC[emp]||{emoji:"🏢",color:C.muted};
+                const usd=totalesEmpresa[emp]||0;
+                const pct=Math.max(0,(usd/maxVal)*100);
+                return(
+                  <div key={emp} style={{display:"grid",gridTemplateColumns:"190px 1fr 120px",gap:10,alignItems:"center"}}>
+                    <div style={{fontSize:11,color:C.text,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {e.emoji} {emp}
+                    </div>
+                    <div style={{background:C.card2,borderRadius:4,height:10,overflow:"hidden"}}>
+                      <div style={{width:`${pct}%`,height:"100%",background:usd>0?e.color:C.muted2,borderRadius:4,opacity:0.8,transition:"width 0.4s"}}/>
+                    </div>
+                    <div style={{textAlign:"right",fontSize:12,fontWeight:usd>0?700:400,color:usd>0?cf(usd):C.muted}}>
+                      {usd>0?"$"+usd.toLocaleString("es-CL",{maximumFractionDigits:0}):usd<0?"-$"+Math.abs(usd).toLocaleString("es-CL",{maximumFractionDigits:0}):"—"}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{borderTop:`2px solid ${C.border2}`,marginTop:4,paddingTop:8,
+                display:"grid",gridTemplateColumns:"190px 1fr 120px",gap:10,alignItems:"center"}}>
+                <div style={{fontSize:12,fontWeight:900,color:C.text}}>TOTAL GRUPO</div>
+                <div/>
+                <div style={{textAlign:"right",fontSize:15,fontWeight:900,color:cf(totalUSD)}}>
+                  {totalUSD>=0?"$":"-$"}{Math.abs(totalUSD).toLocaleString("es-CL",{maximumFractionDigits:0})}
+                  <span style={{fontSize:9,color:C.muted,marginLeft:4}}>USD</span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </Card>
+
+      {canEdit&&(
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",
+          background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 16px"}}>
+          <div style={{fontSize:12,color:C.muted}}>📅 Fecha del saldo:</div>
+          <input type="date" value={fecha} onChange={e=>setFecha(e.target.value)}
+            style={{padding:"6px 10px",background:C.card2,border:`1px solid ${C.border}`,
+              borderRadius:8,color:C.text,fontSize:12,outline:"none"}}/>
+          <button onClick={handleGuardar} disabled={saving||!hasDirty}
+            style={{padding:"7px 18px",borderRadius:8,
+              border:`1px solid ${hasDirty?C.accent:C.border}`,
+              background:saving||!hasDirty?C.card2:C.accent,
+              color:hasDirty?"#fff":C.muted,
+              cursor:hasDirty&&!saving?"pointer":"default",fontSize:12,fontWeight:700}}>
+            {saving?"Guardando…":"💾 Guardar cambios"}
+          </button>
+          {hasDirty&&(
+            <span style={{fontSize:11,color:C.yellow}}>
+              ● {Object.keys(dirty).length} cambio(s) sin guardar
+            </span>
+          )}
+        </div>
+      )}
+
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {EMPRESAS_LIST.map(emp=>{
+          const cuentas=porEmpresa[emp]||[];
+          const empColor=EMPRESAS_STATIC[emp]?.color||C.muted;
+          const empEmoji=EMPRESAS_STATIC[emp]?.emoji||"🏢";
+          const empUSD=totalesEmpresa[emp]||0;
+          const isOpen=!collapsed[emp];
+          const dirtyCount=cuentas.filter(c=>dirty[c.key]).length;
+
+          return (
+            <div key={emp} style={{background:C.card,border:`1px solid ${isOpen?empColor+"55":C.border}`,
+              borderRadius:12,overflow:"hidden"}}>
+              <button onClick={()=>toggleEmp(emp)}
+                style={{width:"100%",background:`${empColor}18`,border:"none",cursor:"pointer",
+                  padding:"12px 16px",display:"flex",alignItems:"center",gap:12,textAlign:"left"}}>
+                <span style={{fontSize:20}}>{empEmoji}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:800,color:empColor}}>{emp}</div>
+                  <div style={{fontSize:11,color:empUSD>0?cf(empUSD):C.muted,marginTop:1}}>
+                    {empUSD>0?`$${empUSD.toLocaleString("es-CL",{maximumFractionDigits:0})} USD`:"Sin saldo USD"}
+                  </div>
+                </div>
+                {dirtyCount>0&&(
+                  <span style={{fontSize:10,background:`${C.yellow}33`,color:C.yellow,
+                    borderRadius:20,padding:"2px 8px",fontWeight:700}}>
+                    ● {dirtyCount} pendiente{dirtyCount>1?"s":""}
+                  </span>
+                )}
+                <span style={{fontSize:14,color:empColor,fontWeight:700,marginLeft:4}}>
+                  {isOpen?"▾":"▸"}
+                </span>
+              </button>
+
+              {isOpen&&(
+                <div style={{borderTop:`1px solid ${C.border}`}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                    <thead>
+                      <tr style={{background:C.card2}}>
+                        {["Banco","Moneda","Último saldo",canEdit?"Nuevo saldo":"","≈ USD","Fecha"].filter(Boolean).map(h=>(
+                          <th key={h} style={{padding:"7px 14px",fontWeight:600,fontSize:10,color:C.muted,
+                            textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,
+                            textAlign:["Último saldo","≈ USD"].includes(h)?"right":"left",
+                            whiteSpace:"nowrap"}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cuentas.map(c=>{
+                        const saved=saldos?.[c.key];
+                        const val=getVal(c.key);
+                        const isDirty=!!dirty[c.key];
+                        // Si FX cargado: convertir en vivo. Si no: usar usd guardado o monto directo si es USD
+                        const usdVal = saved?.monto!=null
+                          ? fx
+                            ? toUSD(saved.monto,c.moneda,fx)
+                            : (saved.usd!=null ? saved.usd : c.moneda==="usd" ? Number(saved.monto) : null)
+                          : null;
+                        const mon=MONEDAS.find(m=>m.id===c.moneda);
+                        return (
+                          <tr key={c.key} style={{borderBottom:`1px solid ${C.border}22`,
+                            background:isDirty?`${C.yellow}08`:"transparent"}}>
+                            <td style={{padding:"8px 14px",color:C.text,fontWeight:500}}>{c.banco}</td>
+                            <td style={{padding:"8px 14px"}}>
+                              <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,
+                                background:C.card2,border:`1px solid ${C.border}`,color:C.muted}}>
+                                {mon?.flag} {mon?.label}
+                              </span>
+                            </td>
+                            <td style={{padding:"8px 14px",textAlign:"right",
+                              fontWeight:saved?.monto!=null?700:400,
+                              color:saved?.monto!=null?cf(saved.monto):C.muted2}}>
+                              {saved?.monto!=null
+                                ?`${sym(c.moneda)}${saved.monto.toLocaleString("es-CL")}`
+                                :"—"}
+                            </td>
+                            {canEdit&&(
+                              <td style={{padding:"5px 10px"}}>
+                                <input
+                                  type="number" value={val} placeholder="0"
+                                  onChange={e=>handleChange(c.key,e.target.value)}
+                                  style={{width:120,padding:"6px 9px",
+                                    background:isDirty?`${C.yellow}15`:C.card2,
+                                    border:`1px solid ${isDirty?C.yellow:C.border}`,
+                                    borderRadius:7,color:C.text,fontSize:11,
+                                    textAlign:"right",outline:"none"}}
+                                />
+                              </td>
+                            )}
+                            <td style={{padding:"8px 14px",textAlign:"right",fontSize:10,
+                              color:usdVal!=null?cf(usdVal):C.muted2}}>
+                              {usdVal!=null
+                                ?`$${usdVal.toLocaleString("es-CL",{maximumFractionDigits:0})} USD`
+                                :"—"}
+                            </td>
+                            <td style={{padding:"8px 14px",color:C.muted,fontSize:10,whiteSpace:"nowrap"}}>
+                              {saved?.fecha||"—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{fontSize:10,color:C.muted2,textAlign:"center"}}>
+        Paridades obtenidas de open.er-api.com · Se cargan al abrir la pestaña
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// INTERCOMPANY — Transferencias entre empresas del grupo
+// ═══════════════════════════════════════════════════════════════════
+const TIPOS_IC = ["Préstamo","Aporte de Capital","Devolución Préstamo","Pago Intereses","Transferencia"];
+const IC_COLOR  = {"Préstamo":"#60a5fa","Aporte de Capital":"#34d399","Devolución Préstamo":"#a78bfa",
+  "Pago Intereses":"#f87171","Transferencia":"#fbbf24"};
+
+function Intercompany({transferencias=[],onSave,empresas={},canEdit}) {
+  const empNames = Object.keys(empresas);
+  const [modal,setModal]   = useState(false);
+  const [filtroOr,setFiltroOr] = useState("Todas");
+  const [filtroDest,setFiltroDest] = useState("Todas");
+  const [filtroTipo,setFiltroTipo] = useState("Todos");
+  const [form,setForm]     = useState({
+    fecha:new Date().toISOString().slice(0,10),
+    origen:"",destino:"",tipo:"Préstamo",
+    monto:"",descripcion:"",mes:"",
+  });
+  const [editId,setEditId] = useState(null);
+
+  // KPIs
+  const totalPrestamos   = transferencias.filter(t=>t.tipo==="Préstamo").reduce((s,t)=>s+(Number(t.monto)||0),0);
+  const totalAportes     = transferencias.filter(t=>t.tipo==="Aporte de Capital").reduce((s,t)=>s+(Number(t.monto)||0),0);
+  const totalDevoluciones= transferencias.filter(t=>t.tipo==="Devolución Préstamo").reduce((s,t)=>s+(Number(t.monto)||0),0);
+
+  // Saldo neto por empresa (recibido - enviado)
+  const saldoEmpresa = useMemo(()=>{
+    const s={};
+    empNames.forEach(n=>{ s[n]=0; });
+    transferencias.forEach(t=>{
+      const m=Number(t.monto)||0;
+      if(s[t.destino]!==undefined) s[t.destino]+=m;
+      if(s[t.origen]!==undefined)  s[t.origen]-=m;
+    });
+    return s;
+  },[transferencias,empNames]); // eslint-disable-line
+
+  const filtrado = transferencias.filter(t=>{
+    if(filtroOr!=="Todas"&&t.origen!==filtroOr) return false;
+    if(filtroDest!=="Todas"&&t.destino!==filtroDest) return false;
+    if(filtroTipo!=="Todos"&&t.tipo!==filtroTipo) return false;
+    return true;
+  }).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+
+  function openNew() {
+    setForm({fecha:new Date().toISOString().slice(0,10),origen:"",destino:"",tipo:"Préstamo",monto:"",descripcion:"",mes:""});
+    setEditId(null);
+    setModal(true);
+  }
+  function openEdit(t) {
+    setForm({...t,monto:String(t.monto)});
+    setEditId(t.id);
+    setModal(true);
+  }
+  function guardar() {
+    if(!form.origen||!form.destino||!form.monto){alert("Origen, destino y monto son obligatorios.");return;}
+    if(form.origen===form.destino){alert("Origen y destino no pueden ser la misma empresa.");return;}
+    const item={...form,monto:parseFloat(form.monto)||0,
+      id:editId||`ic_${Date.now()}`};
+    const next = editId
+      ? transferencias.map(t=>t.id===editId?item:t)
+      : [...transferencias,item];
+    onSave(next);
+    setModal(false);
+  }
+  function eliminar(id) {
+    if(!window.confirm("¿Eliminar esta transferencia?")) return;
+    onSave(transferencias.filter(t=>t.id!==id));
+  }
+
+  const fmtFecha=s=>{if(!s)return"—";const d=new Date(s);return`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;}
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      {/* KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
+        {[
+          ["🏦 Total Préstamos",    $$(totalPrestamos),    "#60a5fa"],
+          ["💚 Aportes Capital",    $$(totalAportes),      "#34d399"],
+          ["↩️ Devoluciones",       $$(totalDevoluciones), "#a78bfa"],
+          ["📋 Transferencias",     transferencias.length, C.yellow],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 16px"}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
+            <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Saldo neto por empresa */}
+      <Card>
+        <SectionTitle>Saldo Neto Intercompany por Empresa</SectionTitle>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {empNames.filter(n=>saldoEmpresa[n]!==0).map(n=>{
+            const e=empresas[n];
+            const v=saldoEmpresa[n];
+            return (
+              <div key={n} style={{display:"grid",gridTemplateColumns:"200px 1fr 120px",gap:10,alignItems:"center"}}>
+                <div style={{fontSize:11,color:C.text,fontWeight:600}}>{e?.emoji} {n}</div>
+                <div style={{background:C.card2,borderRadius:4,height:8,overflow:"hidden"}}>
+                  <div style={{width:`${Math.min(Math.abs(v)/Math.max(...empNames.map(x=>Math.abs(saldoEmpresa[x]||0)),1)*100,100)}%`,
+                    height:"100%",background:v>0?"#34d399":"#f87171",borderRadius:4,opacity:0.8}}/>
+                </div>
+                <div style={{textAlign:"right",fontSize:12,fontWeight:700,color:v>0?"#34d399":"#f87171"}}>
+                  {v>0?"↑ ":"↓ "}{$$(Math.abs(v))}
+                </div>
+              </div>
+            );
+          })}
+          {empNames.every(n=>saldoEmpresa[n]===0)&&(
+            <div style={{fontSize:12,color:C.muted,textAlign:"center",padding:16}}>Sin transferencias registradas</div>
+          )}
+        </div>
+      </Card>
+
+      {/* Controles */}
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        {canEdit&&(
+          <button onClick={openNew}
+            style={{padding:"8px 18px",borderRadius:8,border:"none",background:"#f59e0b",
+              color:"#000",cursor:"pointer",fontSize:12,fontWeight:700}}>
+            + Nueva Transferencia
+          </button>
+        )}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginLeft:8}}>
+          {[["Origen",["Todas",...empNames],filtroOr,setFiltroOr],
+            ["Destino",["Todas",...empNames],filtroDest,setFiltroDest],
+            ["Tipo",["Todos",...TIPOS_IC],filtroTipo,setFiltroTipo],
+          ].map(([lbl,opts,val,set])=>(
+            <div key={lbl} style={{display:"flex",alignItems:"center",gap:4}}>
+              <span style={{fontSize:10,color:C.muted}}>{lbl}:</span>
+              <select value={val} onChange={e=>set(e.target.value)}
+                style={{padding:"5px 8px",background:C.card2,border:`1px solid ${C.border}`,
+                  borderRadius:6,color:C.text,fontSize:11,outline:"none"}}>
+                {opts.map(o=><option key={o}>{o}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tabla */}
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+            <thead>
+              <tr style={{background:C.bg2}}>
+                {["Fecha","Origen","Destino","Tipo","Monto","Mes Flujo","Descripción",...(canEdit?[""]:[])].map(h=>(
+                  <th key={h} style={{padding:"8px 12px",fontWeight:600,fontSize:10,color:C.muted,
+                    textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,
+                    textAlign:["Monto"].includes(h)?"right":"left",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtrado.length===0&&(
+                <tr><td colSpan={canEdit?8:7} style={{padding:32,textAlign:"center",color:C.muted}}>
+                  Sin transferencias registradas
+                </td></tr>
+              )}
+              {filtrado.map(t=>{
+                const eOr=empresas[t.origen]||{emoji:"🏢",color:C.muted};
+                const eDest=empresas[t.destino]||{emoji:"🏢",color:C.muted};
+                const tipoColor=IC_COLOR[t.tipo]||C.muted;
+                return (
+                  <tr key={t.id} style={{borderBottom:`1px solid ${C.border}22`}}
+                    onClick={canEdit?()=>openEdit(t):undefined}
+                    onMouseEnter={e=>{if(canEdit)e.currentTarget.style.background=`${C.card2}`;}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+                    <td style={{padding:"8px 12px",color:C.muted,whiteSpace:"nowrap"}}>{fmtFecha(t.fecha)}</td>
+                    <td style={{padding:"8px 12px",fontWeight:600,color:eOr.color,whiteSpace:"nowrap"}}>
+                      {eOr.emoji} {t.origen}
+                    </td>
+                    <td style={{padding:"8px 12px",fontWeight:600,color:eDest.color,whiteSpace:"nowrap"}}>
+                      {eDest.emoji} {t.destino}
+                    </td>
+                    <td style={{padding:"8px 12px"}}>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,
+                        background:`${tipoColor}22`,color:tipoColor,border:`1px solid ${tipoColor}44`}}>
+                        {t.tipo}
+                      </span>
+                    </td>
+                    <td style={{padding:"8px 12px",textAlign:"right",fontWeight:700,color:C.green}}>
+                      {$$(t.monto)}
+                    </td>
+                    <td style={{padding:"8px 12px",color:C.muted}}>{t.mes||"—"}</td>
+                    <td style={{padding:"8px 12px",color:C.text,maxWidth:220,
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {t.descripcion||"—"}
+                    </td>
+                    {canEdit&&(
+                      <td style={{padding:"6px 12px"}}>
+                        <button onClick={e=>{e.stopPropagation();eliminar(t.id);}}
+                          style={{background:"#fee2e2",border:"none",borderRadius:6,
+                            padding:"3px 8px",cursor:"pointer",color:"#991b1b",fontSize:11,fontWeight:700}}>
+                          ×
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Modal nueva / editar transferencia */}
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:400,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:C.bg2,border:`1px solid #f59e0b55`,borderRadius:16,
+            width:520,maxWidth:"95vw",boxShadow:"0 24px 64px rgba(0,0,0,0.7)"}}>
+            <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,
+              display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:22}}>🔄</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:800,color:C.text}}>
+                  {editId?"Editar":"Nueva"} Transferencia Intercompany
+                </div>
+              </div>
+              <button onClick={()=>setModal(false)}
+                style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:20}}>×</button>
+            </div>
+            <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:12}}>
+              {[
+                ["Fecha","fecha","date",null],
+                ["Mes en flujo de caja","mes","select",["",...MESES_65]],
+                ["Tipo de transferencia","tipo","select",TIPOS_IC],
+              ].map(([lbl,field,type,opts])=>(
+                <div key={field}>
+                  <label style={{fontSize:11,fontWeight:600,color:C.muted,display:"block",marginBottom:4}}>{lbl}</label>
+                  {opts?(
+                    <select value={form[field]||""} onChange={e=>setForm(p=>({...p,[field]:e.target.value}))}
+                      style={{width:"100%",padding:"8px 10px",background:C.card2,border:`1px solid ${C.border}`,
+                        borderRadius:8,color:C.text,fontSize:12,outline:"none"}}>
+                      {opts.map(o=><option key={o} value={o}>{o||"— seleccionar mes —"}</option>)}
+                    </select>
+                  ):(
+                    <input type={type} value={form[field]||""} onChange={e=>setForm(p=>({...p,[field]:e.target.value}))}
+                      style={{width:"100%",padding:"8px 10px",background:C.card2,border:`1px solid ${C.border}`,
+                        borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                  )}
+                </div>
+              ))}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:C.muted,display:"block",marginBottom:4}}>
+                    Empresa Origen (paga / envía)
+                  </label>
+                  <select value={form.origen} onChange={e=>setForm(p=>({...p,origen:e.target.value}))}
+                    style={{width:"100%",padding:"8px 10px",background:C.card2,border:`1px solid ${C.border}`,
+                      borderRadius:8,color:form.origen?empresas[form.origen]?.color||C.text:C.muted,
+                      fontSize:12,outline:"none"}}>
+                    <option value="">— seleccionar —</option>
+                    {empNames.map(n=><option key={n} value={n}>{empresas[n]?.emoji} {n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:C.muted,display:"block",marginBottom:4}}>
+                    Empresa Destino (recibe)
+                  </label>
+                  <select value={form.destino} onChange={e=>setForm(p=>({...p,destino:e.target.value}))}
+                    style={{width:"100%",padding:"8px 10px",background:C.card2,border:`1px solid ${C.border}`,
+                      borderRadius:8,color:form.destino?empresas[form.destino]?.color||C.text:C.muted,
+                      fontSize:12,outline:"none"}}>
+                    <option value="">— seleccionar —</option>
+                    {empNames.filter(n=>n!==form.origen).map(n=><option key={n} value={n}>{empresas[n]?.emoji} {n}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:600,color:C.muted,display:"block",marginBottom:4}}>Monto USD</label>
+                <input type="number" value={form.monto} onChange={e=>setForm(p=>({...p,monto:e.target.value}))}
+                  placeholder="0"
+                  style={{width:"100%",padding:"8px 10px",background:C.card2,border:`1px solid ${C.border}`,
+                    borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:600,color:C.muted,display:"block",marginBottom:4}}>
+                  Descripción (opcional)
+                </label>
+                <input type="text" value={form.descripcion||""} onChange={e=>setForm(p=>({...p,descripcion:e.target.value}))}
+                  placeholder="Ej: Capital de trabajo temporada cereza 2026"
+                  style={{width:"100%",padding:"8px 10px",background:C.card2,border:`1px solid ${C.border}`,
+                    borderRadius:8,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+              </div>
+              {form.origen&&form.destino&&form.monto&&(
+                <div style={{background:`${"#f59e0b"}18`,border:`1px solid ${"#f59e0b"}44`,
+                  borderRadius:10,padding:"10px 14px",fontSize:11,color:"#f59e0b"}}>
+                  📤 <strong>{form.origen}</strong> → <strong>{form.destino}</strong> · {$$(parseFloat(form.monto)||0)} USD
+                  {form.tipo==="Préstamo"&&<span style={{marginLeft:8,color:C.muted}}>
+                    (registra como egreso en origen e ingreso en destino)
+                  </span>}
+                </div>
+              )}
+            </div>
+            <div style={{padding:"12px 20px",borderTop:`1px solid ${C.border}`,
+              display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <button onClick={()=>setModal(false)}
+                style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,
+                  background:"transparent",color:C.muted,cursor:"pointer",fontSize:12}}>
+                Cancelar
+              </button>
+              <button onClick={guardar}
+                style={{padding:"8px 18px",borderRadius:8,border:"none",
+                  background:"#f59e0b",color:"#000",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                💾 Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MÓDULO PRINCIPAL
+// ═══════════════════════════════════════════════════════════════════
+export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermisos={}}) {
+  const [tab,setTab]=useState("dashboard");
+  const [empTab,setEmpTab]=useState("Mediterra");
+  const [flujoSubTab,setFlujoSubTab]=useState("flujo"); // "flujo" | "params"
+  const [realData,setRealData]=useState({});
+  const [params,setParams]=useState(defaultParams);
+  // paramsEmp: { empresa: { seasonKey: { prodId: defaultProducto() } } }
+  const [paramsEmp,setParamsEmp]=useState({});
+  // CREDITOS: dinámico — se puede agregar, editar y marcar como pagado
+  const [creditosData,setCreditosData]=useState(CREDITOS_DEFAULT);
+  // paramsAS: parámetros específicos Allegria Service
+  const [paramsAS,setParamsAS]=useState(defaultParamsAllegriaService);
+  // paramsIF: parámetros específicos Integrity Farms
+  const [paramsIF,setParamsIF]=useState(defaultParamsIntegrity);
+  const [paramsFrisku,setParamsFrisku]=useState(defaultParamsFrisku);
+  // paramsAF: parámetros específicos Allpa Farms
+  const [paramsAF,setParamsAF]=useState(defaultParamsAllpa);
+  // subLines: { empresa: { lineLabel: [nombre1, nombre2, ...] } }
+  const [subLines,setSubLines]=useState({});
+  // intercompany: array de transferencias entre empresas
+  // [{id, fecha, origen, destino, tipo, monto, descripcion, mes}]
+  const [intercompany,setIntercompany]=useState([]);
+  const [saldosBancos,setSaldosBancos]=useState({});
+  const [loading,setLoading]=useState(true);
+  const [saved,setSaved]=useState(null);
+
+  const esAdmin = usuarioActual?.rol==="admin";
+  const canEdit = esAdmin || ["Angelo Huerta","Carol Machuca"].includes(usuarioActual?.nombre||"");
+
+  const perm     = (tabId) => tabPermisos?.[tabId] ?? "editar";
+  const puedoVer = (tabId) => esAdmin || perm(tabId) !== "sin_acceso";
+  const puedoEdit= (tabId) => esAdmin || (perm(tabId) !== "ver" && perm(tabId) !== "sin_acceso");
+
+  const empresas=useMemo(()=>{
+    const base = buildEmpresas(params);
+    // Recalculate Préstamos + Renovaciones proy using current creditosData
+    Object.keys(base).forEach(empNombre=>{
+      const emp = base[empNombre];
+      base[empNombre] = {
+        ...emp,
+        sections: emp.sections.map(sec=>{
+          // egr_nop: Pago Préstamos + Renovaciones (egresos)
+          if(sec.cat==="egr_nop") {
+            return {
+              ...sec,
+              lines: sec.lines.map(l=>{
+                if(l.label==="Pago Préstamos - Total")
+                  return {...l, proy: calcPrestamosEmpresa(empNombre, creditosData)};
+                if(l.label==="Renovaciones")
+                  return {...l, proy: calcRenovacionesEmpresa(empNombre, creditosData)};
+                return l;
+              })
+            };
+          }
+          // ing_nop: Ingreso Renovación (ingresos)
+          if(sec.cat==="ing_nop") {
+            return {
+              ...sec,
+              lines: sec.lines.map(l=>{
+                if(l.label==="Ingreso Renovación")
+                  return {...l, proy: calcIngresoRenovacionEmpresa(empNombre, creditosData)};
+                return l;
+              })
+            };
+          }
+          return sec;
+        })
+      };
+    });
+    // Inject Allegria Service calculated projections
+    const {ingCerezas,ingCiruelas} = calcAllegriaService(paramsAS);
+    const as = base["Allegria Service"];
+    if(as) {
+      const next = JSON.parse(JSON.stringify(as));
+      next.sections = next.sections.map(sec=>{
+        if(sec.cat!=="ing_op") return sec;
+        return {...sec, lines: sec.lines.map(l=>{
+          if(l.label==="Proceso de Cerezas")   return {...l,proy:[...ingCerezas],  formula:true};
+          if(l.label==="Procesos de Ciruelas")  return {...l,proy:[...ingCiruelas], formula:true};
+          return l;
+        })};
+      });
+      base["Allegria Service"] = next;
+    }
+    // Inject Allpa Farms calculated projections
+    const {ingArr:ingAF, costArr:costAF, trspArr:trspAF} = calcAllpa(paramsAF);
+    const afEmp = base["Allpa Farms"];
+    if(afEmp) {
+      const nextAF = JSON.parse(JSON.stringify(afEmp));
+      nextAF.sections = nextAF.sections.map(sec=>{
+        if(sec.cat==="ing_op") return {...sec,lines:sec.lines.map(l=>{
+          if(l.label==="Ingreso Exportación Cerezas") return {...l,proy:[...ingAF],formula:true};
+          return l;
+        })};
+        if(sec.cat==="egr_var") return {...sec,lines:sec.lines.map(l=>{
+          if(l.label==="Remuneración Cosecha") return {...l,proy:[...costAF],formula:true};
+          if(l.label==="Transporte")           return {...l,proy:[...trspAF],formula:true};
+          return l;
+        })};
+        return sec;
+      });
+      base["Allpa Farms"] = nextAF;
+    }
+
+    // Inject Integrity Farms calculated projections
+    const ingIF = calcIntegrity(paramsIF);
+    const ifEmp = base["Integrity Farms"];
+    if(ifEmp) {
+      const nextIF = JSON.parse(JSON.stringify(ifEmp));
+      nextIF.sections = nextIF.sections.map(sec=>{
+        if(sec.cat!=="ing_op") return sec;
+        return {...sec, lines: sec.lines.map(l=>{
+          if(l.label==="Ingreso Administración (us$2.000/ha)")
+            return {...l, proy:[...ingIF], formula:true};
+          return l;
+        })};
+      });
+      base["Integrity Farms"] = nextIF;
+    }
+    // Inject Frisku Foods calculated projections
+    const ingFrisku = calcFrisku(paramsFrisku);
+    const friskuEmp = base["Frisku Foods"];
+    if(friskuEmp) {
+      const nextFrisku = JSON.parse(JSON.stringify(friskuEmp));
+      nextFrisku.sections = nextFrisku.sections.map(sec=>{
+        if(sec.cat!=="ing_op") return sec;
+        return {...sec, lines: sec.lines.map(l=>{
+          if(l.label==="Ingreso Carga Contenedores")
+            return {...l, proy:[...ingFrisku], formula:true};
+          return l;
+        })};
+      });
+      base["Frisku Foods"] = nextFrisku;
+    }
+    return base;
+  },[params,paramsAS,paramsIF,paramsAF,creditosData,paramsFrisku]);
+
+  const TABS_ALL=[
+    {id:"dashboard",label:"📊 Dashboard"},
+    {id:"flujo",    label:"📈 Flujo Empresas"},
+    {id:"bancos",   label:"🏦 Saldos Bancos"},
+    {id:"creditos", label:"💳 Créditos"},
+    {id:"nominas",  label:"📋 Nóminas"},
+    {id:"auditoria",label:"🔍 Auditoría"},
+  ];
+  // Solo mostrar pestañas a las que el usuario tiene acceso
+  // Auditoría: solo admin
+  const TABS = TABS_ALL.filter(t => {
+    if(t.id==="auditoria") return usuarioActual?.rol==="admin";
+    return puedoVer(t.id);
+  });
+
+  // Si la tab activa no está disponible, ir a la primera disponible
+  useEffect(()=>{
+    if(TABS.length>0 && !TABS.find(t=>t.id===tab)){
+      setTab(TABS[0].id);
+    }
+  // eslint-disable-next-line
+  },[tabPermisos]);
+
+  // ── Carga inicial de datos ────────────────────────────────────────
+  function applyData(d) {
+    if(!d) return;
+    if(d?.calendario_data) setRealData(d.calendario_data);
+    else if(d&&!d.calendario_data&&!d.allegria_params) setRealData(d);
+    if(d?.allegria_params) setParams(prev=>({...defaultParams(),...d.allegria_params}));
+    if(d?.params_emp) setParamsEmp(d.params_emp);
+    if(d?.saldos_bancos) setSaldosBancos(d.saldos_bancos);
+    if(d?.params_as)    setParamsAS(prev=>({...defaultParamsAllegriaService(),...d.params_as}));
+    if(d?.params_if)    setParamsIF(prev=>({...defaultParamsIntegrity(),...d.params_if}));
+    if(d?.params_af)    setParamsAF(prev=>({...defaultParamsAllpa(),...d.params_af}));
+    if(d?.sub_lines)    setSubLines(d.sub_lines);
+    if(d?.intercompany)   setIntercompany(d.intercompany||[]);
+    if(d?.creditos_data && Array.isArray(d.creditos_data) && d.creditos_data.length>0) setCreditosData(d.creditos_data);
+    if(d?.params_frisku) setParamsFrisku(prev=>d.params_frisku||prev);
+  }
 
   useEffect(()=>{
-    async function cargar(){
-      try{
-        const d=await dbLoad();
-        if(d){
-          if(d.usuarios)setUsuarios(prev=>{
-            const merged=WORKERS_BASE.map(wb=>{
-              const saved=d.usuarios.find(u=>u.nombre===wb.nombre);
-              if(!saved) return wb;
-              return {
-                ...saved,
-                // Módulos: usar los guardados en Supabase (admin los configura),
-                // solo si no hay guardados usar los del código base
-                modulos: (saved.modulos && saved.modulos.length > 0)
-                  ? saved.modulos
-                  : wb.modulos,
-                // Rol: respetar lo guardado en Supabase
-                rol: saved.rol || wb.rol,
-                // Permisos por pestaña: siempre preservar lo guardado
-                tab_permisos: saved.tab_permisos || {},
-                desactivado: saved.desactivado || false,
-              };
-            });
-            // Usuarios extra agregados desde la app (no están en WORKERS_BASE)
-            const extras=d.usuarios.filter(u=>!WORKERS_BASE.find(wb=>wb.nombre===u.nombre));
-            return[...merged,...extras];
-          });
-          if(d.estados)setEstados(prev=>({...prev,...d.estados}));
-          if(d.comentarios)setComentarios(d.comentarios);
-          if(d.tareasConfig)setTareasConfig(prev=>({...prev,...d.tareasConfig}));
-          if(d.supervisores)setSupervisores(prev=>({...prev,...d.supervisores}));
-          if(d.tareasExtra)setTareasExtra(d.tareasExtra);
-          if(d.tareasOverrides)setTareasOverrides(prev=>({...prev,...d.tareasOverrides}));
-          if(d.pinsPersonalizados)setPinsPersonalizados(d.pinsPersonalizados);
-          if(d.recsDone)setRecsDone(d.recsDone);
-          if(d.recsComentarios)setRecsComentarios(d.recsComentarios);
-          if(d.osirisData){
-            const saved=d.osirisData;
-            setOsirisData(prev=>{
-              // Solo restaurar registros con ediciones del usuario:
-              // agregados manualmente (id no empieza con _xl_) o con campos editados
-              function extractUserEdits(savedArr){
-                if(!savedArr||savedArr.length===0) return [];
-                return savedArr.filter(r=>{
-                  const id = String(r.id||'');
-                  // Registro agregado manualmente (no viene del Excel)
-                  if(!id.includes('_xl_')) return true;
-                  // Registro del Excel con ediciones del usuario
-                  // pagado puede ser true O false (si el usuario cambió el estado)
-                  if(r.pagado===true || r.pagado===false) return true;
-                  if(r.nFact && String(r.nFact).trim()!=='') return true;
-                  if(r.nOC && String(r.nOC).trim()!=='') return true;
-                  if(r.fechaPago && String(r.fechaPago).trim()!=='') return true;
-                  if(r.ha && Number(r.ha)>0) return true;
-                  return false;
-                });
-              }
-              // Merge: base = _INIT de OsirisModule (que viene en prev via useState)
-              // Encima: aplicar ediciones del usuario guardadas en Supabase
-              function mergeEdits(base, edits, idField="id"){
-                if(!edits||edits.length===0) return base;
-                const edited = {};
-                edits.forEach(r=>{ edited[r[idField]] = r; });
-                // Actualizar registros base con ediciones
-                const merged = base.map(r => edited[r[idField]] ? {...r,...edited[r[idField]]} : r);
-                // Agregar registros nuevos (agregados manualmente, no están en base)
-                const baseIds = new Set(base.map(r=>r[idField]));
-                const nuevos = edits.filter(r=>!baseIds.has(r[idField]));
-                return [...merged, ...nuevos];
-              }
-              return{
-                ...prev,
-                royaltyPlanta:    mergeEdits(prev.royaltyPlanta||[],    extractUserEdits(saved.royaltyPlanta)),
-                feeEntrada:       mergeEdits(prev.feeEntrada||[],       extractUserEdits(saved.feeEntrada)),
-                royaltyComercial: mergeEdits(prev.royaltyComercial||[], extractUserEdits(saved.royaltyComercial)),
-                feeViveros:       mergeEdits(prev.feeViveros||[],       extractUserEdits(saved.feeViveros)),
-                totalPedidos:     mergeEdits(prev.totalPedidos||[],     extractUserEdits(saved.totalPedidos)),
-                contratos: saved.contratos||prev.contratos||[],
-              };
-            });
-          }
-          if(d.mes!==undefined)setMes(d.mes);
-          if(d.anio!==undefined)setAnio(d.anio);
-        }
-      }catch(e){console.error("Error cargando:",e);}
-      setCargando(false);
-      // Restaurar sesión después de un reload automático
-      const savedNombre = sessionStorage.getItem('mediterra_usuario');
-      if(savedNombre) {
-        // Se restaura en el useEffect que observa [usuarios, cargando] abajo
-      }
-    }
-    cargar();
+    dbLoad().then(d=>{ applyData(d); setLoading(false); });
 
     // ── Supabase Realtime — sincronización instantánea entre usuarios ──
-    // Escucha cambios en id:"main" → actualiza Tareas y Osiris en tiempo real
-    const SUPA_WS = `wss://${SUPA_URL.replace('https://','')}/realtime/v1/websocket?apikey=${SUPA_KEY}&vsn=1.0.0`;
-    const TOPIC_MAIN = "realtime:public:calendario_data";
-    const ws = new WebSocket(SUPA_WS);
-    const REF = () => String(Date.now());
+    // Escucha cambios en la fila "finanzas" de calendario_data
+    // Cuando otro usuario guarda → todos reciben los nuevos datos al instante
+    const channel = new WebSocket(
+      `wss://${SUPA_URL.replace('https://','')}/realtime/v1/websocket?apikey=${SUPA_KEY}&vsn=1.0.0`
+    );
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
-        topic: TOPIC_MAIN, event: "phx_join",
+    let joined = false;
+    const REF   = () => String(Date.now());
+    const TOPIC = "realtime:public:calendario_data";
+
+    channel.onopen = () => {
+      // Join the realtime channel
+      channel.send(JSON.stringify({
+        topic: TOPIC, event: "phx_join",
         payload: { config: { broadcast:{ack:false,self:false}, presence:{key:""} } },
         ref: REF()
       }));
     };
 
-    ws.onmessage = (e) => {
+    channel.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
-        if(msg.topic === TOPIC_MAIN && (msg.event === "INSERT" || msg.event === "UPDATE")) {
+        // Heartbeat keepalive
+        if(msg.event === "phx_reply" && !joined) { joined=true; return; }
+        if(msg.topic === "phoenix" && msg.event === "phx_reply") {
+          channel.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:REF()}));
+          return;
+        }
+        // Data change event
+        if(msg.topic === TOPIC && (msg.event === "INSERT" || msg.event === "UPDATE")) {
           const record = msg.payload?.record;
-          if(record?.id === "main" && record?.value) {
+          if(record?.id === "finanzas" && record?.value) {
             try {
-              const d = typeof record.value === "string" ? JSON.parse(record.value) : record.value;
-              // Aplicar solo si el cambio viene de otro usuario (evitar loop)
-              if(d.estados)       setEstados(prev=>({...prev,...d.estados}));
-              if(d.comentarios)   setComentarios(d.comentarios);
-              if(d.tareasConfig)  setTareasConfig(prev=>({...prev,...d.tareasConfig}));
-              if(d.supervisores)  setSupervisores(prev=>({...prev,...d.supervisores}));
-              if(d.tareasExtra)   setTareasExtra(d.tareasExtra);
-              if(d.pinsPersonalizados) setPinsPersonalizados(d.pinsPersonalizados);
-              if(d.recsDone)      setRecsDone(d.recsDone);
-              if(d.recsComentarios) setRecsComentarios(d.recsComentarios);
-              if(d.osirisData)    setOsirisData(prev=>({...prev,...d.osirisData}));
+              const d = JSON.parse(record.value);
+              applyData(d);
             } catch(err) {}
           }
         }
       } catch(err) {}
     };
 
-    const hbMain = setInterval(()=>{
-      if(ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:REF()}));
+    // Heartbeat every 30s to keep connection alive
+    const hb = setInterval(()=>{
+      if(channel.readyState === WebSocket.OPEN) {
+        channel.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:REF()}));
+      }
     }, 30000);
 
-    return () => { clearInterval(hbMain); if(ws.readyState===WebSocket.OPEN) ws.close(); };
-  },[]); // eslint-disable-line
-
-  // ── Restaurar sesión tras recarga automática ─────────────────────
-  useEffect(()=>{
-    if(cargando) return; // esperar a que carguen los usuarios
-    if(usuarioActual) return; // ya hay sesión activa
-    const savedNombre = sessionStorage.getItem('mediterra_usuario');
-    if(savedNombre) {
-      const worker = usuarios.find(u=>u.nombre===savedNombre);
-      if(worker && !worker.desactivado) {
-        setUsuarioActual(worker);
-        window._auditUsuarioActual = worker;
-        // Restaurar el módulo donde estaba
-        const savedModulo = sessionStorage.getItem('mediterra_modulo');
-        if(savedModulo) setModuloActivo(savedModulo);
-      } else {
-        sessionStorage.removeItem('mediterra_usuario');
-        sessionStorage.removeItem('mediterra_modulo');
-      }
-    }
-  },[cargando, usuarios]); // eslint-disable-line
-
-  // Mantener _auditUsuarioActual sincronizado
-  useEffect(()=>{
-    window._auditUsuarioActual = usuarioActual;
-  },[usuarioActual]);
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ALERTAS EMAIL — Tareas puntuales: email los LUNES + resumen semanal
-  // + Modal al ingresar con tareas próximas/vencidas
-  // ═══════════════════════════════════════════════════════════════════
-  const [modalAlertasTareas, setModalAlertasTareas] = useState(null); // {tareas:[]}
-
-  useEffect(()=>{
-    if(cargando || !usuarioActual) return;
-    const hoyStr = new Date().toISOString().slice(0,10);
-    const hoyD = new Date(); hoyD.setHours(0,0,0,0);
-    const diaSemana = hoyD.getDay(); // 0=dom, 1=lun...
-
-    const puntuales = todasTareas().filter(t=>getFrecuencia(t.id)==="Puntual"&&!isBloqueada(t.id));
-    const getWorker = (nombre) => WORKERS.find(w=>w.nombre===nombre);
-
-    // ── Modal al login: mostrar tareas próximas (30d) y vencidas del usuario ──
-    const modalKey = `_modal_tareas_${hoyStr}_${usuarioActual.nombre}`;
-    if(!sessionStorage.getItem(modalKey)) {
-      sessionStorage.setItem(modalKey, "1");
-      const misTareas = [];
-      puntuales.forEach(t => {
-        const fp = getConfig(t.id).fechaPuntual || t.fechaPuntual;
-        if(!fp) return;
-        const est = estados[t.id]||{};
-        if(est.estadoResp === "verde" || est.estadoResp === "na") return;
-        const fechaObj = new Date(fp+"T00:00:00");
-        const diff = Math.ceil((fechaObj - hoyD)/(1000*60*60*24));
-        if(diff > 30) return;
-        const sup = getSupervisor(t.id);
-        // Mostrar si soy responsable, supervisor, o admin
-        const esResp = t.responsable === usuarioActual.nombre;
-        const esSup = sup === usuarioActual.nombre;
-        const esAdm = usuarioActual.rol === "admin";
-        if(!esResp && !esSup && !esAdm) return;
-        misTareas.push({
-          nombre: t.nombre,
-          responsable: t.responsable,
-          supervisor: sup||"—",
-          fecha: fechaObj.toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}),
-          diff,
-          categoria: t.categoria,
-          vencida: diff < 0,
-          hoy: diff === 0,
-        });
-      });
-      // Ordenar: vencidas primero, luego por fecha
-      misTareas.sort((a,b) => a.diff - b.diff);
-      if(misTareas.length > 0) {
-        setTimeout(()=>setModalAlertasTareas({tareas: misTareas}), 1500); // delay para que cargue UI
-      }
-    }
-
-    // ── Emails: solo los LUNES ──
-    if(diaSemana !== 1) return;
-    if(usuarioActual.rol !== "admin") return; // solo admin dispara emails
-    const alertKey = `_alertas_email_${hoyStr}`;
-    if(sessionStorage.getItem(alertKey)) return;
-    sessionStorage.setItem(alertKey, "1");
-
-    // Alertas individuales: solo cuando faltan ≤7 días o está vencida (≤3d)
-    puntuales.forEach(t => {
-      const fp = getConfig(t.id).fechaPuntual || t.fechaPuntual;
-      if(!fp) return;
-      const est = estados[t.id]||{};
-      if(est.estadoResp === "verde" || est.estadoResp === "na") return;
-      const fechaObj = new Date(fp+"T00:00:00");
-      const diff = Math.ceil((fechaObj - hoyD)/(1000*60*60*24));
-      const sup = getSupervisor(t.id);
-      const wResp = getWorker(t.responsable);
-      const wSup = sup ? getWorker(sup) : null;
-
-      let asunto = null, mensaje = null;
-      if(diff >= 0 && diff <= 7) {
-        asunto = `⚠️ ${diff===0?"VENCE HOY":diff===1?"MAÑANA vence":`${diff} días`} — ${t.nombre}`;
-        mensaje = `La tarea "${t.nombre}" vence el ${fechaObj.toLocaleDateString("es-CL")}.\n\n${diff===0?"¡Vence HOY!":diff===1?"¡Vence MAÑANA!":"Faltan "+diff+" días."}\n\nResponsable: ${t.responsable}\nSupervisor: ${sup||"—"}\n\nhttps://gestion-grupo-mediterra.vercel.app`;
-      } else if(diff < 0 && diff >= -7) {
-        asunto = `❌ VENCIDA (${Math.abs(diff)}d) — ${t.nombre}`;
-        mensaje = `La tarea "${t.nombre}" venció hace ${Math.abs(diff)} día(s).\n\nAún no ha sido completada.\n\nResponsable: ${t.responsable}\n\nhttps://gestion-grupo-mediterra.vercel.app`;
-      }
-
-      if(asunto && mensaje && window._enviarNotificacion) {
-        if(wResp?.email) window._enviarNotificacion(wResp.email, wResp.nombre, asunto, mensaje).catch(()=>{});
-        if(wSup?.email && wSup.email !== wResp?.email) window._enviarNotificacion(wSup.email, wSup.nombre, asunto, mensaje).catch(()=>{});
-      }
-    });
-
-    // Resumen semanal consolidado (lunes)
-    const porResponsable = {};
-    puntuales.forEach(t => {
-      const fp = getConfig(t.id).fechaPuntual || t.fechaPuntual;
-      if(!fp) return;
-      const est = estados[t.id]||{};
-      if(est.estadoResp === "verde" || est.estadoResp === "na") return;
-      const fechaObj = new Date(fp+"T00:00:00");
-      const diff = Math.ceil((fechaObj - hoyD)/(1000*60*60*24));
-      if(diff > 30) return;
-      if(!porResponsable[t.responsable]) porResponsable[t.responsable] = [];
-      const estado = diff < 0 ? `⚠️ VENCIDA ${Math.abs(diff)}d` : diff === 0 ? "🔴 HOY" : `${diff} días`;
-      porResponsable[t.responsable].push(`• ${t.nombre} — ${fechaObj.toLocaleDateString("es-CL")} (${estado})`);
-    });
-
-    if(window._enviarNotificacion) {
-      Object.entries(porResponsable).forEach(([nombre, tareas]) => {
-        const w = getWorker(nombre);
-        if(!w?.email || tareas.length === 0) return;
-        window._enviarNotificacion(w.email, nombre,
-          `📋 Resumen semanal — ${tareas.length} tarea(s) próxima(s)`,
-          `Hola ${nombre.split(" ")[0]},\n\nTus tareas puntuales próximas (30 días):\n\n${tareas.join("\n")}\n\nhttps://gestion-grupo-mediterra.vercel.app`
-        ).catch(()=>{});
-      });
-
-      const todasLasTareas = Object.entries(porResponsable)
-        .map(([nombre, tareas]) => `\n👤 ${nombre}:\n${tareas.join("\n")}`)
-        .join("\n");
-      if(todasLasTareas) {
-        const totalTareas = Object.values(porResponsable).reduce((s,t)=>s+t.length, 0);
-        window._enviarNotificacion("ahuerta@grupomediterra.cl", "Angelo Huerta",
-          `📋 Resumen semanal equipo — ${totalTareas} tarea(s)`,
-          `Hola Angelo,\n\nResumen tareas puntuales del equipo (próximos 30 días):\n${todasLasTareas}\n\nhttps://gestion-grupo-mediterra.vercel.app`
-        ).catch(()=>{});
-      }
-    }
-  },[cargando, usuarioActual]); // eslint-disable-line
-
-  // Limpiar sesión al hacer logout manual
-  // (el logout llama setUsuarioActual(null) — interceptamos eso)
-
-  // Refs para siempre tener valores frescos en guardado
-  const estadosRef       = useRef(estados);
-  const comentariosRef   = useRef(comentarios);
-  const tareasConfigRef  = useRef(tareasConfig);
-  const supervisoresRef  = useRef(supervisores);
-  const tareasExtraRef   = useRef(tareasExtra);
-  const tareasOverridesRef = useRef(tareasOverrides);
-  const pinsRef          = useRef(pinsPersonalizados);
-  const recsDoneRef      = useRef(recsDone);
-  const recsComRef       = useRef(recsComentarios);
-  const usuariosRef      = useRef(usuarios);
-  const mesRef           = useRef(mes);
-  const anioRef          = useRef(anio);
-  const osirisDataRef    = useRef(osirisData);
-  useEffect(()=>{ estadosRef.current      = estados;        },[estados]);
-  useEffect(()=>{ comentariosRef.current  = comentarios;    },[comentarios]);
-  useEffect(()=>{ tareasConfigRef.current = tareasConfig;   },[tareasConfig]);
-  useEffect(()=>{ supervisoresRef.current = supervisores;   },[supervisores]);
-  useEffect(()=>{ tareasExtraRef.current  = tareasExtra;    },[tareasExtra]);
-  useEffect(()=>{ pinsRef.current         = pinsPersonalizados; },[pinsPersonalizados]);
-  useEffect(()=>{ recsDoneRef.current     = recsDone;       },[recsDone]);
-  useEffect(()=>{ recsComRef.current      = recsComentarios;},[recsComentarios]);
-  useEffect(()=>{ usuariosRef.current     = usuarios;       },[usuarios]);
-  useEffect(()=>{ mesRef.current          = mes;            },[mes]);
-  useEffect(()=>{ anioRef.current         = anio;           },[anio]);
-  useEffect(()=>{ osirisDataRef.current   = osirisData;     },[osirisData]);
-
-  // Guardar siempre con los valores más recientes (sin stale closure)
-  const guardarAhora = useCallback(()=>{
-    setGuardado("guardando");
-    dbSave({
-      estados:      estadosRef.current,
-      comentarios:  comentariosRef.current,
-      tareasConfig: tareasConfigRef.current,
-      supervisores: supervisoresRef.current,
-      tareasExtra:  tareasExtraRef.current,
-      tareasOverrides: tareasOverridesRef.current,
-      pinsPersonalizados: pinsRef.current,
-      recsDone:     recsDoneRef.current,
-      recsComentarios: recsComRef.current,
-      usuarios:     usuariosRef.current,
-      mes:          mesRef.current,
-      anio:         anioRef.current,
-      osirisData:   osirisDataRef.current,
-    })
-    .then(()=>{setGuardado("ok");setTimeout(()=>setGuardado("idle"),2000);})
-    .catch(()=>{setGuardado("error");setTimeout(()=>setGuardado("idle"),3000);});
-  },[]); // eslint-disable-line
-
-  const guardar=useCallback((est,com,tc,sup,te,pins,rd,rc,usrs,m,a,od)=>{
-    setGuardado("guardando");
-    dbSave({estados:est,comentarios:com,tareasConfig:tc,supervisores:sup,tareasExtra:te,
-      pinsPersonalizados:pins,recsDone:rd,recsComentarios:rc,usuarios:usrs,mes:m,anio:a,osirisData:od})
-      .then(()=>{setGuardado("ok");setTimeout(()=>setGuardado("idle"),2000);})
-      .catch(()=>{setGuardado("error");setTimeout(()=>setGuardado("idle"),3000);});
+    return () => {
+      clearInterval(hb);
+      if(channel.readyState === WebSocket.OPEN) channel.close();
+    };
+  // eslint-disable-next-line
   },[]);
 
-  // Auto-guardado general (debounce 800ms)
-  useEffect(()=>{
-    if(cargando)return;
-    const t=setTimeout(()=>guardar(estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,osirisData),800);
-    return()=>clearTimeout(t);
-  },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,osirisData,cargando,guardar]);
+  // Refs para siempre tener el valor mas reciente sin stale closures
+  const realDataRef     = React.useRef(realData);
+  const paramsRef       = React.useRef(params);
+  const saldosBancosRef = React.useRef(saldosBancos);
+  const paramsEmpRef    = React.useRef(paramsEmp);
+  const paramsASRef     = React.useRef(paramsAS);
+  const creditosRef     = React.useRef(creditosData);
+  const paramsIFRef     = React.useRef(paramsIF);
+  const paramsFriskuRef = React.useRef(paramsFrisku);
+  const paramsAFRef     = React.useRef(paramsAF);
+  const subLinesRef      = React.useRef(subLines);
+  const intercompanyRef  = React.useRef(intercompany);
+  useEffect(()=>{ realDataRef.current     = realData;     },[realData]);
+  useEffect(()=>{ paramsRef.current       = params;       },[params]);
+  useEffect(()=>{ saldosBancosRef.current = saldosBancos; },[saldosBancos]);
+  useEffect(()=>{ paramsEmpRef.current    = paramsEmp;    },[paramsEmp]);
+  useEffect(()=>{ paramsASRef.current     = paramsAS;     },[paramsAS]);
+  useEffect(()=>{ creditosRef.current     = creditosData;  },[creditosData]);
+  useEffect(()=>{ paramsIFRef.current     = paramsIF;     },[paramsIF]);
+  useEffect(()=>{ paramsFriskuRef.current = paramsFrisku; },[paramsFrisku]);
+  useEffect(()=>{ paramsAFRef.current     = paramsAF;     },[paramsAF]);
+  useEffect(()=>{ subLinesRef.current     = subLines;     },[subLines]);
+  useEffect(()=>{ intercompanyRef.current = intercompany; },[intercompany]);
 
-  // Guardado inmediato al cambiar usuarios (permisos, roles, activar/desactivar)
-  useEffect(()=>{
-    if(cargando) return;
-    // Guardar de inmediato con los valores más frescos
-    const t=setTimeout(()=>guardarAhora(), 300);
-    return()=>clearTimeout(t);
-  },[usuarios,cargando]); // eslint-disable-line
+  // Helper centralizado - siempre usa los valores mas recientes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const persistAll = useCallback((overrides={})=>{
+    return dbSave({
+      finanzas_real:   overrides.finanzas_real   !== undefined ? overrides.finanzas_real   : realDataRef.current,
+      allegria_params: overrides.allegria_params !== undefined ? overrides.allegria_params : paramsRef.current,
+      saldos_bancos:   overrides.saldos_bancos   !== undefined ? overrides.saldos_bancos   : saldosBancosRef.current,
+      params_emp:      overrides.params_emp      !== undefined ? overrides.params_emp      : paramsEmpRef.current,
+      creditos_data:   overrides.creditos_data !== undefined ? overrides.creditos_data : creditosRef.current,
+      params_as:       overrides.params_as       !== undefined ? overrides.params_as       : paramsASRef.current,
+      params_frisku:   overrides.params_frisku !== undefined ? overrides.params_frisku : paramsFriskuRef.current,
+      params_if:       overrides.params_if       !== undefined ? overrides.params_if       : paramsIFRef.current,
+      params_af:       overrides.params_af       !== undefined ? overrides.params_af       : paramsAFRef.current,
+      sub_lines:       overrides.sub_lines       !== undefined ? overrides.sub_lines       : subLinesRef.current,
+      intercompany:    overrides.intercompany    !== undefined ? overrides.intercompany    : intercompanyRef.current,
+    });
+  },[]); // eslint-disable-line
 
-  function getPinActivo(w){return pinsPersonalizados[w.nombre]||w.pin;}
+  const handleSaveReal=useCallback(async(empresa,mes,semana,vals)=>{
+    const next=JSON.parse(JSON.stringify(realDataRef.current));
+    if(!next[empresa]) next[empresa]={};
+    if(!next[empresa][mes]) next[empresa][mes]={};
+    next[empresa][mes][semana]=vals;
+    setRealData(next);
+    realDataRef.current = next;
+    const ok=await persistAll({ calendario_data:next });
+    setSaved(ok?"✅ Guardado":"⚠️ Error");
+    setTimeout(()=>setSaved(null),3000);
+  },[persistAll]);
 
-  // Helper central de logout con auditoría
-  function doLogout() {
-    const u = usuarioActual;
-    if(u) window.auditLog("logout", {modulo:"sistema", seccion:"autenticación",
-      descripcion:`${u.nombre} cerró sesión`});
-    // Flush inmediato del buffer antes de limpiar
-    if(window._auditBuffer && window._auditBuffer.length > 0) {
-      try { auditFlush(); } catch {}
-    }
-    setUsuarioActual(null);
-    setModuloActivo(null);
-    sessionStorage.removeItem('mediterra_usuario');
-    sessionStorage.removeItem('mediterra_modulo');
-    window._auditUsuarioActual = null;
-  }
-
-  function handleLogin(){
-    const emailInput = loginEmail.trim().toLowerCase();
-    const w=WORKERS.find(x=>x.email&&x.email.toLowerCase()===emailInput);
-    if(!w){
-      setLoginError("Email no reconocido. Verifica tu dirección.");
-      window.auditLog("login_fallido", {modulo:"sistema", seccion:"autenticación",
-        descripcion:`Intento de login con email no reconocido: ${emailInput}`,
-        usuario:"(desconocido)", email:emailInput});
-      return;
-    }
-    const pinOk=getPinActivo(w);
-    const pinTemp=pinsPersonalizados[w.nombre+"_temp"];
-    const esTemp=pinTemp&&loginPin.trim()===pinTemp;
-    const esOk=loginPin.trim()===pinOk;
-    if(esOk||esTemp){
-      setLoginError("");
-      if(esTemp&&!esOk){
-        // PIN temporal: guardar worker pendiente y mostrar cambio PIN ANTES de entrar
-        setWorkerPendiente(w);
-        setModalPin("cambiar");
-        window._auditUsuarioActual = w;
-        window.auditLog("login_pin_temporal", {modulo:"sistema", seccion:"autenticación",
-          descripcion:`${w.nombre} ingresó con PIN temporal — debe cambiarlo`});
+  // Persistir overrides de proyección editados por usuario
+  const handleSaveProy=useCallback((empresa,lineLabel,idx,val)=>{
+    setRealData(prev=>{
+      const next=JSON.parse(JSON.stringify(prev));
+      if(!next[empresa]) next[empresa]={};
+      if(lineLabel==="_clear_all"){
+        delete next[empresa]._proyOverrides;
       } else {
-        // PIN normal: entrar directo
-        setUsuarioActual(w);
-        sessionStorage.setItem('mediterra_usuario', w.nombre);
-        window._auditUsuarioActual = w;
-        window.auditLog("login", {modulo:"sistema", seccion:"autenticación",
-          descripcion:`${w.nombre} (${w.rol}) inició sesión`});
+        if(!next[empresa]._proyOverrides) next[empresa]._proyOverrides={};
+        if(!next[empresa]._proyOverrides[lineLabel]) next[empresa]._proyOverrides[lineLabel]={};
+        next[empresa]._proyOverrides[lineLabel][String(idx)]=val;
       }
-    }else{
-      setLoginError("PIN incorrecto.");
-      window.auditLog("login_fallido", {modulo:"sistema", seccion:"autenticación",
-        descripcion:`PIN incorrecto para ${w.nombre}`,
-        usuario:w.nombre, email:w.email});
-    }
-  }
+      realDataRef.current = next;
+      setTimeout(()=>{
+        persistAll({ calendario_data:next })
+          .then(ok=>{ setSaved(ok?"✅ Proyección guardada":"⚠️ Error"); setTimeout(()=>setSaved(null),2000); });
+      },0);
+      return next;
+    });
+  },[persistAll]);
 
-  async function handleResetPin(){
-    const emailReset=(resetEmail||loginEmail||"").trim().toLowerCase();const w=WORKERS.find(x=>x.email&&x.email.toLowerCase()===emailReset);if(!w){setResetMsg("Email no reconocido.");return;}
-    setResetEnviando(true);
-    const temporal=String(Math.floor(1000+Math.random()*9000));
-    const nuevosPins={...pinsPersonalizados,[w.nombre+"_temp"]:temporal};
-    setPinsPersonalizados(nuevosPins);
-    await dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio,osirisData});
-    try{
-      await enviarEmail(w.email,w.nombre,"PIN temporal - Mediterra",`Tu PIN temporal es: ${temporal}\nIngresa con este PIN y cambialo inmediatamente.\n\nhttps://gestion-grupo-mediterra.vercel.app`);
-      setResetMsg("PIN enviado a "+w.email);
-      window.auditLog("reset_pin", {modulo:"sistema", seccion:"autenticación",
-        descripcion:`Se envió PIN temporal a ${w.nombre} (${w.email})`,
-        usuario:w.nombre, email:w.email});
-    }catch{setResetMsg("Error al enviar.");}
-    setResetEnviando(false);
-  }
+  // setParamsEmp para una empresa específica
+  const handleSaveParamsFrisku = useCallback((updater) => {
+    const next = typeof updater === 'function' ? updater(paramsFriskuRef.current) : updater;
+    setParamsFrisku(next);
+    paramsFriskuRef.current = next;
+    setTimeout(()=>persistAll({ params_frisku: next }),0);
+  },[persistAll]);
 
-  async function handleCambiarPin(){
-    setPinError("");
-    // Puede venir de login con PIN temporal (workerPendiente) o desde perfil (usuarioActual)
-    const worker = workerPendiente || usuarioActual;
-    if(!worker) return;
-    const po=getPinActivo(worker);
-    const pinTemp=pinsPersonalizados[worker.nombre+"_temp"];
-    // Validar contra PIN temporal (flujo reset) o PIN normal (flujo cambio desde perfil)
-    const pinActualValido=pinActual===po||(pinTemp&&pinActual===pinTemp);
-    if(!pinActualValido){setPinError("PIN actual incorrecto.");return;}
-    if(pinNuevo.length<4){setPinError("Minimo 4 digitos.");return;}
-    if(pinNuevo!==pinConfirm){setPinError("Los PINs no coinciden.");return;}
-    const nuevosPins={...pinsPersonalizados,[worker.nombre]:pinNuevo};
-    delete nuevosPins[worker.nombre+"_temp"];
-    setPinsPersonalizados(nuevosPins);
-    // Esperar confirmación de guardado antes de continuar
-    try {
-      await dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,
-        pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio,osirisData});
-      setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);
-      // Si venía de login con temporal, ahora sí entrar a la app
-      if(workerPendiente){
-        setUsuarioActual(workerPendiente);
-        sessionStorage.setItem('mediterra_usuario', workerPendiente.nombre);
-        window._auditUsuarioActual = workerPendiente;
-        setWorkerPendiente(null);
+  // Guardar créditos (nuevo, editar, marcar pagado)
+  const handleSaveCreditos = useCallback((newList) => {
+    setCreditosData(newList);
+    creditosRef.current = newList;
+    setTimeout(()=>{
+      persistAll({ creditos_data: newList })
+        .then(ok=>{ setSaved(ok?"✅ Guardado":"⚠️ Error"); setTimeout(()=>setSaved(null),2000); });
+    }, 0);
+  },[persistAll]);
+
+  // Guardar transferencias intercompany
+  const handleSaveIntercompany = useCallback((newList) => {
+    setIntercompany(newList);
+    intercompanyRef.current = newList;
+    setTimeout(()=>{
+      persistAll({ intercompany: newList })
+        .then(ok=>{ setSaved(ok?"✅ Guardado":"⚠️ Error"); setTimeout(()=>setSaved(null),2000); });
+    },0);
+  },[persistAll]);
+
+  // Guardar subfilas (clientes CxC / acreedores préstamos) en Supabase
+  const handleSaveSubLines = useCallback((empresa, lineLabel, newList) => {
+    setSubLines(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[empresa]) next[empresa] = {};
+      next[empresa][lineLabel] = newList;
+      subLinesRef.current = next;
+      // Persistir async
+      setTimeout(()=>{
+        persistAll({ sub_lines: next })
+          .then(ok=>{ setSaved(ok ? "✅ Guardado" : "⚠️ Error"); setTimeout(()=>setSaved(null),2000); });
+      }, 0);
+      return next;
+    });
+  },[persistAll]);
+
+  // Guardar paramsAF de Allpa Farms
+  const handleSaveParamsAF = useCallback((updater) => {
+    setParamsAF(prev=>{
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      paramsAFRef.current = next;
+      setTimeout(()=>persistAll({ params_af:next })
+        .then(ok=>{setSaved(ok?"✅ Guardado":"⚠️ Error");setTimeout(()=>setSaved(null),2000);}),0);
+      return next;
+    });
+  },[persistAll]);
+
+  // Guardar paramsIF de Integrity Farms
+  const handleSaveParamsIF = useCallback((updater) => {
+    setParamsIF(prev=>{
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      paramsIFRef.current = next;
+      setTimeout(()=>persistAll({ params_if:next })
+        .then(ok=>{setSaved(ok?"✅ Guardado":"⚠️ Error");setTimeout(()=>setSaved(null),2000);}),0);
+      return next;
+    });
+  },[persistAll]);
+
+  // Guardar paramsAS de Allegria Service
+  const handleSaveParamsAS = useCallback((updater) => {
+    setParamsAS(prev=>{
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      paramsASRef.current = next;
+      setTimeout(()=>persistAll({ params_as:next })
+        .then(ok=>{setSaved(ok?"✅ Parámetros guardados":"⚠️ Error");setTimeout(()=>setSaved(null),2000);}),0);
+      return next;
+    });
+  },[persistAll]);
+
+  const setParamsEmpresa = useCallback((empresa, updater) => {
+    setParamsEmp(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      if(!next[empresa]) next[empresa] = defaultParamsEmp();
+      next[empresa] = typeof updater === "function" ? updater(next[empresa]) : updater;
+      paramsEmpRef.current = next;
+      setTimeout(()=>persistAll({ params_emp:next })
+        .then(ok=>{setSaved(ok?"✅ Parámetros guardados":"⚠️ Error");setTimeout(()=>setSaved(null),2000);}),0);
+      return next;
+    });
+  },[persistAll]);
+
+  const handleSaveSaldos=useCallback(async(next)=>{
+    // Auditoría: detectar cambios en saldos (key = "Empresa||Banco||moneda")
+    const anterior = saldosBancosRef.current || {};
+    Object.keys(next).forEach(key=>{
+      const antes = Number(anterior[key]?.monto) || 0;
+      const despues = Number(next[key]?.monto) || 0;
+      if(antes !== despues) {
+        const partes = key.split("||");
+        const [emp, banco, moneda] = partes;
+        window.auditLog&&window.auditLog("editar", {modulo:"finanzas", seccion:"saldos bancos",
+          descripcion:`Actualizó saldo de ${emp} · ${banco} · ${(moneda||"").toUpperCase()}`,
+          registroId:key, campo:"monto",
+          valorAnterior:antes.toLocaleString("es-CL"),
+          valorNuevo:despues.toLocaleString("es-CL")});
       }
-      window.auditLog("cambio_pin", {modulo:"sistema", seccion:"autenticación",
-        descripcion:`${worker.nombre} cambió su PIN`});
-      alert("PIN cambiado exitosamente!");
-    } catch {
-      setPinError("Error al guardar. Intenta de nuevo.");
-    }
-  }
-
-  function puedeEditar(tarea,esResp){
-    if(!usuarioActual)return false;
-    if(esSoloConsulta(usuarioActual.nombre))return false;
-    if(esAdmin(usuarioActual.nombre))return true;
-    const sup=getSupervisor(tarea.id);
-    return esResp?tarea.responsable===usuarioActual.nombre:sup===usuarioActual.nombre;
-  }
-  function dependenciaOk(tarea,numSemana){
-    const depId=getDependeDe(tarea.id);if(!depId)return true;
-    const depT=getTareaById(depId);if(!depT)return true;
-    if(getFrecuencia(depT.id)==="Mensual"||getFrecuencia(depT.id)==="Puntual")return(estados[depId]?.estadoResp||"gris")==="verde";
-    if(numSemana===null||numSemana===undefined)return(estados[depId]?.estadoResp||"gris")==="verde";
-    return(estados[`${depId}_s${numSemana}`]?.estadoResp||"gris")==="verde";
-  }
-  function getNombreDep(tarea){const id=getDependeDe(tarea.id);return getTareaById(id)?.nombre||null;}
-
-  function ciclarResp(key,tarea,numSemana){
-    if(!puedeEditar(tarea,true))return;
-    if(!dependenciaOk(tarea,numSemana)){
-      const depT=getTareaById(getDependeDe(tarea.id));
-      if(depT)alert(`Esta tarea depende de:\n"${depT.nombre}"\nCompleta esa tarea primero.`);
-      return;
-    }
-    setEstados(prev=>{
-      const actual=prev[key]?.estadoResp||"gris";
-      const sig=ORDEN_SEM[(ORDEN_SEM.indexOf(actual)+1)%ORDEN_SEM.length];
-      const nuevo={...prev,[key]:{...prev[key],estadoResp:sig,aprobado:false,estadoSup:sig!=="verde"?"gris":(prev[key]?.estadoSup||"gris")}};
-      // Auditar cambio de estado
-      window.auditLog("editar", {modulo:"tareas", seccion:"ejecución",
-        descripcion:`Cambió estado responsable de "${tarea.nombre}"${numSemana?` (S${numSemana})`:""} de "${SEMAFORO[actual]?.label||actual}" a "${SEMAFORO[sig]?.label||sig}"`,
-        registroId:key, campo:"estadoResp", valorAnterior:actual, valorNuevo:sig});
-      if(sig==="verde"){
-        // Notificar al supervisor por email
-        const supNombre = tareasOverrides[tarea.id]?.supervisor || getSupervisor(tarea.id);
-        if(supNombre){
-          const supWorker = WORKERS.find(w=>w.nombre===supNombre);
-          if(supWorker?.email){
-            const respNombre = tarea.responsable||usuarioActual?.nombre||"";
-            enviarNotificacion(
-              supWorker.email,
-              supNombre,
-              `✅ Tarea completada: ${tarea.nombre}`,
-              `${respNombre} ha completado la tarea "${tarea.nombre}" y está lista para tu revisión.`
-            ).catch(()=>{});
-          }
-        }
-        // Notificar dependencias
-        const deps=todasTareas().filter(t=>{const d=getDependeDe(t.id);return d===tarea.id&&!isBloqueada(t.id);});
-        if(deps.length>0)setTimeout(()=>setModalNotif({key,tarea,numSemana,dependientes:deps}),300);
+    });
+    // Detectar eliminaciones
+    Object.keys(anterior).forEach(key=>{
+      if(!(key in next) && Number(anterior[key]?.monto) !== 0) {
+        const [emp, banco, moneda] = key.split("||");
+        window.auditLog&&window.auditLog("eliminar", {modulo:"finanzas", seccion:"saldos bancos",
+          descripcion:`Eliminó saldo de ${emp} · ${banco} · ${(moneda||"").toUpperCase()}`,
+          registroId:key});
       }
-      return nuevo;
     });
-  }
-  function ciclarSup(key,tarea){
-    if(!puedeEditar(tarea,false))return;
-    setEstados(prev=>{
-      if(prev[key]?.estadoResp!=="verde")return prev;
-      const actual=prev[key]?.estadoSup||"gris";
-      const sig=ORDEN_SEM[(ORDEN_SEM.indexOf(actual)+1)%ORDEN_SEM.length];
-      // Auditar aprobación/cambio supervisor
-      window.auditLog(sig==="verde"?"aprobar":"editar", {modulo:"tareas", seccion:"aprobación",
-        descripcion:`Supervisor cambió aprobación de "${tarea.nombre}" de "${SEMAFORO[actual]?.label||actual}" a "${SEMAFORO[sig]?.label||sig}"`,
-        registroId:key, campo:"estadoSup", valorAnterior:actual, valorNuevo:sig});
-      return{...prev,[key]:{...(prev[key]||{estadoResp:"gris",estadoSup:"gris",aprobado:false}),estadoSup:sig,aprobado:sig==="verde"}};
-    });
-  }
-  async function enviarNotifDependencia(){
-    if(!modalNotif)return;
-    setEnviandoNotif(true);
-    try{
-      for(const dep of modalNotif.dependientes){
-        const w=WORKERS.find(x=>x.nombre===dep.responsable);
-        if(w)await enviarNotificacion(w.email,w.nombre,`Tarea desbloqueada: ${dep.nombre}`,
-          `Hola ${w.nombre.split(" ")[0]},
+    setSaldosBancos(next);
+    saldosBancosRef.current = next;
+    setSaved("💾 Guardando…");
+    const ok=await persistAll({ saldos_bancos:next });
+    setSaved(ok?"✅ Saldos guardados":"⚠️ Error al guardar — ver consola");
+    setTimeout(()=>setSaved(null),4000);
+  },[persistAll]);
 
-"${modalNotif.tarea.nombre}" fue completada.
-Ahora puedes iniciar: "${dep.nombre}"
+  useEffect(()=>{
+    if(loading) return;
+    const t=setTimeout(()=>persistAll(),800);
+    return ()=>clearTimeout(t);
+  },[params,saldosBancos,loading]); // eslint-disable-line
 
-${textoNotif?`Nota: ${textoNotif}
-
-`:""}https://gestion-grupo-mediterra.vercel.app
-
-Saludos,
-Equipo Mediterra`);
+  // ── Print CSS ─────────────────────────────────────────────────
+  useEffect(()=>{
+    const style=document.createElement('style');
+    style.id='mediterra-print-css';
+    style.textContent=`
+      @media print {
+        @page{size:A3 landscape;margin:8mm}
+        body *{visibility:hidden}
+        #flujo-print-area,#flujo-print-area *{visibility:visible}
+        #flujo-print-area{position:fixed;top:0;left:0;width:100%;background:white!important;padding:8px}
+        .no-print{display:none!important}
+        table{border-collapse:collapse;font-size:7px;width:100%}
+        th{background:#1e293b!important;color:white!important;padding:3px 5px;white-space:nowrap;font-size:7px;text-align:right}
+        th:first-child{text-align:left}
+        td{padding:2px 5px;border-bottom:1px solid #e2e8f0;white-space:nowrap;font-size:7px;text-align:right}
+        td:first-child{text-align:left;font-weight:600}
+        tr:nth-child(even){background:#f8fafc!important}
       }
-      alert("Notificacion enviada!");
-    }catch{alert("Error al enviar.");}
-    setEnviandoNotif(false);setModalNotif(null);setTextoNotif("");
-  }
-  function guardarComentario(){setComentarios(prev=>({...prev,[editComentario]:textoComentario}));setEditComentario(null);}
+    `;
+    document.head.appendChild(style);
+    return()=>{const el=document.getElementById('mediterra-print-css');if(el)el.remove();};
+  // eslint-disable-next-line
+  },[]);
 
-  function estaVencida(tarea,key,numSemana){
-    const hoyD=new Date();hoyD.setHours(0,0,0,0);
-    const frec=getFrecuencia(tarea.id);
-    if(frec==="Mensual"){const fl=diaHabil(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite);if(fl<FECHA_INICIO)return false;return hoyD>fl&&(estados[key]?.estadoResp||"gris")==="gris";}
-    if(frec==="Puntual"){
-      const fp = getConfig(tarea.id).fechaPuntual || tarea.fechaPuntual;
-      if(!fp) return false;
-      const fl = new Date(fp+"T00:00:00"); 
-      return hoyD>fl&&(estados[key]?.estadoResp||"gris")==="gris";
-    }
-    if(numSemana===null||numSemana===undefined) return false; // Diaria/Quincenal/Anual - no semana lógica
-    const sw=semanas.find(s=>s.num===numSemana)||semanas[0];
-    if(!sw) return false;
-    const ds=getConfig(tarea.id).diaLimiteSem??tarea.diaLimiteSem;
-    const fl=fechaDiaSemana(sw.inicioSem,ds);
-    if(fl<FECHA_INICIO)return false;
-    return hoyD>fl&&(estados[key]?.estadoResp||"gris")==="gris";
-  }
-  function estaProxima(tarea,key,numSemana){
-    const hoyD=new Date();hoyD.setHours(0,0,0,0);
-    const frec=getFrecuencia(tarea.id);
-    let diff;
-    if(frec==="Mensual")diff=(diaHabil(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite)-hoyD)/(1000*60*60*24);
-    else if(frec==="Puntual"){
-      const fp = getConfig(tarea.id).fechaPuntual || tarea.fechaPuntual;
-      if(!fp) return false;
-      diff = (new Date(fp+"T00:00:00")-hoyD)/(1000*60*60*24);
-      // Alertar 30 días antes para tareas puntuales
-      return diff>=0 && diff<=30 && (estados[key]?.estadoResp||"gris")==="gris";
-    }
-    else{if(numSemana===null||numSemana===undefined)return false;const sw=semanas.find(s=>s.num===numSemana)||semanas[0];if(!sw)return false;const ds=getConfig(tarea.id).diaLimiteSem??tarea.diaLimiteSem;diff=(fechaDiaSemana(sw.inicioSem,ds)-hoyD)/(1000*60*60*24);}
-    return diff>=0&&diff<=2&&(estados[key]?.estadoResp||"gris")==="gris";
-  }
-  function generarResumenEmail(){
-    const res={};WORKERS.forEach(w=>{res[w.nombre]=[];});
-    todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{
-      const frec=getFrecuencia(t.id);
-      if(frec==="Mensual"||frec==="Puntual"){if(estaVencida(t,t.id,null))res[t.responsable]?.push({...t,key:t.id});}
-      else semanas.forEach(s=>{const key=`${t.id}_s${s.num}`;if(estaVencida(t,key,s.num))res[t.responsable]?.push({...t,key});});
-    });
-    return res;
-  }
-  function enviarEmailPersona(w,tareas){
-    const asunto=encodeURIComponent(`Tareas pendientes - ${MESES[mes]} ${anio}`);
-    const cuerpo=encodeURIComponent(`Hola ${w.nombre.split(" ")[0]},\n\nLas siguientes tareas estan vencidas:\n\n`+tareas.map(t=>`- ${t.nombre}`).join('\n')+`\n\nhttps://gestion-grupo-mediterra.vercel.app\n\nSaludos`);
-    window.open(`mailto:${w.email}?subject=${asunto}&body=${cuerpo}`);
-  }
-  const totalVencidas=(()=>{let c=0;todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{const frec=getFrecuencia(t.id);if(frec==="Mensual"||frec==="Puntual"){if(estaVencida(t,t.id,null))c++;}else semanas.forEach(s=>{if(estaVencida(t,`${t.id}_s${s.num}`,s.num))c++;});});return c;})();
-
-  function resumen(nombre){
-    let v=0,a=0,r=0,g=0,total=0;
-    todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{
-      const frec=getFrecuencia(t.id);const sup=getSupervisor(t.id);
-      const esR=t.responsable===nombre;const esS=sup===nombre;
-      if(!esR&&!esS)return;
-      const keys=frec==="Mensual"||frec==="Puntual"?[t.id]:semanas.map(s=>`${t.id}_s${s.num}`);
-      keys.forEach(k=>{const e=(esR?estados[k]?.estadoResp:estados[k]?.estadoSup)||"gris";if(e==="na")return;total++;if(e==="verde")v++;else if(e==="amarillo")a++;else if(e==="rojo")r++;else g++;});
-    });
-    return{v,a,r,g,total,pct:total>0?Math.round((v/total)*100):0};
-  }
-
-  function agregarUsuario(){
-    if(!formUsuario.nombre.trim()||!formUsuario.email.trim()||!formUsuario.pin.trim()){alert("Nombre, email y PIN son obligatorios.");return;}
-    if(usuarios.find(u=>u.nombre===formUsuario.nombre)){alert("Ya existe un usuario con ese nombre.");return;}
-    setUsuarios(prev=>[...prev,{...formUsuario,modulos:formUsuario.modulos||["tareas"],esCFO:formUsuario.rol==="admin",desactivado:false}]);
-    if(copiarDe){
-      todasTareas().filter(t=>t.responsable===copiarDe).forEach(t=>{
-        const id=`custom_${Date.now()}_${t.id}`;
-        setTareasExtra(prev=>[...prev,{...t,id,responsable:formUsuario.nombre}]);
-        setTareasConfig(prev=>({...prev,[id]:{...getConfig(t.id),bloqueada:false}}));
-      });
-    }
-    setFormUsuario({nombre:"",cargo:"",email:"",pin:"",rol:"editor",modulos:["tareas"]});setCopiarDe("");setTabUsuarios("lista");
-  }
-  function guardarEdicionUsuario(){
-    if(!formUsuario.nombre.trim()||!formUsuario.email.trim()){alert("Nombre y email son obligatorios.");return;}
-    setUsuarios(prev=>prev.map(u=>u.nombre===usuarioEditando?{...u,...formUsuario,esCFO:formUsuario.rol==="admin"}:u));
-    if(formUsuario.pin)setPinsPersonalizados(prev=>({...prev,[usuarioEditando]:formUsuario.pin}));
-    setUsuarioEditando(null);setFormUsuario({nombre:"",cargo:"",email:"",pin:"",rol:"editor",modulos:["tareas"]});setTabUsuarios("lista");
-  }
-  function toggleDesactivarUsuario(nombre){
-    if(nombre===usuarioActual.nombre){alert("No puedes desactivarte a ti mismo.");return;}
-    setUsuarios(prev=>prev.map(u=>u.nombre===nombre?{...u,desactivado:!u.desactivado}:u));
-  }
-  function resetPinUsuario(nombre){
-    const pin=String(Math.floor(1000+Math.random()*9000));
-    setPinsPersonalizados(prev=>({...prev,[nombre]:pin}));
-    alert(`PIN reseteado para ${nombre}.\nNuevo PIN temporal: ${pin}\n\nComparte este PIN de forma segura con el usuario.`);
-  }
-  function iniciarEdicion(u){
-    setFormUsuario({nombre:u.nombre,cargo:u.cargo||"",email:u.email,pin:"",rol:u.rol||"editor",modulos:Array.isArray(u.modulos)?u.modulos:["tareas"]});
-    setUsuarioEditando(u.nombre);setTabUsuarios("editar");
-  }
-  function toggleBloqueada(id){setTareasConfig(prev=>({...prev,[id]:{...getConfig(id),bloqueada:!getConfig(id).bloqueada}}));}
-  function updateConfig(id,campo,valor){
-    setTareasConfig(prev=>({...prev,[id]:{...getConfig(id),[campo]:valor}}));
-    if(campo==="supervisor")setSupervisores(prev=>({...prev,[id]:valor}));
-  }
-  function agregarTarea(){
-    if(!nuevaTarea.nombre.trim()||!nuevaTarea.responsable){alert("Nombre y responsable son obligatorios.");return;}
-    if(nuevaTarea.frecuencia==="Puntual"&&!nuevaTarea.fechaPuntual){alert("Para tareas puntuales, la fecha es obligatoria.");return;}
-    const id=`custom_${Date.now()}`;
-    const tarea = {...nuevaTarea, id, diaLimiteSem:0, diaLimite:10, dependeDe:nuevaTarea.dependeDe||null};
-    if(nuevaTarea.frecuencia==="Puntual") tarea.fechaPuntual = nuevaTarea.fechaPuntual;
-    setTareasExtra(prev=>[...prev, tarea]);
-    setTareasConfig(prev=>({...prev,[id]:{supervisor:nuevaTarea.supervisor,diaLimiteSem:0,diaLimite:10,
-      frecuencia:nuevaTarea.frecuencia,bloqueada:false,dependeDe:nuevaTarea.dependeDe||null,
-      fechaPuntual:nuevaTarea.fechaPuntual||""}}));
-    setSupervisores(prev=>({...prev,[id]:nuevaTarea.supervisor||""}));
-    setEstados(prev=>{
-      const n={...prev};
-      if(nuevaTarea.frecuencia==="Mensual"||nuevaTarea.frecuencia==="Puntual") n[id]={estadoResp:"gris",estadoSup:"gris",aprobado:false};
-      else semanas.forEach(s=>{n[`${id}_s${s.num}`]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});
-      return n;
-    });
-    setNuevaTarea({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:"",fechaPuntual:""});setMostrarFormTarea(false);
-  }
-
-  const estadoGuardadoUI={idle:null,guardando:{icon:"💾",text:"Guardando..."},ok:{icon:"✅",text:"Guardado"},error:{icon:"❌",text:"Error"}}[guardado];
-  const recsActivos=getRecordatoriosActivos(usuarioActual?.nombre||"",anio,mes,esAdmin(usuarioActual?.nombre||"")).filter(r=>!recsDone[recKey(r.id)]);
-
-  function TablaFilas({tareas,getKey,getSemana}){
-    const todas=tareas.filter(t=>!isBloqueada(t.id));
-    const filtradas=filtroPersona?todas.filter(t=>t.responsable===filtroPersona||getSupervisor(t.id)===filtroPersona):todas;
-    return filtradas.map((t,i)=>{
-      const numSem=getSemana?getSemana():null;
-      const frec=getFrecuencia(t.id);
-      const key=(frec==="Mensual"||frec==="Diaria"||frec==="Quincenal"||frec==="Anual")?t.id:getKey(t);
-      const est=estados[key]||{estadoResp:"gris",estadoSup:"gris",aprobado:false};
-      const semResp=SEMAFORO[est.estadoResp]||SEMAFORO.gris;
-      const sup=getSupervisor(t.id);
-      const supActivo=est.estadoResp==="verde"&&sup&&est.estadoResp!=="na";
-      const semSup=SEMAFORO[supActivo?est.estadoSup:"gris"];
-      const cat=CATEGORIAS[t.categoria]||{color:"#64748b",bg:"#f1f5f9"};
-      const com=comentarios[key]||"";
-      const vencida=estaVencida(t,key,numSem)&&est.estadoResp!=="na";
-      const proxima=!vencida&&estaProxima(t,key,numSem)&&est.estadoResp!=="na";
-      const puedeResp=puedeEditar(t,true);const puedeSup=puedeEditar(t,false);
-      const depOk=dependenciaOk(t,numSem);const esNA=est.estadoResp==="na";
-      const diaLabel = (() => {
-        if(frec === "Mensual") {
-          const diaBase = getConfig(t.id).diaLimite || t.diaLimite;
-          const fHabil = diaHabil(anio, mes, diaBase);
-          const diaReal = fHabil.getDate();
-          if(diaReal !== diaBase) return `día ${diaReal} (mov. del ${diaBase})`;
-          return `día ${diaBase}`;
-        }
-        return `${DIAS_SEMANA[getConfig(t.id).diaLimiteSem??t.diaLimiteSem]}`;
-      })();
-      return(
-        <tr key={key} style={{borderBottom:"1px solid #f1f5f9",opacity:esNA?0.55:1,
-          background:!depOk?"#f8f8ff":esNA?"#f8fafc":vencida?"#fff5f5":proxima?"#fffbeb":i%2===0?"#fff":"#f8fafc",
-          borderLeft:!depOk?"4px solid #c4b5fd":esNA?"4px solid #94a3b8":vencida?"4px solid #ef4444":proxima?"4px solid #f59e0b":"4px solid transparent"}}>
-          <td style={{padding:"9px 14px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              {!depOk&&<span title={`Depende de: ${getNombreDep(t)}`} style={{fontSize:11}}>🔒</span>}
-              {vencida&&depOk&&!esNA&&<span style={{color:"#ef4444",fontWeight:700,fontSize:11}}>!!</span>}
-              {proxima&&depOk&&!esNA&&<span style={{color:"#f59e0b",fontWeight:700,fontSize:11}}>!</span>}
-              {esNA&&<span style={{fontSize:11}}>⊘</span>}
-              <div style={{fontWeight:500,color:!depOk?"#7c3aed":esNA?"#94a3b8":vencida?"#ef4444":"#1e293b",fontSize:13,textDecoration:esNA?"line-through":"none"}}>{t.nombre}</div>
-            </div>
-            <div style={{display:"flex",gap:6,marginTop:2,flexWrap:"wrap"}}>
-              <span style={{fontSize:10,background:cat.bg,color:cat.color,borderRadius:20,padding:"1px 8px",fontWeight:600}}>{t.categoria}</span>
-              <span style={{fontSize:10,color:"#94a3b8"}}>{frec} · {diaLabel}</span>
-            </div>
-          </td>
-          <td style={{textAlign:"center",padding:"9px 8px",fontSize:12,color:"#374151"}}>{t.responsable.split(" ")[0]}</td>
-          <td style={{textAlign:"center",padding:"9px 8px"}}>
-            <button onClick={()=>ciclarResp(key,t,numSem)}
-              style={{width:28,height:28,borderRadius:"50%",background:semResp.color,border:`3px solid ${semResp.border}`,cursor:puedeResp?"pointer":"not-allowed",outline:"none",opacity:puedeResp?1:0.4,boxShadow:"0 2px 6px #0002",transition:"transform 0.1s",backgroundImage:est.estadoResp==="na"?"repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,0.15) 3px,rgba(0,0,0,0.15) 6px)":undefined}}
-              onMouseEnter={e=>{if(puedeResp)e.target.style.transform="scale(1.2)";}} onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
-          </td>
-          <td style={{textAlign:"center",padding:"9px 8px",fontSize:12,color:"#374151"}}>{sup?sup.split(" ")[0]:<span style={{color:"#d1d5db"}}>-</span>}</td>
-          <td style={{textAlign:"center",padding:"9px 8px"}}>
-            {sup?<button onClick={()=>ciclarSup(key,t)} style={{width:28,height:28,borderRadius:"50%",background:supActivo?semSup.color:"#e5e7eb",border:`3px solid ${supActivo?semSup.border:"#d1d5db"}`,cursor:(supActivo&&puedeSup)?"pointer":"not-allowed",outline:"none",opacity:(supActivo&&puedeSup)?1:0.4}}/>
-            :<span style={{color:"#d1d5db",fontSize:12}}>-</span>}
-          </td>
-          <td style={{textAlign:"center",padding:"9px 8px"}}>
-            <button onClick={()=>{setEditComentario(key);setTextoComentario(com);}}
-              style={{background:com?"#dbeafe":"#f1f5f9",border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,color:com?"#1d4ed8":"#9ca3af",maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-              {com?`[${com.substring(0,10)}...]`:"+"}
-            </button>
-          </td>
-        </tr>
-      );
-    });
-  }
-
-  const encabezadoTabla=(
-    <thead><tr style={{background:"#1e3a5f",color:"#fff",fontSize:12}}>
-      <th style={{padding:"10px 14px",textAlign:"left",minWidth:240}}>Tarea</th>
-      <th style={{padding:"10px 8px",textAlign:"center",minWidth:90}}>Responsable</th>
-      <th style={{padding:"10px 8px",textAlign:"center",minWidth:70}}>Estado</th>
-      <th style={{padding:"10px 8px",textAlign:"center",minWidth:90}}>Supervisor</th>
-      <th style={{padding:"10px 8px",textAlign:"center",minWidth:70}}>Aprobacion</th>
-      <th style={{padding:"10px 8px",textAlign:"center",minWidth:100}}>Comentario</th>
-    </tr></thead>
-  );
-
-  // ── RENDER PRINCIPAL ──────────────────────────────────────────────
-  if(cargando) return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"sans-serif",color:"#64748b",fontSize:15}}>
-      Cargando...
+  if(loading) return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",
+      height:"60vh",color:C.muted,fontSize:14,background:C.bg,borderRadius:12}}>
+      Cargando datos financieros...
     </div>
   );
 
-  if(!usuarioActual||workerPendiente) return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#0f172a,#1e3a5f)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif",padding:20}}>
-      <div style={{background:"#fff",borderRadius:20,padding:"36px 40px",maxWidth:420,width:"100%",boxShadow:"0 24px 64px rgba(0,0,0,0.5)"}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <img src="/med.png" alt="Mediterra" style={{height:56,objectFit:"contain",marginBottom:12}} onError={e=>{e.target.style.display="none";}}/>
-          <div style={{fontSize:11,letterSpacing:3,color:"#94a3b8",marginBottom:4}}>GRUPO MEDITERRA</div>
-          <div style={{fontSize:20,fontWeight:900,color:"#1e293b"}}>Gestión Interna</div>
-        </div>
-
-        {modalPin==="cambiar"&&(
-          <div style={{background:"#fefce8",borderRadius:12,padding:"14px 16px",marginBottom:16,border:"1px solid #fde047",fontSize:13,color:"#854d0e"}}>
-            🔑 Debes cambiar tu PIN temporal antes de continuar.
+  return (
+    <div style={{
+      fontFamily:"'IBM Plex Sans','Segoe UI',system-ui,sans-serif",
+      color:C.text,
+      minHeight:"100vh",
+      background:`linear-gradient(160deg, ${C.bg} 0%, ${C.bg2} 100%)`,
+      padding:"20px",
+      paddingBottom:40,
+    }}>
+      {/* ── Header ─────────────────────────────────────────── */}
+      <div style={{
+        background:"linear-gradient(135deg,#0f1e3a,#1e3a5f)",
+        borderRadius:14,
+        padding:"14px 20px",
+        marginBottom:20,
+        display:"flex",justifyContent:"space-between",alignItems:"center",
+        flexWrap:"wrap",gap:8,
+        border:`1px solid ${C.border2}`,
+        boxShadow:"0 4px 24px rgba(0,0,0,0.3)",
+      }}>
+        <div style={{display:"flex",alignItems:"center",gap:14}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,flexWrap:"wrap"}}>
+            <button onClick={onBack} style={{background:"none",border:"none",color:"#8b949e",cursor:"pointer",fontSize:13,fontWeight:500,padding:0}}>Mediterra</button>
+            <span style={{color:"#484f58"}}>›</span>
+            <span style={{color:"#e6edf3",fontWeight:700,fontSize:14}}>Finanzas</span>
           </div>
-        )}
+          <div style={{borderLeft:"1px solid rgba(255,255,255,0.15)",paddingLeft:14}}>
+            <img src="/med.png" alt="Mediterra" style={{height:30,objectFit:"contain"}}
+              onError={e=>{e.target.style.display="none";}}/>
+          </div>
+          <div style={{fontSize:10,color:"#8b949e"}}>Apr-2026 → Jun-2031 · 64 meses · USD</div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {saved&&<span style={{fontSize:11,color:C.muted,background:C.card2,
+            borderRadius:20,padding:"3px 10px",border:`1px solid ${C.border}`}}>{saved}</span>}
+          <button onClick={onLogout} style={{
+            background:"rgba(248,113,113,0.15)",
+            border:"1px solid rgba(248,113,113,0.3)",
+            color:"#fca5a5",borderRadius:8,
+            padding:"6px 14px",cursor:"pointer",fontSize:12,
+          }}>Salir</button>
+        </div>
+      </div>
 
-        {modalPin==="cambiar"?(
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:4}}>Cambiar PIN</div>
-            {[["PIN actual","password",pinActual,setPinActual],["PIN nuevo (mín. 4 dígitos)","password",pinNuevo,setPinNuevo],["Confirmar PIN nuevo","password",pinConfirm,setPinConfirm]].map(([lbl,type,val,set])=>(
-              <div key={lbl}>
-                <div style={{fontSize:11,color:"#64748b",marginBottom:3}}>{lbl}</div>
-                <input type={type} value={val} onChange={e=>set(e.target.value)} placeholder="••••"
-                  style={{width:"100%",padding:"9px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:14,boxSizing:"border-box",outline:"none"}}/>
+      {/* ── Pestañas ───────────────────────────────────────── */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:20}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{
+              padding:"8px 18px",borderRadius:8,cursor:"pointer",fontWeight:600,fontSize:12,
+              border:`1px solid ${tab===t.id?C.accentL:C.border}`,
+              background:tab===t.id?`${C.accent}44`:C.card,
+              color:tab===t.id?C.accentL:C.muted,
+              boxShadow:tab===t.id?`0 2px 12px ${C.accent}44`:"none",
+              transition:"all 0.15s",
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Contenido por pestaña ──────────────────────────── */}
+      {tab==="dashboard"&&puedoVer("dashboard")&&<Dashboard empresas={empresas} saldosBancos={saldosBancos}/>}
+
+      {tab==="flujo"&&puedoVer("flujo")&&(
+        <div>
+          {/* Selector empresa + botón Consolidado */}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
+            <button onClick={()=>{setEmpTab("_consolidado");setFlujoSubTab("flujo");}}
+              style={{padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
+                border:`2px solid ${empTab==="_consolidado"?"#a78bfa":"#a78bfa55"}`,
+                background:empTab==="_consolidado"?"#a78bfa33":C.card,
+                color:empTab==="_consolidado"?"#a78bfa":C.muted,transition:"all 0.15s"}}>
+              🏛 Consolidado
+            </button>
+            <button onClick={()=>{setEmpTab("_intercompany");setFlujoSubTab("flujo");}}
+              style={{padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
+                border:`2px solid ${empTab==="_intercompany"?"#f59e0b":"#f59e0b55"}`,
+                background:empTab==="_intercompany"?"#f59e0b33":C.card,
+                color:empTab==="_intercompany"?"#f59e0b":C.muted,transition:"all 0.15s"}}>
+              🔄 Intercompany
+            </button>
+            {["Mediterra","Allegria Foods","Allegria Service","Frisku Foods",
+              "Osiris","Integrity Farms","Allpa Farms","Allpa Farms Perú","Frisku Peru"
+            ].filter(n=>empresas[n]).map(n=>{const e=empresas[n];return (
+              <button key={n} onClick={()=>{setEmpTab(n);setFlujoSubTab("flujo");}}
+                style={{padding:"7px 14px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:600,
+                  border:`1px solid ${empTab===n?e.color:C.border}`,
+                  background:empTab===n?`${e.color}33`:C.card,
+                  color:empTab===n?e.color:C.muted,transition:"all 0.15s"}}>
+                {e.emoji} {n}{n==="Allegria Foods"&&<span style={{fontSize:9,marginLeft:3,color:C.yellow}}>✦</span>}
+              </button>
+            );})}
+          </div>
+
+          {/* Sub-pestañas Flujo/Parámetros — solo cuando NO es consolidado */}
+          {empTab!=="_consolidado"&&empTab!=="_intercompany"&&(
+          <>
+          {/* Sub-pestañas: Flujo | Parámetros — para TODAS las empresas */}
+          <div style={{display:"flex",gap:6,marginBottom:14,padding:"10px 14px",
+            background:C.card2,borderRadius:10,border:`1px solid ${C.border}`,alignItems:"center"}}>
+            <span style={{fontSize:10,color:C.muted,fontWeight:600,marginRight:4}}>Vista:</span>
+            {[
+              {id:"flujo",  label:"📈 Flujo de Caja"},
+              {id:"params", label:"⚡ Parámetros"},
+            ].map(st=>{
+              const emp=empresas[empTab];
+              const color=emp?.color||C.accent;
+              return (
+                <button key={st.id} onClick={()=>setFlujoSubTab(st.id)}
+                  style={{padding:"6px 18px",borderRadius:8,cursor:"pointer",fontWeight:600,fontSize:12,
+                    border:`1px solid ${flujoSubTab===st.id?color:C.border}`,
+                    background:flujoSubTab===st.id?`${color}33`:"transparent",
+                    color:flujoSubTab===st.id?color:C.muted,
+                    transition:"all 0.15s"}}>
+                  {st.label}
+                </button>
+              );
+            })}
+            <span style={{fontSize:10,color:C.muted,marginLeft:6}}>
+              {flujoSubTab==="params"
+                ? "Define productos, anticipos y distribución de pagos por temporada"
+                : "Proyección de flujo de caja mensual y semanal"}
+            </span>
+            {flujoSubTab==="flujo"&&empTab!=="_consolidado"&&empTab!=="_intercompany"&&(
+              <button onClick={()=>window.print()}
+                style={{marginLeft:"auto",padding:"5px 12px",borderRadius:8,
+                  border:"1px solid #334155",background:"transparent",
+                  color:C.muted,cursor:"pointer",fontSize:11,display:"flex",
+                  alignItems:"center",gap:5}}>
+                🖨️ Imprimir PDF
+              </button>
+            )}
+          </div>
+
+          {/* Contenido sub-pestaña */}
+          {flujoSubTab==="flujo"&&(
+            <div id="flujo-print-area">
+              {/* Print header — solo visible al imprimir */}
+              <div style={{display:"none"}} className="print-header-block">
+                <div style={{fontWeight:800,fontSize:13}}>{empresas[empTab]?.emoji} {empTab} — Flujo de Caja Proyectado</div>
+                <div style={{fontSize:9,color:"#64748b"}}>Grupo Mediterra · Generado {new Date().toLocaleDateString("es-CL")} · USD</div>
+              </div>
+              <FlujoEmpresa key={empTab} empNombre={empTab} empresas={empresas}
+                realData={realData} onSaveReal={handleSaveReal} canEdit={puedoEdit("flujo")}
+                saldosBancos={saldosBancos} onSaveProy={handleSaveProy}
+                subLines={subLines?.[empTab]||{}} onSaveSubLines={(lineLabel,list)=>handleSaveSubLines(empTab,lineLabel,list)}
+                creditosData={creditosData}/>
+            </div>
+          )}
+          {flujoSubTab==="params"&&(()=>{
+            const emp=empresas[empTab];
+            const empColor=emp?.color||C.accent;
+            const esAllegria=empTab==="Allegria Foods";
+            const empParamsData=paramsEmp?.[empTab]||defaultParamsEmp();
+            return (
+              <TabParametros
+                empNombre={empTab}
+                empColor={empColor}
+                params={esAllegria?params:undefined}
+                setParams={esAllegria&&puedoEdit("flujo")?setParams:undefined}
+                paramsEmp={esAllegria?undefined:{...empParamsData}}
+                setParamsEmp={!esAllegria&&puedoEdit("flujo")
+                  ? (updater)=>setParamsEmpresa(empTab,updater)
+                  : ()=>{}}
+                paramsAS={empTab==="Allegria Service"?paramsAS:undefined}
+                setParamsAS={empTab==="Allegria Service"&&puedoEdit("flujo")?handleSaveParamsAS:undefined}
+                paramsIF={empTab==="Integrity Farms"?paramsIF:undefined}
+                setParamsIF={empTab==="Integrity Farms"&&puedoEdit("flujo")?handleSaveParamsIF:undefined}
+                paramsFrisku={empTab==="Frisku Foods"?paramsFrisku:undefined}
+                setParamsFrisku={empTab==="Frisku Foods"&&puedoEdit("flujo")?handleSaveParamsFrisku:undefined}
+                paramsAF={empTab==="Allpa Farms"?paramsAF:undefined}
+                setParamsAF={empTab==="Allpa Farms"&&puedoEdit("flujo")?handleSaveParamsAF:undefined}
+                readOnly={!puedoEdit("flujo")}
+              />
+            );
+          })()}
+          </>
+          )}
+
+          {/* Consolidado */}
+          {empTab==="_consolidado"&&(
+            <Consolidado empresas={empresas} saldosBancos={saldosBancos}/>
+          )}
+          {/* Intercompany */}
+          {empTab==="_intercompany"&&(
+            <Intercompany
+              transferencias={intercompany}
+              onSave={handleSaveIntercompany}
+              empresas={empresas}
+              canEdit={puedoEdit("flujo")}/>
+          )}
+        </div>
+      )}
+
+      {tab==="bancos"&&puedoVer("bancos")&&(
+        <SaldosBancos saldos={saldosBancos} onSave={handleSaveSaldos} canEdit={puedoEdit("bancos")}/>
+      )}
+      {tab==="creditos"&&puedoVer("creditos")&&<Creditos empresas={empresas} creditosData={creditosData} onSaveCreditos={handleSaveCreditos} canEdit={puedoEdit('creditos')}/>}
+
+      {tab==="nominas"&&puedoVer("nominas")&&(
+        <NominasModule usuario={usuarioActual} canEdit={puedoEdit("nominas")} saldosBancos={saldosBancos}/>
+      )}
+
+      {tab==="auditoria"&&usuarioActual?.rol==="admin"&&(
+        <AuditoriaModule usuario={usuarioActual}/>
+      )}
+
+    </div>
+  );
+}
+
+// ═══ NÓMINAS DE PAGO ═══════════════════════════════════════════════
+/* eslint-disable */
+// ═══════════════════════════════════════════════════════════════════
+// MÓDULO NÓMINAS DE PAGO — Grupo Mediterra
+// ═══════════════════════════════════════════════════════════════════
+
+const EMPRESAS_NOM = [
+  "Allegria Foods","Allegria Service","Frisku Foods","Frisku Peru",
+  "Allpa Farms","Allpa Farms Perú","Mediterra","Integrity Farms","Osiris",
+];
+
+
+const SECCIONES = [
+  {id:"proveedores",    label:"Proveedores / Materiales"},
+  {id:"anticipos",      label:"Anticipos de Sueldo"},
+  {id:"rendiciones",    label:"Rendiciones"},
+  {id:"servipag",       label:"Servipag"},
+  {id:"emp_rel_clp",    label:"Mov. Empresas Relacionadas CLP"},
+  {id:"emp_rel_usd",    label:"Mov. Empresas Relacionadas USD"},
+  {id:"pagos_usd",      label:"Pagos USD"},
+];
+
+const ESTADOS_FLUJO = [
+  {id:"borrador",    label:"Borrador",       color:"#94a3b8", bg:"#f1f5f9"},
+  {id:"preparada",   label:"Preparada",      color:"#f59e0b", bg:"#fef3c7"},
+  {id:"revision",    label:"En Revisión",    color:"#3b82f6", bg:"#dbeafe"},
+  {id:"aprobada1",   label:"V°B° Aprobador", color:"#8b5cf6", bg:"#ede9fe"},
+  {id:"aprobada",    label:"Aprobada CFO",   color:"#16a34a", bg:"#dcfce7"},
+];
+
+
+const $$clp = (v) => {
+  return "$" + Math.round(v).toLocaleString("es-CL");
+};
+const $$usd = (v) => {
+  return "USD " + Number(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+};
+
+function semanaISO(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 4 - (d.getDay()||7));
+  const y = d.getFullYear();
+  const w = Math.ceil(((d - new Date(y,0,1))/86400000 + 1)/7);
+  return {semana: w, año: y};
+}
+
+function semanaActual() {
+  return semanaISO(new Date()).semana;
+}
+
+function añoActualNom() {
+  return new Date().getFullYear();
+}
+
+// Generate all ISO weeks for a given year
+function semanasDeAño(año) {
+  const weeks = [];
+  // ISO weeks: start from week 1, go until week 52 or 53
+  for(let w = 1; w <= 53; w++) {
+    // Check if week w exists in year
+    const jan4 = new Date(año, 0, 4);
+    const startOfWeek1 = new Date(jan4);
+    startOfWeek1.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7));
+    const weekStart = new Date(startOfWeek1);
+    weekStart.setDate(startOfWeek1.getDate() + (w-1)*7);
+    const iso = semanaISO(weekStart);
+    if(iso.año !== año && w > 1) break; // week belongs to next year
+    if(iso.semana === w && iso.año === año) weeks.push(w);
+  }
+  return weeks;
+}
+
+// All años available
+const AÑOS_NOM = Array.from({length:12},(_,i)=>2024+i); // 2024-2035
+
+// ─────────────────────────────────────────────────────────────────
+// ITEM ROW VACÍO
+// ─────────────────────────────────────────────────────────────────
+function itemVacio(seccion) {
+  return {
+    id: `item_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+    seccion,
+    proveedor:"", rut:"", nDoc:"", fDoc:"", fVenc:"",
+    semVenc:"", concepto:"", montoCLP:0, montoUSD:0, comentario:"",
+    pagado:false,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NÓMINA VACÍA
+// ─────────────────────────────────────────────────────────────────
+function nominaVacia(empresa, semana, año, numero=1) {
+  return {
+    id: `nom_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+    empresa, semana, año, numero,
+    fecha: new Date().toISOString().slice(0,10),
+    tc: 0, // tipo de cambio CLP/USD
+    estado: "borrador",
+    preparadoPor: "",
+    revisadoPor: "",
+    aprobadoPor: "",
+    aprobado1Por: "",
+    fechaAprobacion: "",
+    fechaAprobacion1: "",
+    items: [],
+    bancos: Object.fromEntries(BANCOS.map(b=>[b,{clp:0,usd:0}])),
+    notas: "",
+    seccionesExtra: [], // [{id, label}] custom sections
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SUPABASE LOAD/SAVE
+// ─────────────────────────────────────────────────────────────────
+async function dbLoadNominas() {
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=eq.nominas&select=value`,{
+      headers:{apikey:SUPA_KEY,Authorization:`Bearer ${SUPA_KEY}`}
+    });
+    const data = await res.json();
+    return data?.[0]?.value ? JSON.parse(data[0].value) : null;
+  } catch { return null; }
+}
+
+async function dbSaveNominas(value) {
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/calendario_data`,{
+      method:"POST",
+      headers:{apikey:SUPA_KEY,Authorization:`Bearer ${SUPA_KEY}`,
+        "Content-Type":"application/json",Prefer:"resolution=merge-duplicates"},
+      body:JSON.stringify({id:"nominas",value:JSON.stringify(value),updated_at:new Date().toISOString()})
+    });
+  } catch(e){console.error(e);}
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BADGE ESTADO
+// ─────────────────────────────────────────────────────────────────
+function BadgeEstado({estado}) {
+  const e = ESTADOS_FLUJO.find(x=>x.id===estado)||ESTADOS_FLUJO[0];
+  return (
+    <span style={{background:e.bg,color:e.color,borderRadius:20,padding:"3px 10px",
+      fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{e.label}</span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TABLA ITEMS (por sección)
+// ─────────────────────────────────────────────────────────────────
+function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas"}) {
+  const rows = items.filter(it=>it.seccion===seccion);
+  const soloUSD = moneda==="usd";
+  const soloCLP = moneda==="clp";
+
+  function updItem(id, field, val) {
+    onChange(items.map(it=>it.id===id?{...it,[field]:val}:it));
+  }
+  function addItem() {
+    onChange([...items, itemVacio(seccion)]);
+  }
+  function delItem(id) {
+    onChange(items.filter(it=>it.id!==id));
+  }
+
+  const totalCLP = rows.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
+  const totalUSD = rows.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
+
+  const montoLabel = soloUSD ? "Monto USD" : soloCLP ? "Monto CLP" : null;
+  const headers = ["Proveedor / Nombre","RUT","N° Doc","F. Doc","F. Venc","Sem","Concepto",
+    ...(soloUSD ? ["Monto USD"] : soloCLP ? ["Monto CLP"] : ["Monto CLP","Monto USD"]),
+    "Comentario",""];
+  const colSpanTotal = 7;
+  const colSpanEnd = soloUSD||soloCLP ? 2 : 2;
+
+  const inputSt = {
+    padding:"4px 6px",borderRadius:5,border:`1px solid ${C.border}`,
+    background:C.card2,color:C.text,fontSize:11,outline:"none",width:"100%",boxSizing:"border-box"
+  };
+
+  return (
+    <div style={{marginBottom:20}}>
+      <div style={{overflowX:"auto",borderRadius:8,border:`1px solid ${C.border}`}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead>
+            <tr style={{background:C.bg2}}>
+              {headers.map(h=>(
+                <th key={h} style={{padding:"6px 8px",color:C.muted,fontWeight:600,fontSize:10,
+                  textAlign:h==="Monto CLP"||h==="Monto USD"?"right":"left",
+                  whiteSpace:"nowrap",borderBottom:`1px solid ${C.border}`}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length===0&&(
+              <tr><td colSpan={headers.length} style={{padding:"16px",textAlign:"center",color:C.muted2,fontSize:11}}>
+                Sin registros — agrega uno con el botón +
+              </td></tr>
+            )}
+            {rows.map((it,i)=>(
+              <tr key={it.id} style={{borderBottom:`1px solid ${C.border}22`,
+                background:it.pagado?`${C.green}08`:i%2===0?"transparent":`${C.border}11`,
+                opacity:it.pagado?0.6:1}}>
+                <td style={{padding:"3px 6px",minWidth:140}}>
+                  {canEdit
+                    ? <input value={it.proveedor} onChange={e=>updItem(it.id,"proveedor",e.target.value)} style={inputSt} placeholder="Nombre"/>
+                    : <span style={{color:C.text,fontWeight:500}}>{it.proveedor||"—"}</span>}
+                </td>
+                <td style={{padding:"3px 6px",minWidth:90}}>
+                  {canEdit
+                    ? <input value={it.rut} onChange={e=>updItem(it.id,"rut",e.target.value)} style={inputSt} placeholder="RUT"/>
+                    : <span style={{color:C.muted}}>{it.rut||"—"}</span>}
+                </td>
+                <td style={{padding:"3px 6px",minWidth:80}}>
+                  {canEdit
+                    ? <input value={it.nDoc} onChange={e=>updItem(it.id,"nDoc",e.target.value)} style={inputSt} placeholder="F-001"/>
+                    : <span style={{color:C.muted}}>{it.nDoc||"—"}</span>}
+                </td>
+                <td style={{padding:"3px 6px",minWidth:90}}>
+                  {canEdit
+                    ? <input type="date" value={it.fDoc} onChange={e=>updItem(it.id,"fDoc",e.target.value)} style={inputSt}/>
+                    : <span style={{color:C.muted}}>{it.fDoc||"—"}</span>}
+                </td>
+                <td style={{padding:"3px 6px",minWidth:90}}>
+                  {canEdit
+                    ? <input type="date" value={it.fVenc} onChange={e=>updItem(it.id,"fVenc",e.target.value)} style={inputSt}/>
+                    : <span style={{color:C.muted}}>{it.fVenc||"—"}</span>}
+                </td>
+                <td style={{padding:"3px 6px",minWidth:50,textAlign:"center"}}>
+                  {canEdit
+                    ? <input type="number" value={it.semVenc||""} onChange={e=>updItem(it.id,"semVenc",e.target.value)} style={{...inputSt,width:46,textAlign:"center"}} placeholder="S16"/>
+                    : <span style={{color:C.muted}}>{it.semVenc||"—"}</span>}
+                </td>
+                <td style={{padding:"3px 6px",minWidth:140}}>
+                  {canEdit
+                    ? <input value={it.concepto} onChange={e=>updItem(it.id,"concepto",e.target.value)} style={inputSt} placeholder="Descripción"/>
+                    : <span style={{color:C.text}}>{it.concepto||"—"}</span>}
+                </td>
+                {!soloUSD&&(
+                <td style={{padding:"3px 6px",minWidth:100,textAlign:"right"}}>
+                  {canEdit
+                    ? <input type="number" value={it.montoCLP||""} onChange={e=>updItem(it.id,"montoCLP",Number(e.target.value))} style={{...inputSt,textAlign:"right"}} placeholder="0"/>
+                    : <span style={{color:it.montoCLP?C.text:C.muted2,fontWeight:it.montoCLP?600:400}}>{it.montoCLP?$$clp(it.montoCLP):"—"}</span>}
+                </td>
+                )}
+                {!soloCLP&&(
+                <td style={{padding:"3px 6px",minWidth:100,textAlign:"right"}}>
+                  {canEdit
+                    ? <input type="number" value={it.montoUSD||""} onChange={e=>updItem(it.id,"montoUSD",Number(e.target.value))} style={{...inputSt,textAlign:"right"}} placeholder="0"/>
+                    : <span style={{color:it.montoUSD?C.blue:C.muted2,fontWeight:it.montoUSD?600:400}}>{it.montoUSD?$$usd(it.montoUSD):"—"}</span>}
+                </td>
+                )}
+                <td style={{padding:"3px 6px",minWidth:120}}>
+                  {canEdit
+                    ? <input value={it.comentario||""} onChange={e=>updItem(it.id,"comentario",e.target.value)} style={inputSt} placeholder="Obs."/>
+                    : <span style={{color:C.muted,fontSize:10}}>{it.comentario||""}</span>}
+                </td>
+                <td style={{padding:"3px 6px",textAlign:"center",whiteSpace:"nowrap"}}>
+                  {canEdit&&(
+                    <>
+                      <button onClick={()=>updItem(it.id,"pagado",!it.pagado)}
+                        title={it.pagado?"Marcar pendiente":"Marcar pagado"}
+                        style={{background:it.pagado?`${C.green}33`:`${C.border}44`,border:"none",borderRadius:5,
+                          padding:"3px 7px",cursor:"pointer",fontSize:11,color:it.pagado?C.green:C.muted,marginRight:3}}>
+                        {it.pagado?"✓":"○"}
+                      </button>
+                      <button onClick={()=>delItem(it.id)}
+                        style={{background:"#fee2e233",border:"none",borderRadius:5,
+                          padding:"3px 7px",cursor:"pointer",fontSize:11,color:"#ef4444"}}>×</button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          {rows.length>0&&(
+            <tfoot>
+              <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                <td colSpan={7} style={{padding:"6px 10px",fontWeight:700,color:C.text,fontSize:11}}>
+                  Total sección
+                </td>
+                {!soloUSD&&(
+                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,color:C.yellow,fontSize:12}}>
+                  {totalCLP?$$clp(totalCLP):"—"}
+                </td>
+                )}
+                {!soloCLP&&(
+                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,color:C.blue,fontSize:12}}>
+                  {totalUSD?$$usd(totalUSD):"—"}
+                </td>
+                )}
+                <td colSpan={2}/>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+      {canEdit&&(
+        <button onClick={addItem}
+          style={{marginTop:6,padding:"4px 14px",borderRadius:6,border:`1px dashed ${C.border2}`,
+            background:"transparent",color:C.muted,cursor:"pointer",fontSize:11}}>
+          + Agregar fila
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PANEL BANCOS
+// ─────────────────────────────────────────────────────────────────
+// PanelBancos: muestra saldos desde saldosBancos existente (read-only por empresa)
+function PanelBancosNomina({empresa, saldosBancos}) {
+  // Keys format: "Empresa||Banco||moneda" — must match EMPRESAS_LIST exactly
+  const bancosChile = ["BCI","BICE","Security","Chile","Santander"];
+  const bancosPeruana = ["Scotiabank Perú","BBVA Perú"];
+  const esPeruana = empresa.includes("Perú")||empresa==="Frisku Peru";
+  const bancosList = esPeruana ? bancosPeruana : bancosChile;
+  const monedas = esPeruana ? ["pen","usd"] : ["clp","usd","eur"];
+  // Build rows from all relevant keys in saldosBancos
+  const rows = bancosList.flatMap(banco=>
+    monedas.map(moneda=>{
+      const key = `${empresa}||${banco}||${moneda}`;
+      const val = Number(saldosBancos?.[key]?.monto)||0;
+      return {banco, moneda, val, key};
+    })
+  ).filter(r=>r.val!==0);
+  // Group by banco
+  const byBanco = bancosList.map(banco=>{
+    const clp = Number(saldosBancos?.[`${empresa}||${banco}||clp`]?.monto)||0;
+    const usd = Number(saldosBancos?.[`${empresa}||${banco}||usd`]?.monto)||0;
+    const pen = Number(saldosBancos?.[`${empresa}||${banco}||pen`]?.monto)||0;
+    return {banco, clp, usd, pen};
+  }).filter(r=>r.clp||r.usd||r.pen);
+  const totCLP = byBanco.reduce((s,r)=>s+r.clp,0);
+  const totUSD = byBanco.reduce((s,r)=>s+r.usd,0);
+  if(!byBanco.length) return (
+    <div style={{background:C.card2,borderRadius:10,padding:"12px 16px",border:`1px solid ${C.border}`,
+      color:C.muted2,fontSize:11}}>🏦 Sin saldos bancarios registrados para {empresa}</div>
+  );
+  return (
+    <div style={{background:C.card2,borderRadius:10,padding:"12px 16px",border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:8}}>🏦 Saldos de Bancos — {empresa}</div>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+        <thead>
+          <tr style={{borderBottom:`1px solid ${C.border}`}}>
+            <th style={{padding:"4px 8px",color:C.muted,fontWeight:600,textAlign:"left"}}>Banco</th>
+            <th style={{padding:"4px 8px",color:C.muted,fontWeight:600,textAlign:"right"}}>CLP</th>
+            <th style={{padding:"4px 8px",color:C.muted,fontWeight:600,textAlign:"right"}}>USD</th>
+          </tr>
+        </thead>
+        <tbody>
+          {byBanco.map(r=>(
+            <tr key={r.banco} style={{borderBottom:`1px solid ${C.border}22`}}>
+              <td style={{padding:"4px 8px",color:C.text,fontWeight:500}}>{r.banco}</td>
+              <td style={{padding:"4px 8px",textAlign:"right",color:r.clp?C.yellow:C.muted2,fontWeight:r.clp?700:400}}>{r.clp?$$clp(r.clp):"—"}</td>
+              <td style={{padding:"4px 8px",textAlign:"right",color:r.usd?C.blue:C.muted2,fontWeight:r.usd?700:400}}>{r.usd?$$usd(r.usd):"—"}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{borderTop:`2px solid ${C.border}`,background:C.bg2}}>
+            <td style={{padding:"5px 8px",fontWeight:700,color:C.text}}>TOTAL</td>
+            <td style={{padding:"5px 8px",textAlign:"right",fontWeight:800,color:C.yellow}}>{totCLP?$$clp(totCLP):"—"}</td>
+            <td style={{padding:"5px 8px",textAlign:"right",fontWeight:800,color:C.blue}}>{totUSD?$$usd(totUSD):"—"}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// VISTA NÓMINA DETALLE
+// ─────────────────────────────────────────────────────────────────
+function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos, nominasHermanas=[], onSwitchNomina, onCrearYAbrir, onCrearNueva}) {
+  const nom = nomina;
+  const esCFO = usuario?.rol==="admin" || usuario?.esCFO;
+  const [soloVer, setSoloVer] = useState(false);
+  // Estado bloqueado: nadie puede editar contenido una vez que tiene V°B° o está aprobada
+  const estadoBloqueado = nom.estado === "aprobada" || nom.estado === "aprobada1";
+  // editActivo: controla si se pueden modificar items/campos de la nómina
+  // NADIE puede editar una nómina con V°B° o aprobada (ni siquiera admin)
+  const editActivo = canEdit && !soloVer && !estadoBloqueado;
+
+  // Nombre formal: "Nómina [Empresa] S[semana] N°[numero]"
+  const numNomina = nom.numero || 1;
+  const nombreFormal = `Nómina ${nom.empresa} S${nom.semana} N°${numNomina}`;
+
+  function upd(field, val) {
+    if(soloVer) return;
+    onUpdate({...nom, [field]:val});
+  }
+
+  // ── Export Excel ──────────────────────────────────
+  async function exportarExcelNomina() {
+    if(!window.JSZip) {
+      await new Promise((res,rej)=>{
+        const s=document.createElement("script");
+        s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+        s.onload=res;s.onerror=rej;document.head.appendChild(s);
+      });
+    }
+    function colLetter(n){let s="";n++;while(n>0){n--;s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26);}return s;}
+    function escXml(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+    const headers=["Tipo de Pago","Proveedor / Nombre","N° Doc","F. Venc","Monto CLP","Monto USD","Pagado"];
+    const nCols=headers.length;
+    const lastCol=colLetter(nCols-1);
+    let rowsXml="";
+    let currentRow=1;
+
+    // Fila 1: Título
+    rowsXml+=`<row r="${currentRow}" ht="28" customHeight="1"><c r="A${currentRow}" t="inlineStr" s="5"><is><t>${escXml(nombreFormal)}</t></is></c></row>`;
+    currentRow++;
+    // Fila 2: Meta
+    const estadoLabel = (ESTADOS_FLUJO.find(e=>e.id===nom.estado)||{}).label||nom.estado;
+    rowsXml+=`<row r="${currentRow}" ht="18" customHeight="1"><c r="A${currentRow}" t="inlineStr" s="6"><is><t>Fecha: ${nom.fecha||"—"} · T.C: ${nom.tc||"—"} · Estado: ${estadoLabel} · ${new Date().toLocaleDateString("es-CL")}</t></is></c></row>`;
+    currentRow++;
+    // Fila 3: Aprobadores
+    const aprobadores = [
+      nom.preparadoPor?`Prep: ${nom.preparadoPor}`:"",
+      nom.revisadoPor?`Rev: ${nom.revisadoPor}`:"",
+      nom.aprobado1Por?`V°B°: ${nom.aprobado1Por}`:"",
+      nom.aprobadoPor?`CFO: ${nom.aprobadoPor}`:"",
+    ].filter(Boolean).join(" · ");
+    rowsXml+=`<row r="${currentRow}" ht="16" customHeight="1"><c r="A${currentRow}" t="inlineStr" s="6"><is><t>${escXml(aprobadores)}</t></is></c></row>`;
+    currentRow++;
+    // Fila vacía
+    rowsXml+=`<row r="${currentRow}" ht="8" customHeight="1"></row>`;
+    currentRow++;
+
+    const merges=[`A1:${lastCol}1`,`A2:${lastCol}2`,`A3:${lastCol}3`];
+
+    // Headers tabla
+    rowsXml+=`<row r="${currentRow}" ht="22" customHeight="1">`;
+    headers.forEach((h,c)=>{rowsXml+=`<c r="${colLetter(c)}${currentRow}" t="inlineStr" s="1"><is><t>${escXml(h)}</t></is></c>`;});
+    rowsXml+=`</row>`;
+    const headerRow=currentRow;
+    currentRow++;
+
+    // Data por sección
+    const allSecs=[...SECCIONES,...(nom.seccionesExtra||[])];
+    let grandTotalCLP=0, grandTotalUSD=0;
+    allSecs.forEach(sec=>{
+      const secItems=nom.items.filter(it=>it.seccion===sec.id);
+      if(secItems.length===0) return;
+      // Fila título sección
+      rowsXml+=`<row r="${currentRow}" ht="20" customHeight="1"><c r="A${currentRow}" t="inlineStr" s="7"><is><t>${escXml(sec.label)} (${secItems.length})</t></is></c>`;
+      for(let c=1;c<nCols;c++) rowsXml+=`<c r="${colLetter(c)}${currentRow}" s="7"/>`;
+      rowsXml+=`</row>`;
+      merges.push(`A${currentRow}:${lastCol}${currentRow}`);
+      currentRow++;
+      // Items
+      secItems.forEach((it,ri)=>{
+        const sBase=ri%2===0?0:2;
+        const clp=Number(it.montoCLP)||0;
+        const usd=Number(it.montoUSD)||0;
+        rowsXml+=`<row r="${currentRow}" ht="18" customHeight="1">`;
+        rowsXml+=`<c r="A${currentRow}" t="inlineStr" s="${sBase}"><is><t>  ${escXml(sec.label)}</t></is></c>`;
+        rowsXml+=`<c r="B${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.proveedor||"—")}</t></is></c>`;
+        rowsXml+=`<c r="C${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.nDoc||"—")}</t></is></c>`;
+        rowsXml+=`<c r="D${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.fVenc||"—")}</t></is></c>`;
+        rowsXml+=clp?`<c r="E${currentRow}" s="3"><v>${clp}</v></c>`:`<c r="E${currentRow}" t="inlineStr" s="${sBase}"><is><t>—</t></is></c>`;
+        rowsXml+=usd?`<c r="F${currentRow}" s="4"><v>${usd}</v></c>`:`<c r="F${currentRow}" t="inlineStr" s="${sBase}"><is><t>—</t></is></c>`;
+        rowsXml+=`<c r="G${currentRow}" t="inlineStr" s="${sBase}"><is><t>${it.pagado?"✓":"—"}</t></is></c>`;
+        rowsXml+=`</row>`;
+        currentRow++;
+      });
+      // Subtotal sección
+      const stCLP=secItems.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
+      const stUSD=secItems.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
+      grandTotalCLP+=stCLP; grandTotalUSD+=stUSD;
+      rowsXml+=`<row r="${currentRow}" ht="18" customHeight="1">`;
+      rowsXml+=`<c r="A${currentRow}" t="inlineStr" s="8"><is><t></t></is></c>`;
+      rowsXml+=`<c r="B${currentRow}" t="inlineStr" s="8"><is><t></t></is></c>`;
+      rowsXml+=`<c r="C${currentRow}" t="inlineStr" s="8"><is><t></t></is></c>`;
+      rowsXml+=`<c r="D${currentRow}" t="inlineStr" s="8"><is><t>Subtotal</t></is></c>`;
+      rowsXml+=stCLP?`<c r="E${currentRow}" s="9"><v>${stCLP}</v></c>`:`<c r="E${currentRow}" s="8"/>`;
+      rowsXml+=stUSD?`<c r="F${currentRow}" s="10"><v>${stUSD}</v></c>`:`<c r="F${currentRow}" s="8"/>`;
+      rowsXml+=`<c r="G${currentRow}" s="8"/>`;
+      rowsXml+=`</row>`;
+      currentRow++;
+    });
+    // Total general
+    rowsXml+=`<row r="${currentRow}" ht="22" customHeight="1">`;
+    rowsXml+=`<c r="A${currentRow}" t="inlineStr" s="11"><is><t></t></is></c>`;
+    rowsXml+=`<c r="B${currentRow}" t="inlineStr" s="11"><is><t></t></is></c>`;
+    rowsXml+=`<c r="C${currentRow}" t="inlineStr" s="11"><is><t></t></is></c>`;
+    rowsXml+=`<c r="D${currentRow}" t="inlineStr" s="11"><is><t>TOTAL NÓMINA</t></is></c>`;
+    rowsXml+=`<c r="E${currentRow}" s="12"><v>${grandTotalCLP}</v></c>`;
+    rowsXml+=`<c r="F${currentRow}" s="13"><v>${grandTotalUSD}</v></c>`;
+    rowsXml+=`<c r="G${currentRow}" s="11"/>`;
+    rowsXml+=`</row>`;
+
+    const tableRef=`A${headerRow}:${lastCol}${currentRow}`;
+    const mergesXml=`<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>`;
+
+    const stylesXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <numFmts count="2">
+    <numFmt numFmtId="164" formatCode='#,##0'/>
+    <numFmt numFmtId="165" formatCode='"US$" #,##0.00'/>
+  </numFmts>
+  <fonts count="8">
+    <font><sz val="10"/><name val="Calibri"/></font>
+    <font><sz val="10"/><b/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font><sz val="10"/><name val="Calibri"/></font>
+    <font><sz val="10"/><b/><color rgb="FF15803D"/><name val="Calibri"/></font>
+    <font><sz val="10"/><color rgb="FF1D4ED8"/><name val="Calibri"/></font>
+    <font><sz val="16"/><b/><color rgb="FF0F2D4A"/><name val="Calibri"/></font>
+    <font><sz val="10"/><i/><color rgb="FF64748B"/><name val="Calibri"/></font>
+    <font><sz val="10"/><b/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="6">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF0F2D4A"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFE2E8F0"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF1E293B"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FFE2E8F0"/></left><right style="thin"><color rgb="FFE2E8F0"/></right><top style="thin"><color rgb="FFE2E8F0"/></top><bottom style="thin"><color rgb="FFE2E8F0"/></bottom></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="14">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="164" fontId="3" fillId="0" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="165" fontId="4" fillId="0" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+    <xf numFmtId="0" fontId="7" fillId="3" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="7" fillId="4" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="164" fontId="7" fillId="4" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="165" fontId="7" fillId="4" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="5" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="164" fontId="1" fillId="5" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="165" fontId="1" fillId="5" borderId="1" xfId="0"><alignment horizontal="right" vertical="center"/></xf>
+  </cellXfs>
+</styleSheet>`;
+
+    const colWidths=[18,28,12,12,16,16,10];
+    const colsXml=`<cols>${colWidths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`;
+
+    const sheetXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="${headerRow}" topLeftCell="A${headerRow+1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  ${colsXml}
+  <sheetData>${rowsXml}</sheetData>
+  ${mergesXml}
+</worksheet>`;
+
+    const wbXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <bookViews><workbookView/></bookViews>
+  <sheets><sheet name="${escXml(nombreFormal.slice(0,31))}" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+    const wbRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+    const contentTypes=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+    const pkgRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+    const zip=new window.JSZip();
+    zip.file("[Content_Types].xml",contentTypes);
+    zip.file("_rels/.rels",pkgRels);
+    zip.file("xl/workbook.xml",wbXml);
+    zip.file("xl/_rels/workbook.xml.rels",wbRels);
+    zip.file("xl/worksheets/sheet1.xml",sheetXml);
+    zip.file("xl/styles.xml",stylesXml);
+
+    const blob=await zip.generateAsync({type:"blob"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`${nombreFormal.replace(/\s/g,"_")}_${nom.año}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    window.auditLog&&window.auditLog("exportar",{modulo:"finanzas",seccion:"nóminas",
+      descripcion:`Exportó ${nombreFormal} a Excel`,registroId:nom.id});
+  }
+
+  function avanzarEstado() {
+    const flujo = ["borrador","preparada","revision","aprobada1","aprobada"];
+    const idx = flujo.indexOf(nom.estado);
+    if(idx >= flujo.length-1) return;
+    const next = flujo[idx+1];
+    const ahora = new Date().toISOString().slice(0,10);
+    let patch = {estado: next};
+    if(next==="preparada")  patch.preparadoPor  = usuario?.nombre||"";
+    if(next==="revision") {
+      patch.revisadoPor = usuario?.nombre||"";
+      // Notificar a Carol y Michelle que hay una nómina esperando su V°B°
+      const notifMsg = `${usuario?.nombre||"Un usuario"} ha enviado a revisión la ${nombreFormal} (${nom.empresa}).\n\nPor favor ingresa al sistema para dar tu V°B°.\n\nhttps://gestion-grupo-mediterra.vercel.app`;
+      if(window._enviarNotificacion) {
+        window._enviarNotificacion("cmachuca@grupomediterra.cl","Carol Machuca",
+          `📋 Nómina pendiente de V°B° — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+        window._enviarNotificacion("mgarcia@grupomediterra.cl","Michelle Garcia",
+          `📋 Nómina pendiente de V°B° — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+      }
+    }
+    if(next==="aprobada1") {
+      patch.aprobado1Por = usuario?.nombre||"";
+      patch.fechaAprobacion1 = ahora;
+      // Notificar al CFO que la nómina tiene V°B° y está lista para aprobación final
+      if(window._enviarNotificacion) {
+        const notifMsg = `${usuario?.nombre||"Un autorizador"} ha dado V°B° a la ${nombreFormal} (${nom.empresa}).\n\nEstá lista para tu aprobación final.\n\nhttps://gestion-grupo-mediterra.vercel.app`;
+        window._enviarNotificacion("ahuerta@grupomediterra.cl","Angelo Huerta",
+          `✅ Nómina lista para aprobación CFO — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+      }
+    }
+    if(next==="aprobada") {
+      patch.aprobadoPor = usuario?.nombre||"";
+      patch.fechaAprobacion = ahora;
+    }
+    onUpdate({...nom,...patch});
+  }
+
+  function retrocederEstado() {
+    const flujo = ["borrador","preparada","revision","aprobada1","aprobada"];
+    const idx = flujo.indexOf(nom.estado);
+    if(idx <= 0) return;
+    onUpdate({...nom, estado: flujo[idx-1]});
+  }
+
+  // Totales
+  const totCLP = nom.items.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
+  const totUSD = nom.items.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
+
+  // Saldo bancos: tomar de saldosBancos reales (pestaña Saldos Bancos) para esta empresa
+  const {totBancosCLP, totBancosUSD} = React.useMemo(()=>{
+    if(!saldosBancos) return {totBancosCLP:0, totBancosUSD:0};
+    const bancosChile = ["BCI","BICE","Security","Chile","Santander"];
+    const bancosPeruana = ["Scotiabank Perú","BBVA Perú"];
+    const esPeruana = nom.empresa.includes("Perú")||nom.empresa==="Frisku Peru";
+    const bancosList = esPeruana ? bancosPeruana : bancosChile;
+    let clp=0, usd=0;
+    bancosList.forEach(banco=>{
+      clp += Number(saldosBancos[`${nom.empresa}||${banco}||clp`]?.monto)||0;
+      usd += Number(saldosBancos[`${nom.empresa}||${banco}||usd`]?.monto)||0;
+      const pen = Number(saldosBancos[`${nom.empresa}||${banco}||pen`]?.monto)||0;
+      clp += pen;
+    });
+    return {totBancosCLP:clp, totBancosUSD:usd};
+  },[saldosBancos, nom.empresa]);
+
+  // ── Lógica de autorización ──────────────────────────────
+  // Flujo: borrador → preparada → revision → aprobada1 (V°B°) → aprobada (CFO/CEO)
+  // Reglas estrictas:
+  //   - Cualquier editor puede: borrador → preparada → revision
+  //   - SOLO Carol o Michelle pueden: revision → aprobada1 (V°B°)
+  //   - SOLO CFO/CEO (admin) puede: aprobada1 → aprobada
+  const AUTORIZADORES = ["Carol Machuca","Michelle Garcia"];
+  const esAutorizadorNom = AUTORIZADORES.includes(usuario?.nombre);
+  const esAdmin = usuario?.rol === "admin";
+
+  const puedeAvanzar = (() => {
+    // La capacidad de AVANZAR ESTADO es independiente de editActivo
+    // (Carol puede dar V°B° aunque no pueda editar items)
+    if(soloVer) return false;
+    if(!canEdit) return false;
+    if(nom.estado === "aprobada") return false;
+    if(nom.estado === "borrador" || nom.estado === "preparada") return true; // cualquier editor
+    if(nom.estado === "revision") return esAutorizadorNom; // SOLO Carol o Michelle
+    if(nom.estado === "aprobada1") return esAdmin; // SOLO CFO/CEO
+    return false;
+  })();
+
+  // Texto del botón de avanzar según estado
+  const textoAvanzar = (() => {
+    if(nom.estado === "borrador") return "📋 Marcar Preparada";
+    if(nom.estado === "preparada") return "📤 Enviar a Revisión";
+    if(nom.estado === "revision") return "✅ Dar V°B° (Autorizador)";
+    if(nom.estado === "aprobada1") return "🏆 Aprobar (CFO)";
+    return "→";
+  })();
+
+  // Mensaje de bloqueo
+  const mensajeBloqueo = (() => {
+    if(nom.estado === "revision" && !esAutorizadorNom)
+      return "⏳ Esperando V°B° de Carol Machuca o Michelle Garcia";
+    if(nom.estado === "aprobada1" && !esAdmin)
+      return "⏳ Esperando aprobación del CFO";
+    return null;
+  })();
+
+  const estadoInfo = ESTADOS_FLUJO.find(e=>e.id===nom.estado)||ESTADOS_FLUJO[0];
+
+  return (
+    <div style={{fontFamily:"sans-serif",background:C.bg,minHeight:"100vh",color:C.text}}>
+      {/* Header */}
+      <div className="no-print" style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:"12px 20px",
+        display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <button onClick={onBack}
+          style={{background:C.card2,border:`1px solid ${C.border}`,color:C.muted,
+            borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12}}>
+          ← Volver
+        </button>
+        <div style={{flex:1}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <span style={{fontWeight:800,fontSize:15,color:C.text}}>
+              {nombreFormal}
+            </span>
+            {onSwitchNomina&&(
+              <select value={nom.id}
+                onChange={e=>{
+                  const val=e.target.value;
+                  if(nominasHermanas.find(nh=>nh.id===val)){
+                    onSwitchNomina(val);
+                  } else if(val.startsWith("_crear_") && onCrearYAbrir && canEdit) {
+                    onCrearYAbrir(val.replace("_crear_",""));
+                  }
+                }}
+                style={{padding:"5px 10px",borderRadius:8,border:`1px solid ${C.border}`,
+                  background:C.card2,color:C.text,fontSize:12,fontWeight:600,outline:"none",cursor:"pointer"}}>
+                {nominasHermanas.map(nh=>(
+                  <option key={nh.id} value={nh.id}>{nh.empresa}{nh.numero>1?` N°${nh.numero}`:""}</option>
+                ))}
+                {canEdit && onCrearYAbrir && EMPRESAS_NOM
+                  .filter(emp=>!nominasHermanas.find(nh=>nh.empresa===emp))
+                  .map(emp=>(
+                    <option key={`_crear_${emp}`} value={`_crear_${emp}`}>+ {emp} (crear)</option>
+                  ))
+                }
+              </select>
+            )}
+          </div>
+          <div style={{fontSize:11,color:C.muted}}>
+            Semana {nom.semana} · {nom.año} · {nom.fecha}
+          </div>
+        </div>
+        <BadgeEstado estado={nom.estado}/>
+        {/* Solo Ver / Editar toggle */}
+        <button onClick={()=>setSoloVer(!soloVer)}
+          style={{background:soloVer?"#3b82f6":"transparent",border:`1px solid ${soloVer?"#3b82f6":C.border}`,
+            color:soloVer?"#fff":C.muted,borderRadius:8,padding:"6px 12px",cursor:"pointer",
+            fontSize:11,fontWeight:600}}>
+          {soloVer?"👁 Solo ver":"✏️ Editar"}
+        </button>
+        {/* Mensaje de bloqueo si no puede avanzar */}
+        {mensajeBloqueo&&!puedeAvanzar&&(
+          <span style={{fontSize:10,color:"#f59e0b",background:"#fef3c7",padding:"5px 12px",
+            borderRadius:8,fontWeight:600,border:"1px solid #fde68a"}}>
+            {mensajeBloqueo}
+          </span>
+        )}
+        {puedeAvanzar&&(
+          <button onClick={avanzarEstado}
+            style={{background:nom.estado==="aprobada1"?"#16a34a":"#3b82f6",border:"none",color:"#fff",borderRadius:8,
+              padding:"7px 16px",cursor:"pointer",fontWeight:700,fontSize:12}}>
+            {textoAvanzar}
+          </button>
+        )}
+        {nom.estado!=="borrador"&&esAdmin&&!soloVer&&(
+          <button onClick={retrocederEstado}
+            style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,
+              borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:11}}>
+            ← Retroceder
+          </button>
+        )}
+        {/* + Nueva nómina misma empresa/semana */}
+        {canEdit&&onCrearNueva&&(
+          <button onClick={()=>onCrearNueva(nom.empresa, nom.semana, nom.año)}
+            style={{background:"#0f766e",border:"none",color:"#fff",borderRadius:8,
+              padding:"7px 14px",cursor:"pointer",fontWeight:700,fontSize:11}}>
+            + Nueva Nómina
+          </button>
+        )}
+        <button onClick={exportarExcelNomina}
+          style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,
+            borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:11}}>
+          📥 Excel
+        </button>
+        <button onClick={()=>{window.print();}}
+          style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,
+            borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:11}}>
+          🖨️ Imprimir
+        </button>
+      </div>
+
+      {/* Banner nómina bloqueada */}
+      {estadoBloqueado&&(
+        <div className="no-print" style={{background:nom.estado==="aprobada"?"#dcfce7":"#ede9fe",
+          border:`1px solid ${nom.estado==="aprobada"?"#86efac":"#c4b5fd"}`,
+          padding:"8px 16px",margin:"0 20px",borderRadius:8,
+          display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:18}}>{nom.estado==="aprobada"?"🔒":"✅"}</span>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:nom.estado==="aprobada"?"#166534":"#6d28d9"}}>
+              {nom.estado==="aprobada"?"Nómina aprobada — No editable":"Nómina con V°B° — Pendiente aprobación CFO"}
+            </div>
+            <div style={{fontSize:10,color:"#64748b"}}>
+              {nom.estado==="aprobada"
+                ? `Aprobada por ${nom.aprobadoPor||"—"} el ${nom.fechaAprobacion||"—"}. El contenido no puede ser modificado.`
+                : `V°B° por ${nom.aprobado1Por||"—"} el ${nom.fechaAprobacion1||"—"}. Solo el CFO puede aprobar o retroceder.`}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div id="nomina-print-area" style={{padding:"20px 24px",maxWidth:1400,margin:"0 auto"}}>
+        {/* ═══ Contenido interactivo — solo pantalla, oculto al imprimir ═══ */}
+        <div className="screen-only">
+        {/* Info header — versión compacta para impresión */}
+        <div className="nomina-info-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
+          <div style={{background:C.card2,borderRadius:10,padding:"12px 16px",border:`1px solid ${C.border}`}}>
+            <div className="info-label" style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:6}}>INFORMACIÓN NÓMINA</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <div>
+                <div className="info-label" style={{fontSize:10,color:C.muted}}>Empresa</div>
+                <div className="info-value" style={{fontWeight:700,fontSize:13}}>{nom.empresa}</div>
+              </div>
+              <div>
+                <div className="info-label" style={{fontSize:10,color:C.muted}}>Semana / Año</div>
+                <div className="info-value" style={{fontWeight:700,fontSize:13}}>S{nom.semana} / {nom.año}</div>
+              </div>
+              <div>
+                <div className="info-label" style={{fontSize:10,color:C.muted}}>Fecha</div>
+                {canEdit
+                  ? <input type="date" value={nom.fecha} onChange={e=>upd("fecha",e.target.value)}
+                      className="no-print"
+                      style={{padding:"3px 6px",borderRadius:5,border:`1px solid ${C.border}`,
+                        background:C.card,color:C.text,fontSize:12,outline:"none"}}/>
+                  : null}
+                <div className="info-value" style={{fontSize:12}}>{nom.fecha}</div>
+              </div>
+              <div>
+                <div className="info-label" style={{fontSize:10,color:C.muted}}>T.C (CLP/USD)</div>
+                {canEdit
+                  ? <input type="number" value={nom.tc||""} onChange={e=>upd("tc",Number(e.target.value))}
+                      placeholder="886.97" className="no-print"
+                      style={{padding:"3px 6px",borderRadius:5,border:`1px solid ${C.border}`,
+                        background:C.card,color:C.text,fontSize:12,outline:"none",width:90}}/>
+                  : null}
+                <div className="info-value" style={{fontSize:12}}>{nom.tc?nom.tc.toLocaleString("es-CL"):"—"}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Totales — visible en impresión */}
+          <div style={{background:C.card2,borderRadius:10,padding:"12px 16px",border:`1px solid ${C.border}`}}>
+            <div className="info-label" style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:8}}>TOTALES NÓMINA</div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{color:C.muted,fontSize:12}}>Total CLP</span>
+              <span className="info-value" style={{fontWeight:800,fontSize:14,color:C.yellow}}>{totCLP?$$clp(totCLP):"—"}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+              <span style={{color:C.muted,fontSize:12}}>Total USD</span>
+              <span className="info-value" style={{fontWeight:800,fontSize:14,color:C.blue}}>{totUSD?$$usd(totUSD):"—"}</span>
+            </div>
+            {/* Saldo bancos: solo pantalla, no impresión */}
+            <div className="nomina-kpis-header" style={{borderTop:`1px solid ${C.border}`,paddingTop:8,marginTop:4}}>
+              <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:4}}>SALDO BANCOS</div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                <span style={{color:C.muted,fontSize:11}}>CLP</span>
+                <span style={{fontWeight:700,fontSize:12,color:C.yellow}}>{totBancosCLP?$$clp(totBancosCLP):"—"}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{color:C.muted,fontSize:11}}>USD</span>
+                <span style={{fontWeight:700,fontSize:12,color:C.blue}}>{totBancosUSD?$$usd(totBancosUSD):"—"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Autorización */}
+          <div style={{background:C.card2,borderRadius:10,padding:"12px 16px",border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:8}}>AUTORIZACIÓN</div>
+            {[
+              {label:"Preparada por",  field:"preparadoPor",  icon:"📝"},
+              {label:"Revisada por",   field:"revisadoPor",   icon:"🔍"},
+              {label:"V°B° Aprobador", field:"aprobado1Por",  icon:"✅", fecha:"fechaAprobacion1"},
+              {label:"Aprobado CFO",   field:"aprobadoPor",   icon:"🏆", fecha:"fechaAprobacion"},
+            ].map(({label,field,icon,fecha})=>(
+              <div key={field} style={{marginBottom:6}}>
+                <div style={{fontSize:10,color:C.muted}}>{icon} {label}</div>
+                <div style={{fontWeight:600,fontSize:12,color:nom[field]?C.green:C.muted2}}>
+                  {nom[field]||"Pendiente"}
+                  {fecha&&nom[fecha]&&
+                    <span style={{fontSize:10,color:C.muted,marginLeft:6}}>{nom[fecha]}</span>}
+                </div>
               </div>
             ))}
-            {pinError&&<div style={{color:"#ef4444",fontSize:12}}>{pinError}</div>}
-            <button onClick={handleCambiarPin}
-              style={{padding:"10px",borderRadius:8,background:"#2563eb",color:"#fff",border:"none",fontWeight:700,fontSize:14,cursor:"pointer",marginTop:4}}>
-              Guardar nuevo PIN
-            </button>
-          </div>
-        ):(
-          <>
-            <div style={{marginBottom:12}}>
-              <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>Email corporativo</div>
-              <input type="email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&document.getElementById("login-pin-input")?.focus()}
-                placeholder="tu.nombre@grupomediterra.cl" autoComplete="email"
-                style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,
-                  outline:"none",boxSizing:"border-box"}}/>
-            </div>
-            <div style={{marginBottom:16}}>
-              <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>PIN de acceso</div>
-              <input id="login-pin-input" type="password" value={loginPin} onChange={e=>setLoginPin(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="••••"
-                style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:16,
-                  textAlign:"center",letterSpacing:6,outline:"none",boxSizing:"border-box"}}/>
-            </div>
-            {loginError&&<div style={{color:"#ef4444",fontSize:12,marginBottom:10,textAlign:"center"}}>{loginError}</div>}
-            <button onClick={handleLogin}
-              style={{width:"100%",padding:"11px",borderRadius:8,background:"linear-gradient(135deg,#1e3a5f,#2563eb)",
-                color:"#fff",border:"none",fontWeight:700,fontSize:14,cursor:"pointer"}}>
-              Ingresar
-            </button>
-            <div style={{marginTop:16,textAlign:"center"}}>
-              <button onClick={()=>setModalPin("reset")} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer"}}>
-                ¿Olvidaste tu PIN?
-              </button>
-            </div>
-            {modalPin==="reset"&&(
-              <div style={{marginTop:16,background:"#f8fafc",borderRadius:10,padding:"14px 16px",border:"1px solid #e2e8f0"}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#1e293b",marginBottom:8}}>Recuperar PIN por email</div>
-                <input type="email" value={resetEmail||loginEmail} onChange={e=>setResetEmail(e.target.value)}
-                  placeholder="tu.nombre@grupomediterra.cl"
-                  style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #d1d5db",
-                    fontSize:13,marginBottom:8,outline:"none",boxSizing:"border-box"}}/>
-                <button onClick={()=>handleResetPin()}
-                  disabled={resetEnviando||!(resetEmail||loginEmail)}
-                  style={{width:"100%",padding:"8px",borderRadius:8,
-                    background:(resetEnviando||!(resetEmail||loginEmail))?"#94a3b8":"#2563eb",
-                    color:"#fff",border:"none",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-                  {resetEnviando?"Enviando...":"Enviar PIN temporal"}
-                </button>
-                {resetMsg&&<div style={{fontSize:11,color:"#64748b",marginTop:6,textAlign:"center"}}>{resetMsg}</div>}
+            {nom.notas!==undefined&&(
+              <div style={{marginTop:8}}>
+                <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Notas</div>
+                {canEdit
+                  ? <textarea value={nom.notas||""} onChange={e=>upd("notas",e.target.value)}
+                      rows={2} placeholder="Observaciones..."
+                      style={{width:"100%",padding:"5px 7px",borderRadius:6,border:`1px solid ${C.border}`,
+                        background:C.card,color:C.text,fontSize:11,outline:"none",
+                        resize:"vertical",boxSizing:"border-box"}}/>
+                  : <div style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>{nom.notas||"Sin notas"}</div>}
               </div>
             )}
-          </>
+          </div>
+        </div>
+
+        {/* Panel bancos */}
+        <div style={{marginBottom:20}}>
+          <PanelBancosNomina empresa={nom.empresa} saldosBancos={saldosBancos}/>
+        </div>
+
+        {/* Secciones de items */}
+        {([...SECCIONES,...(nom.seccionesExtra||[])]).map(sec=>{
+          const hasItems = nom.items.some(it=>it.seccion===sec.id);
+          if(!canEdit && !hasItems) return null;
+          const esSecUSD = sec.id==="emp_rel_usd"||sec.id==="pagos_usd";
+          const esSecCLP = !esSecUSD; // proveedores, anticipos, rendiciones, servipag, emp_rel_clp
+          const monedaSec = esSecUSD ? "usd" : "clp";
+          const secItems = nom.items.filter(it=>it.seccion===sec.id);
+          const secTotCLP = secItems.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
+          const secTotUSD = secItems.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
+          return (
+            <div key={sec.id} style={{marginBottom:4}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,
+                padding:"8px 12px",
+                background:esSecUSD?`${C.blue}22`:
+                           sec.id==="emp_rel_clp"?`${C.yellow}22`:C.bg2,
+                borderRadius:"8px 8px 0 0",
+                border:`1px solid ${esSecUSD?C.blue:sec.id==="emp_rel_clp"?C.yellow:C.border}`,
+                borderBottom:"none",marginTop:12}}>
+                <span style={{fontWeight:700,fontSize:13,
+                  color:esSecUSD?C.blue:
+                        sec.id==="emp_rel_clp"?C.yellow:C.text}}>{sec.label}</span>
+                <span style={{fontSize:11,color:C.muted}}>
+                  ({secItems.length} items)
+                </span>
+                {!esSecUSD&&(
+                <span style={{marginLeft:"auto",fontWeight:700,fontSize:12,color:C.yellow}}>
+                  {$$clp(secTotCLP)}
+                </span>
+                )}
+                {esSecUSD&&(
+                <span style={{marginLeft:"auto",fontWeight:700,fontSize:12,color:C.blue}}>
+                  {$$usd(secTotUSD)}
+                </span>
+                )}
+              </div>
+              <TablaItems
+                items={nom.items}
+                seccion={sec.id}
+                onChange={v=>upd("items",v)}
+                canEdit={editActivo}
+                tc={nom.tc}
+                moneda={monedaSec}
+              />
+            </div>
+          );
+        })}
+
+        {/* Agregar nueva sección */}
+        {canEdit&&(
+          <div style={{marginTop:16,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            <input id="nueva-sec-inp" type="text"
+              placeholder="+ Nueva sección (ej: Gastos de Viaje) — Enter para agregar"
+              style={{flex:1,minWidth:250,padding:"8px 12px",borderRadius:8,
+                border:`1px dashed ${C.border2}`,background:C.card2,color:C.text,
+                fontSize:12,outline:"none"}}
+              onKeyDown={e=>{
+                if(e.key!=="Enter"||!e.target.value.trim()) return;
+                const label=e.target.value.trim();
+                upd("seccionesExtra",[...(nom.seccionesExtra||[]),{id:`extra_${Date.now()}`,label}]);
+                e.target.value="";
+              }}/>
+            <button onClick={()=>{
+              const inp=document.getElementById("nueva-sec-inp");
+              if(!inp?.value.trim()) return;
+              upd("seccionesExtra",[...(nom.seccionesExtra||[]),{id:`extra_${Date.now()}`,label:inp.value.trim()}]);
+              inp.value="";
+            }} style={{padding:"8px 16px",borderRadius:8,background:C.blue,border:"none",
+              color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar sección</button>
+            {(nom.seccionesExtra||[]).map(sec=>(
+              <span key={sec.id} style={{background:`${C.muted2}22`,borderRadius:20,
+                padding:"3px 10px",fontSize:11,color:C.muted,display:"flex",alignItems:"center",gap:4}}>
+                {sec.label}
+                <button onClick={()=>upd("seccionesExtra",(nom.seccionesExtra||[]).filter(s=>s.id!==sec.id))}
+                  style={{background:"none",border:"none",color:C.red,cursor:"pointer",fontSize:13,lineHeight:1}}>×</button>
+              </span>
+            ))}
+          </div>
         )}
+        {/* Fin contenido interactivo (screen-only) */}
+        </div>
+
+        {/* ═══ Vista compacta solo para impresión ═══ */}
+        <div className="print-only" style={{display:"none"}}>
+          <div className="print-header">
+            <div>
+              <h2>{nombreFormal}</h2>
+              <div style={{fontSize:9,color:"#475569",marginTop:2}}>
+                Semana {nom.semana} · Año {nom.año} · Fecha: {nom.fecha || "—"}
+                {nom.tc ? ` · T.C: $${nom.tc.toLocaleString("es-CL")}` : ""}
+              </div>
+            </div>
+            <div className="meta">
+              <div>Estado: {(ESTADOS_FLUJO.find(e=>e.id===nom.estado)||{}).label || nom.estado}</div>
+              <div>Impreso: {new Date().toLocaleDateString("es-CL")}</div>
+            </div>
+          </div>
+
+          <table className="print-table">
+            <thead>
+              <tr>
+                <th style={{width:"18%"}}>Tipo de Pago</th>
+                <th style={{width:"24%"}}>Proveedor / Nombre</th>
+                <th style={{width:"10%"}}>N° Doc</th>
+                <th style={{width:"10%"}}>F. Venc</th>
+                <th style={{width:"14%",textAlign:"right"}}>Monto CLP</th>
+                <th style={{width:"14%",textAlign:"right"}}>Monto USD</th>
+                <th style={{width:"10%",textAlign:"center"}}>Pagado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {([...SECCIONES,...(nom.seccionesExtra||[])]).map(sec=>{
+                const secItems = nom.items.filter(it=>it.seccion===sec.id);
+                if(secItems.length === 0) return null;
+                const esUSD = sec.id==="emp_rel_usd"||sec.id==="pagos_usd";
+                const stCLP = secItems.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
+                const stUSD = secItems.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
+                return (
+                  <React.Fragment key={sec.id}>
+                    <tr className="sec-row">
+                      <td colSpan={7}>{sec.label} ({secItems.length})</td>
+                    </tr>
+                    {secItems.map(it=>(
+                      <tr key={it.id}>
+                        <td style={{paddingLeft:12,color:"#64748b",fontSize:"7px"}}>{sec.label}</td>
+                        <td style={{fontWeight:500}}>{it.proveedor||"—"}</td>
+                        <td>{it.nDoc||"—"}</td>
+                        <td>{it.fVenc||"—"}</td>
+                        <td className="num">{(Number(it.montoCLP)||0) ? $$clp(Number(it.montoCLP)) : "—"}</td>
+                        <td className="num">{(Number(it.montoUSD)||0) ? $$usd(Number(it.montoUSD)) : "—"}</td>
+                        <td style={{textAlign:"center"}}>{it.pagado?"✓":"—"}</td>
+                      </tr>
+                    ))}
+                    <tr className="subtotal-row">
+                      <td colSpan={4} style={{textAlign:"right"}}>Subtotal {sec.label}</td>
+                      <td className="num">{stCLP ? $$clp(stCLP) : "—"}</td>
+                      <td className="num">{stUSD ? $$usd(stUSD) : "—"}</td>
+                      <td></td>
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
+              <tr className="total-row">
+                <td colSpan={4} style={{textAlign:"right"}}>TOTAL NÓMINA</td>
+                <td className="num">{totCLP ? $$clp(totCLP) : "—"}</td>
+                <td className="num">{totUSD ? $$usd(totUSD) : "—"}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="print-footer">
+            {[
+              {label:"Preparada por",  val:nom.preparadoPor},
+              {label:"Revisada por",   val:nom.revisadoPor},
+              {label:"V°B° Aprobador", val:nom.aprobado1Por, fecha:nom.fechaAprobacion1},
+              {label:"Aprobado CFO",   val:nom.aprobadoPor,  fecha:nom.fechaAprobacion},
+            ].map(a=>(
+              <div key={a.label} className="auth-item">
+                <div>{a.label}</div>
+                <div className="auth-name">{a.val||"_______________"}</div>
+                {a.fecha&&<div style={{fontSize:"6.5px",color:"#94a3b8"}}>{a.fecha}</div>}
+                <div style={{borderTop:"1px solid #94a3b8",marginTop:8,width:"100%"}}></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
     </div>
   );
+}
+function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
+  const [nominas, setNominas] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [selNomina, setSelNomina] = useState(null); // id nomina abierta
+  const [filtroAño, setFiltroAño]       = useState(añoActualNom());
+  const [filtroSemana, setFiltroSemana] = useState(semanaActual());
+  const [filtroEmpresa, setFiltroEmpresa] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const [vistaResumen, setVistaResumen] = useState(false);
+  const nominasRef = useRef(nominas);
+  useEffect(()=>{nominasRef.current=nominas;},[nominas]);
 
-  // Calcular permisos de pestaña para el usuario actual en Finanzas
-  const tabPermisosFinanzas = getTabPermisosModulo(usuarioFresco, "finanzas");
+  // Load
+  useEffect(()=>{
+    dbLoadNominas().then(d=>{
+      if(d?.nominas) setNominas(d.nominas);
+      setCargando(false);
+    });
+  },[]);
 
-  // Módulo activo
-  if(moduloActivo==="finanzas") return (
-    <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh",padding:"20px"}}>
-      <FinanzasModule
-        usuarioActual={usuarioFresco}
-        esAdmin={esAdmin}
-        esSoloConsulta={esSoloConsulta}
-        tabPermisos={tabPermisosFinanzas}
-        onBack={()=>setModuloActivo(null)}
-        onLogout={doLogout}
-      />
-    </div>
-  );
+  // Auto-refresh nóminas cada 30s para sincronizar cambios de otros usuarios
+  useEffect(()=>{
+    const interval = setInterval(()=>{
+      dbLoadNominas().then(d=>{
+        if(d?.nominas) {
+          setNominas(prev=>{
+            // Solo actualizar si hay cambios reales (evitar re-render innecesario)
+            const prevJSON = JSON.stringify(prev.map(n=>({id:n.id,estado:n.estado,aprobado1Por:n.aprobado1Por,aprobadoPor:n.aprobadoPor})));
+            const newJSON = JSON.stringify(d.nominas.map(n=>({id:n.id,estado:n.estado,aprobado1Por:n.aprobado1Por,aprobadoPor:n.aprobadoPor})));
+            if(prevJSON !== newJSON) return d.nominas;
+            return prev;
+          });
+        }
+      }).catch(()=>{});
+    }, 30000);
+    return ()=>clearInterval(interval);
+  },[]);
 
-  if(moduloActivo==="osiris") return (
-    <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh"}}>
-      <OsirisModule
-        usuarioActual={usuarioFresco}
-        esAdmin={esAdmin}
-        esSoloConsulta={esSoloConsulta}
-        tabPermisos={getTabPermisosModulo(usuarioFresco,"osiris")}
-        onBack={()=>setModuloActivo(null)}
-        onLogout={doLogout}
-        osirisData={osirisData}
-        setOsirisData={setOsirisData}
-      />
-    </div>
-  );
+  // Refresh al volver a la pestaña del navegador
+  useEffect(()=>{
+    function onVisibility(){
+      if(document.visibilityState === "visible"){
+        dbLoadNominas().then(d=>{
+          if(d?.nominas) setNominas(d.nominas);
+        }).catch(()=>{});
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return ()=>document.removeEventListener("visibilitychange", onVisibility);
+  },[]);
 
-  if(moduloActivo==="allegria") return (
-    <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh"}}>
-      <AllegriaModule
-        usuarioActual={usuarioFresco}
-        esAdmin={esAdmin}
-        esSoloConsulta={esSoloConsulta}
-        tabPermisos={getTabPermisosModulo(usuarioFresco,"allegria")}
-        onBack={()=>setModuloActivo(null)}
-        onLogout={doLogout}
-      />
-    </div>
-  );
+  // Save (debounce 800ms)
+  const saveTimer = useRef(null);
+  function saveNominas(list) {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(()=>{
+      dbSaveNominas({nominas: list});
+    }, 800);
+  }
 
-  if(moduloActivo==="tareas") {
-    const modulosPermitidos = modulosDeUsuarioSeguro(usuarioFresco);
-    const tabPermTareas = getTabPermisosModulo(usuarioFresco, "tareas");
-    const puedeVerDiaria    = getTabPerm(usuarioFresco,"tareas","diaria")    !== "sin_acceso";
-    const puedeVerSemanal   = getTabPerm(usuarioFresco,"tareas","semanal")   !== "sin_acceso";
-    const puedeVerQuincenal = getTabPerm(usuarioFresco,"tareas","quincenal") !== "sin_acceso";
-    const puedeVerMensual   = getTabPerm(usuarioFresco,"tareas","mensual")   !== "sin_acceso";
-    const puedeVerAnual     = getTabPerm(usuarioFresco,"tareas","anual")     !== "sin_acceso";
-    const puedeVerConfig    = getTabPerm(usuarioFresco,"tareas","config")    !== "sin_acceso";
-    const puedeEditSemanal  = getTabPerm(usuarioFresco,"tareas","semanal")   === "editar";
-    const puedeEditMensual  = getTabPerm(usuarioFresco,"tareas","mensual")   === "editar";
-    const puedeEditConfig   = getTabPerm(usuarioFresco,"tareas","config")    === "editar";
-
-    return (
-      <div style={{fontFamily:"sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
-        {/* Modal editar comentario */}
-        {editComentario&&(
-          <div style={{position:"fixed",inset:0,background:"#0006",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <div style={{background:"#fff",borderRadius:12,padding:24,width:380,boxShadow:"0 8px 32px #0003"}}>
-              <div style={{fontWeight:700,fontSize:15,marginBottom:10}}>Comentario</div>
-              <textarea value={textoComentario} onChange={e=>setTextoComentario(e.target.value)}
-                style={{width:"100%",height:80,borderRadius:8,border:"1px solid #d1d5db",padding:8,fontSize:13,resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
-              <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
-                <button onClick={()=>setEditComentario(null)} style={{padding:"6px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:13}}>Cancelar</button>
-                <button onClick={guardarComentario} style={{padding:"6px 16px",borderRadius:8,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer",fontWeight:700,fontSize:13}}>Guardar</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ═══ Modal alertas tareas puntuales al ingresar ═══ */}
-        {modalAlertasTareas&&(
-          <div style={{position:"fixed",inset:0,background:"#000a",zIndex:350,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
-            onClick={()=>setModalAlertasTareas(null)}>
-            <div style={{background:"#fff",borderRadius:16,padding:0,width:"100%",maxWidth:600,
-              boxShadow:"0 24px 64px #0005",maxHeight:"85vh",overflow:"hidden",display:"flex",flexDirection:"column"}}
-              onClick={e=>e.stopPropagation()}>
-              {/* Header */}
-              <div style={{background:"linear-gradient(135deg,#1e3a5f,#0f2d4a)",padding:"18px 24px",
-                display:"flex",alignItems:"center",gap:12}}>
-                <span style={{fontSize:28}}>📌</span>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:16,fontWeight:800,color:"#fff"}}>Tareas Puntuales Próximas</div>
-                  <div style={{fontSize:11,color:"#94a3b8"}}>
-                    {modalAlertasTareas.tareas.filter(t=>t.vencida).length > 0
-                      ? `⚠️ ${modalAlertasTareas.tareas.filter(t=>t.vencida).length} vencida(s) · ${modalAlertasTareas.tareas.filter(t=>!t.vencida).length} próxima(s)`
-                      : `${modalAlertasTareas.tareas.length} tarea(s) en los próximos 30 días`}
-                  </div>
-                </div>
-                <button onClick={()=>setModalAlertasTareas(null)}
-                  style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,
-                    padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>
-                  Cerrar ✕
-                </button>
-              </div>
-              {/* Lista */}
-              <div style={{overflowY:"auto",padding:"12px 16px",flex:1}}>
-                {modalAlertasTareas.tareas.map((t,i)=>{
-                  const cat = CATEGORIAS[t.categoria]||{color:"#64748b",bg:"#f1f5f9"};
-                  return (
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",
-                      borderRadius:10,marginBottom:6,
-                      background:t.vencida?"#fff5f5":t.hoy?"#fef3c7":t.diff<=7?"#fffbeb":"#f8fafc",
-                      border:`1px solid ${t.vencida?"#fecaca":t.hoy?"#fde68a":t.diff<=7?"#fef3c7":"#e2e8f0"}`}}>
-                      {/* Indicador */}
-                      <div style={{width:40,height:40,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
-                        fontSize:18,flexShrink:0,
-                        background:t.vencida?"#fee2e2":t.hoy?"#fef3c7":t.diff<=7?"#dbeafe":"#f1f5f9"}}>
-                        {t.vencida?"⚠️":t.hoy?"🔴":t.diff<=7?"⏰":"📌"}
-                      </div>
-                      {/* Info */}
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontWeight:700,fontSize:13,color:"#1e293b",marginBottom:2}}>{t.nombre}</div>
-                        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                          <span style={{fontSize:10,color:"#64748b"}}>👤 {t.responsable}</span>
-                          <span style={{fontSize:10,color:"#94a3b8"}}>🔍 {t.supervisor}</span>
-                          <span style={{fontSize:9,background:cat.bg,color:cat.color,padding:"1px 6px",borderRadius:12,fontWeight:600}}>{t.categoria}</span>
-                        </div>
-                      </div>
-                      {/* Fecha + días */}
-                      <div style={{textAlign:"right",flexShrink:0}}>
-                        <div style={{fontSize:12,fontWeight:700,color:t.vencida?"#dc2626":t.hoy?"#d97706":"#1e293b"}}>{t.fecha}</div>
-                        <div style={{fontSize:11,fontWeight:600,marginTop:2,padding:"2px 8px",borderRadius:12,display:"inline-block",
-                          background:t.vencida?"#dc2626":t.hoy?"#d97706":t.diff<=7?"#2563eb":"#64748b",
-                          color:"#fff"}}>
-                          {t.vencida?`Vencida ${Math.abs(t.diff)}d`:t.hoy?"HOY":`${t.diff}d`}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Footer */}
-              <div style={{padding:"12px 20px",borderTop:"1px solid #e2e8f0",textAlign:"center"}}>
-                <button onClick={()=>{setModalAlertasTareas(null);setTab("puntual");}}
-                  style={{padding:"8px 24px",borderRadius:8,background:"#2563eb",color:"#fff",
-                    border:"none",cursor:"pointer",fontWeight:700,fontSize:13}}>
-                  📌 Ver todas las tareas puntuales
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal tareas vencidas */}
-      {modalVencidas&&(()=>{
-        const vencidas=[];
-        todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{
-          if(getFrecuencia(t.id)==="Mensual"){
-            if(estaVencida(t,t.id,null)) vencidas.push({tarea:t,semana:null,key:t.id});
-          } else {
-            semanas.forEach(s=>{
-              if(estaVencida(t,`${t.id}_s${s.num}`,s.num))
-                vencidas.push({tarea:t,semana:s,key:`${t.id}_s${s.num}`});
-            });
+  function updNomina(nom) {
+    setNominas(prev=>{
+      const anterior = prev.find(n=>n.id===nom.id);
+      const next = prev.some(n=>n.id===nom.id)
+        ? prev.map(n=>n.id===nom.id?nom:n)
+        : [...prev, nom];
+      saveNominas(next);
+      // Auditoría
+      if(!anterior) {
+        window.auditLog&&window.auditLog("crear", {modulo:"finanzas", seccion:"nóminas",
+          descripcion:`Creó nómina para ${nom.empresa} · S${nom.semana}/${nom.año}`,
+          registroId:nom.id});
+      } else {
+        // Detectar cambio de estado específicamente
+        if(anterior.estado !== nom.estado) {
+          const esCFO = nom.estado === "aprobada";
+          window.auditLog&&window.auditLog(esCFO?"aprobar":"editar", {modulo:"finanzas", seccion:"nóminas",
+            descripcion:`Nómina ${nom.empresa} S${nom.semana}/${nom.año}: cambió estado de "${anterior.estado}" a "${nom.estado}"`,
+            registroId:nom.id, campo:"estado",
+            valorAnterior:anterior.estado, valorNuevo:nom.estado});
+        }
+        // Detectar otros cambios en campos clave
+        const camposRastrear = ["fecha","tc","notas","preparadoPor","revisadoPor","aprobadoPor","aprobado1Por"];
+        camposRastrear.forEach(k=>{
+          if(anterior[k] !== nom[k] && (anterior[k]!==undefined || nom[k])) {
+            window.auditLog&&window.auditLog("editar", {modulo:"finanzas", seccion:"nóminas",
+              descripcion:`Nómina ${nom.empresa} S${nom.semana}/${nom.año}: editó ${k}`,
+              registroId:nom.id, campo:k,
+              valorAnterior:anterior[k]||"", valorNuevo:nom[k]||""});
           }
         });
-        return (
-          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,
-            display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-            <div style={{background:"#1e293b",border:"1px solid #ef444444",borderRadius:16,
-              width:520,maxWidth:"95vw",maxHeight:"80vh",display:"flex",flexDirection:"column",
-              boxShadow:"0 24px 64px rgba(0,0,0,0.7)"}}>
-              <div style={{padding:"16px 20px",borderBottom:"1px solid #334155",
-                display:"flex",alignItems:"center",gap:10}}>
-                <span style={{fontSize:22}}>⚠️</span>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:14,fontWeight:800,color:"#f87171"}}>
-                    Tareas Vencidas — {vencidas.length}
-                  </div>
-                  <div style={{fontSize:11,color:"#94a3b8"}}>{MESES[mes]} {anio}</div>
-                </div>
-                <button onClick={()=>setModalVencidas(false)}
-                  style={{background:"transparent",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:20}}>×</button>
-              </div>
-              <div style={{overflowY:"auto",padding:"12px 20px",display:"flex",flexDirection:"column",gap:8}}>
-                {vencidas.length===0&&(
-                  <div style={{textAlign:"center",padding:32,color:"#94a3b8"}}>Sin tareas vencidas ✓</div>
-                )}
-                {vencidas.map(({tarea,semana,key},i)=>{
-                  const est=estados[key];
-                  const resp=est?.estadoResp||"gris";
-                  const sup2=est?.estadoSup||"gris";
-                  const col={"rojo":"#ef4444","amarillo":"#f59e0b","verde":"#22c55e","gris":"#64748b"};
-                  return (
-                    <div key={i} style={{background:"#0f172a",borderRadius:10,padding:"10px 14px",
-                      border:"1px solid #ef444433"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                        <span style={{width:8,height:8,borderRadius:"50%",background:"#ef4444",flexShrink:0}}/>
-                        <span style={{fontSize:13,fontWeight:700,color:"#f1f5f9",flex:1}}>{tarea.nombre}</span>
-                        {semana&&<span style={{fontSize:10,color:"#94a3b8",background:"#1e293b",borderRadius:6,padding:"1px 6px"}}>S{semana.num}</span>}
-                      </div>
-                      <div style={{display:"flex",gap:12,paddingLeft:16,fontSize:11,color:"#94a3b8",flexWrap:"wrap"}}>
-                        <span>👤 {tarea.responsable}</span>
-                        {getSupervisor(tarea.id)&&<span>🔍 {getSupervisor(tarea.id)}</span>}
-                        <span style={{marginLeft:"auto",display:"flex",gap:6}}>
-                          <span style={{color:col[resp]}}>● Resp: {resp}</span>
-                          {getSupervisor(tarea.id)&&<span style={{color:col[sup2]}}>● Sup: {sup2}</span>}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{padding:"12px 20px",borderTop:"1px solid #334155",display:"flex",justifyContent:"flex-end"}}>
-                <button onClick={()=>setModalVencidas(false)}
-                  style={{padding:"8px 20px",borderRadius:8,background:"#334155",
-                    border:"none",color:"#f1f5f9",cursor:"pointer",fontSize:12,fontWeight:600}}>
-                  Cerrar
-                </button>
-              </div>
+        // Detectar cambios en items (granular: agregar, quitar, editar)
+        const itemsAntes = anterior.items || [];
+        const itemsDespues = nom.items || [];
+        const idsAntes = new Set(itemsAntes.map(it=>it.id));
+        const idsDespues = new Set(itemsDespues.map(it=>it.id));
+        // Items nuevos
+        itemsDespues.filter(it=>!idsAntes.has(it.id)).forEach(it=>{
+          window.auditLog&&window.auditLog("crear", {modulo:"finanzas", seccion:"nóminas · items",
+            descripcion:`Nómina ${nom.empresa} S${nom.semana}: agregó item "${it.proveedor||"sin nombre"}" en ${it.seccion}`,
+            registroId:it.id});
+        });
+        // Items eliminados
+        itemsAntes.filter(it=>!idsDespues.has(it.id)).forEach(it=>{
+          window.auditLog&&window.auditLog("eliminar", {modulo:"finanzas", seccion:"nóminas · items",
+            descripcion:`Nómina ${nom.empresa} S${nom.semana}: eliminó item "${it.proveedor||"sin nombre"}" de ${it.seccion}`,
+            registroId:it.id});
+        });
+        // Items editados (pagado, montos)
+        itemsDespues.forEach(itN=>{
+          const itA = itemsAntes.find(x=>x.id===itN.id);
+          if(!itA) return;
+          ["pagado","montoCLP","montoUSD","nDoc","fVenc"].forEach(k=>{
+            if(itA[k] !== itN[k] && (itA[k]!==undefined || itN[k])) {
+              window.auditLog&&window.auditLog("editar", {modulo:"finanzas", seccion:"nóminas · items",
+                descripcion:`Nómina ${nom.empresa} S${nom.semana}: editó ${k} en item "${itN.proveedor||itN.id}"`,
+                registroId:itN.id, campo:k,
+                valorAnterior:String(itA[k]||""), valorNuevo:String(itN[k]||"")});
+            }
+          });
+        });
+      }
+      return next;
+    });
+  }
+
+  function crearNomina(empresa, semanaOverride, añoOverride) {
+    const s = semanaOverride || filtroSemana || semanaActual();
+    const a = añoOverride || filtroAño || añoActualNom();
+    // Calcular N° secuencial: contar cuántas ya existen para esta empresa/semana/año
+    const existentes = nominas.filter(n=>n.empresa===empresa && n.semana===Number(s) && n.año===Number(a));
+    const numero = existentes.length + 1;
+    const nom = nominaVacia(empresa, s, a, numero);
+    updNomina(nom);
+    setSelNomina(nom.id);
+  }
+
+  function eliminarNomina(id) {
+    if(!window.confirm("¿Eliminar esta nómina?")) return;
+    setNominas(prev=>{
+      const nom = prev.find(n=>n.id===id);
+      const next = prev.filter(n=>n.id!==id);
+      saveNominas(next);
+      if(nom) window.auditLog&&window.auditLog("eliminar", {modulo:"finanzas", seccion:"nóminas",
+        descripcion:`Eliminó nómina ${nom.empresa} · S${nom.semana}/${nom.año} (estado: ${nom.estado})`,
+        registroId:id});
+      return next;
+    });
+  }
+
+  // Print CSS
+  useEffect(()=>{
+    const st = document.createElement('style');
+    st.id = 'nominas-print-css';
+    st.textContent = `
+      @media print {
+        @page{size:letter landscape;margin:8mm 10mm}
+        body *{visibility:hidden}
+        #nomina-print-area,#nomina-print-area *{visibility:visible}
+        #nomina-print-area{position:fixed;top:0;left:0;width:100%;
+          background:white!important;color:#000!important;font-size:8px;padding:6mm!important}
+        .no-print{display:none!important;visibility:hidden!important}
+        .screen-only{display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important}
+        .print-only{display:block!important;visibility:visible!important;height:auto!important}
+        .print-header{display:flex!important;justify-content:space-between;align-items:flex-start;
+          margin-bottom:8px;padding-bottom:6px;border-bottom:2.5px solid #0f2d4a}
+        .print-header h2{margin:0;font-size:15px;color:#0f2d4a;font-weight:900}
+        .print-header .meta{font-size:8.5px;color:#475569;text-align:right}
+        .print-header .meta div{margin-bottom:2px}
+        .print-table{width:100%;border-collapse:collapse;font-size:8px;margin-bottom:10px}
+        .print-table th{background:#0f2d4a!important;color:white!important;padding:4px 8px;font-size:7.5px;
+          text-align:left;white-space:nowrap;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+        .print-table td{padding:3px 8px;border-bottom:0.5px solid #e2e8f0;font-size:8px}
+        .print-table .sec-row td{background:#e2e8f0!important;font-weight:800;font-size:8.5px;
+          padding:5px 8px;border-top:1.5px solid #64748b;color:#0f2d4a;
+          -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+        .print-table .total-row td{background:#0f2d4a!important;color:white!important;font-weight:800;font-size:9px;
+          padding:5px 8px;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+        .print-table .subtotal-row td{background:#f1f5f9!important;font-weight:700;font-size:8px;
+          padding:3px 8px;border-top:1px solid #94a3b8;
+          -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+        .print-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+        .print-footer{display:flex!important;justify-content:space-around;margin-top:16px;
+          padding-top:8px;border-top:1.5px solid #0f2d4a;font-size:8px;color:#475569}
+        .print-footer .auth-item{text-align:center;min-width:130px}
+        .print-footer .auth-name{font-weight:800;font-size:9px;color:#0f2d4a;margin-top:4px}
+        .print-footer .auth-line{border-top:1px solid #94a3b8;margin-top:20px;width:100%}
+      }
+    `;
+    document.head.appendChild(st);
+    return()=>{document.getElementById('nominas-print-css')?.remove();};
+  },[]);
+
+  if(cargando) return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",
+      height:"40vh",color:C.muted,fontFamily:"sans-serif"}}>
+      Cargando nóminas...
+    </div>
+  );
+
+  // Nómina abierta
+  const nominaAbierta = selNomina ? nominas.find(n=>n.id===selNomina) : null;
+  // Nóminas hermanas: misma semana y año (para navegar entre empresas)
+  const nominasHermanas = nominaAbierta
+    ? nominas.filter(n=>n.semana===nominaAbierta.semana && n.año===nominaAbierta.año)
+        .sort((a,b)=>EMPRESAS_NOM.indexOf(a.empresa)-EMPRESAS_NOM.indexOf(b.empresa))
+    : [];
+  if(nominaAbierta) return (
+    <NominaDetalle
+      nomina={nominaAbierta}
+      onUpdate={updNomina}
+      onBack={()=>setSelNomina(null)}
+      usuario={usuario}
+      canEdit={canEdit}
+      saldosBancos={saldosBancos}
+      nominasHermanas={nominasHermanas}
+      onSwitchNomina={id=>setSelNomina(id)}
+      onCrearYAbrir={(empresa)=>{
+        crearNomina(empresa, nominaAbierta.semana, nominaAbierta.año);
+      }}
+      onCrearNueva={(empresa, semana, año)=>{
+        crearNomina(empresa, semana, año);
+      }}
+    />
+  );
+
+  // Filtrar
+  const nominasFiltradas = nominas.filter(n=>{
+    if(filtroAño    && n.año!==filtroAño)       return false;
+    if(filtroSemana && n.semana!==filtroSemana) return false;
+    if(filtroEmpresa && n.empresa!==filtroEmpresa) return false;
+    if(filtroEstado && n.estado!==filtroEstado) return false;
+    return true;
+  });
+
+  // Semanas disponibles — todas las del año seleccionado
+  const semanasDisp = semanasDeAño(filtroAño||añoActualNom());
+  // Max weeks: 52 or 53 based on year
+
+  // Empresas que ya tienen nómina esta semana
+  const empresasConNomina = new Set(nominasFiltradas.map(n=>n.empresa));
+
+  // Stats
+  const stats = ESTADOS_FLUJO.map(e=>({
+    ...e, count: nominasFiltradas.filter(n=>n.estado===e.id).length
+  }));
+
+  return (
+    <div style={{fontFamily:"sans-serif",background:C.bg,minHeight:"100vh",color:C.text,padding:"20px 24px"}}>
+
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:900,color:C.text}}>📋 Nóminas de Pago</div>
+          <div style={{fontSize:11,color:C.muted}}>Grupo Mediterra · Gestión semanal de pagos</div>
+        </div>
+
+        {/* KPIs */}
+        <div style={{display:"flex",gap:8,marginLeft:"auto",flexWrap:"wrap",alignItems:"center"}}>
+          <button onClick={()=>setVistaResumen(v=>!v)}
+            style={{padding:"8px 16px",borderRadius:10,
+              background:vistaResumen?C.accent:`${C.card2}`,
+              border:`1px solid ${vistaResumen?C.accent:C.border}`,
+              color:vistaResumen?"#fff":C.muted,cursor:"pointer",fontSize:12,fontWeight:700}}>
+            {vistaResumen?"← Semana":"📊 Resumen Anual"}
+          </button>
+          {stats.map(s=>(
+            <div key={s.id} style={{background:s.bg+"33",border:`1px solid ${s.color}44`,
+              borderRadius:10,padding:"8px 14px",textAlign:"center",minWidth:80}}>
+              <div style={{fontSize:20,fontWeight:900,color:s.color}}>{s.count}</div>
+              <div style={{fontSize:10,color:s.color,fontWeight:600}}>{s.label}</div>
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
+
+        {/* Año */}
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <span style={{fontSize:11,color:C.muted,fontWeight:600}}>Año:</span>
+          <select value={filtroAño} onChange={e=>{setFiltroAño(Number(e.target.value));setFiltroSemana(semanaActual());}}
+            style={{padding:"6px 8px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+            {AÑOS_NOM.map(a=>(<option key={a} value={a}>{a}{a===añoActualNom()?" ★":""}</option>))}
+          </select>
+        </div>
+
+        {/* Semana */}
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <span style={{fontSize:11,color:C.muted,fontWeight:600}}>Semana:</span>
+          <button onClick={()=>setFiltroSemana(s=>Math.max(1,s-1))}
+            style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.muted,cursor:"pointer",fontSize:12}}>‹</button>
+          <select value={filtroSemana} onChange={e=>setFiltroSemana(Number(e.target.value))}
+            style={{padding:"6px 8px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+            {semanasDisp.map(s=>{
+              const hasNom = nominas.some(n=>n.semana===s&&n.año===filtroAño);
+              return (<option key={s} value={s}>S{String(s).padStart(2,"0")}{s===semanaActual()&&filtroAño===añoActualNom()?" ★":""}{hasNom?" ·":""}</option>);
+            })}
+          </select>
+          <button onClick={()=>setFiltroSemana(s=>Math.min(semanasDisp.length?semanasDisp[semanasDisp.length-1]:53,s+1))}
+            style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,background:C.card2,color:C.muted,cursor:"pointer",fontSize:12}}>›</button>
+        </div>
+
+        {/* Empresa: selector + crear directo */}
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <select value={filtroEmpresa} onChange={e=>setFiltroEmpresa(e.target.value)}
+            style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+            <option value="">🏢 Todas las empresas</option>
+            {EMPRESAS_NOM.map(e=>{
+              const existe = nominas.some(n=>n.empresa===e&&n.semana===filtroSemana&&n.año===filtroAño);
+              return <option key={e} value={e}>{e}{existe?" ✓":""}</option>;
+            })}
+          </select>
+          {filtroEmpresa&&canEdit&&!nominas.some(n=>n.empresa===filtroEmpresa&&n.semana===filtroSemana&&n.año===filtroAño)&&(
+            <button onClick={()=>crearNomina(filtroEmpresa)}
+              style={{padding:"6px 14px",borderRadius:8,background:C.blue,border:"none",
+                color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>
+              + Crear S{filtroSemana} {filtroEmpresa}
+            </button>
+          )}
+          {filtroEmpresa&&nominas.some(n=>n.empresa===filtroEmpresa&&n.semana===filtroSemana&&n.año===filtroAño)&&(
+            <button onClick={()=>{
+              const nom=nominas.find(n=>n.empresa===filtroEmpresa&&n.semana===filtroSemana&&n.año===filtroAño);
+              if(nom) setSelNomina(nom.id);
+            }}
+              style={{padding:"6px 14px",borderRadius:8,background:C.green,border:"none",
+                color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+              👁 Abrir
+            </button>
+          )}
+        </div>
+
+        <select value={filtroEstado} onChange={e=>setFiltroEstado(e.target.value)}
+          style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,
+            background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+          <option value="">📊 Todos los estados</option>
+          {ESTADOS_FLUJO.map(e=><option key={e.id} value={e.id}>{e.label}</option>)}
+        </select>
+      </div>
+
+      {/* ══════ VISTA RESUMEN ANUAL ══════ */}
+      {vistaResumen&&(()=>{
+        const nominasAño = nominas.filter(n=>n.año===filtroAño);
+        // Semanas con datos
+        const semsConDatos = [...new Set(nominasAño.map(n=>n.semana))].sort((a,b)=>a-b);
+
+        // Resumen por empresa: totales anuales
+        const resumenEmpresas = EMPRESAS_NOM.map(emp=>{
+          const noms = nominasAño.filter(n=>n.empresa===emp);
+          const totCLP = noms.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoCLP)||0),0),0);
+          const totUSD = noms.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoUSD)||0),0),0);
+          const cantNom = noms.length;
+          return {emp, totCLP, totUSD, cantNom, noms};
+        }).filter(r=>r.cantNom>0);
+
+        const grandTotCLP = resumenEmpresas.reduce((s,r)=>s+r.totCLP,0);
+        const grandTotUSD = resumenEmpresas.reduce((s,r)=>s+r.totUSD,0);
+
+        return (
+          <div>
+            {/* Selector año para resumen */}
+            <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center"}}>
+              <span style={{fontSize:13,fontWeight:700,color:C.text}}>📊 Resumen Anual {filtroAño}</span>
+              <select value={filtroAño} onChange={e=>setFiltroAño(Number(e.target.value))}
+                style={{padding:"5px 8px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
+                {AÑOS_NOM.map(a=><option key={a} value={a}>{a}</option>)}
+              </select>
+              <span style={{fontSize:11,color:C.muted}}>{nominasAño.length} nóminas · {semsConDatos.length} semanas</span>
+            </div>
+
+            {/* Tabla resumen por empresa */}
+            <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`,marginBottom:20}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead>
+                  <tr style={{background:C.bg2}}>
+                    <th style={{padding:"10px 14px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:11}}>Empresa</th>
+                    <th style={{padding:"10px 10px",textAlign:"center",color:C.muted,fontWeight:600,fontSize:11}}>Nóminas</th>
+                    <th style={{padding:"10px 10px",textAlign:"right",color:C.muted,fontWeight:600,fontSize:11}}>Total CLP</th>
+                    <th style={{padding:"10px 10px",textAlign:"right",color:C.muted,fontWeight:600,fontSize:11}}>Total USD</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resumenEmpresas.map((r,i)=>(
+                    <tr key={r.emp} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}11`}}>
+                      <td style={{padding:"10px 14px",fontWeight:600,color:C.text}}>{r.emp}</td>
+                      <td style={{padding:"8px 10px",textAlign:"center",color:C.muted,fontSize:11}}>{r.cantNom}</td>
+                      <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:r.totCLP?C.yellow:C.muted2}}>{r.totCLP?$$clp(r.totCLP):"—"}</td>
+                      <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:r.totUSD?C.blue:C.muted2}}>{r.totUSD?$$usd(r.totUSD):"—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                {resumenEmpresas.length>0&&(
+                  <tfoot>
+                    <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                      <td style={{padding:"8px 14px",fontWeight:800,color:C.text}}>TOTAL {filtroAño}</td>
+                      <td style={{padding:"8px 10px",textAlign:"center",fontWeight:700,color:C.muted,fontSize:11}}>{nominasAño.length}</td>
+                      <td style={{padding:"8px 10px",textAlign:"right",fontWeight:900,color:C.yellow,fontSize:13}}>{$$clp(grandTotCLP)}</td>
+                      <td style={{padding:"8px 10px",textAlign:"right",fontWeight:900,color:C.blue,fontSize:13}}>{$$usd(grandTotUSD)}</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+
+            {/* Desglose por categoría de pago */}
+            <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10,marginTop:8}}>💰 Desglose por Categoría de Pago</div>
+            <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`,marginBottom:20}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead>
+                  <tr style={{background:C.bg2}}>
+                    <th style={{padding:"10px 14px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:11}}>Categoría</th>
+                    <th style={{padding:"10px 10px",textAlign:"center",color:C.muted,fontWeight:600,fontSize:11}}>Items</th>
+                    <th style={{padding:"10px 10px",textAlign:"right",color:C.muted,fontWeight:600,fontSize:11}}>Total CLP</th>
+                    <th style={{padding:"10px 10px",textAlign:"right",color:C.muted,fontWeight:600,fontSize:11}}>Total USD</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...SECCIONES].map((sec,si)=>{
+                    const allItems = nominasAño.flatMap(n=>n.items.filter(it=>it.seccion===sec.id));
+                    if(allItems.length===0) return null;
+                    const esUSD = sec.id==="emp_rel_usd"||sec.id==="pagos_usd";
+                    const sCLP = allItems.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
+                    const sUSD = allItems.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
+                    return (
+                      <tr key={sec.id} style={{borderBottom:`1px solid ${C.border}22`,background:si%2===0?"transparent":`${C.border}11`}}>
+                        <td style={{padding:"10px 14px",fontWeight:600,color:esUSD?C.blue:C.text}}>{sec.label}</td>
+                        <td style={{padding:"8px 10px",textAlign:"center",color:C.muted,fontSize:11}}>{allItems.length}</td>
+                        <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:sCLP&&!esUSD?C.yellow:C.muted2}}>
+                          {!esUSD&&sCLP?$$clp(sCLP):"—"}
+                        </td>
+                        <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:sUSD&&esUSD?C.blue:C.muted2}}>
+                          {esUSD&&sUSD?$$usd(sUSD):"—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                    <td style={{padding:"8px 14px",fontWeight:800,color:C.text}}>TOTAL</td>
+                    <td style={{padding:"8px 10px",textAlign:"center",fontWeight:700,color:C.muted,fontSize:11}}>
+                      {nominasAño.flatMap(n=>n.items).length}
+                    </td>
+                    <td style={{padding:"8px 10px",textAlign:"right",fontWeight:900,color:C.yellow,fontSize:13}}>{$$clp(grandTotCLP)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right",fontWeight:900,color:C.blue,fontSize:13}}>{$$usd(grandTotUSD)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Detalle por semana */}
+            <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>📅 Detalle por Semana</div>
+            <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`,marginBottom:20}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead>
+                  <tr style={{background:C.bg2}}>
+                    <th style={{padding:"8px 10px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:10,position:"sticky",left:0,background:C.bg2,zIndex:2}}>Semana</th>
+                    {EMPRESAS_NOM.map(emp=>{
+                      const tiene = nominasAño.some(n=>n.empresa===emp);
+                      if(!tiene) return null;
+                      return (
+                        <th key={emp} colSpan={2} style={{padding:"8px 6px",textAlign:"center",color:C.muted,fontWeight:600,fontSize:10,
+                          borderLeft:`1px solid ${C.border}44`}}>
+                          {emp.replace(" Foods","").replace(" Farms","").replace(" Service","")}
+                        </th>
+                      );
+                    })}
+                    <th colSpan={2} style={{padding:"8px 6px",textAlign:"center",color:C.text,fontWeight:700,fontSize:10,
+                      borderLeft:`2px solid ${C.border}`,background:`${C.accent}22`}}>TOTAL</th>
+                  </tr>
+                  <tr style={{background:`${C.bg2}dd`}}>
+                    <th style={{padding:"4px 10px",position:"sticky",left:0,background:C.bg2,zIndex:2}}/>
+                    {EMPRESAS_NOM.map(emp=>{
+                      const tiene = nominasAño.some(n=>n.empresa===emp);
+                      if(!tiene) return null;
+                      return (
+                        <React.Fragment key={emp}>
+                          <th style={{padding:"4px 6px",textAlign:"right",color:C.yellow,fontWeight:600,fontSize:9,borderLeft:`1px solid ${C.border}44`}}>CLP</th>
+                          <th style={{padding:"4px 6px",textAlign:"right",color:C.blue,fontWeight:600,fontSize:9}}>USD</th>
+                        </React.Fragment>
+                      );
+                    })}
+                    <th style={{padding:"4px 6px",textAlign:"right",color:C.yellow,fontWeight:700,fontSize:9,borderLeft:`2px solid ${C.border}`}}>CLP</th>
+                    <th style={{padding:"4px 6px",textAlign:"right",color:C.blue,fontWeight:700,fontSize:9}}>USD</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {semsConDatos.map((sem,si)=>{
+                    const nomsS = nominasAño.filter(n=>n.semana===sem);
+                    const semTotCLP = nomsS.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoCLP)||0),0),0);
+                    const semTotUSD = nomsS.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoUSD)||0),0),0);
+                    return (
+                      <tr key={sem} style={{borderBottom:`1px solid ${C.border}22`,background:si%2===0?"transparent":`${C.border}08`,
+                        cursor:"pointer"}}
+                        onClick={()=>{setFiltroSemana(sem);setVistaResumen(false);}}>
+                        <td style={{padding:"6px 10px",fontWeight:600,color:C.text,fontSize:11,position:"sticky",left:0,
+                          background:si%2===0?C.bg:`${C.border}11`,zIndex:1}}>
+                          S{String(sem).padStart(2,"0")}
+                          {sem===semanaActual()&&filtroAño===añoActualNom()&&<span style={{color:C.green,marginLeft:4,fontSize:9}}>★</span>}
+                        </td>
+                        {EMPRESAS_NOM.map(emp=>{
+                          const tiene = nominasAño.some(n=>n.empresa===emp);
+                          if(!tiene) return null;
+                          const n = nomsS.find(n=>n.empresa===emp);
+                          const eCLP = n?n.items.reduce((s,it)=>s+(Number(it.montoCLP)||0),0):0;
+                          const eUSD = n?n.items.reduce((s,it)=>s+(Number(it.montoUSD)||0),0):0;
+                          return (
+                            <React.Fragment key={emp}>
+                              <td style={{padding:"5px 6px",textAlign:"right",color:eCLP?C.yellow:C.muted2,fontWeight:eCLP?600:400,
+                                fontSize:10,borderLeft:`1px solid ${C.border}22`}}>
+                                {eCLP?$$clp(eCLP):"—"}
+                              </td>
+                              <td style={{padding:"5px 6px",textAlign:"right",color:eUSD?C.blue:C.muted2,fontWeight:eUSD?600:400,fontSize:10}}>
+                                {eUSD?$$usd(eUSD):"—"}
+                              </td>
+                            </React.Fragment>
+                          );
+                        })}
+                        <td style={{padding:"5px 6px",textAlign:"right",fontWeight:700,color:C.yellow,fontSize:10,
+                          borderLeft:`2px solid ${C.border}`,background:`${C.accent}08`}}>
+                          {semTotCLP?$$clp(semTotCLP):"—"}
+                        </td>
+                        <td style={{padding:"5px 6px",textAlign:"right",fontWeight:700,color:C.blue,fontSize:10,
+                          background:`${C.accent}08`}}>
+                          {semTotUSD?$$usd(semTotUSD):"—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                {semsConDatos.length>0&&(
+                  <tfoot>
+                    <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                      <td style={{padding:"8px 10px",fontWeight:800,color:C.text,position:"sticky",left:0,background:C.bg2,zIndex:2}}>TOTAL</td>
+                      {EMPRESAS_NOM.map(emp=>{
+                        const tiene = nominasAño.some(n=>n.empresa===emp);
+                        if(!tiene) return null;
+                        const noms = nominasAño.filter(n=>n.empresa===emp);
+                        const tCLP = noms.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoCLP)||0),0),0);
+                        const tUSD = noms.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoUSD)||0),0),0);
+                        return (
+                          <React.Fragment key={emp}>
+                            <td style={{padding:"6px 6px",textAlign:"right",fontWeight:800,color:C.yellow,fontSize:10,borderLeft:`1px solid ${C.border}22`}}>{tCLP?$$clp(tCLP):"—"}</td>
+                            <td style={{padding:"6px 6px",textAlign:"right",fontWeight:800,color:C.blue,fontSize:10}}>{tUSD?$$usd(tUSD):"—"}</td>
+                          </React.Fragment>
+                        );
+                      })}
+                      <td style={{padding:"6px 6px",textAlign:"right",fontWeight:900,color:C.yellow,fontSize:11,borderLeft:`2px solid ${C.border}`,background:`${C.accent}15`}}>{$$clp(grandTotCLP)}</td>
+                      <td style={{padding:"6px 6px",textAlign:"right",fontWeight:900,color:C.blue,fontSize:11,background:`${C.accent}15`}}>{$$usd(grandTotUSD)}</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+
+            {nominasAño.length===0&&(
+              <div style={{textAlign:"center",padding:40,color:C.muted2,fontSize:13}}>
+                No hay nóminas registradas para {filtroAño}.
+              </div>
+            )}
           </div>
         );
       })()}
 
-      {/* Modal notificación dependencia */}
-        {modalNotif&&(
-          <div style={{position:"fixed",inset:0,background:"#0006",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-            <div style={{background:"#fff",borderRadius:16,padding:24,maxWidth:420,width:"100%",boxShadow:"0 8px 32px #0003"}}>
-              <div style={{fontWeight:800,fontSize:15,color:"#1e293b",marginBottom:8}}>
-                ✅ Tarea completada: "{modalNotif.tarea.nombre}"
-              </div>
-              <div style={{fontSize:13,color:"#64748b",marginBottom:12}}>
-                Las siguientes tareas han sido desbloqueadas:
-              </div>
-              {modalNotif.dependientes.map(d=>(
-                <div key={d.id} style={{background:"#f0fdf4",borderRadius:8,padding:"8px 12px",border:"1px solid #86efac",marginBottom:6,fontSize:13,color:"#166534",fontWeight:600}}>
-                  🔓 {d.nombre}
-                </div>
-              ))}
-              <textarea value={textoNotif} onChange={e=>setTextoNotif(e.target.value)} placeholder="Nota adicional (opcional)..."
-                style={{width:"100%",height:60,borderRadius:8,border:"1px solid #d1d5db",padding:8,fontSize:12,marginTop:8,resize:"none",outline:"none",boxSizing:"border-box"}}/>
-              <div style={{display:"flex",gap:8,marginTop:12,justifyContent:"flex-end"}}>
-                <button onClick={()=>setModalNotif(null)} style={{padding:"7px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:13}}>
-                  Cerrar sin notificar
-                </button>
-                <button onClick={enviarNotifDependencia} disabled={enviandoNotif}
-                  style={{padding:"7px 16px",borderRadius:8,background:enviandoNotif?"#94a3b8":"#2563eb",color:"#fff",border:"none",cursor:"pointer",fontWeight:700,fontSize:13}}>
-                  {enviandoNotif?"Enviando...":"📧 Notificar"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* ══════ VISTA SEMANAL (existente) ══════ */}
+      {!vistaResumen&&(<>
 
-        {/* Header módulo Tareas — estilo breadcrumb unificado */}
-        <div style={{background:"linear-gradient(135deg,#0f1e3a,#1e3a5f)",padding:"14px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,borderRadius:"14px 14px 0 0",margin:"0 0 0 0"}}>
-          <div style={{display:"flex",alignItems:"center",gap:14}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13}}>
-              <button onClick={()=>setModuloActivo(null)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.55)",cursor:"pointer",fontSize:13,fontWeight:500,padding:0}}>Mediterra</button>
-              <span style={{color:"rgba(255,255,255,0.3)"}}>›</span>
-              <span style={{color:"#fff",fontWeight:700,fontSize:14}}>Seguimiento de Tareas</span>
-            </div>
-            <div style={{borderLeft:"1px solid rgba(255,255,255,0.15)",paddingLeft:14}}>
-              <img src="/med.png" alt="" style={{height:24,objectFit:"contain"}} onError={e=>{e.target.style.display="none";}}/>
-            </div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.45)"}}>{MESES[mes]} {anio}</div>
-          </div>
-          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            {estadoGuardadoUI&&<span style={{fontSize:11,color:"rgba(255,255,255,0.7)"}}>{estadoGuardadoUI.icon} {estadoGuardadoUI.text}</span>}
-            {totalVencidas>0&&<button onClick={()=>setModalVencidas(true)} style={{background:"#ef4444",color:"#fff",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer"}}>⚠ {totalVencidas} vencidas</button>}
-            <button onClick={doLogout} style={{background:"rgba(248,113,113,0.2)",border:"none",color:"#fca5a5",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12}}>Salir</button>
-          </div>
-        </div>
-
-        {/* Controles */}
-        <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"10px 24px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <button onClick={()=>setMes(m=>{const nm=m===0?11:m-1;if(nm===11)setAnio(a=>a-1);return nm;})}
-              style={{padding:"5px 10px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:13}}>‹</button>
-            <span style={{fontWeight:700,fontSize:14,minWidth:120,textAlign:"center"}}>{MESES[mes]} {anio}</span>
-            <button onClick={()=>setMes(m=>{const nm=m===11?0:m+1;if(nm===0)setAnio(a=>a+1);return nm;})}
-              style={{padding:"5px 10px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:13}}>›</button>
-          </div>
-          <select value={filtroPersona} onChange={e=>setFiltroPersona(e.target.value)}
-            style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
-            <option value="">Todas las personas</option>
-            {WORKERS.filter(w=>esAdmin(usuarioActual?.nombre)||w.nombre===usuarioActual?.nombre||(usuarioActual?.equipo||[]).includes(w.nombre)).map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
-          </select>
-          {recsActivos.length>0&&(
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {recsActivos.map(r=>(
-                <button key={r.id} onClick={()=>{setModalEmail({...r,workerNombre:usuarioActual.nombre,workerEmail:usuarioActual.email});}}
-                  style={{background:"#fef3c7",border:"1px solid #fde68a",borderRadius:8,padding:"4px 10px",fontSize:11,cursor:"pointer",color:"#92400e",fontWeight:600}}>
-                  📬 {r.titulo}
-                </button>
-              ))}
-            </div>
+      {/* Tabla semanal por empresa */}
+      <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`,marginBottom:20}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead>
+            <tr style={{background:C.bg2}}>
+              <th style={{padding:"10px 14px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:11}}>
+                Empresa
+              </th>
+              <th style={{padding:"10px 10px",textAlign:"center",color:C.muted,fontWeight:600,fontSize:11}}>Estado</th>
+              <th style={{padding:"10px 10px",textAlign:"right",color:C.muted,fontWeight:600,fontSize:11}}>Total CLP</th>
+              <th style={{padding:"10px 10px",textAlign:"right",color:C.muted,fontWeight:600,fontSize:11}}>Total USD</th>
+              <th style={{padding:"10px 10px",textAlign:"center",color:C.muted,fontWeight:600,fontSize:11}}>Preparada por</th>
+              <th style={{padding:"10px 10px",textAlign:"center",color:C.muted,fontWeight:600,fontSize:11}}>Aprobada por</th>
+              <th style={{padding:"10px 10px",textAlign:"center",color:C.muted,fontWeight:600,fontSize:11}}>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {EMPRESAS_NOM.filter(emp=>!filtroEmpresa||emp===filtroEmpresa).map(emp=>{
+              const nom = nominasFiltradas.find(n=>n.empresa===emp);
+              if(!nom&&filtroEstado) return null;
+              return (
+                <tr key={emp} style={{borderBottom:`1px solid ${C.border}22`,
+                  background:nom?"transparent":`${C.muted2}08`}}>
+                  <td style={{padding:"10px 14px",fontWeight:600,color:C.text}}>{emp}</td>
+                  <td style={{padding:"8px 10px",textAlign:"center"}}>
+                    {nom ? <BadgeEstado estado={nom.estado}/>
+                          : <span style={{color:C.muted2,fontSize:11}}>Sin nómina</span>}
+                  </td>
+                  <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,
+                    color:nom?.items.reduce((s,it)=>s+(Number(it.montoCLP)||0),0)?C.yellow:C.muted2}}>
+                    {nom ? $$clp(nom.items.reduce((s,it)=>s+(Number(it.montoCLP)||0),0)) : "—"}
+                  </td>
+                  <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,
+                    color:nom?.items.reduce((s,it)=>s+(Number(it.montoUSD)||0),0)?C.blue:C.muted2}}>
+                    {nom ? $$usd(nom.items.reduce((s,it)=>s+(Number(it.montoUSD)||0),0)) : "—"}
+                  </td>
+                  <td style={{padding:"8px 10px",textAlign:"center",fontSize:11,color:C.muted}}>
+                    {nom?.preparadoPor||"—"}
+                  </td>
+                  <td style={{padding:"8px 10px",textAlign:"center",fontSize:11,
+                    color:nom?.aprobadoPor?C.green:C.muted2}}>
+                    {nom?.aprobadoPor||"—"}
+                  </td>
+                  <td style={{padding:"8px 10px",textAlign:"center"}}>
+                    <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
+                      {nom ? (
+                        <>
+                          <button onClick={()=>setSelNomina(nom.id)}
+                            style={{padding:"4px 12px",borderRadius:6,background:C.blue,border:"none",
+                              color:"#fff",cursor:"pointer",fontSize:11,fontWeight:600}}>
+                            {canEdit&&nom.estado!=="aprobada"?"✏️ Editar":"👁 Ver"}
+                          </button>
+                          {canEdit&&<button onClick={()=>eliminarNomina(nom.id)}
+                            style={{padding:"4px 8px",borderRadius:6,background:"#fee2e233",border:"none",
+                              color:"#ef4444",cursor:"pointer",fontSize:11}}>×</button>}
+                        </>
+                      ) : canEdit ? (
+                        <button onClick={()=>crearNomina(emp)}
+                          style={{padding:"4px 14px",borderRadius:6,
+                            background:"transparent",border:`1px dashed ${C.border2}`,
+                            color:C.muted,cursor:"pointer",fontSize:11}}>
+                          + Crear
+                        </button>
+                      ) : <span style={{color:C.muted2,fontSize:11}}>—</span>}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          {/* Totales globales */}
+          {nominasFiltradas.length>0&&(
+            <tfoot>
+              <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                <td style={{padding:"8px 14px",fontWeight:800,color:C.text}}>TOTAL GRUPO</td>
+                <td/>
+                <td style={{padding:"8px 10px",textAlign:"right",fontWeight:900,color:C.yellow,fontSize:13}}>
+                  {$$clp(nominasFiltradas.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoCLP)||0),0),0))}
+                </td>
+                <td style={{padding:"8px 10px",textAlign:"right",fontWeight:900,color:C.blue,fontSize:13}}>
+                  {$$usd(nominasFiltradas.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoUSD)||0),0),0))}
+                </td>
+                <td colSpan={3}/>
+              </tr>
+            </tfoot>
           )}
-          {esAdmin(usuarioActual.nombre)&&puedeEditConfig&&(
-            <button onClick={()=>setMostrarFormTarea(v=>!v)}
-              style={{marginLeft:"auto",padding:"6px 14px",borderRadius:8,background:mostrarFormTarea?"#1e3a5f":"#f1f5f9",color:mostrarFormTarea?"#fff":"#1e293b",border:"1px solid #d1d5db",cursor:"pointer",fontSize:12,fontWeight:600}}>
-              {mostrarFormTarea?"✕ Cancelar":"+ Nueva Tarea"}
-            </button>
-          )}
-        </div>
-
-        {/* Modal email recordatorio */}
-        {modalEmail&&(
-          <div style={{position:"fixed",inset:0,background:"#0007",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-            <div style={{background:"#fff",borderRadius:16,padding:24,maxWidth:460,width:"100%",boxShadow:"0 8px 32px #0004"}}>
-              <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>📬 {modalEmail.titulo}</div>
-              <div style={{fontSize:12,color:"#64748b",marginBottom:14}}>Vence el {modalEmail.fechaVence?.toLocaleDateString("es-CL")}</div>
-              {modalEmail.destinatarios.map(nombre=>{
-                const w=WORKERS.find(x=>x.nombre===nombre);if(!w)return null;
-                return(
-                  <div key={nombre} style={{background:"#f8fafc",borderRadius:8,padding:"8px 12px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:13,fontWeight:600}}>{nombre}</span>
-                    <button onClick={()=>enviarEmailPersona(w,[{...modalEmail}])}
-                      style={{background:"#2563eb",color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>
-                      📧 Enviar
-                    </button>
-                  </div>
-                );
-              })}
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-                {recsActivos.map(r=>(
-                  <button key={r.id} onClick={()=>{setRecsDone(p=>({...p,[recKey(r.id)]:true}));}}
-                    style={{background:"#dcfce7",border:"none",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:11,color:"#166534",fontWeight:600}}>
-                    ✓ Marcar {r.titulo} como enviado
-                  </button>
-                ))}
-              </div>
-              <button onClick={()=>setModalEmail(null)} style={{padding:"7px 20px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:13}}>Cerrar</button>
-            </div>
-          </div>
-        )}
-
-        {/* Formulario nueva tarea */}
-        {mostrarFormTarea&&puedeEditConfig&&(
-          <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"14px 24px"}}>
-            <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>Nueva Tarea</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {[["Nombre","nombre","text",nuevaTarea.nombre],["Responsable","responsable","",nuevaTarea.responsable],["Supervisor","supervisor","",nuevaTarea.supervisor],["Depende de ID","dependeDe","text",nuevaTarea.dependeDe]].map(([lbl,field,type,val])=>(
-                field==="responsable"||field==="supervisor"?(
-                  <div key={field}>
-                    <div style={{fontSize:10,color:"#64748b",marginBottom:2}}>{lbl}</div>
-                    <select value={val} onChange={e=>setNuevaTarea(p=>({...p,[field]:e.target.value}))}
-                      style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
-                      <option value="">— {lbl} —</option>
-                      {WORKERS.map(w=><option key={w.nombre} value={w.nombre}>{w.nombre.split(" ")[0]}</option>)}
-                    </select>
-                  </div>
-                ):(
-                  <div key={field}>
-                    <div style={{fontSize:10,color:"#64748b",marginBottom:2}}>{lbl}</div>
-                    <input type={type||"text"} value={val} onChange={e=>setNuevaTarea(p=>({...p,[field]:e.target.value}))}
-                      style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none",width:field==="nombre"?220:100}}/>
-                  </div>
-                )
-              ))}
-              <div>
-                <div style={{fontSize:10,color:"#64748b",marginBottom:2}}>Categoría</div>
-                <select value={nuevaTarea.categoria} onChange={e=>setNuevaTarea(p=>({...p,categoria:e.target.value}))}
-                  style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
-                  {Object.keys(CATEGORIAS).map(c=><option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:"#64748b",marginBottom:2}}>Frecuencia</div>
-                <select value={nuevaTarea.frecuencia} onChange={e=>setNuevaTarea(p=>({...p,frecuencia:e.target.value}))}
-                  style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
-                  {FRECUENCIAS.map(f=><option key={f}>{f}</option>)}
-                </select>
-              </div>
-              {nuevaTarea.frecuencia==="Puntual"&&(
-                <div>
-                  <div style={{fontSize:10,color:"#64748b",marginBottom:2}}>Fecha límite</div>
-                  <input type="date" value={nuevaTarea.fechaPuntual||""}
-                    onChange={e=>setNuevaTarea(p=>({...p,fechaPuntual:e.target.value}))}
-                    style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}/>
-                </div>
-              )}
-              <div style={{alignSelf:"flex-end"}}>
-                <button onClick={agregarTarea} style={{padding:"7px 18px",borderRadius:8,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer",fontWeight:700,fontSize:13}}>
-                  + Agregar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-
-        {/* Tab navigation bar */}
-        <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",gap:0,overflowX:"auto"}}>
-          {[
-            {id:"diaria",    label:"📋 Diarias",    show:puedeVerDiaria},
-            {id:"semanal",   label:"📅 Semanales",  show:puedeVerSemanal},
-            {id:"quincenal", label:"🗓 Quincenales",show:puedeVerQuincenal},
-            {id:"mensual",   label:"📆 Mensuales",  show:puedeVerMensual},
-            {id:"puntual",   label:"📌 Puntuales",  show:true},
-            {id:"anual",     label:"🗃 Anuales",    show:puedeVerAnual},
-            {id:"config",    label:"⚙️ Config",    show:puedeVerConfig},
-          ].filter(t=>t.show).map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)}
-              style={{padding:"12px 18px",border:"none",borderBottom:`3px solid ${tab===t.id?"#2563eb":"transparent"}`,
-                background:"transparent",cursor:"pointer",fontSize:12,fontWeight:tab===t.id?700:400,
-                color:tab===t.id?"#2563eb":"#64748b",whiteSpace:"nowrap",transition:"all 0.15s"}}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Contenido Tareas */}
-        <div style={{padding:"16px 24px"}}>
-          {tab==="semanal"&&puedeVerSemanal&&(
-            <div>
-              {/* Selector semana */}
-              <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
-                <span style={{fontSize:12,color:"#64748b",fontWeight:600}}>Semana:</span>
-                {semanas.map(s=>(
-                  <button key={s.num} onClick={()=>setSemanaActiva(s.num)}
-                    style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${semanaActiva===s.num?"#2563eb":"#d1d5db"}`,
-                      background:semanaActiva===s.num?"#dbeafe":"#fff",color:semanaActiva===s.num?"#1d4ed8":"#374151",
-                      cursor:"pointer",fontSize:12,fontWeight:600}}>
-                    S{s.num} (ISO {s.iso})
-                  </button>
-                ))}
-              </div>
-              {semanas.filter(s=>s.num===semanaActiva).map(s=>(
-                <div key={s.num}>
-                  <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>
-                    Semana del {s.inicioSem.toLocaleDateString("es-CL")} al {new Date(s.inicioSem.getTime()+6*86400000).toLocaleDateString("es-CL")}
-                  </div>
-                  <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
-                      {encabezadoTabla}
-                      <tbody>
-                        <TablaFilas
-                          tareas={todasTareas().filter(t=>getFrecuencia(t.id)==="Semanal").sort((a,b)=>(tareasOverrides[a.id]?.diaLimiteSem??a.diaLimiteSem??0)-(tareasOverrides[b.id]?.diaLimiteSem??b.diaLimiteSem??0))}
-                          getKey={t=>`${t.id}_s${s.num}`}
-                          getSemana={()=>s.num}
-                        />
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {tab==="mensual"&&puedeVerMensual&&(
-            <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
-                {encabezadoTabla}
-                <tbody>
-                  <TablaFilas
-                    tareas={todasTareas().filter(t=>getFrecuencia(t.id)==="Mensual").sort((a,b)=>(tareasOverrides[a.id]?.diaLimite??a.diaLimite??31)-(tareasOverrides[b.id]?.diaLimite??b.diaLimite??31))}
-                    getKey={t=>t.id}
-                    getSemana={()=>null}
-                  />
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {(!puedeVerSemanal&&tab==="semanal"||!puedeVerDiaria&&tab==="diaria"||!puedeVerQuincenal&&tab==="quincenal"||!puedeVerAnual&&tab==="anual")&&(
-            <div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:14}}>🚫 No tienes acceso a la vista semanal.</div>
-          )}
-          {!puedeVerMensual&&tab==="mensual"&&(
-            <div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:14}}>🚫 No tienes acceso a la vista mensual.</div>
-          )}
-
-          {/* TAREAS PUNTUALES */}
-          {tab==="puntual"&&(
-            <div>
-              <div style={{marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                <h3 style={{margin:0,fontSize:15,color:"#1e293b"}}>📌 Tareas Puntuales</h3>
-                <span style={{fontSize:11,color:"#64748b"}}>Tareas con fecha específica · Alerta 30 días antes</span>
-              </div>
-              {(()=>{
-                const puntuales = todasTareas().filter(t=>getFrecuencia(t.id)==="Puntual"&&!isBloqueada(t.id));
-                const hoyD = new Date(); hoyD.setHours(0,0,0,0);
-                // Ordenar por fecha
-                const sorted = [...puntuales].sort((a,b)=>{
-                  const fa = getConfig(a.id).fechaPuntual||a.fechaPuntual||"9999";
-                  const fb = getConfig(b.id).fechaPuntual||b.fechaPuntual||"9999";
-                  return fa.localeCompare(fb);
-                });
-                if(sorted.length===0) return (
-                  <div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>
-                    No hay tareas puntuales programadas. Usa el botón "+ Agregar tarea" en la pestaña Config para crear una con frecuencia "Puntual".
-                  </div>
-                );
-                return (
-                  <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
-                      <thead>
-                        <tr style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0"}}>
-                          <th style={{padding:"10px 14px",textAlign:"left",fontSize:11,color:"#475569",fontWeight:700}}>Tarea</th>
-                          <th style={{padding:"10px 14px",textAlign:"left",fontSize:11,color:"#475569",fontWeight:700}}>Responsable</th>
-                          <th style={{padding:"10px 14px",textAlign:"left",fontSize:11,color:"#475569",fontWeight:700}}>Supervisor</th>
-                          <th style={{padding:"10px 14px",textAlign:"center",fontSize:11,color:"#475569",fontWeight:700}}>Fecha</th>
-                          <th style={{padding:"10px 14px",textAlign:"center",fontSize:11,color:"#475569",fontWeight:700}}>Días restantes</th>
-                          <th style={{padding:"10px 14px",textAlign:"center",fontSize:11,color:"#475569",fontWeight:700}}>Estado</th>
-                          <th style={{padding:"10px 14px",textAlign:"center",fontSize:11,color:"#475569",fontWeight:700}}>Supervisor</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sorted.map((t,i)=>{
-                          const key = t.id;
-                          const est = estados[key]||{estadoResp:"gris",estadoSup:"gris"};
-                          const fp = getConfig(t.id).fechaPuntual || t.fechaPuntual || "";
-                          const fechaObj = fp ? new Date(fp+"T00:00:00") : null;
-                          const diff = fechaObj ? Math.ceil((fechaObj - hoyD)/(1000*60*60*24)) : null;
-                          const vencida = diff !== null && diff < 0 && est.estadoResp !== "verde" && est.estadoResp !== "na";
-                          const proxima = diff !== null && diff >= 0 && diff <= 30 && est.estadoResp !== "verde" && est.estadoResp !== "na";
-                          const completada = est.estadoResp === "verde";
-                          const semResp = SEMAFORO[est.estadoResp]||SEMAFORO.gris;
-                          const sup = getSupervisor(t.id);
-                          const supActivo = est.estadoResp==="verde" && sup;
-                          const semSup = SEMAFORO[supActivo?est.estadoSup:"gris"];
-                          const puedeResp = puedeEditar(t,true);
-                          const puedeSup = puedeEditar(t,false);
-                          const cat = CATEGORIAS[t.categoria]||{color:"#64748b",bg:"#f1f5f9"};
-                          return (
-                            <tr key={key} style={{borderBottom:"1px solid #f1f5f9",
-                              background:completada?"#f0fdf4":vencida?"#fff5f5":proxima?"#fffbeb":i%2===0?"#fff":"#f8fafc"}}>
-                              <td style={{padding:"10px 14px"}}>
-                                <div style={{fontWeight:600,fontSize:12,color:"#1e293b"}}>{t.nombre}</div>
-                                <div style={{display:"flex",gap:6,marginTop:4}}>
-                                  <span style={{fontSize:9,background:cat.bg,color:cat.color,padding:"1px 8px",borderRadius:20,fontWeight:600}}>{t.categoria}</span>
-                                </div>
-                              </td>
-                              <td style={{padding:"10px 14px",fontSize:12,color:"#475569"}}>{t.responsable}</td>
-                              <td style={{padding:"10px 14px",fontSize:12,color:"#475569"}}>{sup||"—"}</td>
-                              <td style={{padding:"10px 14px",textAlign:"center",fontSize:12,fontWeight:600,
-                                color:vencida?"#dc2626":proxima?"#d97706":"#1e293b"}}>
-                                {fechaObj ? fechaObj.toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}) : "—"}
-                              </td>
-                              <td style={{padding:"10px 14px",textAlign:"center"}}>
-                                {diff !== null ? (
-                                  <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,
-                                    background:completada?"#dcfce7":vencida?"#fee2e2":proxima&&diff<=7?"#fef3c7":proxima?"#dbeafe":"#f1f5f9",
-                                    color:completada?"#16a34a":vencida?"#dc2626":proxima&&diff<=7?"#d97706":proxima?"#2563eb":"#64748b"}}>
-                                    {completada?"✅ Completada":vencida?`⚠️ Vencida ${Math.abs(diff)}d`:diff===0?"🔴 Hoy":`${diff}d`}
-                                  </span>
-                                ) : "—"}
-                              </td>
-                              <td style={{padding:"10px 14px",textAlign:"center"}}>
-                                <div onClick={()=>puedeResp&&ciclarResp(key,t,null)}
-                                  style={{width:28,height:28,borderRadius:"50%",background:semResp.bg,border:`2px solid ${semResp.border}`,
-                                    display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:puedeResp?"pointer":"default",
-                                    transition:"all 0.15s"}}>
-                                  <div style={{width:14,height:14,borderRadius:"50%",background:semResp.color}}/>
-                                </div>
-                              </td>
-                              <td style={{padding:"10px 14px",textAlign:"center"}}>
-                                {sup ? (
-                                  <div onClick={()=>puedeSup&&supActivo&&ciclarSup(key,t)}
-                                    style={{width:28,height:28,borderRadius:"50%",background:semSup.bg,border:`2px solid ${semSup.border}`,
-                                      display:"inline-flex",alignItems:"center",justifyContent:"center",
-                                      cursor:puedeSup&&supActivo?"pointer":"default",opacity:supActivo?1:0.3,
-                                      transition:"all 0.15s"}}>
-                                    <div style={{width:14,height:14,borderRadius:"50%",background:semSup.color}}/>
-                                  </div>
-                                ) : <span style={{color:"#cbd5e1"}}>—</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {tab==="diaria"&&puedeVerDiaria&&(
-            <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
-                {encabezadoTabla}
-                <tbody>
-                  <TablaFilas
-                    tareas={todasTareas().filter(t=>getFrecuencia(t.id)==="Diaria")}
-                    getKey={t=>t.id}
-                    getSemana={()=>null}
-                  />
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {tab==="quincenal"&&puedeVerQuincenal&&(
-            <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
-                {encabezadoTabla}
-                <tbody>
-                  <TablaFilas
-                    tareas={todasTareas().filter(t=>getFrecuencia(t.id)==="Quincenal")}
-                    getKey={t=>t.id}
-                    getSemana={()=>null}
-                  />
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {tab==="anual"&&puedeVerAnual&&(
-            <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
-                {encabezadoTabla}
-                <tbody>
-                  <TablaFilas
-                    tareas={todasTareas().filter(t=>getFrecuencia(t.id)==="Anual")}
-                    getKey={t=>t.id}
-                    getSemana={()=>null}
-                  />
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {tab==="config"&&puedeVerConfig&&(
-            <ConfigTab
-              todasTareas={todasTareas}
-              getFrecuencia={getFrecuencia}
-              WORKERS={WORKERS}
-              CATEGORIAS={CATEGORIAS}
-              FRECUENCIAS={FRECUENCIAS}
-              editandoTarea={editandoTarea}
-              setEditandoTarea={setEditandoTarea}
-              formEditTarea={formEditTarea}
-              setFormEditTarea={setFormEditTarea}
-              tareasOverrides={tareasOverrides}
-              setTareasOverrides={setTareasOverrides}
-              setTareasConfig={setTareasConfig}
-              guardarAhora={guardarAhora}
-              puedeEditConfig={puedeEditConfig}
-            />
-          )}
-
-        </div>
+        </table>
       </div>
+
+      {nominasFiltradas.length===0&&(
+        <div style={{textAlign:"center",padding:40,color:C.muted2,fontSize:13}}>
+          No hay nóminas para la semana S{filtroSemana}.
+          {canEdit&&<div style={{marginTop:8}}>Usa los botones "＋ Crear" para agregar nóminas por empresa.</div>}
+        </div>
+      )}
+      </>)}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FRISKU FOODS — Contenedores por especie × mes × temporada
+// Ingreso = contenedores × precio_contenedor × 2% comisión
+// Cobro con delay de 2-3 meses
+// ═══════════════════════════════════════════════════════════════════
+const FRISKU_ESPECIES_DEFAULT = ["Arándanos","Cerezas","Paltas","Mangos","Manzana","Limones","Kiwi"];
+
+function defaultParamsFrisku() {
+  // { seasonKey: { especies: [{nombre, meses:[{mes,contenedores,precio_cont,delay_meses}]}] } }
+  // Usa todos los meses del rango (Apr-26 a Jun-31) para cada temporada
+  const p = {};
+  SEASON_KEYS.forEach(sk => {
+    const [y1] = sk.split("-").map(Number);
+    // Meses de esta temporada: Jul año1 → Jun año2
+    const mesesTemporada = MESES_INFO.filter(mo =>
+      (mo.y === y1 && mo.m >= 6) || (mo.y === y1+1 && mo.m <= 5)
     );
+    p[sk] = {
+      especies: FRISKU_ESPECIES_DEFAULT.map(esp => ({
+        nombre: esp,
+        meses: mesesTemporada.map(mo => ({ mes: mo.label, contenedores: 0, precio_cont: 0, delay_meses: 2 }))
+      }))
+    };
+  });
+  return p;
+}
+
+function calcFrisku(paramsFrisku) {
+  const ingArr = Z65();
+  if(!paramsFrisku) return ingArr;
+  SEASON_KEYS.forEach(sk => {
+    const especies = paramsFrisku?.[sk]?.especies || [];
+    especies.forEach(esp => {
+      (esp.meses || []).forEach(m => {
+        const cont  = Number(m.contenedores) || 0;
+        const precio= Number(m.precio_cont)  || 0;
+        const delay = Number(m.delay_meses)  || 2;
+        if(!cont || !precio) return;
+        const comision = cont * precio * 0.02; // 2% sobre venta
+        // Encontrar el mes de cobro (mes de carga + delay)
+        const idxCarga = mIdx(m.mes);
+        if(idxCarga < 0) return;
+        const idxCobro = Math.min(idxCarga + delay, 64);
+        ingArr[idxCobro] += comision;
+      });
+    });
+  });
+  return ingArr;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PARAMS FRISKU FOODS — Contenedores por especie y mes
+// ═══════════════════════════════════════════════════════════════════
+function ParamsFrisku({selSeason, paramsFrisku, setParamsFrisku, readOnly}) {
+  const datos = paramsFrisku?.[selSeason] || defaultParamsFrisku()[selSeason] || {especies:[]};
+  const especies = datos.especies || [];
+  const [selEsp, setSelEsp] = React.useState(0);
+  const [nuevaEsp, setNuevaEsp] = React.useState("");
+
+  function updMes(espIdx, mesIdx, field, val) {
+    if(readOnly) return;
+    setParamsFrisku(prev => {
+      const next = JSON.parse(JSON.stringify(prev || defaultParamsFrisku()));
+      if(!next[selSeason]) next[selSeason] = {especies:[]};
+      const esp = next[selSeason].especies[espIdx];
+      if(esp && esp.meses[mesIdx]) esp.meses[mesIdx][field] = val;
+      return next;
+    });
   }
 
-  // Hub principal
-  const modulosPermitidos = modulosDeUsuarioSeguro(usuarioFresco || usuarioActual);
+  function addEspecie() {
+    if(!nuevaEsp.trim() || readOnly) return;
+    setParamsFrisku(prev => {
+      const next = JSON.parse(JSON.stringify(prev || defaultParamsFrisku()));
+      SEASON_KEYS.forEach(sk => {
+        if(!next[sk]) next[sk] = {especies:[]};
+        if(!next[sk].especies.find(e=>e.nombre===nuevaEsp.trim())) {
+          next[sk].especies.push({
+            nombre: nuevaEsp.trim(),
+            meses: (next[sk].especies[0]?.meses||[]).map(m=>({mes:m.mes,contenedores:0,precio_cont:0,delay_meses:2}))
+          });
+        }
+      });
+      return next;
+    });
+    setNuevaEsp("");
+  }
+
+  // Calcular ingreso total para esta especie y temporada
+  const calcTotalEsp = (esp) => {
+    return (esp.meses||[]).reduce((s,m)=>{
+      const cont=Number(m.contenedores)||0;
+      const precio=Number(m.precio_cont)||0;
+      return s + cont*precio*0.02;
+    }, 0);
+  };
+
+  const totalTemporada = especies.reduce((s,esp)=>s+calcTotalEsp(esp),0);
+  const esp = especies[selEsp] || null;
 
   return (
-    <HubScreen
-      usuario={usuarioFresco || usuarioActual}
-      modulosPermitidos={modulosPermitidos}
-      onSelectModulo={id=>{setModuloActivo(id);sessionStorage.setItem('mediterra_modulo',id);}}
-      onLogout={doLogout}
-      onCambiarPin={()=>setModalPin("cambiar")}
-      esSoloConsulta={esSoloConsulta}
-      usuarios={usuarios}
-      setUsuarios={setUsuarios}
-    />
+    <div>
+      {/* KPI resumen */}
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{background:`${C.teal}22`,borderRadius:12,padding:"10px 16px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:C.teal,fontWeight:600}}>Ingreso Temporada</div>
+          <div style={{fontSize:20,fontWeight:800,color:C.teal}}>{$$(totalTemporada)}</div>
+          <div style={{fontSize:9,color:C.muted}}>2% comisión sobre venta</div>
+        </div>
+        <div style={{background:`${C.blue}22`,borderRadius:12,padding:"10px 16px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:C.blue,fontWeight:600}}>Contenedores totales</div>
+          <div style={{fontSize:20,fontWeight:800,color:C.blue}}>
+            {especies.reduce((s,esp)=>s+(esp.meses||[]).reduce((a,m)=>a+(Number(m.contenedores)||0),0),0)}
+          </div>
+        </div>
+        <div style={{background:`${C.orange}22`,borderRadius:12,padding:"10px 16px",flex:1,minWidth:140}}>
+          <div style={{fontSize:10,color:C.orange,fontWeight:600}}>Especies activas</div>
+          <div style={{fontSize:20,fontWeight:800,color:C.orange}}>
+            {especies.filter(esp=>(esp.meses||[]).some(m=>Number(m.contenedores)>0)).length}
+          </div>
+        </div>
+      </div>
+
+      {/* Selector de especie */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14,alignItems:"center"}}>
+        {especies.map((esp,i)=>(
+          <button key={esp.nombre} onClick={()=>setSelEsp(i)}
+            style={{padding:"5px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
+              border:`1px solid ${selEsp===i?C.teal:C.border}`,
+              background:selEsp===i?`${C.teal}33`:"transparent",
+              color:selEsp===i?C.teal:C.muted}}>
+            {esp.nombre}
+            {calcTotalEsp(esp)>0&&<span style={{marginLeft:4,color:C.teal,fontSize:9}}>{$$(calcTotalEsp(esp))}</span>}
+          </button>
+        ))}
+        {!readOnly&&(
+          <div style={{display:"flex",gap:4}}>
+            <input value={nuevaEsp} onChange={e=>setNuevaEsp(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&addEspecie()}
+              placeholder="+ Nueva especie"
+              style={{padding:"4px 8px",borderRadius:8,border:`1px solid ${C.border}`,
+                background:C.card2,color:C.text,fontSize:11,outline:"none",width:120}}/>
+            <button onClick={addEspecie}
+              style={{padding:"4px 10px",borderRadius:8,background:C.teal,border:"none",
+                color:"#fff",fontSize:11,cursor:"pointer",fontWeight:700}}>+</button>
+          </div>
+        )}
+      </div>
+
+      {/* Tabla de meses para la especie seleccionada */}
+      {esp&&(
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr style={{background:C.bg2}}>
+                {["Mes","Contenedores","Precio/Cont (USD)","Delay (meses)","Comisión 2%"].map(h=>(
+                  <th key={h} style={{padding:"7px 12px",fontWeight:600,fontSize:10,color:C.muted,
+                    textTransform:"uppercase",borderBottom:`1px solid ${C.border}`,
+                    textAlign:h==="Mes"?"left":"right",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(esp.meses||[]).map((m,mi)=>{
+                const cont=Number(m.contenedores)||0;
+                const precio=Number(m.precio_cont)||0;
+                const comision=cont*precio*0.02;
+                return (
+                  <tr key={m.mes} style={{borderBottom:`1px solid ${C.border}22`,
+                    background:cont>0?`${C.teal}08`:"transparent"}}>
+                    <td style={{padding:"6px 12px",fontWeight:600,color:C.text}}>{m.mes}</td>
+                    <td style={{padding:"4px 8px",textAlign:"right"}}>
+                      <input type="number" min="0" value={m.contenedores||""} readOnly={readOnly}
+                        onChange={e=>updMes(selEsp,mi,"contenedores",e.target.value)}
+                        style={{width:70,padding:"4px 6px",textAlign:"right",borderRadius:6,
+                          border:`1px solid ${cont>0?C.teal:C.border}`,background:C.card2,
+                          color:cont>0?C.teal:C.text,fontSize:11,outline:"none"}}/>
+                    </td>
+                    <td style={{padding:"4px 8px",textAlign:"right"}}>
+                      <input type="number" min="0" value={m.precio_cont||""} readOnly={readOnly}
+                        onChange={e=>updMes(selEsp,mi,"precio_cont",e.target.value)}
+                        style={{width:90,padding:"4px 6px",textAlign:"right",borderRadius:6,
+                          border:`1px solid ${precio>0?C.blue:C.border}`,background:C.card2,
+                          color:precio>0?C.blue:C.text,fontSize:11,outline:"none"}}/>
+                    </td>
+                    <td style={{padding:"4px 8px",textAlign:"right"}}>
+                      <select value={m.delay_meses||2} disabled={readOnly}
+                        onChange={e=>updMes(selEsp,mi,"delay_meses",Number(e.target.value))}
+                        style={{padding:"4px 6px",borderRadius:6,border:`1px solid ${C.border}`,
+                          background:C.card2,color:C.text,fontSize:11,outline:"none"}}>
+                        {[2,3].map(d=><option key={d} value={d}>{d} meses</option>)}
+                      </select>
+                    </td>
+                    <td style={{padding:"6px 12px",textAlign:"right",fontWeight:700,
+                      color:comision>0?C.teal:C.muted2}}>
+                      {comision>0?$$(Math.round(comision)):"—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{background:C.bg2,borderTop:`2px solid ${C.border}`}}>
+                <td style={{padding:"7px 12px",fontWeight:800,color:C.text}} colSpan={4}>Total {esp.nombre}</td>
+                <td style={{padding:"7px 12px",textAlign:"right",fontWeight:800,color:C.teal}}>{$$(Math.round(calcTotalEsp(esp)))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MÓDULO AUDITORÍA — Registro de actividad del sistema
+// Solo visible para admin. Retención: 24 meses.
+// ═══════════════════════════════════════════════════════════════════
+async function loadAuditEvents() {
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=eq.audit_log&select=value`, {
+      headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` }
+    });
+    const data = await res.json();
+    return data?.[0]?.value?.eventos || [];
+  } catch { return []; }
+}
+
+// Helper: exportar eventos auditoría a Excel
+async function exportAuditoriaExcel(eventos, filtrosInfo) {
+  if(!window.JSZip) {
+    await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+  const headers = ["Fecha/Hora","Usuario","Rol","Email","Acción","Módulo","Sección","Descripción","Campo","Valor Anterior","Valor Nuevo"];
+  const rows = eventos.map(e => [
+    new Date(e.timestamp).toLocaleString("es-CL"),
+    e.usuario, e.rol, e.email, e.accion, e.modulo, e.seccion,
+    e.descripcion, e.campo, e.valorAnterior, e.valorNuevo
+  ]);
+
+  function colLetter(n){let s="";n++;while(n>0){n--;s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26);}return s;}
+  function escXml(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+  const nCols = headers.length;
+  const lastCol = colLetter(nCols-1);
+  let rowsXml = "";
+
+  // Título
+  rowsXml += `<row r="1" ht="28" customHeight="1"><c r="A1" t="inlineStr" s="5"><is><t>🔍 Registro de Auditoría — Grupo Mediterra</t></is></c></row>`;
+  rowsXml += `<row r="2" ht="18" customHeight="1"><c r="A2" t="inlineStr" s="6"><is><t>Exportado: ${new Date().toLocaleString("es-CL")}${filtrosInfo?` · ${filtrosInfo}`:""}</t></is></c></row>`;
+  rowsXml += `<row r="3" ht="10" customHeight="1"></row>`;
+
+  // Headers tabla
+  rowsXml += `<row r="4" ht="22" customHeight="1">`;
+  headers.forEach((h,c)=>{rowsXml += `<c r="${colLetter(c)}4" t="inlineStr" s="1"><is><t>${escXml(h)}</t></is></c>`;});
+  rowsXml += `</row>`;
+
+  rows.forEach((row,ri)=>{
+    const r = ri+5;
+    const sBase = ri%2===0?0:2;
+    rowsXml += `<row r="${r}" ht="18" customHeight="1">`;
+    row.forEach((val,c)=>{
+      rowsXml += `<c r="${colLetter(c)}${r}" t="inlineStr" s="${sBase}"><is><t>${escXml(val)}</t></is></c>`;
+    });
+    rowsXml += `</row>`;
+  });
+
+  const tableRef = `A4:${lastCol}${rows.length+4}`;
+  const merges = [`A1:${lastCol}1`, `A2:${lastCol}2`];
+  const mergesXml = `<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="7">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><sz val="11"/><b/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font/><font/>
+    <font><sz val="18"/><b/><color rgb="FF0F2D4A"/><name val="Calibri"/></font>
+    <font><sz val="11"/><i/><color rgb="FF64748B"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="4">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF0F2D4A"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left style="thin"><color rgb="FFE2E8F0"/></left><right style="thin"><color rgb="FFE2E8F0"/></right><top style="thin"><color rgb="FFE2E8F0"/></top><bottom style="thin"><color rgb="FFE2E8F0"/></bottom></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="7">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0"><alignment vertical="center"/></xf>
+    <xf/><xf/>
+    <xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+    <xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0"><alignment horizontal="left" vertical="center" indent="1"/></xf>
+  </cellXfs>
+</styleSheet>`;
+
+  const colWidths = [22,22,12,28,18,14,22,55,20,30,30];
+  const colsXml = `<cols>${colWidths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`;
+
+  const tableXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Auditoria" displayName="Auditoria" ref="${tableRef}" totalsRowShown="0" headerRowCount="1">
+  <autoFilter ref="${tableRef}"/>
+  <tableColumns count="${nCols}">${headers.map((h,i)=>`<tableColumn id="${i+1}" name="${escXml(h)}"/>`).join("")}</tableColumns>
+  <tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>
+</table>`;
+
+  const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+  ${colsXml}
+  <sheetData>${rowsXml}</sheetData>
+  ${mergesXml}
+  <tableParts count="1"><tablePart r:id="rId1"/></tableParts>
+</worksheet>`;
+
+  const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <bookViews><workbookView/></bookViews>
+  <sheets><sheet name="Auditoria" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+
+  const wbRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+  const sheetRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table1.xml"/>
+</Relationships>`;
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>
+</Types>`;
+
+  const pkgRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+  const zip = new window.JSZip();
+  zip.file("[Content_Types].xml", contentTypes);
+  zip.file("_rels/.rels", pkgRels);
+  zip.file("xl/workbook.xml", wbXml);
+  zip.file("xl/_rels/workbook.xml.rels", wbRels);
+  zip.file("xl/worksheets/sheet1.xml", sheetXml);
+  zip.file("xl/worksheets/_rels/sheet1.xml.rels", sheetRels);
+  zip.file("xl/styles.xml", stylesXml);
+  zip.file("xl/tables/table1.xml", tableXml);
+
+  const blob = await zip.generateAsync({type:"blob", mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Auditoria_${new Date().toISOString().slice(0,10)}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function AuditoriaModule({usuario}) {
+  const [eventos, setEventos] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [filtroUsuario, setFiltroUsuario] = useState("");
+  const [filtroAccion, setFiltroAccion] = useState("Todos");
+  const [filtroModulo, setFiltroModulo] = useState("Todos");
+  const [filtroDesde, setFiltroDesde] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate()-30);
+    return d.toISOString().slice(0,10);
+  });
+  const [filtroHasta, setFiltroHasta] = useState(new Date().toISOString().slice(0,10));
+  const [busqueda, setBusqueda] = useState("");
+  const [eventoDetalle, setEventoDetalle] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  // Cargar eventos
+  async function recargar() {
+    setCargando(true);
+    const evs = await loadAuditEvents();
+    setEventos(evs);
+    setCargando(false);
+  }
+
+  useEffect(() => {
+    recargar();
+    window.auditLog("consultar", {modulo:"sistema", seccion:"auditoría",
+      descripcion:"Accedió al módulo de Auditoría"});
+  }, []);
+
+  // Auto-refresh cada 30s si está activo
+  useEffect(() => {
+    if(!autoRefresh) return;
+    const t = setInterval(recargar, 30000);
+    return () => clearInterval(t);
+  }, [autoRefresh]);
+
+  // Filtrar
+  const filtrado = useMemo(() => {
+    const desde = filtroDesde ? new Date(filtroDesde+"T00:00:00") : null;
+    const hasta = filtroHasta ? new Date(filtroHasta+"T23:59:59") : null;
+    return eventos
+      .filter(e => {
+        const ts = new Date(e.timestamp);
+        if(desde && ts < desde) return false;
+        if(hasta && ts > hasta) return false;
+        if(filtroUsuario && !e.usuario?.toLowerCase().includes(filtroUsuario.toLowerCase())) return false;
+        if(filtroAccion !== "Todos" && e.accion !== filtroAccion) return false;
+        if(filtroModulo !== "Todos" && e.modulo !== filtroModulo) return false;
+        if(busqueda) {
+          const q = busqueda.toLowerCase();
+          const match = e.descripcion?.toLowerCase().includes(q) ||
+                        e.seccion?.toLowerCase().includes(q) ||
+                        e.campo?.toLowerCase().includes(q) ||
+                        e.valorNuevo?.toLowerCase().includes(q) ||
+                        e.valorAnterior?.toLowerCase().includes(q);
+          if(!match) return false;
+        }
+        return true;
+      })
+      .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }, [eventos, filtroDesde, filtroHasta, filtroUsuario, filtroAccion, filtroModulo, busqueda]);
+
+  // Opciones únicas para filtros
+  const accionesDisp = useMemo(() => ["Todos", ...Array.from(new Set(eventos.map(e=>e.accion).filter(Boolean))).sort()], [eventos]);
+  const modulosDisp = useMemo(() => ["Todos", ...Array.from(new Set(eventos.map(e=>e.modulo).filter(Boolean))).sort()], [eventos]);
+
+  // KPIs
+  const kpiHoy = eventos.filter(e => {
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    return new Date(e.timestamp) >= hoy;
+  }).length;
+  const kpiUsuariosActivos = new Set(filtrado.map(e=>e.usuario)).size;
+  const kpiEdiciones = filtrado.filter(e=>e.accion==="editar").length;
+  const kpiEliminaciones = filtrado.filter(e=>e.accion==="eliminar").length;
+  const kpiLogins = filtrado.filter(e=>e.accion==="login").length;
+  const kpiLoginsFallidos = filtrado.filter(e=>e.accion==="login_fallido").length;
+
+  // Colores por acción
+  function colorAccion(accion) {
+    const map = {
+      login: "#16a34a", logout: "#64748b", login_fallido: "#dc2626",
+      crear: "#3b82f6", editar: "#f59e0b", eliminar: "#ef4444",
+      consultar: "#8b5cf6", exportar: "#0f766e",
+      aprobar: "#16a34a", rechazar: "#dc2626",
+      cambio_pin: "#f59e0b", reset_pin: "#f97316",
+      cambio_permiso: "#7c3aed",
+      desactivar_usuario: "#dc2626", activar_usuario: "#16a34a",
+      login_pin_temporal: "#f59e0b",
+    };
+    return map[accion] || "#64748b";
+  }
+
+  function emojiAccion(accion) {
+    const map = {
+      login: "🔓", logout: "🚪", login_fallido: "⛔",
+      crear: "➕", editar: "✏️", eliminar: "🗑",
+      consultar: "👁", exportar: "📥",
+      aprobar: "✅", rechazar: "❌",
+      cambio_pin: "🔑", reset_pin: "🔄",
+      cambio_permiso: "🔐",
+      desactivar_usuario: "🚫", activar_usuario: "♻️",
+      login_pin_temporal: "⚡",
+    };
+    return map[accion] || "📋";
+  }
+
+  function exportarExcel() {
+    const filtros = [];
+    if(filtroDesde) filtros.push(`Desde: ${filtroDesde}`);
+    if(filtroHasta) filtros.push(`Hasta: ${filtroHasta}`);
+    if(filtroUsuario) filtros.push(`Usuario: ${filtroUsuario}`);
+    if(filtroAccion !== "Todos") filtros.push(`Acción: ${filtroAccion}`);
+    if(filtroModulo !== "Todos") filtros.push(`Módulo: ${filtroModulo}`);
+    if(busqueda) filtros.push(`Búsqueda: ${busqueda}`);
+    exportAuditoriaExcel(filtrado, filtros.join(" · "));
+    window.auditLog("exportar", {modulo:"sistema", seccion:"auditoría",
+      descripcion:`Exportó ${filtrado.length} eventos de auditoría a Excel`});
+  }
+
+  if(cargando) return (
+    <div style={{padding:40, textAlign:"center", color:C.muted}}>Cargando registro de auditoría...</div>
+  );
+
+  return (
+    <div style={{fontFamily:"sans-serif", color:C.text}}>
+      {/* Header */}
+      <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:16, flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:18, fontWeight:900, color:C.text}}>🔍 Auditoría del Sistema</div>
+          <div style={{fontSize:11, color:C.muted}}>
+            Registro cronológico de actividad · Retención 24 meses · Solo visible para administradores
+          </div>
+        </div>
+        <div style={{marginLeft:"auto", display:"flex", gap:8, alignItems:"center"}}>
+          <label style={{display:"flex", alignItems:"center", gap:6, fontSize:11, color:C.muted, cursor:"pointer"}}>
+            <input type="checkbox" checked={autoRefresh} onChange={e=>setAutoRefresh(e.target.checked)}/>
+            Auto-refresh 30s
+          </label>
+          <button onClick={recargar}
+            style={{padding:"7px 12px", borderRadius:8, background:C.card2, border:`1px solid ${C.border}`,
+              color:C.muted, cursor:"pointer", fontSize:12}}>
+            🔄 Recargar
+          </button>
+          <button onClick={exportarExcel} disabled={filtrado.length===0}
+            style={{padding:"7px 14px", borderRadius:8, background:filtrado.length===0?C.muted2:C.teal,
+              color:"#fff", border:"none", cursor:filtrado.length===0?"not-allowed":"pointer",
+              fontSize:12, fontWeight:700}}>
+            📥 Exportar Excel ({filtrado.length})
+          </button>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:10, marginBottom:16}}>
+        {[
+          {label:"📊 Eventos totales",    val:eventos.length, color:C.blue},
+          {label:"📅 Hoy",                 val:kpiHoy,         color:C.teal},
+          {label:"👥 Usuarios en filtro",  val:kpiUsuariosActivos, color:"#8b5cf6"},
+          {label:"✏️ Ediciones",           val:kpiEdiciones,   color:C.yellow},
+          {label:"🗑 Eliminaciones",       val:kpiEliminaciones, color:C.red},
+          {label:"🔓 Logins",              val:kpiLogins,      color:C.green},
+          {label:"⛔ Logins fallidos",     val:kpiLoginsFallidos, color:"#dc2626"},
+        ].map(k=>(
+          <div key={k.label} style={{background:C.card2, borderRadius:10, padding:"12px 14px",
+            border:`1px solid ${C.border}`, borderLeft:`4px solid ${k.color}`}}>
+            <div style={{fontSize:10, color:C.muted, fontWeight:600, marginBottom:4}}>{k.label}</div>
+            <div style={{fontSize:22, fontWeight:900, color:k.color}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{background:C.card2, borderRadius:10, padding:"12px 14px", border:`1px solid ${C.border}`,
+        marginBottom:16, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center"}}>
+        <span style={{fontSize:11, fontWeight:700, color:C.muted}}>Filtros:</span>
+        <div>
+          <div style={{fontSize:10, color:C.muted, marginBottom:2}}>Desde</div>
+          <input type="date" value={filtroDesde} onChange={e=>setFiltroDesde(e.target.value)}
+            style={{padding:"5px 8px", borderRadius:6, border:`1px solid ${C.border}`,
+              background:C.card, color:C.text, fontSize:11, outline:"none"}}/>
+        </div>
+        <div>
+          <div style={{fontSize:10, color:C.muted, marginBottom:2}}>Hasta</div>
+          <input type="date" value={filtroHasta} onChange={e=>setFiltroHasta(e.target.value)}
+            style={{padding:"5px 8px", borderRadius:6, border:`1px solid ${C.border}`,
+              background:C.card, color:C.text, fontSize:11, outline:"none"}}/>
+        </div>
+        <div>
+          <div style={{fontSize:10, color:C.muted, marginBottom:2}}>Usuario</div>
+          <input type="text" placeholder="Nombre..." value={filtroUsuario} onChange={e=>setFiltroUsuario(e.target.value)}
+            style={{padding:"5px 8px", borderRadius:6, border:`1px solid ${C.border}`,
+              background:C.card, color:C.text, fontSize:11, outline:"none", width:140}}/>
+        </div>
+        <div>
+          <div style={{fontSize:10, color:C.muted, marginBottom:2}}>Acción</div>
+          <select value={filtroAccion} onChange={e=>setFiltroAccion(e.target.value)}
+            style={{padding:"5px 8px", borderRadius:6, border:`1px solid ${C.border}`,
+              background:C.card, color:C.text, fontSize:11, outline:"none"}}>
+            {accionesDisp.map(a=><option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={{fontSize:10, color:C.muted, marginBottom:2}}>Módulo</div>
+          <select value={filtroModulo} onChange={e=>setFiltroModulo(e.target.value)}
+            style={{padding:"5px 8px", borderRadius:6, border:`1px solid ${C.border}`,
+              background:C.card, color:C.text, fontSize:11, outline:"none"}}>
+            {modulosDisp.map(m=><option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div style={{flex:1, minWidth:180}}>
+          <div style={{fontSize:10, color:C.muted, marginBottom:2}}>Búsqueda</div>
+          <input type="text" placeholder="🔍 Buscar en descripción, campos..." value={busqueda} onChange={e=>setBusqueda(e.target.value)}
+            style={{padding:"5px 10px", borderRadius:6, border:`1px solid ${C.border}`,
+              background:C.card, color:C.text, fontSize:11, outline:"none", width:"100%", boxSizing:"border-box"}}/>
+        </div>
+        {(filtroUsuario||filtroAccion!=="Todos"||filtroModulo!=="Todos"||busqueda)&&(
+          <button onClick={()=>{setFiltroUsuario("");setFiltroAccion("Todos");setFiltroModulo("Todos");setBusqueda("");}}
+            style={{padding:"5px 12px", borderRadius:6, background:"transparent",
+              border:`1px solid ${C.border}`, color:C.muted, cursor:"pointer", fontSize:11, alignSelf:"flex-end"}}>
+            ✕ Limpiar
+          </button>
+        )}
+      </div>
+
+      {/* Tabla eventos */}
+      <div style={{overflowX:"auto", borderRadius:10, border:`1px solid ${C.border}`}}>
+        <table style={{width:"100%", borderCollapse:"collapse", fontSize:11}}>
+          <thead>
+            <tr style={{background:C.bg2}}>
+              <th style={{padding:"8px 10px", textAlign:"left", color:C.muted, fontWeight:700, fontSize:10}}>Fecha / Hora</th>
+              <th style={{padding:"8px 10px", textAlign:"left", color:C.muted, fontWeight:700, fontSize:10}}>Usuario</th>
+              <th style={{padding:"8px 10px", textAlign:"center", color:C.muted, fontWeight:700, fontSize:10}}>Acción</th>
+              <th style={{padding:"8px 10px", textAlign:"center", color:C.muted, fontWeight:700, fontSize:10}}>Módulo</th>
+              <th style={{padding:"8px 10px", textAlign:"left", color:C.muted, fontWeight:700, fontSize:10}}>Sección</th>
+              <th style={{padding:"8px 10px", textAlign:"left", color:C.muted, fontWeight:700, fontSize:10}}>Descripción</th>
+              <th style={{padding:"8px 10px", textAlign:"center", color:C.muted, fontWeight:700, fontSize:10, width:40}}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtrado.length===0&&(
+              <tr><td colSpan={7} style={{padding:40, textAlign:"center", color:C.muted2, fontSize:12}}>
+                {eventos.length===0 ? "Aún no hay eventos registrados en el sistema." : "No hay eventos que coincidan con los filtros."}
+              </td></tr>
+            )}
+            {filtrado.slice(0, 500).map((e,i)=>{
+              const col = colorAccion(e.accion);
+              const ts = new Date(e.timestamp);
+              return (
+                <tr key={e.id} style={{borderBottom:`1px solid ${C.border}22`,
+                  background:i%2===0?"transparent":`${C.border}08`,
+                  cursor:"pointer"}}
+                  onClick={()=>setEventoDetalle(e)}>
+                  <td style={{padding:"6px 10px", fontSize:10, color:C.muted, whiteSpace:"nowrap"}}>
+                    <div style={{fontWeight:600, color:C.text}}>{ts.toLocaleDateString("es-CL")}</div>
+                    <div style={{fontSize:9}}>{ts.toLocaleTimeString("es-CL")}</div>
+                  </td>
+                  <td style={{padding:"6px 10px", fontWeight:600, color:C.text}}>
+                    {e.usuario}
+                    {e.rol&&<div style={{fontSize:9, color:C.muted, fontWeight:400}}>{e.rol}</div>}
+                  </td>
+                  <td style={{padding:"6px 10px", textAlign:"center"}}>
+                    <span style={{display:"inline-block", padding:"2px 8px", borderRadius:20,
+                      background:`${col}22`, color:col, fontSize:10, fontWeight:700,
+                      border:`1px solid ${col}44`}}>
+                      {emojiAccion(e.accion)} {e.accion}
+                    </span>
+                  </td>
+                  <td style={{padding:"6px 10px", textAlign:"center", fontSize:10, color:C.muted}}>
+                    {e.modulo||"—"}
+                  </td>
+                  <td style={{padding:"6px 10px", fontSize:10, color:C.muted}}>{e.seccion||"—"}</td>
+                  <td style={{padding:"6px 10px", color:C.text, fontSize:11, maxWidth:380,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{e.descripcion||"—"}</td>
+                  <td style={{padding:"6px 10px", textAlign:"center", color:C.muted}}>›</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {filtrado.length > 500 && (
+        <div style={{marginTop:10, padding:"8px 14px", background:"#fef3c7", border:"1px solid #fde68a",
+          borderRadius:8, fontSize:11, color:"#92400e"}}>
+          ⚠️ Mostrando primeros 500 eventos de {filtrado.length} totales. Refina los filtros o exporta a Excel para ver todos.
+        </div>
+      )}
+
+      {/* Modal detalle de evento */}
+      {eventoDetalle&&(
+        <div style={{position:"fixed", inset:0, background:"#000a", zIndex:400,
+          display:"flex", alignItems:"center", justifyContent:"center", padding:20}}
+          onClick={()=>setEventoDetalle(null)}>
+          <div style={{background:C.card, borderRadius:14, padding:"20px 24px",
+            maxWidth:640, width:"100%", boxShadow:"0 24px 64px #0009",
+            border:`1px solid ${C.border}`, maxHeight:"85vh", overflowY:"auto"}}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:14}}>
+              <span style={{fontSize:22}}>{emojiAccion(eventoDetalle.accion)}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:15, fontWeight:800, color:C.text}}>Detalle del evento</div>
+                <div style={{fontSize:11, color:C.muted}}>ID: {eventoDetalle.id}</div>
+              </div>
+              <button onClick={()=>setEventoDetalle(null)}
+                style={{background:C.card2, border:`1px solid ${C.border}`, color:C.muted,
+                  borderRadius:8, padding:"5px 12px", cursor:"pointer", fontSize:12}}>Cerrar</button>
+            </div>
+
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12}}>
+              {[
+                {l:"📅 Fecha/Hora", v:new Date(eventoDetalle.timestamp).toLocaleString("es-CL")},
+                {l:"👤 Usuario",    v:`${eventoDetalle.usuario} (${eventoDetalle.rol||"—"})`},
+                {l:"📧 Email",      v:eventoDetalle.email||"—"},
+                {l:"⚡ Acción",     v:eventoDetalle.accion},
+                {l:"📦 Módulo",     v:eventoDetalle.modulo||"—"},
+                {l:"📂 Sección",    v:eventoDetalle.seccion||"—"},
+              ].map(x=>(
+                <div key={x.l} style={{background:C.card2, borderRadius:8, padding:"8px 12px",
+                  border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:10, color:C.muted, fontWeight:600}}>{x.l}</div>
+                  <div style={{fontSize:12, color:C.text, fontWeight:500, marginTop:2}}>{x.v}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{background:C.card2, borderRadius:8, padding:"10px 14px",
+              border:`1px solid ${C.border}`, marginBottom:12}}>
+              <div style={{fontSize:10, color:C.muted, fontWeight:600, marginBottom:4}}>📝 Descripción</div>
+              <div style={{fontSize:13, color:C.text}}>{eventoDetalle.descripcion||"—"}</div>
+            </div>
+
+            {(eventoDetalle.campo||eventoDetalle.valorAnterior||eventoDetalle.valorNuevo)&&(
+              <div style={{background:C.card2, borderRadius:8, padding:"10px 14px",
+                border:`1px solid ${C.border}`, marginBottom:12}}>
+                <div style={{fontSize:10, color:C.muted, fontWeight:600, marginBottom:6}}>🔄 Cambio de valor</div>
+                {eventoDetalle.campo&&<div style={{fontSize:11, color:C.text, marginBottom:6}}>
+                  <strong>Campo:</strong> {eventoDetalle.campo}
+                </div>}
+                <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8}}>
+                  <div style={{background:"#fee2e244", borderRadius:6, padding:"8px 10px",
+                    border:"1px solid #fecaca"}}>
+                    <div style={{fontSize:9, color:"#991b1b", fontWeight:700}}>ANTES</div>
+                    <div style={{fontSize:11, color:"#7f1d1d", marginTop:2, wordBreak:"break-word"}}>
+                      {eventoDetalle.valorAnterior||<em style={{color:"#94a3b8"}}>(vacío)</em>}
+                    </div>
+                  </div>
+                  <div style={{background:"#dcfce744", borderRadius:6, padding:"8px 10px",
+                    border:"1px solid #bbf7d0"}}>
+                    <div style={{fontSize:9, color:"#166534", fontWeight:700}}>DESPUÉS</div>
+                    <div style={{fontSize:11, color:"#14532d", marginTop:2, wordBreak:"break-word"}}>
+                      {eventoDetalle.valorNuevo||<em style={{color:"#94a3b8"}}>(vacío)</em>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {eventoDetalle.registroId&&(
+              <div style={{fontSize:10, color:C.muted, textAlign:"right"}}>
+                Registro afectado: <code style={{background:C.bg2, padding:"2px 6px",
+                  borderRadius:4}}>{eventoDetalle.registroId}</code>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
