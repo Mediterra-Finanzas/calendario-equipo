@@ -1237,9 +1237,7 @@ const C = {
 const $$ = n => {
   if(n==null||n==="") return "—";
   const abs=Math.abs(n),s=n<0?"-":"";
-  if(abs>=1_000_000) return `${s}$${(abs/1e6).toFixed(2)}M`;
-  if(abs>=1_000)     return `${s}$${(abs/1e3).toFixed(0)}K`;
-  return `${s}$${abs.toLocaleString()}`;
+  return `${s}$${Math.round(abs).toLocaleString("en-US")}`;
 };
 const fmtDate = s => {
   if(!s) return "—";
