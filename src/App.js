@@ -185,7 +185,7 @@ window._enviarNotificacion = enviarNotificacion;
 
 const DIAS_SEMANA = ["Lunes","Martes","Miercoles","Jueves","Viernes"];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const FRECUENCIAS = ["Diaria","Semanal","Quincenal","Mensual","Anual"];
+const FRECUENCIAS = ["Diaria","Semanal","Quincenal","Mensual","Anual","Puntual"];
 
 // Roles del sistema
 const ROLES = [
@@ -203,9 +203,54 @@ const MODULOS_DISPONIBLES = [
   // {id:"frisku", label:"Frisku Foods", sublabel:"Gestión Operacional", icon:"🫐", color:"#7c3aed", bg:"#ede9fe", grad:"linear-gradient(135deg,#1a1a2e,#7c3aed)"},
 ];
 
+// Feriados de Chile (fijos + variables conocidos 2026-2031)
+// Formato: "MM-DD" para fijos, "YYYY-MM-DD" para variables
+const FERIADOS_FIJOS = [
+  "01-01", // Año Nuevo
+  "05-01", // Día del Trabajo
+  "05-21", // Día de las Glorias Navales
+  "06-20", // Día Nacional de los Pueblos Indígenas (aprox, varía)
+  "06-29", // San Pedro y San Pablo (puede moverse)
+  "07-16", // Virgen del Carmen
+  "08-15", // Asunción de la Virgen
+  "09-18", // Fiestas Patrias
+  "09-19", // Día de las Glorias del Ejército
+  "10-12", // Encuentro de Dos Mundos (puede moverse)
+  "10-31", // Día de las Iglesias Evangélicas
+  "11-01", // Día de Todos los Santos
+  "12-08", // Inmaculada Concepción
+  "12-25", // Navidad
+];
+// Feriados variables (Semana Santa, etc.) — agregar manualmente cada año
+const FERIADOS_VARIABLES = [
+  "2026-04-03","2026-04-04", // Viernes y Sábado Santo 2026
+  "2027-03-26","2027-03-27", // 2027
+  "2028-04-14","2028-04-15", // 2028
+  "2029-03-30","2029-03-31", // 2029
+  "2030-04-19","2030-04-20", // 2030
+  "2031-04-11","2031-04-12", // 2031
+];
+
+function esFeriado(fecha) {
+  const mmdd = `${String(fecha.getMonth()+1).padStart(2,"0")}-${String(fecha.getDate()).padStart(2,"0")}`;
+  if(FERIADOS_FIJOS.includes(mmdd)) return true;
+  const iso = fecha.toISOString().slice(0,10);
+  if(FERIADOS_VARIABLES.includes(iso)) return true;
+  return false;
+}
+
 function diaHabil(anio,mes,dia){
-  const f=new Date(anio,mes,dia);const d=f.getDay();
-  if(d===6)f.setDate(f.getDate()+2);if(d===0)f.setDate(f.getDate()+1);return f;
+  const f=new Date(anio,mes,dia);
+  // Avanzar al siguiente día hábil si cae sábado, domingo o feriado
+  let intentos = 0;
+  while(intentos < 10) {
+    const d = f.getDay();
+    if(d === 6) { f.setDate(f.getDate()+2); intentos++; continue; } // Sábado → Lunes
+    if(d === 0) { f.setDate(f.getDate()+1); intentos++; continue; } // Domingo → Lunes
+    if(esFeriado(f)) { f.setDate(f.getDate()+1); intentos++; continue; } // Feriado → siguiente
+    break;
+  }
+  return f;
 }
 function mesAnteriorAlInicio(anio,mes){
   return new Date(anio,mes,1)<new Date(FECHA_INICIO.getFullYear(),FECHA_INICIO.getMonth(),1);
@@ -1161,7 +1206,7 @@ export default function App(){
   const [modalVencidas,setModalVencidas]=useState(false);
   const [textoNotif,setTextoNotif]=useState("");
   const [enviandoNotif,setEnviandoNotif]=useState(false);
-  const [nuevaTarea,setNuevaTarea]=useState({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:""});
+  const [nuevaTarea,setNuevaTarea]=useState({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:"",fechaPuntual:""});
   const [mostrarFormTarea,setMostrarFormTarea]=useState(false);
   const [editandoTarea,setEditandoTarea]=useState(null);
   const [formEditTarea,setFormEditTarea]=useState({});
@@ -1542,7 +1587,7 @@ export default function App(){
   function dependenciaOk(tarea,numSemana){
     const depId=getDependeDe(tarea.id);if(!depId)return true;
     const depT=getTareaById(depId);if(!depT)return true;
-    if(getFrecuencia(depT.id)==="Mensual")return(estados[depId]?.estadoResp||"gris")==="verde";
+    if(getFrecuencia(depT.id)==="Mensual"||getFrecuencia(depT.id)==="Puntual")return(estados[depId]?.estadoResp||"gris")==="verde";
     if(numSemana===null||numSemana===undefined)return(estados[depId]?.estadoResp||"gris")==="verde";
     return(estados[`${depId}_s${numSemana}`]?.estadoResp||"gris")==="verde";
   }
@@ -1626,7 +1671,13 @@ Equipo Mediterra`);
   function estaVencida(tarea,key,numSemana){
     const hoyD=new Date();hoyD.setHours(0,0,0,0);
     const frec=getFrecuencia(tarea.id);
-    if(frec==="Mensual"){const fl=new Date(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite);if(fl<FECHA_INICIO)return false;return hoyD>fl&&(estados[key]?.estadoResp||"gris")==="gris";}
+    if(frec==="Mensual"){const fl=diaHabil(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite);if(fl<FECHA_INICIO)return false;return hoyD>fl&&(estados[key]?.estadoResp||"gris")==="gris";}
+    if(frec==="Puntual"){
+      const fp = getConfig(tarea.id).fechaPuntual || tarea.fechaPuntual;
+      if(!fp) return false;
+      const fl = new Date(fp+"T00:00:00"); 
+      return hoyD>fl&&(estados[key]?.estadoResp||"gris")==="gris";
+    }
     if(numSemana===null||numSemana===undefined) return false; // Diaria/Quincenal/Anual - no semana lógica
     const sw=semanas.find(s=>s.num===numSemana)||semanas[0];
     if(!sw) return false;
@@ -1639,7 +1690,14 @@ Equipo Mediterra`);
     const hoyD=new Date();hoyD.setHours(0,0,0,0);
     const frec=getFrecuencia(tarea.id);
     let diff;
-    if(frec==="Mensual")diff=(new Date(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite)-hoyD)/(1000*60*60*24);
+    if(frec==="Mensual")diff=(diaHabil(anio,mes,getConfig(tarea.id).diaLimite||tarea.diaLimite)-hoyD)/(1000*60*60*24);
+    else if(frec==="Puntual"){
+      const fp = getConfig(tarea.id).fechaPuntual || tarea.fechaPuntual;
+      if(!fp) return false;
+      diff = (new Date(fp+"T00:00:00")-hoyD)/(1000*60*60*24);
+      // Alertar 30 días antes para tareas puntuales
+      return diff>=0 && diff<=30 && (estados[key]?.estadoResp||"gris")==="gris";
+    }
     else{if(numSemana===null||numSemana===undefined)return false;const sw=semanas.find(s=>s.num===numSemana)||semanas[0];if(!sw)return false;const ds=getConfig(tarea.id).diaLimiteSem??tarea.diaLimiteSem;diff=(fechaDiaSemana(sw.inicioSem,ds)-hoyD)/(1000*60*60*24);}
     return diff>=0&&diff<=2&&(estados[key]?.estadoResp||"gris")==="gris";
   }
@@ -1647,7 +1705,7 @@ Equipo Mediterra`);
     const res={};WORKERS.forEach(w=>{res[w.nombre]=[];});
     todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{
       const frec=getFrecuencia(t.id);
-      if(frec==="Mensual"){if(estaVencida(t,t.id,null))res[t.responsable]?.push({...t,key:t.id});}
+      if(frec==="Mensual"||frec==="Puntual"){if(estaVencida(t,t.id,null))res[t.responsable]?.push({...t,key:t.id});}
       else semanas.forEach(s=>{const key=`${t.id}_s${s.num}`;if(estaVencida(t,key,s.num))res[t.responsable]?.push({...t,key});});
     });
     return res;
@@ -1657,7 +1715,7 @@ Equipo Mediterra`);
     const cuerpo=encodeURIComponent(`Hola ${w.nombre.split(" ")[0]},\n\nLas siguientes tareas estan vencidas:\n\n`+tareas.map(t=>`- ${t.nombre}`).join('\n')+`\n\nhttps://gestion-grupo-mediterra.vercel.app\n\nSaludos`);
     window.open(`mailto:${w.email}?subject=${asunto}&body=${cuerpo}`);
   }
-  const totalVencidas=(()=>{let c=0;todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{if(getFrecuencia(t.id)==="Mensual"){if(estaVencida(t,t.id,null))c++;}else semanas.forEach(s=>{if(estaVencida(t,`${t.id}_s${s.num}`,s.num))c++;});});return c;})();
+  const totalVencidas=(()=>{let c=0;todasTareas().filter(t=>!isBloqueada(t.id)).forEach(t=>{const frec=getFrecuencia(t.id);if(frec==="Mensual"||frec==="Puntual"){if(estaVencida(t,t.id,null))c++;}else semanas.forEach(s=>{if(estaVencida(t,`${t.id}_s${s.num}`,s.num))c++;});});return c;})();
 
   function resumen(nombre){
     let v=0,a=0,r=0,g=0,total=0;
@@ -1665,7 +1723,7 @@ Equipo Mediterra`);
       const frec=getFrecuencia(t.id);const sup=getSupervisor(t.id);
       const esR=t.responsable===nombre;const esS=sup===nombre;
       if(!esR&&!esS)return;
-      const keys=frec==="Mensual"?[t.id]:semanas.map(s=>`${t.id}_s${s.num}`);
+      const keys=frec==="Mensual"||frec==="Puntual"?[t.id]:semanas.map(s=>`${t.id}_s${s.num}`);
       keys.forEach(k=>{const e=(esR?estados[k]?.estadoResp:estados[k]?.estadoSup)||"gris";if(e==="na")return;total++;if(e==="verde")v++;else if(e==="amarillo")a++;else if(e==="rojo")r++;else g++;});
     });
     return{v,a,r,g,total,pct:total>0?Math.round((v/total)*100):0};
@@ -1710,12 +1768,22 @@ Equipo Mediterra`);
   }
   function agregarTarea(){
     if(!nuevaTarea.nombre.trim()||!nuevaTarea.responsable){alert("Nombre y responsable son obligatorios.");return;}
+    if(nuevaTarea.frecuencia==="Puntual"&&!nuevaTarea.fechaPuntual){alert("Para tareas puntuales, la fecha es obligatoria.");return;}
     const id=`custom_${Date.now()}`;
-    setTareasExtra(prev=>[...prev,{...nuevaTarea,id,diaLimiteSem:0,diaLimite:10,dependeDe:nuevaTarea.dependeDe||null}]);
-    setTareasConfig(prev=>({...prev,[id]:{supervisor:nuevaTarea.supervisor,diaLimiteSem:0,diaLimite:10,frecuencia:nuevaTarea.frecuencia,bloqueada:false,dependeDe:nuevaTarea.dependeDe||null}}));
+    const tarea = {...nuevaTarea, id, diaLimiteSem:0, diaLimite:10, dependeDe:nuevaTarea.dependeDe||null};
+    if(nuevaTarea.frecuencia==="Puntual") tarea.fechaPuntual = nuevaTarea.fechaPuntual;
+    setTareasExtra(prev=>[...prev, tarea]);
+    setTareasConfig(prev=>({...prev,[id]:{supervisor:nuevaTarea.supervisor,diaLimiteSem:0,diaLimite:10,
+      frecuencia:nuevaTarea.frecuencia,bloqueada:false,dependeDe:nuevaTarea.dependeDe||null,
+      fechaPuntual:nuevaTarea.fechaPuntual||""}}));
     setSupervisores(prev=>({...prev,[id]:nuevaTarea.supervisor||""}));
-    setEstados(prev=>{const n={...prev};if(nuevaTarea.frecuencia==="Mensual")n[id]={estadoResp:"gris",estadoSup:"gris",aprobado:false};else semanas.forEach(s=>{n[`${id}_s${s.num}`]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});return n;});
-    setNuevaTarea({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:""});setMostrarFormTarea(false);
+    setEstados(prev=>{
+      const n={...prev};
+      if(nuevaTarea.frecuencia==="Mensual"||nuevaTarea.frecuencia==="Puntual") n[id]={estadoResp:"gris",estadoSup:"gris",aprobado:false};
+      else semanas.forEach(s=>{n[`${id}_s${s.num}`]={estadoResp:"gris",estadoSup:"gris",aprobado:false};});
+      return n;
+    });
+    setNuevaTarea({nombre:"",responsable:"",supervisor:"",categoria:"Finanzas",frecuencia:"Semanal",dependeDe:"",fechaPuntual:""});setMostrarFormTarea(false);
   }
 
   const estadoGuardadoUI={idle:null,guardando:{icon:"💾",text:"Guardando..."},ok:{icon:"✅",text:"Guardado"},error:{icon:"❌",text:"Error"}}[guardado];
@@ -1739,7 +1807,16 @@ Equipo Mediterra`);
       const proxima=!vencida&&estaProxima(t,key,numSem)&&est.estadoResp!=="na";
       const puedeResp=puedeEditar(t,true);const puedeSup=puedeEditar(t,false);
       const depOk=dependenciaOk(t,numSem);const esNA=est.estadoResp==="na";
-      const diaLabel=frec==="Mensual"?`dia ${getConfig(t.id).diaLimite||t.diaLimite}`:`${DIAS_SEMANA[getConfig(t.id).diaLimiteSem??t.diaLimiteSem]}`;
+      const diaLabel = (() => {
+        if(frec === "Mensual") {
+          const diaBase = getConfig(t.id).diaLimite || t.diaLimite;
+          const fHabil = diaHabil(anio, mes, diaBase);
+          const diaReal = fHabil.getDate();
+          if(diaReal !== diaBase) return `día ${diaReal} (mov. del ${diaBase})`;
+          return `día ${diaBase}`;
+        }
+        return `${DIAS_SEMANA[getConfig(t.id).diaLimiteSem??t.diaLimiteSem]}`;
+      })();
       return(
         <tr key={key} style={{borderBottom:"1px solid #f1f5f9",opacity:esNA?0.55:1,
           background:!depOk?"#f8f8ff":esNA?"#f8fafc":vencida?"#fff5f5":proxima?"#fffbeb":i%2===0?"#fff":"#f8fafc",
@@ -2163,6 +2240,14 @@ Equipo Mediterra`);
                   {FRECUENCIAS.map(f=><option key={f}>{f}</option>)}
                 </select>
               </div>
+              {nuevaTarea.frecuencia==="Puntual"&&(
+                <div>
+                  <div style={{fontSize:10,color:"#64748b",marginBottom:2}}>Fecha límite</div>
+                  <input type="date" value={nuevaTarea.fechaPuntual||""}
+                    onChange={e=>setNuevaTarea(p=>({...p,fechaPuntual:e.target.value}))}
+                    style={{padding:"6px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}/>
+                </div>
+              )}
               <div style={{alignSelf:"flex-end"}}>
                 <button onClick={agregarTarea} style={{padding:"7px 18px",borderRadius:8,background:"#2563eb",color:"#fff",border:"none",cursor:"pointer",fontWeight:700,fontSize:13}}>
                   + Agregar
@@ -2180,7 +2265,8 @@ Equipo Mediterra`);
             {id:"semanal",   label:"📅 Semanales",  show:puedeVerSemanal},
             {id:"quincenal", label:"🗓 Quincenales",show:puedeVerQuincenal},
             {id:"mensual",   label:"📆 Mensuales",  show:puedeVerMensual},
-            {id:"anual",     label:"📌 Anuales",    show:puedeVerAnual},
+            {id:"puntual",   label:"📌 Puntuales",  show:true},
+            {id:"anual",     label:"🗃 Anuales",    show:puedeVerAnual},
             {id:"config",    label:"⚙️ Config",    show:puedeVerConfig},
           ].filter(t=>t.show).map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)}
@@ -2250,6 +2336,112 @@ Equipo Mediterra`);
           )}
           {!puedeVerMensual&&tab==="mensual"&&(
             <div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:14}}>🚫 No tienes acceso a la vista mensual.</div>
+          )}
+
+          {/* TAREAS PUNTUALES */}
+          {tab==="puntual"&&(
+            <div>
+              <div style={{marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <h3 style={{margin:0,fontSize:15,color:"#1e293b"}}>📌 Tareas Puntuales</h3>
+                <span style={{fontSize:11,color:"#64748b"}}>Tareas con fecha específica · Alerta 30 días antes</span>
+              </div>
+              {(()=>{
+                const puntuales = todasTareas().filter(t=>getFrecuencia(t.id)==="Puntual"&&!isBloqueada(t.id));
+                const hoyD = new Date(); hoyD.setHours(0,0,0,0);
+                // Ordenar por fecha
+                const sorted = [...puntuales].sort((a,b)=>{
+                  const fa = getConfig(a.id).fechaPuntual||a.fechaPuntual||"9999";
+                  const fb = getConfig(b.id).fechaPuntual||b.fechaPuntual||"9999";
+                  return fa.localeCompare(fb);
+                });
+                if(sorted.length===0) return (
+                  <div style={{textAlign:"center",padding:40,color:"#94a3b8",fontSize:13}}>
+                    No hay tareas puntuales programadas. Usa el botón "+ Agregar tarea" en la pestaña Config para crear una con frecuencia "Puntual".
+                  </div>
+                );
+                return (
+                  <div style={{overflowX:"auto",borderRadius:12,boxShadow:"0 1px 4px #0001"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",background:"#fff"}}>
+                      <thead>
+                        <tr style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0"}}>
+                          <th style={{padding:"10px 14px",textAlign:"left",fontSize:11,color:"#475569",fontWeight:700}}>Tarea</th>
+                          <th style={{padding:"10px 14px",textAlign:"left",fontSize:11,color:"#475569",fontWeight:700}}>Responsable</th>
+                          <th style={{padding:"10px 14px",textAlign:"left",fontSize:11,color:"#475569",fontWeight:700}}>Supervisor</th>
+                          <th style={{padding:"10px 14px",textAlign:"center",fontSize:11,color:"#475569",fontWeight:700}}>Fecha</th>
+                          <th style={{padding:"10px 14px",textAlign:"center",fontSize:11,color:"#475569",fontWeight:700}}>Días restantes</th>
+                          <th style={{padding:"10px 14px",textAlign:"center",fontSize:11,color:"#475569",fontWeight:700}}>Estado</th>
+                          <th style={{padding:"10px 14px",textAlign:"center",fontSize:11,color:"#475569",fontWeight:700}}>Supervisor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sorted.map((t,i)=>{
+                          const key = t.id;
+                          const est = estados[key]||{estadoResp:"gris",estadoSup:"gris"};
+                          const fp = getConfig(t.id).fechaPuntual || t.fechaPuntual || "";
+                          const fechaObj = fp ? new Date(fp+"T00:00:00") : null;
+                          const diff = fechaObj ? Math.ceil((fechaObj - hoyD)/(1000*60*60*24)) : null;
+                          const vencida = diff !== null && diff < 0 && est.estadoResp !== "verde" && est.estadoResp !== "na";
+                          const proxima = diff !== null && diff >= 0 && diff <= 30 && est.estadoResp !== "verde" && est.estadoResp !== "na";
+                          const completada = est.estadoResp === "verde";
+                          const semResp = SEMAFORO[est.estadoResp]||SEMAFORO.gris;
+                          const sup = getSupervisor(t.id);
+                          const supActivo = est.estadoResp==="verde" && sup;
+                          const semSup = SEMAFORO[supActivo?est.estadoSup:"gris"];
+                          const puedeResp = puedeEditar(t,true);
+                          const puedeSup = puedeEditar(t,false);
+                          const cat = CATEGORIAS[t.categoria]||{color:"#64748b",bg:"#f1f5f9"};
+                          return (
+                            <tr key={key} style={{borderBottom:"1px solid #f1f5f9",
+                              background:completada?"#f0fdf4":vencida?"#fff5f5":proxima?"#fffbeb":i%2===0?"#fff":"#f8fafc"}}>
+                              <td style={{padding:"10px 14px"}}>
+                                <div style={{fontWeight:600,fontSize:12,color:"#1e293b"}}>{t.nombre}</div>
+                                <div style={{display:"flex",gap:6,marginTop:4}}>
+                                  <span style={{fontSize:9,background:cat.bg,color:cat.color,padding:"1px 8px",borderRadius:20,fontWeight:600}}>{t.categoria}</span>
+                                </div>
+                              </td>
+                              <td style={{padding:"10px 14px",fontSize:12,color:"#475569"}}>{t.responsable}</td>
+                              <td style={{padding:"10px 14px",fontSize:12,color:"#475569"}}>{sup||"—"}</td>
+                              <td style={{padding:"10px 14px",textAlign:"center",fontSize:12,fontWeight:600,
+                                color:vencida?"#dc2626":proxima?"#d97706":"#1e293b"}}>
+                                {fechaObj ? fechaObj.toLocaleDateString("es-CL",{day:"2-digit",month:"short",year:"numeric"}) : "—"}
+                              </td>
+                              <td style={{padding:"10px 14px",textAlign:"center"}}>
+                                {diff !== null ? (
+                                  <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,
+                                    background:completada?"#dcfce7":vencida?"#fee2e2":proxima&&diff<=7?"#fef3c7":proxima?"#dbeafe":"#f1f5f9",
+                                    color:completada?"#16a34a":vencida?"#dc2626":proxima&&diff<=7?"#d97706":proxima?"#2563eb":"#64748b"}}>
+                                    {completada?"✅ Completada":vencida?`⚠️ Vencida ${Math.abs(diff)}d`:diff===0?"🔴 Hoy":`${diff}d`}
+                                  </span>
+                                ) : "—"}
+                              </td>
+                              <td style={{padding:"10px 14px",textAlign:"center"}}>
+                                <div onClick={()=>puedeResp&&ciclarResp(key,t,null)}
+                                  style={{width:28,height:28,borderRadius:"50%",background:semResp.bg,border:`2px solid ${semResp.border}`,
+                                    display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:puedeResp?"pointer":"default",
+                                    transition:"all 0.15s"}}>
+                                  <div style={{width:14,height:14,borderRadius:"50%",background:semResp.color}}/>
+                                </div>
+                              </td>
+                              <td style={{padding:"10px 14px",textAlign:"center"}}>
+                                {sup ? (
+                                  <div onClick={()=>puedeSup&&supActivo&&ciclarSup(key,t)}
+                                    style={{width:28,height:28,borderRadius:"50%",background:semSup.bg,border:`2px solid ${semSup.border}`,
+                                      display:"inline-flex",alignItems:"center",justifyContent:"center",
+                                      cursor:puedeSup&&supActivo?"pointer":"default",opacity:supActivo?1:0.3,
+                                      transition:"all 0.15s"}}>
+                                    <div style={{width:14,height:14,borderRadius:"50%",background:semSup.color}}/>
+                                  </div>
+                                ) : <span style={{color:"#cbd5e1"}}>—</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
           )}
 
           {tab==="diaria"&&puedeVerDiaria&&(
