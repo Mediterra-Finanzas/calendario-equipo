@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import OsirisModule from "./OsirisModule.jsx";
 import FinanzasModule from "./FinanzasModule.jsx";
+import AllegriaModule from "./AllegriaModule.jsx";
 
 const EMAILJS_SERVICE  = "service_ahuerta";
 const EMAILJS_TEMPLATE       = "template_c7yup8d";  // Template PIN temporal
@@ -199,8 +200,7 @@ const MODULOS_DISPONIBLES = [
   {id:"tareas",   label:"Seguimiento Tareas",      sublabel:"Administración y Finanzas", icon:"📋", color:"#2563eb", bg:"#dbeafe", grad:"linear-gradient(135deg,#1e3a5f,#2563eb)"},
   {id:"osiris",   label:"Osiris Plant Management", sublabel:"Gestión de Ingresos",       icon:"🌿", color:"#0f766e", bg:"#ccfbf1", grad:"linear-gradient(135deg,#0f2d4a,#0f766e)"},
   {id:"finanzas", label:"Finanzas",                sublabel:"Flujo de Caja Grupo Mediterra", icon:"💼", color:"#0d6b3a", bg:"#d1fae5", grad:"linear-gradient(135deg,#0d2137,#0a3d2b)"},
-  // Futuros módulos se agregan aquí:
-  // {id:"frisku", label:"Frisku Foods", sublabel:"Gestión Operacional", icon:"🫐", color:"#7c3aed", bg:"#ede9fe", grad:"linear-gradient(135deg,#1a1a2e,#7c3aed)"},
+  {id:"allegria", label:"Allegria Foods",           sublabel:"Exportación Fruta Fresca",  icon:"🍒", color:"#b91c1c", bg:"#fee2e2", grad:"linear-gradient(135deg,#1a0a0a,#b91c1c)"},
 ];
 
 // Feriados de Chile (fijos + variables conocidos 2026-2031)
@@ -401,6 +401,14 @@ const TABS_PERMISOS_CONFIG = {
     {id:"nominas",   label:"📋 Nóminas"},
     {id:"params",    label:"⚡ Parámetros"},
     {id:"auditoria", label:"🔍 Auditoría"},
+  ],
+  allegria: [
+    {id:"clientes",      label:"👥 Clientes Importadores"},
+    {id:"productores",   label:"🌱 Productores"},
+    {id:"embarques",     label:"🚢 Embarques"},
+    {id:"liquidaciones", label:"💰 Liquidaciones"},
+    {id:"anticipos",     label:"💵 Anticipos"},
+    {id:"cobranza",      label:"📋 Cobranza"},
   ],
 };
 
@@ -2108,6 +2116,19 @@ Equipo Mediterra`);
         onLogout={doLogout}
         osirisData={osirisData}
         setOsirisData={setOsirisData}
+      />
+    </div>
+  );
+
+  if(moduloActivo==="allegria") return (
+    <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh"}}>
+      <AllegriaModule
+        usuarioActual={usuarioFresco}
+        esAdmin={esAdmin}
+        esSoloConsulta={esSoloConsulta}
+        tabPermisos={getTabPermisosModulo(usuarioFresco,"allegria")}
+        onBack={()=>setModuloActivo(null)}
+        onLogout={doLogout}
       />
     </div>
   );
