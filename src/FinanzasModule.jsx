@@ -609,7 +609,6 @@ const EMPRESAS_STATIC = {
         {label:'Arriendo Vehículos', proy:ext(Array(65).fill(5000))},
         {label:'Arriendo Oficina', proy:Z65()},
         {label:'Gastos Legales', proy:ext(Array(65).fill(1000))},
-        {label:'Fee Administración', proy:Z65()},
         {label:'Asesorías Corporativo', proy:Z65()},
         {label:'Asesorías', proy:Z65()},
         {label:'Asesorías Contables', proy:ext(Array(65).fill(200))},
