@@ -802,6 +802,44 @@ function HubScreen({ usuario, modulosPermitidos, onSelectModulo, onLogout, onCam
               ⚙️ Permisos
             </button>
           )}
+          {usuario.rol === "admin" && (
+            <button onClick={async()=>{
+              try {
+                const btn = document.activeElement;
+                if(btn) btn.textContent="⏳ Exportando...";
+                // Cargar todos los datos de Supabase
+                const res = await fetch(`${SUPA_URL}/rest/v1/calendario_data?select=id,value,updated_at`,{
+                  headers:{apikey:SUPA_KEY,Authorization:`Bearer ${SUPA_KEY}`}
+                });
+                const allData = await res.json();
+                const backup = {
+                  fecha: new Date().toISOString(),
+                  usuario: usuario.nombre,
+                  version: "Mediterra Hub Backup v1",
+                  tablas: {}
+                };
+                (allData||[]).forEach(row=>{
+                  try { backup.tablas[row.id] = {data:JSON.parse(row.value), updated_at:row.updated_at}; }
+                  catch { backup.tablas[row.id] = {data:row.value, updated_at:row.updated_at}; }
+                });
+                // Descargar como JSON
+                const blob = new Blob([JSON.stringify(backup,null,2)], {type:"application/json"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href=url;
+                a.download=`backup_mediterra_${new Date().toISOString().slice(0,10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                if(btn) btn.textContent="💾 Respaldo";
+                alert("✅ Respaldo descargado exitosamente");
+              } catch(e) {
+                alert("❌ Error al generar respaldo: "+e.message);
+              }
+            }}
+              style={{background:"#dbeafe", border:"1px solid #93c5fd", color:"#1e40af", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12, fontWeight:600}}>
+              💾 Respaldo
+            </button>
+          )}
           {!esSoloConsulta(usuario.nombre) &&
             <button onClick={onCambiarPin} style={{background:"#f1f5f9", border:"1px solid #e2e8f0", color:"#1e293b", borderRadius:8, padding:"6px 14px", cursor:"pointer", fontSize:12}}>🔑 PIN</button>
           }
@@ -1410,6 +1448,91 @@ export default function App(){
   useEffect(()=>{
     window._auditUsuarioActual = usuarioActual;
   },[usuarioActual]);
+
+  // ═══════════════════════════════════════════════════════════════════
+  // RESPALDO AUTOMÁTICO DIARIO — se ejecuta 1 vez al día al login del admin
+  // ═══════════════════════════════════════════════════════════════════
+  useEffect(()=>{
+    if(cargando || !usuarioActual) return;
+    if(usuarioActual.rol !== "admin") return;
+    const hoyKey = `mediterra_backup_${new Date().toISOString().slice(0,10)}`;
+    if(sessionStorage.getItem(hoyKey)) return; // ya se hizo hoy
+    sessionStorage.setItem(hoyKey, "1");
+
+    // Esperar 5s después del login para no interferir con la carga
+    const timer = setTimeout(async()=>{
+      try {
+        const res = await fetch(`${SUPA_URL}/rest/v1/calendario_data?select=id,value,updated_at`,{
+          headers:{apikey:SUPA_KEY,Authorization:`Bearer ${SUPA_KEY}`}
+        });
+        const allData = await res.json();
+        const backup = {
+          fecha: new Date().toISOString(),
+          usuario: usuarioActual.nombre,
+          version: "Mediterra Hub Backup Automático v1",
+          tablas: {}
+        };
+        (allData||[]).forEach(row=>{
+          try { backup.tablas[row.id] = {data:JSON.parse(row.value), updated_at:row.updated_at}; }
+          catch { backup.tablas[row.id] = {data:row.value, updated_at:row.updated_at}; }
+        });
+
+        // Generar resumen para el email
+        const tablasList = Object.keys(backup.tablas).join(", ");
+        const totalRegistros = Object.values(backup.tablas).reduce((s,t)=>{
+          if(Array.isArray(t.data)) return s+t.data.length;
+          if(t.data&&typeof t.data==="object") return s+Object.keys(t.data).length;
+          return s+1;
+        },0);
+        const backupJSON = JSON.stringify(backup);
+        const sizeMB = (backupJSON.length/1024/1024).toFixed(2);
+
+        // Enviar por email via EmailJS
+        // Nota: EmailJS tiene límite de tamaño, enviamos solo resumen + link
+        const mensaje = `📦 RESPALDO DIARIO AUTOMÁTICO — Grupo Mediterra\n\n`
+          + `Fecha: ${new Date().toLocaleString("es-CL")}\n`
+          + `Usuario: ${usuarioActual.nombre}\n`
+          + `Tablas respaldadas: ${tablasList}\n`
+          + `Total registros: ${totalRegistros}\n`
+          + `Tamaño: ${sizeMB} MB\n\n`
+          + `⚠️ Este es un respaldo automático. Para descargar el archivo completo, `
+          + `ingresa al Hub → botón 💾 Respaldo.\n\n`
+          + `— Mediterra Hub`;
+
+        await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            service_id:EMAILJS_SERVICE,
+            template_id:EMAILJS_TEMPLATE_NOTIF,
+            user_id:EMAILJS_KEY,
+            template_params:{
+              to_email:"ahuerta@grupomediterra.cl",
+              to_name:"Angelo",
+              subject:`📦 Backup Mediterra Hub — ${new Date().toISOString().slice(0,10)}`,
+              message:mensaje,
+            }
+          })
+        });
+
+        // También guardar el backup en Supabase como registro adicional
+        await fetch(`${SUPA_URL}/rest/v1/calendario_data`,{
+          method:"POST",
+          headers:{apikey:SUPA_KEY,Authorization:`Bearer ${SUPA_KEY}`,
+            "Content-Type":"application/json",Prefer:"resolution=merge-duplicates"},
+          body:JSON.stringify({
+            id:`backup_${new Date().toISOString().slice(0,10)}`,
+            value:backupJSON,
+            updated_at:new Date().toISOString()
+          })
+        });
+
+        console.log("✅ Respaldo diario completado y enviado por email");
+      } catch(e) {
+        console.error("❌ Error en respaldo automático:", e);
+      }
+    }, 5000);
+    return ()=>clearTimeout(timer);
+  },[cargando, usuarioActual]); // eslint-disable-line
 
   // ═══════════════════════════════════════════════════════════════════
   // ALERTAS EMAIL — Tareas puntuales: email los LUNES + resumen semanal
