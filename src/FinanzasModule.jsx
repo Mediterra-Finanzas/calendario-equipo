@@ -3245,27 +3245,25 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
     const res = {};
     empNames.forEach(n=>{
       const emp = empresas[n];
-      // Saldo Caja desde Saldos Bancos (convertido a USD)
       const saldoCaja = getSaldoBancoUSD(saldosBancos, n);
 
-      // Ingresos Operacionales
+      // Ingresos Operacionales (toda la sección ing_op)
       const ingresos = sumCatWF(emp, "ing_op", idx);
 
-      // Egresos Operacionales: egr_var + egr_fijo + Leyes Sociales + F-29 + Otros Egresos No Op.
-      const egresosBase = sumCatWF(emp, "egr_var", idx) + sumCatWF(emp, "egr_fijo", idx);
-      const leyesL    = findLineWF(emp,"Leyes Sociales Laborales");
-      const f29L      = findLineWF(emp,"Pago F-29");
-      const otrosENop = findLineWF(emp,"Otros Egresos No Operacionales");
-      const leyesSociales = leyesL    ? sumRangeWF(leyesL.line.proy,idx)    * leyesL.signo    : 0;
-      const pagoF29       = f29L      ? sumRangeWF(f29L.line.proy,idx)      * f29L.signo      : 0;
-      const otrosEgresosN = otrosENop ? sumRangeWF(otrosENop.line.proy,idx) * otrosENop.signo : 0;
-      const egresosOp = egresosBase + leyesSociales + pagoF29 + otrosEgresosN;
+      // Egresos Operacionales = egr_var + egr_fijo
+      const egresosOp = sumCatWF(emp, "egr_var", idx) + sumCatWF(emp, "egr_fijo", idx);
 
       // Impuestos
       const impuestos = sumCatWF(emp, "imp", idx);
       const fcOp = ingresos + egresosOp + impuestos;
 
-      // Bloque de capital
+      // Ingresos No Operacionales (toda la sección ing_nop)
+      const ingNop = sumCatWF(emp, "ing_nop", idx);
+
+      // Egresos No Operacionales (toda la sección egr_nop)
+      const egrNop = sumCatWF(emp, "egr_nop", idx);
+
+      // Desglose para visualización (buscar líneas individuales)
       const callCap   = findLineWF(emp,"Capital Calls");
       const finInL    = findLineWF(emp,"Ingresos Financiamiento");
       const ingRenL   = findLineWF(emp,"Ingreso Renovación");
@@ -3282,8 +3280,7 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
       const inversiones    = renovL    ? sumRangeWF(renovL.line.proy,idx)    * renovL.signo    : 0;
       const aportesCapital = aportesL  ? sumRangeWF(aportesL.line.proy,idx)  * aportesL.signo  : 0;
 
-      const fcCapital = callCapital + financiamiento + pagoCreditos + dividendosRec +
-                        otrosIngresosN + inversiones + aportesCapital;
+      const fcCapital = ingNop + egrNop;
       const total = fcOp + fcCapital;
       const saldoFinal = saldoCaja + total;
       const participacion = PARTICIPACION_CONTROLADORA[n] ?? 1;
