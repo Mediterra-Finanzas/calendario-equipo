@@ -594,7 +594,7 @@ const EMPRESAS_STATIC = {
     sections:[
       { cat:'ing_op', label:'Ingresos Operacionales', signo:1, lines:[
         {label:'Cuentas por Cobrar', proy:Z65(),subLines:true},
-        {label:'Fee Administración', proy:ext([80000,80000,80000,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500,87500].concat(Array(41).fill(87500)))},
+        {label:'Fee Administración', proy:ext([80000,80000,80000,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500,107500].concat(Array(41).fill(107500)))},
       ]},
       { cat:'egr_var', label:'Egresos Operacionales', signo:-1, lines:[
         {label:'Costos Variables Operacionales', proy:Z65()},
@@ -650,7 +650,7 @@ const EMPRESAS_STATIC = {
       { cat:'egr_nop', label:'Egresos No Operacionales', signo:-1, lines:[
         {label:'Aportes de Capital', proy:Z65(), subLines:true},
         {label:'Leyes Sociales Laborales', proy:Z65()},
-        {label:'Pago F-29', proy:Z65()},
+        {label:'Pago F-29', proy:ext(Array(65).fill(25000))},
         {label:'Pago Préstamos - Total', proy:calcPrestamosEmpresa('Mediterra'), formula:true, subLines:true},
         {label:'Renovaciones', proy:calcRenovacionesEmpresa('Mediterra'), formula:true, subLines:true},
       ]},
@@ -724,7 +724,7 @@ const EMPRESAS_STATIC = {
       ]},
       { cat:'imp', label:'Impuestos', signo:-1, lines:[
         {label:'Impuestos Anuales', proy:Z65()},
-        {label:'Impuestos Mensuales', proy:Z65()},
+        {label:'Impuestos Mensuales', proy:ext([12651, 12651, 12651, 12651, 12651, 12651, 12651, 12651, 12651, 12651, 12651, 12651, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])},
       ]},
       { cat:'ing_nop', label:'Ingresos No Operacionales', signo:1, lines:[
         {label:'Capital Calls', proy:Z65(), subLines:true},
