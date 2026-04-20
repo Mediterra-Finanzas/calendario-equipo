@@ -7021,11 +7021,13 @@ const AÑOS_NOM = Array.from({length:12},(_,i)=>2024+i); // 2024-2035
 // ─────────────────────────────────────────────────────────────────
 // ITEM ROW VACÍO
 // ─────────────────────────────────────────────────────────────────
+const TIPOS_DOCUMENTO = ["Factura Electrónica","Factura Exenta","Factura Importación","Nota de Cobro","Rendición","Remuneraciones","Boleta de Honorarios"];
+
 function itemVacio(seccion) {
   return {
     id: `item_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
     seccion,
-    proveedor:"", rut:"", nDoc:"", fDoc:"", fVenc:"",
+    tipoDoc:"", proveedor:"", rut:"", nDoc:"", fDoc:"", fVenc:"",
     semVenc:"", concepto:"", montoCLP:0, montoUSD:0, comentario:"",
     pagado:false,
   };
@@ -7034,6 +7036,17 @@ function itemVacio(seccion) {
 // ─────────────────────────────────────────────────────────────────
 // NÓMINA VACÍA
 // ─────────────────────────────────────────────────────────────────
+// Calcular semana ISO de una fecha
+function semanaISOdeFecha(fechaStr) {
+  if(!fechaStr) return null;
+  const d = new Date(fechaStr+"T00:00:00");
+  if(isNaN(d)) return null;
+  const jan4 = new Date(d.getFullYear(),0,4);
+  const daysSinceJan4 = Math.floor((d - jan4)/(86400000));
+  const weekNum = Math.ceil((daysSinceJan4 + jan4.getDay() + 1) / 7);
+  return Math.max(1, Math.min(weekNum, 53));
+}
+
 function nominaVacia(empresa, semana, año, numero=1) {
   return {
     id: `nom_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
@@ -7111,10 +7124,10 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas"}) {
   const totalUSD = rows.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
 
   const montoLabel = soloUSD ? "Monto USD" : soloCLP ? "Monto CLP" : null;
-  const headers = ["Proveedor / Nombre","RUT","N° Doc","F. Doc","F. Venc","Sem","Concepto",
+  const headers = ["Tipo Doc","Proveedor / Nombre","RUT","N° Doc","F. Doc","F. Venc","Sem","Concepto",
     ...(soloUSD ? ["Monto USD"] : soloCLP ? ["Monto CLP"] : ["Monto CLP","Monto USD"]),
     "Comentario",""];
-  const colSpanTotal = 7;
+  const colSpanTotal = 8;
   const colSpanEnd = soloUSD||soloCLP ? 2 : 2;
 
   const inputSt = {
@@ -7145,6 +7158,15 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas"}) {
               <tr key={it.id} style={{borderBottom:`1px solid ${C.border}22`,
                 background:it.pagado?`${C.green}08`:i%2===0?"transparent":`${C.border}11`,
                 opacity:it.pagado?0.6:1}}>
+                <td style={{padding:"3px 6px",minWidth:130}}>
+                  {canEdit
+                    ? <select value={it.tipoDoc||""} onChange={e=>updItem(it.id,"tipoDoc",e.target.value)}
+                        style={{...inputSt,width:"100%",cursor:"pointer"}}>
+                        <option value="">— Tipo —</option>
+                        {TIPOS_DOCUMENTO.map(t=><option key={t} value={t}>{t}</option>)}
+                      </select>
+                    : <span style={{color:C.muted,fontSize:10}}>{it.tipoDoc||"—"}</span>}
+                </td>
                 <td style={{padding:"3px 6px",minWidth:140}}>
                   {canEdit
                     ? <input value={it.proveedor} onChange={e=>updItem(it.id,"proveedor",e.target.value)} style={inputSt} placeholder="Nombre"/>
@@ -7157,7 +7179,7 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas"}) {
                 </td>
                 <td style={{padding:"3px 6px",minWidth:80}}>
                   {canEdit
-                    ? <input value={it.nDoc} onChange={e=>updItem(it.id,"nDoc",e.target.value)} style={inputSt} placeholder="F-001"/>
+                    ? <input value={it.nDoc} onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,"");updItem(it.id,"nDoc",v);}} style={inputSt} placeholder="123456" inputMode="numeric"/>
                     : <span style={{color:C.muted}}>{it.nDoc||"—"}</span>}
                 </td>
                 <td style={{padding:"3px 6px",minWidth:90}}>
@@ -8041,6 +8063,8 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
   const [filtroEmpresa, setFiltroEmpresa] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
   const [vistaResumen, setVistaResumen] = useState(false);
+  const [busqGlobal, setBusqGlobal] = useState("");
+  const [vistaBusqueda, setVistaBusqueda] = useState(false);
   const nominasRef = useRef(nominas);
   useEffect(()=>{nominasRef.current=nominas;},[nominas]);
 
@@ -8369,9 +8393,77 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
           style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,
             background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
           <option value="">📊 Todos los estados</option>
+
+        {/* Buscador global */}
+        <div style={{display:"flex",alignItems:"center",gap:4,marginLeft:"auto"}}>
+          <input value={busqGlobal} onChange={e=>{setBusqGlobal(e.target.value);if(e.target.value.trim()) setVistaBusqueda(true);else setVistaBusqueda(false);}}
+            placeholder="🔍 Buscar N° doc, proveedor, monto..."
+            style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${busqGlobal?C.accentL:C.border}`,
+              background:C.card2,color:C.text,fontSize:12,outline:"none",width:260}}/>
+          {busqGlobal&&<button onClick={()=>{setBusqGlobal("");setVistaBusqueda(false);}}
+            style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14}}>✕</button>}
+        </div>
           {ESTADOS_FLUJO.map(e=><option key={e.id} value={e.id}>{e.label}</option>)}
         </select>
       </div>
+
+      {/* ══════ VISTA BÚSQUEDA GLOBAL ══════ */}
+      {vistaBusqueda&&busqGlobal.trim()&&(()=>{
+        const q = busqGlobal.trim().toLowerCase();
+        const resultados = [];
+        nominas.forEach(nom=>{
+          (nom.items||[]).forEach(it=>{
+            const match = (it.proveedor||"").toLowerCase().includes(q)
+              || (it.nDoc||"").includes(q)
+              || (it.tipoDoc||"").toLowerCase().includes(q)
+              || (it.concepto||"").toLowerCase().includes(q)
+              || (it.rut||"").toLowerCase().includes(q)
+              || String(it.montoCLP||0).includes(q)
+              || String(it.montoUSD||0).includes(q);
+            if(match) resultados.push({...it, _nom:nom});
+          });
+        });
+        return (
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>
+              🔍 Resultados de búsqueda: "{busqGlobal}" — {resultados.length} item{resultados.length!==1?"s":""}
+            </div>
+            {resultados.length===0&&<div style={{color:C.muted,fontSize:12,padding:20,textAlign:"center"}}>Sin resultados</div>}
+            {resultados.length>0&&(
+              <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${C.border}`}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                  <thead><tr style={{background:C.bg2}}>
+                    {["Empresa","Semana","Tipo Doc","Proveedor","RUT","N° Doc","F. Venc","Concepto","CLP","USD","Estado Nómina"].map(h=>(
+                      <th key={h} style={{padding:"6px 8px",color:C.muted,fontWeight:600,fontSize:10,textAlign:h==="CLP"||h==="USD"?"right":"left",whiteSpace:"nowrap",borderBottom:`1px solid ${C.border}`}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {resultados.slice(0,100).map((r,i)=>(
+                      <tr key={r.id+i} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}11`,cursor:"pointer"}}
+                        onClick={()=>{setSelNomina(r._nom.id);setVistaBusqueda(false);setBusqGlobal("");}}>
+                        <td style={{padding:"4px 8px",fontWeight:600,color:C.text}}>{r._nom.empresa}</td>
+                        <td style={{padding:"4px 8px",color:C.muted}}>S{r._nom.semana} / {r._nom.año}</td>
+                        <td style={{padding:"4px 8px",color:C.muted,fontSize:10}}>{r.tipoDoc||"—"}</td>
+                        <td style={{padding:"4px 8px",color:C.text}}>{r.proveedor||"—"}</td>
+                        <td style={{padding:"4px 8px",color:C.muted}}>{r.rut||"—"}</td>
+                        <td style={{padding:"4px 8px",color:C.accentL,fontWeight:600}}>{r.nDoc||"—"}</td>
+                        <td style={{padding:"4px 8px",color:C.muted}}>{r.fVenc||"—"}</td>
+                        <td style={{padding:"4px 8px",color:C.muted}}>{r.concepto||"—"}</td>
+                        <td style={{padding:"4px 8px",textAlign:"right",fontWeight:600,color:C.text}}>{Number(r.montoCLP)?$$clp(r.montoCLP):"—"}</td>
+                        <td style={{padding:"4px 8px",textAlign:"right",fontWeight:600,color:C.green}}>{Number(r.montoUSD)?$$usd(r.montoUSD):"—"}</td>
+                        <td style={{padding:"4px 8px"}}><span style={{fontSize:10,padding:"2px 8px",borderRadius:10,
+                          background:r._nom.estado==="aprobada"?`${C.green}22`:r._nom.estado==="aprobada1"?`${C.blue}22`:`${C.yellow}22`,
+                          color:r._nom.estado==="aprobada"?C.green:r._nom.estado==="aprobada1"?C.blue:C.yellow,
+                          fontWeight:700}}>{r._nom.estado}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ══════ VISTA RESUMEN ANUAL ══════ */}
       {vistaResumen&&(()=>{
