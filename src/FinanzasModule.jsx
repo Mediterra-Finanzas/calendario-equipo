@@ -3883,14 +3883,14 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
 
     return (
-      <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`}}>
-        <table style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
-          <thead>
+      <div style={{overflowX:"auto",overflowY:"auto",maxHeight:"80vh",borderRadius:12,border:`1px solid ${C.border}`,position:"relative"}}>
+        <table style={{borderCollapse:"separate",borderSpacing:0,fontSize:11,minWidth:600}}>
+          <thead style={{position:"sticky",top:0,zIndex:5}}>
             {/* Fila 1: temporadas */}
             <tr style={{background:C.bg}}>
               <th style={{padding:"8px 14px",textAlign:"left",color:C.muted,fontSize:10,
-                position:"sticky",left:0,background:C.bg,zIndex:3,minWidth:210,
-                borderRight:`1px solid ${C.border}`}}>
+                position:"sticky",left:0,background:C.bg,zIndex:6,minWidth:210,
+                borderRight:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`}}>
                 Línea {canEdit&&<span style={{fontSize:8,color:C.accentL,marginLeft:4}}>✏️ editable</span>}
               </th>
               {colStructure.map(({season:s,collapsed,cols})=>{
@@ -3900,6 +3900,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     style={{padding:"7px 10px",textAlign:"center",
                       background:!collapsed?C.card:C.bg,
                       borderLeft:`2px solid ${C.border2}`,cursor:"pointer",
+                      borderBottom:`1px solid ${C.border}`,
                       fontSize:10,fontWeight:700,color:"#fff",whiteSpace:"nowrap"}}>
                     {!collapsed?"▾":"▸"} {s.label}
                   </th>
@@ -3909,9 +3910,9 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
             {/* Fila 2 (semanal): headers de mes */}
             {vista==="semanal"&&(
               <tr style={{background:C.bg2}}>
-                <th style={{position:"sticky",left:0,background:C.bg2,zIndex:3,borderRight:`1px solid ${C.border}`}}/>
+                <th style={{position:"sticky",left:0,background:C.bg2,zIndex:6,borderRight:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`}}/>
                 {colStructure.map(({season:s,collapsed,cols})=>{
-                  if(collapsed) return <th key={s.key} style={{borderLeft:`2px solid ${C.border2}`,background:C.bg2}}/>;
+                  if(collapsed) return <th key={s.key} style={{borderLeft:`2px solid ${C.border2}`,background:C.bg2,borderBottom:`1px solid ${C.border}`}}/>;
                   const byMes={};
                   cols.forEach(col=>{
                     if(!byMes[col.mes]) byMes[col.mes]={mes:col.mes,count:0,isFirstInSeason:col.isFirstInSeason};
@@ -3923,6 +3924,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       style={{padding:"4px 6px",textAlign:"center",
                         background:isMonthOpen(mes)?C.card:C.bg,
                         borderLeft:isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}44`,
+                        borderBottom:`1px solid ${C.border}`,
                         cursor:"pointer",fontSize:9,fontWeight:700,
                         color:isMonthOpen(mes)?C.accentL:C.muted,whiteSpace:"nowrap"}}>
                       {isMonthOpen(mes)?"▾":"▸"} {mes}
@@ -3933,11 +3935,11 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
             )}
             {/* Fila 3: semanas / meses */}
             <tr style={{background:C.bg}}>
-              <th style={{position:"sticky",left:0,background:C.bg,zIndex:3,borderRight:`1px solid ${C.border}`}}/>
+              <th style={{position:"sticky",left:0,background:C.bg,zIndex:6,borderRight:`1px solid ${C.border}`,borderBottom:`2px solid ${C.border2}`}}/>
               {colStructure.map(({season:s,collapsed,cols})=>{
                 if(collapsed) return (
                   <th key={s.key} style={{padding:"4px 8px",color:C.muted,fontSize:9,
-                    borderLeft:`2px solid ${C.border2}`,textAlign:"center",background:C.bg}}>
+                    borderLeft:`2px solid ${C.border2}`,textAlign:"center",background:C.bg,borderBottom:`2px solid ${C.border2}`}}>
                     {s.months.length}m
                   </th>
                 );
@@ -3954,6 +3956,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         minWidth:isTot?70:vista==="semanal"?46:68,
                         background:isTot?`${C.yellow}18`:C.bg,
                         borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}55`:`1px solid ${C.border}11`,
+                        borderBottom:`2px solid ${C.border2}`,
                         cursor:col.type==="month_collapsed"?"pointer":"default"}}
                       onClick={col.type==="month_collapsed"?()=>toggleMonth(col.mes):undefined}>
                       {col.type==="month_collapsed"?`▸ ${col.label}`:col.label}
