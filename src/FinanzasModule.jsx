@@ -8434,6 +8434,8 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
           style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,
             background:C.card2,color:C.text,fontSize:12,outline:"none"}}>
           <option value="">📊 Todos los estados</option>
+          {ESTADOS_FLUJO.map(e=><option key={e.id} value={e.id}>{e.label}</option>)}
+        </select>
 
         {/* Buscador global */}
         <div style={{display:"flex",alignItems:"center",gap:4,marginLeft:"auto"}}>
@@ -8444,8 +8446,6 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
           {busqGlobal&&<button onClick={()=>{setBusqGlobal("");setVistaBusqueda(false);}}
             style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14}}>✕</button>}
         </div>
-          {ESTADOS_FLUJO.map(e=><option key={e.id} value={e.id}>{e.label}</option>)}
-        </select>
       </div>
 
       {/* ══════ VISTA BÚSQUEDA GLOBAL ══════ */}
