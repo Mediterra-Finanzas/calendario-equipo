@@ -2911,21 +2911,65 @@ function getSaldoBancoInicial(saldosBancos, empNombre, fallback) {
 // ═══════════════════════════════════════════════════════════════════
 // CONSOLIDADO — dentro de Flujo Empresas
 // ═══════════════════════════════════════════════════════════════════
-function Consolidado({empresas,saldosBancos}) {
+function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={}}) {
   const empNames=Object.keys(empresas);
   const [vistaConsolidado,setVistaConsolidado]=useState("sumada");
   const [agrup,setAgrup]=useState("mes");
   const [openSeason,setOpenSeason]=useState(()=>{const o={};SEASON_KEYS.forEach((k,i)=>{o[k]=i<2;});return o;});
 
+  // Construir empresas con overrides aplicados (igual que FlujoEmpresa)
+  const empresasConOverrides = useMemo(()=>{
+    const result = {};
+    empNames.forEach(n=>{
+      const emp = JSON.parse(JSON.stringify(empresas[n]));
+      const overrides = realData[n] || {};
+      // Aplicar overrides de proyección
+      emp.sections = emp.sections.map(sec=>({
+        ...sec,
+        lines: sec.lines.map(l=>{
+          if(overrides[l.label]) {
+            const newProy = [...l.proy];
+            Object.entries(overrides[l.label]).forEach(([idx, val])=>{
+              const i = Number(idx);
+              if(!isNaN(i) && i>=0 && i<newProy.length) {
+                newProy[i] = Number(val)||0;
+              }
+            });
+            return {...l, proy:newProy};
+          }
+          return l;
+        })
+      }));
+      // Agregar addedLines
+      const added = addedLinesGlobal[n] || {};
+      Object.entries(added).forEach(([cat, lines])=>{
+        const sec = emp.sections.find(s=>s.cat===cat);
+        if(sec && Array.isArray(lines)) {
+          lines.forEach(al=>{
+            if(al && al.label) {
+              const vals = Array(65).fill(0);
+              if(al.vals) Object.entries(al.vals).forEach(([i,v])=>{
+                const idx=Number(i); if(!isNaN(idx)&&idx>=0&&idx<65) vals[idx]=Number(v)||0;
+              });
+              sec.lines.push({label:al.label, proy:vals});
+            }
+          });
+        }
+      });
+      result[n] = emp;
+    });
+    return result;
+  },[empresas, realData, addedLinesGlobal]); // eslint-disable-line
+
   const flujoPorEmp=useMemo(()=>{
     const res={};
     empNames.forEach(n=>{
       const arr=Z65();
-      empresas[n].sections.forEach(sec=>sec.lines.forEach(l=>l.proy.forEach((v,i)=>{arr[i]+=(v||0)*sec.signo;})));
+      empresasConOverrides[n].sections.forEach(sec=>sec.lines.forEach(l=>l.proy.forEach((v,i)=>{arr[i]+=(v||0)*sec.signo;})));
       res[n]=arr;
     });
     return res;
-  },[empresas]); // eslint-disable-line
+  },[empresasConOverrides]); // eslint-disable-line
 
   const saldoIniPorEmp=useMemo(()=>{
     const res={};
@@ -3166,7 +3210,7 @@ function Consolidado({empresas,saldosBancos}) {
 
       {/* Vista Waterfall — Conceptos × Empresas por temporada */}
       {vistaConsolidado==="waterfall"&&(
-        <WaterfallConsolidado empresas={empresas} saldosBancos={saldosBancos}/>
+        <WaterfallConsolidado empresas={empresasConOverrides} saldosBancos={saldosBancos}/>
       )}
     </div>
   );
@@ -6985,7 +7029,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
 
           {/* Consolidado */}
           {empTab==="_consolidado"&&(
-            <Consolidado empresas={empresas} saldosBancos={saldosBancos}/>
+            <Consolidado empresas={empresas} saldosBancos={saldosBancos} realData={realData} addedLinesGlobal={addedLinesGlobal}/>
           )}
           {/* Intercompany */}
           {empTab==="_intercompany"&&(
