@@ -2922,7 +2922,8 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={}}) {
     const result = {};
     empNames.forEach(n=>{
       const emp = JSON.parse(JSON.stringify(empresas[n]));
-      const overrides = realData[n] || {};
+      // Los overrides del usuario están en realData[empresa]._proyOverrides
+      const overrides = realData?.[n]?._proyOverrides || {};
       // Aplicar overrides de proyección
       emp.sections = emp.sections.map(sec=>({
         ...sec,
@@ -2932,7 +2933,14 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={}}) {
             Object.entries(overrides[l.label]).forEach(([idx, val])=>{
               const i = Number(idx);
               if(!isNaN(i) && i>=0 && i<newProy.length) {
-                newProy[i] = Number(val)||0;
+                // val puede ser un número o un objeto {_sem0,_sem1,_sem2,_sem3}
+                if(typeof val === "object" && val !== null) {
+                  // Semanas: sumar los valores de las semanas
+                  const semTotal = Object.values(val).reduce((s,v)=>s+(Number(v)||0),0);
+                  newProy[i] = semTotal;
+                } else {
+                  newProy[i] = Number(val)||0;
+                }
               }
             });
             return {...l, proy:newProy};
