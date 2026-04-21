@@ -3019,30 +3019,33 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
 
   const saldoIniPorEmp=useMemo(()=>{
     const res={};
-    empNames.forEach(n=>{res[n]=getSaldoBancoInicial(saldosBancos,n,empresas[n].saldo_ini);});
+    empNames.forEach(n=>{
+      const v = getSaldoBancoInicial(saldosBancos,n,empresas[n].saldo_ini);
+      res[n] = isNaN(v) ? 0 : v;
+    });
     return res;
   },[saldosBancos,empresas]); // eslint-disable-line
 
   const acumPorEmp=useMemo(()=>{
     const res={};
-    empNames.forEach(n=>{let a=saldoIniPorEmp[n];res[n]=(flujoPorEmp[n]||[]).map(f=>{a+=f;return a;});});
+    empNames.forEach(n=>{let a=saldoIniPorEmp[n]||0;res[n]=(flujoPorEmp[n]||[]).map(f=>{a+=(f||0);return a;});});
     return res;
   },[flujoPorEmp,saldoIniPorEmp]); // eslint-disable-line
 
   const flujoConsolidado=useMemo(()=>{
     const arr=Z65();
-    empNames.forEach(n=>(flujoPorEmp[n]||[]).forEach((v,i)=>{arr[i]+=v;}));
+    empNames.forEach(n=>(flujoPorEmp[n]||[]).forEach((v,i)=>{arr[i]+=(Number(v)||0);}));
     return arr;
   },[flujoPorEmp]); // eslint-disable-line
 
   const saldoIniConsolidado=useMemo(
-    ()=>empNames.reduce((s,n)=>s+(saldoIniPorEmp[n]||0),0),
+    ()=>empNames.reduce((s,n)=>s+((saldoIniPorEmp[n])||0),0),
     [saldoIniPorEmp] // eslint-disable-line
   );
 
   const acumConsolidado=useMemo(()=>{
-    let a=saldoIniConsolidado;
-    return flujoConsolidado.map(f=>{a+=f;return a;});
+    let a=saldoIniConsolidado||0;
+    return flujoConsolidado.map(f=>{a+=(f||0);return a;});
   },[flujoConsolidado,saldoIniConsolidado]);
 
   const cols=useMemo(()=>{
