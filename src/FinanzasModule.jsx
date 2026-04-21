@@ -55,8 +55,8 @@ function mIdx(label) { return MESES_65.indexOf(label); }
 // ═══════════════════════════════════════════════════════════════════
 // SUPABASE
 // ═══════════════════════════════════════════════════════════════════
-const SUPA_URL = "https://bywovqayuzodbzwsriet.supabase.co";
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5d292cWF5dXpvZGJ6d3NyaWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODU1MDgsImV4cCI6MjA5MTI2MTUwOH0.s2x2O_CxE6rl8dBqFuyfQdMyRqSyjJQWXJXesmVGXtk";
+const SUPA_URL = process.env.REACT_APP_SUPA_URL;
+const SUPA_KEY = process.env.REACT_APP_SUPA_KEY;
 
 async function dbLoad() {
   try {
