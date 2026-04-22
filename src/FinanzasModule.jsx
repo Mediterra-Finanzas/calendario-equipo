@@ -7313,9 +7313,17 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
 
   const totalCLP = rows.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
   const totalUSD = rows.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
-  const totalAnticipo = rows.reduce((s,it)=>s+(Number(it.anticipo)||0),0);
-  const totalSaldoCLP = totalCLP - (soloCLP ? totalAnticipo : 0);
-  const totalSaldoUSD = totalUSD - (soloUSD||(!soloUSD&&!soloCLP) ? totalAnticipo : 0);
+  const totalAnticipoCLP = rows.reduce((s,it)=>{
+    if(Number(it.montoCLP) && !Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+    return s;
+  },0);
+  const totalAnticipoUSD = rows.reduce((s,it)=>{
+    if(Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+    return s;
+  },0);
+  const totalAnticipo = totalAnticipoCLP + totalAnticipoUSD;
+  const totalSaldoCLP = totalCLP - totalAnticipoCLP;
+  const totalSaldoUSD = totalUSD - totalAnticipoUSD;
 
   const montoLabel = soloUSD ? "Monto USD" : soloCLP ? "Monto CLP" : null;
   const headers = ["Tipo Doc","Proveedor / Nombre","RUT","N° Doc","F. Doc","F. Venc","Sem","Concepto",
@@ -7534,13 +7542,19 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
                   {totalUSD?$$usd(totalUSD):"—"}
                 </td>
                 )}
-                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:C.yellow,fontSize:11}}>
-                  {totalAnticipo?(soloUSD||(!soloUSD&&!soloCLP)?$$usd(totalAnticipo):$$clp(totalAnticipo)):"—"}
+                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,fontSize:11}}>
+                  {soloCLP&&totalAnticipoCLP?<span style={{color:C.yellow}}>{$$clp(totalAnticipoCLP)}</span>:null}
+                  {soloUSD&&totalAnticipoUSD?<span style={{color:C.blue}}>{$$usd(totalAnticipoUSD)}</span>:null}
+                  {!soloUSD&&!soloCLP?(
+                    <>{totalAnticipoCLP?<span style={{color:C.yellow}}>{$$clp(totalAnticipoCLP)}</span>:null}{totalAnticipoCLP&&totalAnticipoUSD?" / ":""}{totalAnticipoUSD?<span style={{color:C.blue}}>{$$usd(totalAnticipoUSD)}</span>:null}{!totalAnticipoCLP&&!totalAnticipoUSD?"—":""}</>
+                  ):(!totalAnticipoCLP&&!totalAnticipoUSD?"—":null)}
                 </td>
-                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,color:C.green,fontSize:12}}>
-                  {soloUSD||(!soloUSD&&!soloCLP)
-                    ? (totalSaldoUSD?$$usd(totalSaldoUSD):"—")
-                    : (totalSaldoCLP?$$clp(totalSaldoCLP):"—")}
+                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,fontSize:12}}>
+                  {soloCLP&&totalSaldoCLP?<span style={{color:C.green}}>{$$clp(totalSaldoCLP)}</span>:null}
+                  {soloUSD&&totalSaldoUSD?<span style={{color:C.green}}>{$$usd(totalSaldoUSD)}</span>:null}
+                  {!soloUSD&&!soloCLP?(
+                    <>{totalSaldoCLP?<span style={{color:C.green}}>{$$clp(totalSaldoCLP)}</span>:null}{totalSaldoCLP&&totalSaldoUSD?" / ":""}{totalSaldoUSD?<span style={{color:C.green}}>{$$usd(totalSaldoUSD)}</span>:null}{!totalSaldoCLP&&!totalSaldoUSD?"—":""}</>
+                  ):(!totalSaldoCLP&&!totalSaldoUSD?"—":null)}
                 </td>
                 <td colSpan={2}/>
               </tr>
@@ -7777,13 +7791,23 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
       rowsXml+=`</row>`;
       currentRow++;
     });
-    // Total general
+    // Total general - separar anticipos por moneda
+    const grandAnticCLP = nom.items.reduce((s,it)=>{
+      if(Number(it.montoCLP) && !Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+      return s;
+    },0);
+    const grandAnticUSD = nom.items.reduce((s,it)=>{
+      if(Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+      return s;
+    },0);
+    const grandSaldoCLP = grandTotalCLP - grandAnticCLP;
+    const grandSaldoUSD = grandTotalUSD - grandAnticUSD;
     rowsXml+=`<row r="${currentRow}" ht="22" customHeight="1">`;
     for(let c=0;c<8;c++) rowsXml+=`<c r="${colLetter(c)}${currentRow}" s="11"/>`;
     rowsXml+=`<c r="I${currentRow}" s="12"><v>${grandTotalCLP}</v></c>`;
     rowsXml+=`<c r="J${currentRow}" s="13"><v>${grandTotalUSD}</v></c>`;
-    rowsXml+=`<c r="K${currentRow}" s="12"><v>${grandTotalAnticipo}</v></c>`;
-    rowsXml+=`<c r="L${currentRow}" s="13"><v>${(grandTotalUSD||grandTotalCLP)-grandTotalAnticipo}</v></c>`;
+    rowsXml+=`<c r="K${currentRow}" s="12"><v>${grandAnticCLP+grandAnticUSD}</v></c>`;
+    rowsXml+=`<c r="L${currentRow}" s="13"><v>${grandSaldoUSD||grandSaldoCLP}</v></c>`;
     rowsXml+=`<c r="M${currentRow}" s="11"/><c r="N${currentRow}" s="11"/>`;
     rowsXml+=`</row>`;
 
@@ -8411,8 +8435,16 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                 if(secItems.length === 0) return null;
                 const stCLP = secItems.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
                 const stUSD = secItems.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
-                const stAntic = secItems.reduce((s,it)=>s+(Number(it.anticipo)||0),0);
-                const stSaldo = (stUSD||stCLP) - stAntic;
+                const stAnticCLP = secItems.reduce((s,it)=>{
+                  if(Number(it.montoCLP) && !Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+                  return s;
+                },0);
+                const stAnticUSD = secItems.reduce((s,it)=>{
+                  if(Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+                  return s;
+                },0);
+                const stSaldoCLP = stCLP - stAnticCLP;
+                const stSaldoUSD = stUSD - stAnticUSD;
                 return (
                   <React.Fragment key={sec.id}>
                     <tr className="sec-row">
@@ -8447,24 +8479,33 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                       <td colSpan={8} style={{textAlign:"right"}}>Subtotal</td>
                       <td className="num">{stCLP?$$clp(stCLP):"—"}</td>
                       <td className="num">{stUSD?$$usd(stUSD):"—"}</td>
-                      <td className="num">{stAntic?(stUSD?$$usd(stAntic):$$clp(stAntic)):"—"}</td>
-                      <td className="num" style={{fontWeight:700}}>{stSaldo?(stUSD?$$usd(stSaldo):$$clp(stSaldo)):"—"}</td>
+                      <td className="num">{stAnticCLP?$$clp(stAnticCLP):""}{stAnticCLP&&stAnticUSD?" / ":""}{stAnticUSD?$$usd(stAnticUSD):""}{!stAnticCLP&&!stAnticUSD?"—":""}</td>
+                      <td className="num" style={{fontWeight:700}}>{stSaldoCLP?$$clp(stSaldoCLP):""}{stSaldoCLP&&stSaldoUSD?" / ":""}{stSaldoUSD?$$usd(stSaldoUSD):""}{!stSaldoCLP&&!stSaldoUSD?"—":""}</td>
                       <td></td>
                     </tr>
                   </React.Fragment>
                 );
               })}
               {(()=>{
-                const gAntic = nom.items.reduce((s,it)=>s+(Number(it.anticipo)||0),0);
-                const gSaldoCLP = totCLP - (totCLP && !totUSD ? gAntic : 0);
-                const gSaldoUSD = totUSD - (totUSD ? gAntic : 0);
+                // Calcular anticipos separados por moneda
+                const gAnticCLP = nom.items.reduce((s,it)=>{
+                  if(Number(it.montoCLP) && !Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+                  return s;
+                },0);
+                const gAnticUSD = nom.items.reduce((s,it)=>{
+                  if(Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+                  return s;
+                },0);
+                const gSaldoCLP = totCLP - gAnticCLP;
+                const gSaldoUSD = totUSD - gAnticUSD;
+                const gAnticTotal = gAnticCLP + gAnticUSD;
                 return (
                   <tr className="total-row">
                     <td colSpan={8} style={{textAlign:"right"}}>TOTAL NÓMINA</td>
                     <td className="num">{totCLP?$$clp(totCLP):"—"}</td>
                     <td className="num">{totUSD?$$usd(totUSD):"—"}</td>
-                    <td className="num">{gAntic?(totUSD?$$usd(gAntic):$$clp(gAntic)):"—"}</td>
-                    <td className="num" style={{fontWeight:800}}>{totUSD?(gSaldoUSD?$$usd(gSaldoUSD):"—"):(gSaldoCLP?$$clp(gSaldoCLP):"—")}</td>
+                    <td className="num">{gAnticCLP?$$clp(gAnticCLP):""}{gAnticCLP&&gAnticUSD?" / ":""}{gAnticUSD?$$usd(gAnticUSD):""}{!gAnticCLP&&!gAnticUSD?"—":""}</td>
+                    <td className="num" style={{fontWeight:800}}>{gSaldoCLP?$$clp(gSaldoCLP):""}{gSaldoCLP&&gSaldoUSD?" / ":""}{gSaldoUSD?$$usd(gSaldoUSD):""}{!gSaldoCLP&&!gSaldoUSD?"—":""}</td>
                     <td></td>
                   </tr>
                 );
