@@ -7958,7 +7958,7 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
         // Notificar a Milagros y Pablo
         window._enviarNotificacion("Mbecerra@grupomediterra.cl","Milagros Becerra",
           `🔄 Nómina devuelta — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
-        window._enviarNotificacion("pvillarroel@grupomediterra.cl","Pablo Villarroel",
+        window._enviarNotificacion("pduran@grupomediterra.cl","Pablo Duran",
           `🔄 Nómina devuelta — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
       }
       
