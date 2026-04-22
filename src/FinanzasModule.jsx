@@ -8390,19 +8390,19 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
           <table className="print-table">
             <thead>
               <tr>
-                <th style={{width:"8%"}}>Tipo Doc</th>
-                <th style={{width:"14%"}}>Proveedor</th>
-                <th style={{width:"7%"}}>RUT</th>
-                <th style={{width:"6%"}}>N° Doc</th>
-                <th style={{width:"7%"}}>F. Doc</th>
-                <th style={{width:"7%"}}>F. Venc</th>
+                <th style={{width:"7%"}}>Tipo Doc</th>
+                <th style={{width:"13%"}}>Proveedor</th>
+                <th style={{width:"6%"}}>RUT</th>
+                <th style={{width:"5%"}}>N° Doc</th>
+                <th style={{width:"6%"}}>F. Doc</th>
+                <th style={{width:"6%"}}>F. Venc</th>
                 <th style={{width:"3%"}}>Sem</th>
-                <th style={{width:"10%"}}>Concepto</th>
-                <th style={{width:"9%",textAlign:"right"}}>Monto CLP</th>
-                <th style={{width:"9%",textAlign:"right"}}>Monto USD</th>
+                <th style={{width:"9%"}}>Concepto</th>
+                <th style={{width:"8%",textAlign:"right"}}>Monto CLP</th>
+                <th style={{width:"8%",textAlign:"right"}}>Monto USD</th>
                 <th style={{width:"7%",textAlign:"right"}}>Anticipo</th>
                 <th style={{width:"8%",textAlign:"right"}}>Saldo Pagar</th>
-                <th style={{width:"5%"}}>Obs.</th>
+                <th style={{width:"14%"}}>Observaciones</th>
               </tr>
             </thead>
             <tbody>
@@ -8419,9 +8419,12 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                       <td colSpan={13}>{sec.label} ({secItems.length})</td>
                     </tr>
                     {secItems.map(it=>{
-                      const monto = Number(it.montoUSD)||Number(it.montoCLP)||0;
+                      const clp = Number(it.montoCLP)||0;
+                      const usd = Number(it.montoUSD)||0;
                       const antic = Number(it.anticipo)||0;
+                      const monto = usd || clp;
                       const saldo = monto - antic;
+                      const fmtItem = usd ? $$usd : $$clp;
                       return (
                         <tr key={it.id}>
                           <td style={{fontSize:"6.5px"}}>{it.tipoDoc||"—"}</td>
@@ -8432,11 +8435,11 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                           <td style={{fontSize:"6.5px"}}>{it.fVenc||"—"}</td>
                           <td style={{textAlign:"center"}}>{it.semVenc?`S${it.semVenc}`:"—"}</td>
                           <td style={{fontSize:"6.5px"}}>{it.concepto||"—"}</td>
-                          <td className="num">{Number(it.montoCLP)?$$clp(Number(it.montoCLP)):"—"}</td>
-                          <td className="num">{Number(it.montoUSD)?$$usd(Number(it.montoUSD)):"—"}</td>
-                          <td className="num">{antic?$$usd(antic):"—"}</td>
-                          <td className="num" style={{fontWeight:600}}>{saldo?$$usd(saldo):"—"}</td>
-                          <td style={{fontSize:"6px"}}>{it.comentario||""}</td>
+                          <td className="num">{clp?$$clp(clp):"—"}</td>
+                          <td className="num">{usd?$$usd(usd):"—"}</td>
+                          <td className="num">{antic?fmtItem(antic):"—"}</td>
+                          <td className="num" style={{fontWeight:600}}>{saldo?fmtItem(saldo):"—"}</td>
+                          <td style={{fontSize:"6px",wordBreak:"break-word",maxWidth:"80px"}}>{it.comentario||""}</td>
                         </tr>
                       );
                     })}
@@ -8444,8 +8447,8 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                       <td colSpan={8} style={{textAlign:"right"}}>Subtotal</td>
                       <td className="num">{stCLP?$$clp(stCLP):"—"}</td>
                       <td className="num">{stUSD?$$usd(stUSD):"—"}</td>
-                      <td className="num">{stAntic?$$usd(stAntic):"—"}</td>
-                      <td className="num" style={{fontWeight:700}}>{stSaldo?$$usd(stSaldo):"—"}</td>
+                      <td className="num">{stAntic?(stUSD?$$usd(stAntic):$$clp(stAntic)):"—"}</td>
+                      <td className="num" style={{fontWeight:700}}>{stSaldo?(stUSD?$$usd(stSaldo):$$clp(stSaldo)):"—"}</td>
                       <td></td>
                     </tr>
                   </React.Fragment>
@@ -8453,14 +8456,15 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
               })}
               {(()=>{
                 const gAntic = nom.items.reduce((s,it)=>s+(Number(it.anticipo)||0),0);
-                const gSaldo = (totUSD||totCLP) - gAntic;
+                const gSaldoCLP = totCLP - (totCLP && !totUSD ? gAntic : 0);
+                const gSaldoUSD = totUSD - (totUSD ? gAntic : 0);
                 return (
                   <tr className="total-row">
                     <td colSpan={8} style={{textAlign:"right"}}>TOTAL NÓMINA</td>
                     <td className="num">{totCLP?$$clp(totCLP):"—"}</td>
                     <td className="num">{totUSD?$$usd(totUSD):"—"}</td>
-                    <td className="num">{gAntic?$$usd(gAntic):"—"}</td>
-                    <td className="num" style={{fontWeight:800}}>{gSaldo?$$usd(gSaldo):"—"}</td>
+                    <td className="num">{gAntic?(totUSD?$$usd(gAntic):$$clp(gAntic)):"—"}</td>
+                    <td className="num" style={{fontWeight:800}}>{totUSD?(gSaldoUSD?$$usd(gSaldoUSD):"—"):(gSaldoCLP?$$clp(gSaldoCLP):"—")}</td>
                     <td></td>
                   </tr>
                 );
@@ -8647,11 +8651,11 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
     st.id = 'nominas-print-css';
     st.textContent = `
       @media print {
-        @page{size:letter landscape;margin:8mm 10mm}
+        @page{size:letter landscape;margin:6mm 8mm}
         body *{visibility:hidden}
         #nomina-print-area,#nomina-print-area *{visibility:visible}
         #nomina-print-area{position:fixed;top:0;left:0;width:100%;
-          background:white!important;color:#000!important;font-size:8px;padding:6mm!important}
+          background:white!important;color:#000!important;font-size:7px;padding:4mm!important}
         .no-print{display:none!important;visibility:hidden!important}
         .screen-only{display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important}
         .print-only{display:block!important;visibility:visible!important;height:auto!important}
@@ -8660,10 +8664,10 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
         .print-header h2{margin:0;font-size:15px;color:#0f2d4a;font-weight:900}
         .print-header .meta{font-size:8.5px;color:#475569;text-align:right}
         .print-header .meta div{margin-bottom:2px}
-        .print-table{width:100%;border-collapse:collapse;font-size:7px;margin-bottom:10px}
-        .print-table th{background:#0f2d4a!important;color:white!important;padding:3px 4px;font-size:6.5px;
-          text-align:left;white-space:nowrap;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-        .print-table td{padding:2px 4px;border-bottom:0.5px solid #e2e8f0;font-size:7px}
+        .print-table{width:100%;border-collapse:collapse;font-size:7px;margin-bottom:10px;table-layout:fixed}
+        .print-table th{background:#0f2d4a!important;color:white!important;padding:3px 3px;font-size:6px;
+          text-align:left;overflow:hidden;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+        .print-table td{padding:2px 3px;border-bottom:0.5px solid #e2e8f0;font-size:6.5px;overflow:hidden;word-break:break-word}
         .print-table .sec-row td{background:#e2e8f0!important;font-weight:800;font-size:7.5px;
           padding:4px 4px;border-top:1.5px solid #64748b;color:#0f2d4a;
           -webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
