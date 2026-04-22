@@ -6659,29 +6659,12 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
     if(d?.sub_lines)    setSubLines(d.sub_lines);
     if(d?.added_lines)  setAddedLinesGlobal(d.added_lines);
     if(d?.intercompany)   setIntercompany(d.intercompany||[]);
-    if(d?.creditos_data && Array.isArray(d.creditos_data) && d.creditos_data.length>0) {
-      // Corrección automática: reemplazar créditos Allpa Farms con valores correctos
-      const allpaCorrectos = [
-        {n:27,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:245273,f_venc:"2026-06-26",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:245273,pagado:false},
-        {n:28,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:198867,f_venc:"2027-06-29",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:198867,pagado:false},
-        {n:29,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:228192,f_venc:"2028-06-27",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:228192,pagado:false},
-        {n:30,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:216751,f_venc:"2029-06-26",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:216751,pagado:false},
-        {n:31,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:205467,f_venc:"2030-06-26",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:205467,pagado:false},
-        {n:32,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:193995,f_venc:"2031-06-26",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:193995,pagado:false},
-        {n:42,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:182899,f_venc:"2032-06-29",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:182899,pagado:false},
-        {n:43,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:170987,f_venc:"2033-06-28",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:170987,pagado:false},
-        {n:44,empresa:"Allpa Farms",acreedor:"Banco de Chile",tipo_inst:"Banco",monto:159543,f_venc:"2034-06-27",tipo_cr:"Crédito Hipotecario",tasa:"7.7%",cuota:159543,pagado:false},
-      ];
-      // Quitar todos los de Allpa Farms y reemplazar con los correctos
-      const sinAllpa = d.creditos_data.filter(c=>c.empresa!=="Allpa Farms");
-      const corregidos = [...sinAllpa, ...allpaCorrectos];
-      setCreditosData(corregidos);
-    }
+    if(d?.creditos_data && Array.isArray(d.creditos_data) && d.creditos_data.length>0) setCreditosData(d.creditos_data);
     if(d?.params_frisku) setParamsFrisku(prev=>d.params_frisku||prev);
   }
 
   useEffect(()=>{
-    dbLoad().then(d=>{ applyData(d); setLoading(false); });
+    dbLoad().then(d=>{ applyData(d); setLoading(false); window._finLoadTime = Date.now(); });
 
     // ── Supabase Realtime — sincronización instantánea entre usuarios ──
     // Escucha cambios en la fila "finanzas" de calendario_data
@@ -6768,6 +6751,11 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   // Helper centralizado - siempre usa los valores mas recientes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const persistAll = useCallback((overrides={})=>{
+    // No guardar durante los primeros 10 segundos después de cargar (evita sobreescribir con datos vacíos)
+    if(window._finLoadTime && (Date.now() - window._finLoadTime) < 10000) {
+      console.log("[persistAll] Bloqueado — app aún cargando");
+      return Promise.resolve(true); // simular éxito para no mostrar error
+    }
     return dbSave({
       finanzas_real:   overrides.finanzas_real   !== undefined ? overrides.finanzas_real   : realDataRef.current,
       allegria_params: overrides.allegria_params !== undefined ? overrides.allegria_params : paramsRef.current,
