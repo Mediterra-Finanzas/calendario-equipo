@@ -5921,7 +5921,20 @@ function SaldosBancos({saldos,onSave,canEdit}) {
                 const usd=totalesEmpresa[emp]||0;
                 const pct=Math.max(0,(usd/maxVal)*100);
                 return(
-                  <div key={emp} style={{display:"grid",gridTemplateColumns:"190px 1fr 120px",gap:10,alignItems:"center"}}>
+                  <div key={emp} style={{display:"grid",gridTemplateColumns:"190px 1fr 120px",gap:10,alignItems:"center",
+                    cursor:"pointer",borderRadius:6,padding:"2px 4px",transition:"background 0.2s"}}
+                    onMouseEnter={e2=>e2.currentTarget.style.background=`${e.color}15`}
+                    onMouseLeave={e2=>e2.currentTarget.style.background="transparent"}
+                    onClick={()=>{
+                      // Abrir la sección de detalle si está colapsada
+                      if(collapsed[emp]) setCollapsed(p=>({...p,[emp]:false}));
+                      // Scroll al detalle
+                      setTimeout(()=>{
+                        const el=document.getElementById(`saldos-emp-${emp.replace(/\s/g,"-")}`);
+                        if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
+                      },100);
+                    }}
+                    title={`Click para ver detalle de ${emp}`}>
                     <div style={{fontSize:11,color:C.text,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                       {e.emoji} {emp}
                     </div>
@@ -5981,7 +5994,7 @@ function SaldosBancos({saldos,onSave,canEdit}) {
           const dirtyCount=cuentas.filter(c=>dirty[c.key]).length;
 
           return (
-            <div key={emp} style={{background:C.card,border:`1px solid ${isOpen?empColor+"55":C.border}`,
+            <div key={emp} id={`saldos-emp-${emp.replace(/\s/g,"-")}`} style={{background:C.card,border:`1px solid ${isOpen?empColor+"55":C.border}`,
               borderRadius:12,overflow:"hidden"}}>
               <button onClick={()=>toggleEmp(emp)}
                 style={{width:"100%",background:`${empColor}18`,border:"none",cursor:"pointer",
@@ -7187,7 +7200,7 @@ const AÑOS_NOM = Array.from({length:12},(_,i)=>2024+i); // 2024-2035
 // ─────────────────────────────────────────────────────────────────
 // ITEM ROW VACÍO
 // ─────────────────────────────────────────────────────────────────
-const TIPOS_DOCUMENTO = ["Factura Electrónica","Factura Exenta","Factura Importación","Nota de Cobro","Rendición","Remuneraciones","Boleta de Honorarios","Convenio TGR"];
+let TIPOS_DOCUMENTO = ["Factura Electrónica","Factura Exenta","Factura Importación","Nota de Cobro","Rendición","Remuneraciones","Boleta de Honorarios","Convenio TGR"];
 
 function itemVacio(seccion) {
   return {
@@ -7341,11 +7354,25 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
                 opacity:it.pagado?0.6:1}}>
                 <td style={{padding:"3px 6px",minWidth:130}}>
                   {canEdit
-                    ? <select value={it.tipoDoc||""} onChange={e=>updItem(it.id,"tipoDoc",e.target.value)}
-                        style={{...inputSt,width:"100%",cursor:"pointer"}}>
-                        <option value="">— Tipo —</option>
-                        {TIPOS_DOCUMENTO.map(t=><option key={t} value={t}>{t}</option>)}
-                      </select>
+                    ? <div style={{display:"flex",gap:2,alignItems:"center"}}>
+                        <select value={it.tipoDoc||""} onChange={e=>{
+                          if(e.target.value==="__nuevo__"){
+                            const nuevo=prompt("Ingrese el nuevo tipo de documento:");
+                            if(nuevo&&nuevo.trim()){
+                              const n=nuevo.trim();
+                              if(!TIPOS_DOCUMENTO.includes(n)) TIPOS_DOCUMENTO.push(n);
+                              updItem(it.id,"tipoDoc",n);
+                            }
+                          } else {
+                            updItem(it.id,"tipoDoc",e.target.value);
+                          }
+                        }}
+                          style={{...inputSt,flex:1,cursor:"pointer"}}>
+                          <option value="">— Tipo —</option>
+                          {TIPOS_DOCUMENTO.map(t=><option key={t} value={t}>{t}</option>)}
+                          <option value="__nuevo__">+ Agregar nuevo...</option>
+                        </select>
+                      </div>
                     : <span style={{color:C.muted,fontSize:10}}>{it.tipoDoc||"—"}</span>}
                 </td>
                 <td style={{padding:"3px 6px",minWidth:140}}>
@@ -7842,6 +7869,14 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
     if(next==="aprobada") {
       patch.aprobadoPor = usuario?.nombre||"";
       patch.fechaAprobacion = ahora;
+      // Notificar a Carol y Milagros que la nómina fue aprobada por CFO
+      if(window._enviarNotificacion) {
+        const notifMsg = `${usuario?.nombre||"CFO"} ha aprobado la ${nombreFormal} (${nom.empresa}).\n\nLa nómina está lista para cargar a banco.\n\nhttps://gestion-grupo-mediterra.vercel.app`;
+        window._enviarNotificacion("cmachuca@grupomediterra.cl","Carol Machuca",
+          `🏆 Nómina APROBADA — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+        window._enviarNotificacion("Mbecerra@grupomediterra.cl","Milagros Becerra",
+          `🏆 Nómina APROBADA — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+      }
     }
     onUpdate({...nom,...patch});
   }
