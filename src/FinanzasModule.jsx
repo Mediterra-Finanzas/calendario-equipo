@@ -7571,10 +7571,15 @@ function PanelBancosNomina({empresa, saldosBancos}) {
     const clp = Number(saldosBancos?.[`${empresa}||${banco}||clp`]?.monto)||0;
     const usd = Number(saldosBancos?.[`${empresa}||${banco}||usd`]?.monto)||0;
     const pen = Number(saldosBancos?.[`${empresa}||${banco}||pen`]?.monto)||0;
-    return {banco, clp, usd, pen};
-  }).filter(r=>r.clp||r.usd||r.pen);
+    const eur = Number(saldosBancos?.[`${empresa}||${banco}||eur`]?.monto)||0;
+    return {banco, clp, usd, pen, eur};
+  }).filter(r=>r.clp||r.usd||r.pen||r.eur);
   const totCLP = byBanco.reduce((s,r)=>s+r.clp,0);
   const totUSD = byBanco.reduce((s,r)=>s+r.usd,0);
+  const totEUR = byBanco.reduce((s,r)=>s+r.eur,0);
+  const totPEN = byBanco.reduce((s,r)=>s+r.pen,0);
+  const tieneEUR = byBanco.some(r=>r.eur);
+  const tienePEN = byBanco.some(r=>r.pen);
   if(!byBanco.length) return (
     <div style={{background:C.card2,borderRadius:10,padding:"12px 16px",border:`1px solid ${C.border}`,
       color:C.muted2,fontSize:11}}>🏦 Sin saldos bancarios registrados para {empresa}</div>
@@ -7586,24 +7591,30 @@ function PanelBancosNomina({empresa, saldosBancos}) {
         <thead>
           <tr style={{borderBottom:`1px solid ${C.border}`}}>
             <th style={{padding:"4px 8px",color:C.muted,fontWeight:600,textAlign:"left"}}>Banco</th>
-            <th style={{padding:"4px 8px",color:C.muted,fontWeight:600,textAlign:"right"}}>CLP</th>
+            {!esPeruana&&<th style={{padding:"4px 8px",color:C.muted,fontWeight:600,textAlign:"right"}}>CLP</th>}
             <th style={{padding:"4px 8px",color:C.muted,fontWeight:600,textAlign:"right"}}>USD</th>
+            {tieneEUR&&<th style={{padding:"4px 8px",color:C.muted,fontWeight:600,textAlign:"right"}}>EUR</th>}
+            {tienePEN&&<th style={{padding:"4px 8px",color:C.muted,fontWeight:600,textAlign:"right"}}>PEN</th>}
           </tr>
         </thead>
         <tbody>
           {byBanco.map(r=>(
             <tr key={r.banco} style={{borderBottom:`1px solid ${C.border}22`}}>
               <td style={{padding:"4px 8px",color:C.text,fontWeight:500}}>{r.banco}</td>
-              <td style={{padding:"4px 8px",textAlign:"right",color:r.clp?C.yellow:C.muted2,fontWeight:r.clp?700:400}}>{r.clp?$$clp(r.clp):"—"}</td>
+              {!esPeruana&&<td style={{padding:"4px 8px",textAlign:"right",color:r.clp?C.yellow:C.muted2,fontWeight:r.clp?700:400}}>{r.clp?$$clp(r.clp):"—"}</td>}
               <td style={{padding:"4px 8px",textAlign:"right",color:r.usd?C.blue:C.muted2,fontWeight:r.usd?700:400}}>{r.usd?$$usd(r.usd):"—"}</td>
+              {tieneEUR&&<td style={{padding:"4px 8px",textAlign:"right",color:r.eur?"#a78bfa":C.muted2,fontWeight:r.eur?700:400}}>{r.eur?`€${r.eur.toLocaleString("es-CL",{maximumFractionDigits:2})}`:"—"}</td>}
+              {tienePEN&&<td style={{padding:"4px 8px",textAlign:"right",color:r.pen?"#f97316":C.muted2,fontWeight:r.pen?700:400}}>{r.pen?`S/${r.pen.toLocaleString("es-CL",{maximumFractionDigits:2})}`:"—"}</td>}
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr style={{borderTop:`2px solid ${C.border}`,background:C.bg2}}>
             <td style={{padding:"5px 8px",fontWeight:700,color:C.text}}>TOTAL</td>
-            <td style={{padding:"5px 8px",textAlign:"right",fontWeight:800,color:C.yellow}}>{totCLP?$$clp(totCLP):"—"}</td>
+            {!esPeruana&&<td style={{padding:"5px 8px",textAlign:"right",fontWeight:800,color:C.yellow}}>{totCLP?$$clp(totCLP):"—"}</td>}
             <td style={{padding:"5px 8px",textAlign:"right",fontWeight:800,color:C.blue}}>{totUSD?$$usd(totUSD):"—"}</td>
+            {tieneEUR&&<td style={{padding:"5px 8px",textAlign:"right",fontWeight:800,color:"#a78bfa"}}>{totEUR?`€${totEUR.toLocaleString("es-CL",{maximumFractionDigits:2})}`:"—"}</td>}
+            {tienePEN&&<td style={{padding:"5px 8px",textAlign:"right",fontWeight:800,color:"#f97316"}}>{totPEN?`S/${totPEN.toLocaleString("es-CL",{maximumFractionDigits:2})}`:"—"}</td>}
           </tr>
         </tfoot>
       </table>
