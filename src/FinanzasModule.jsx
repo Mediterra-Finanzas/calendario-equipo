@@ -7847,19 +7847,23 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
     if(next==="preparada")  patch.preparadoPor  = usuario?.nombre||"";
     if(next==="revision") {
       patch.revisadoPor = usuario?.nombre||"";
-      // Notificar a Carol y Michelle que hay una nómina esperando su V°B°
-      const notifMsg = `${usuario?.nombre||"Un usuario"} ha enviado a revisión la ${nombreFormal} (${nom.empresa}).\n\nPor favor ingresa al sistema para dar tu V°B°.\n\nhttps://gestion-grupo-mediterra.vercel.app`;
+      // Milagros/Pablo seleccionan a quién enviar (Carol o Michelle)
+      const revisor = window.prompt("¿A quién enviar para revisión?\n\n1 = Carol Machuca\n2 = Michelle Garcia\n\nIngrese 1 o 2:");
+      if(!revisor || !["1","2"].includes(revisor.trim())) { alert("Operación cancelada"); return; }
+      const esCarol = revisor.trim() === "1";
+      const destEmail = esCarol ? "cmachuca@grupomediterra.cl" : "mgarcia@grupomediterra.cl";
+      const destNombre = esCarol ? "Carol Machuca" : "Michelle Garcia";
+      patch.revisorAsignado = destNombre;
       if(window._enviarNotificacion) {
-        window._enviarNotificacion("cmachuca@grupomediterra.cl","Carol Machuca",
-          `📋 Nómina pendiente de V°B° — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
-        window._enviarNotificacion("mgarcia@grupomediterra.cl","Michelle Garcia",
-          `📋 Nómina pendiente de V°B° — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+        const notifMsg = `${usuario?.nombre||"Un usuario"} ha enviado a revisión la ${nombreFormal} (${nom.empresa}).\n\nPor favor ingresa al sistema para revisar y dar tu V°B°.\n\nhttps://gestion-grupo-mediterra.vercel.app`;
+        window._enviarNotificacion(destEmail, destNombre,
+          `📋 Nómina pendiente de revisión — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
       }
     }
     if(next==="aprobada1") {
       patch.aprobado1Por = usuario?.nombre||"";
       patch.fechaAprobacion1 = ahora;
-      // Notificar al CFO que la nómina tiene V°B° y está lista para aprobación final
+      // Carol/Michelle envían a CFO para aprobación final
       if(window._enviarNotificacion) {
         const notifMsg = `${usuario?.nombre||"Un autorizador"} ha dado V°B° a la ${nombreFormal} (${nom.empresa}).\n\nEstá lista para tu aprobación final.\n\nhttps://gestion-grupo-mediterra.vercel.app`;
         window._enviarNotificacion("ahuerta@grupomediterra.cl","Angelo Huerta",
@@ -7869,7 +7873,7 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
     if(next==="aprobada") {
       patch.aprobadoPor = usuario?.nombre||"";
       patch.fechaAprobacion = ahora;
-      // Notificar a Carol y Milagros que la nómina fue aprobada por CFO
+      // CFO aprueba → notificar a Carol y Milagros
       if(window._enviarNotificacion) {
         const notifMsg = `${usuario?.nombre||"CFO"} ha aprobado la ${nombreFormal} (${nom.empresa}).\n\nLa nómina está lista para cargar a banco.\n\nhttps://gestion-grupo-mediterra.vercel.app`;
         window._enviarNotificacion("cmachuca@grupomediterra.cl","Carol Machuca",
@@ -7885,7 +7889,40 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
     const flujo = ["borrador","preparada","revision","aprobada1","aprobada"];
     const idx = flujo.indexOf(nom.estado);
     if(idx <= 0) return;
-    onUpdate({...nom, estado: flujo[idx-1]});
+    const comentario = window.prompt("Motivo de la devolución (obligatorio):");
+    if(!comentario || !comentario.trim()) { alert("Debe ingresar un motivo para devolver la nómina."); return; }
+    const prev = flujo[idx-1];
+    const patch = {estado: prev, ultimaDevolucion: {por: usuario?.nombre||"", fecha: new Date().toISOString(), motivo: comentario.trim(), desdeEstado: nom.estado}};
+
+    // Notificaciones según quién devuelve
+    if(window._enviarNotificacion) {
+      const motivoTxt = `Motivo: ${comentario.trim()}`;
+      
+      if(nom.estado === "revision" || nom.estado === "aprobada1") {
+        // Carol/Michelle devuelven a Milagros/Pablo (preparador original)
+        const preparador = nom.preparadoPor || "el preparador";
+        const notifMsg = `${usuario?.nombre} ha devuelto la ${nombreFormal} (${nom.empresa}) con comentarios.\n\n${motivoTxt}\n\nPor favor revisa y corrige.\n\nhttps://gestion-grupo-mediterra.vercel.app`;
+        // Notificar a Milagros y Pablo
+        window._enviarNotificacion("Mbecerra@grupomediterra.cl","Milagros Becerra",
+          `🔄 Nómina devuelta — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+        window._enviarNotificacion("pvillarroel@grupomediterra.cl","Pablo Villarroel",
+          `🔄 Nómina devuelta — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+      }
+      
+      if(nom.estado === "aprobada" || nom.estado === "aprobada1") {
+        // CFO devuelve → notificar a Carol/Michelle + CC Milagros
+        if(esAdmin) {
+          const notifMsg = `${usuario?.nombre} (CFO) ha devuelto la ${nombreFormal} (${nom.empresa}) con comentarios.\n\n${motivoTxt}\n\nPor favor revisa y corrige.\n\nhttps://gestion-grupo-mediterra.vercel.app`;
+          window._enviarNotificacion("cmachuca@grupomediterra.cl","Carol Machuca",
+            `🔄 Nómina devuelta por CFO — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+          window._enviarNotificacion("mgarcia@grupomediterra.cl","Michelle Garcia",
+            `🔄 Nómina devuelta por CFO — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+          window._enviarNotificacion("Mbecerra@grupomediterra.cl","Milagros Becerra",
+            `🔄 Nómina devuelta por CFO — ${nom.empresa} S${nom.semana}`, notifMsg).catch(()=>{});
+        }
+      }
+    }
+    onUpdate({...nom,...patch});
   }
 
   // Totales
@@ -7935,9 +7972,26 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
   const textoAvanzar = (() => {
     if(nom.estado === "borrador") return "📋 Marcar Preparada";
     if(nom.estado === "preparada") return "📤 Enviar a Revisión";
-    if(nom.estado === "revision") return "✅ Dar V°B° (Autorizador)";
+    if(nom.estado === "revision") return "✅ Dar V°B° y enviar a CFO";
     if(nom.estado === "aprobada1") return "🏆 Aprobar (CFO)";
     return "→";
+  })();
+
+  // Texto del botón retroceder según estado
+  const textoRetroceder = (() => {
+    if(nom.estado === "revision") return "🔄 Devolver con comentarios";
+    if(nom.estado === "aprobada1") return "🔄 Devolver con comentarios";
+    return "← Retroceder";
+  })();
+
+  // Quién puede retroceder
+  const puedeRetroceder = (() => {
+    if(nom.estado === "borrador") return false;
+    if(nom.estado === "aprobada") return esAdmin;
+    if(nom.estado === "aprobada1") return esAdmin; // CFO devuelve
+    if(nom.estado === "revision") return esAutorizadorNom; // Carol/Michelle devuelven
+    if(nom.estado === "preparada") return true; // cualquier editor
+    return esAdmin;
   })();
 
   // Mensaje de bloqueo
@@ -8016,11 +8070,11 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
             {textoAvanzar}
           </button>
         )}
-        {nom.estado!=="borrador"&&esAdmin&&!soloVer&&(
+        {nom.estado!=="borrador"&&puedeRetroceder&&!soloVer&&(
           <button onClick={retrocederEstado}
-            style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,
-              borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:11}}>
-            ← Retroceder
+            style={{background:"#fef3c7",border:`1px solid #fde68a`,color:"#92400e",
+              borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:11,fontWeight:600}}>
+            {textoRetroceder}
           </button>
         )}
         {/* + Nueva nómina misma empresa/semana */}
@@ -8058,6 +8112,22 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
               {nom.estado==="aprobada"
                 ? `Aprobada por ${nom.aprobadoPor||"—"} el ${nom.fechaAprobacion||"—"}. El contenido no puede ser modificado.`
                 : `V°B° por ${nom.aprobado1Por||"—"} el ${nom.fechaAprobacion1||"—"}. Solo el CFO puede aprobar o retroceder.`}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Banner de devolución */}
+      {nom.ultimaDevolucion&&!estadoBloqueado&&(
+        <div className="no-print" style={{background:"#fef3c7",border:"1px solid #fde68a",
+          padding:"8px 16px",margin:"0 20px",borderRadius:8,
+          display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:18}}>🔄</span>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:"#92400e"}}>
+              Nómina devuelta por {nom.ultimaDevolucion.por}
+            </div>
+            <div style={{fontSize:10,color:"#78716c"}}>
+              {nom.ultimaDevolucion.fecha?.slice(0,10)} — Motivo: {nom.ultimaDevolucion.motivo}
             </div>
           </div>
         </div>
