@@ -3026,7 +3026,7 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
       result[n] = emp;
     });
     return result;
-  },[empresas, realData, addedLinesGlobal]); // eslint-disable-line
+  },[empresas, realData, addedLinesGlobal, subLinesGlobal]); // eslint-disable-line
 
   const flujoPorEmp=useMemo(()=>{
     const res={};
@@ -3280,7 +3280,7 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
 
       {/* Vista Waterfall — Conceptos × Empresas por temporada */}
       {vistaConsolidado==="waterfall"&&(
-        <WaterfallConsolidado empresas={empresasConOverrides} saldosBancos={saldosBancos}/>
+        <WaterfallConsolidado empresas={empresasConOverrides} saldosBancos={saldosBancos} saldoIniPorEmp={saldoIniPorEmp} acumPorEmp={acumPorEmp}/>
       )}
     </div>
   );
@@ -3346,7 +3346,7 @@ function getSaldoBancoUSD(saldosBancos, empNombre) {
   return total;
 }
 
-function WaterfallConsolidado({empresas, saldosBancos}) {
+function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPorEmp={}}) {
   const empNames = Object.keys(empresas);
   const [temporadaSel, setTemporadaSel] = useState(SEASONS[0]?.key || "");
   const [mostrarControladora, setMostrarControladora] = useState(true);
@@ -3359,7 +3359,11 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
     const res = {};
     empNames.forEach(n=>{
       const emp = empresas[n];
-      const saldoCaja = getSaldoBancoUSD(saldosBancos, n);
+      // Saldo caja: usar el mismo que el flujo
+      const saldoCaja = saldoIniPorEmp[n] || 0;
+      // Si no es la primera temporada, usar el acumulado del mes anterior al inicio de esta temporada
+      const firstIdx = idx[0];
+      const saldoCajaReal = firstIdx > 0 && acumPorEmp[n] ? (acumPorEmp[n][firstIdx-1]||0) : saldoCaja;
 
       // Ingresos Operacionales (toda la sección ing_op)
       const ingresos = sumCatWF(emp, "ing_op", idx);
@@ -3396,11 +3400,13 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
 
       const fcCapital = ingNop + egrNop;
       const total = fcOp + fcCapital;
-      const saldoFinal = saldoCaja + total;
+      // Saldo final: usar el acumulado del último mes de la temporada (igual que el flujo)
+      const lastIdx = idx[idx.length-1];
+      const saldoFinal = acumPorEmp[n] ? (acumPorEmp[n][lastIdx]||0) : (saldoCajaReal + total);
       const participacion = PARTICIPACION_CONTROLADORA[n] ?? 1;
 
       res[n] = {
-        saldoCaja, ingresos, egresosOp, impuestos, fcOp,
+        saldoCaja: saldoCajaReal, ingresos, egresosOp, impuestos, fcOp,
         callCapital, financiamiento, pagoCreditos, dividendosRec, otrosIngresosN,
         inversiones, aportesCapital,
         fcCapital, total, saldoFinal,
@@ -3408,7 +3414,7 @@ function WaterfallConsolidado({empresas, saldosBancos}) {
       };
     });
     return res;
-  }, [empresas, saldosBancos, idx]); // eslint-disable-line
+  }, [empresas, saldosBancos, idx, saldoIniPorEmp, acumPorEmp]); // eslint-disable-line
 
   // Totales consolidados (suma horizontal)
   const totales = useMemo(()=>{
