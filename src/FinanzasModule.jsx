@@ -7485,7 +7485,19 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
                 </td>
                 <td style={{padding:"3px 6px",minWidth:120}}>
                   {canEdit
-                    ? <input value={it.comentario||""} onChange={e=>updItem(it.id,"comentario",e.target.value)} style={inputSt} placeholder="Obs."/>
+                    ? <input value={it.comentario||""} onChange={e=>updItem(it.id,"comentario",e.target.value)}
+                        onBlur={e=>{
+                          const val = (e.target.value||"").trim().toLowerCase();
+                          if(val.includes("aplaza")) {
+                            const semDestino = prompt(`El item "${it.proveedor||it.tipoDoc||"sin nombre"}" será aplazado.\n\n¿A qué semana desea moverlo? (ingrese número, ej: 18)`);
+                            if(semDestino && !isNaN(Number(semDestino))) {
+                              const semNum = Number(semDestino);
+                              // Guardar info de aplazamiento en el item para que NominaDetalle lo procese
+                              updItem(it.id, "_aplazar", {semana: semNum, motivo: e.target.value.trim()});
+                            }
+                          }
+                        }}
+                        style={inputSt} placeholder="Obs."/>
                     : <span style={{color:C.muted,fontSize:10}}>{it.comentario||""}</span>}
                 </td>
                 <td style={{padding:"3px 6px",textAlign:"center",whiteSpace:"nowrap"}}>
@@ -7641,6 +7653,26 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
 
   function upd(field, val) {
     if(soloVer) return;
+    // Interceptar aplazamiento de items
+    if(field === "items" && Array.isArray(val)) {
+      const aplazado = val.find(it=>it._aplazar);
+      if(aplazado) {
+        const {semana: semDest, motivo} = aplazado._aplazar;
+        const itemLimpio = {...aplazado, comentario: motivo, _aplazar: undefined, semVenc: "", fVenc: ""};
+        delete itemLimpio._aplazar;
+        // Nuevo ID para el item en la nómina destino
+        const itemNuevo = {...itemLimpio, id: `item_${Date.now()}_${Math.random().toString(36).slice(2,7)}`};
+        // Quitar el item de la nómina actual
+        const itemsSinAplazado = val.filter(it=>it.id !== aplazado.id);
+        onUpdate({...nom, items: itemsSinAplazado});
+        // Crear/agregar a la nómina de la semana destino
+        if(onCrearYAbrir) {
+          onCrearYAbrir(nom.empresa, semDest, nom.año, itemNuevo);
+        }
+        alert(`✅ Item "${aplazado.proveedor||aplazado.tipoDoc}" aplazado a la semana ${semDest}.\nSe eliminó de esta nómina.`);
+        return;
+      }
+    }
     onUpdate({...nom, [field]:val});
   }
 
@@ -7656,7 +7688,7 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
     function colLetter(n){let s="";n++;while(n>0){n--;s=String.fromCharCode(65+(n%26))+s;n=Math.floor(n/26);}return s;}
     function escXml(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
-    const headers=["Tipo de Pago","Proveedor / Nombre","N° Doc","F. Venc","Monto CLP","Monto USD","Pagado"];
+    const headers=["Tipo Doc","Proveedor / Nombre","RUT","N° Doc","F. Doc","F. Venc","Sem","Concepto","Monto CLP","Monto USD","Anticipo","Saldo a Pagar","Comentario","Pagado"];
     const nCols=headers.length;
     const lastCol=colLetter(nCols-1);
     let rowsXml="";
@@ -7693,7 +7725,7 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
 
     // Data por sección
     const allSecs=[...SECCIONES,...(nom.seccionesExtra||[])];
-    let grandTotalCLP=0, grandTotalUSD=0;
+    let grandTotalCLP=0, grandTotalUSD=0, grandTotalAnticipo=0;
     allSecs.forEach(sec=>{
       const secItems=nom.items.filter(it=>it.seccion===sec.id);
       if(secItems.length===0) return;
@@ -7708,41 +7740,51 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
         const sBase=ri%2===0?0:2;
         const clp=Number(it.montoCLP)||0;
         const usd=Number(it.montoUSD)||0;
+        const antic=Number(it.anticipo)||0;
+        const monto = usd || clp;
+        const saldo = monto - antic;
         rowsXml+=`<row r="${currentRow}" ht="18" customHeight="1">`;
-        rowsXml+=`<c r="A${currentRow}" t="inlineStr" s="${sBase}"><is><t>  ${escXml(sec.label)}</t></is></c>`;
+        rowsXml+=`<c r="A${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.tipoDoc||"—")}</t></is></c>`;
         rowsXml+=`<c r="B${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.proveedor||"—")}</t></is></c>`;
-        rowsXml+=`<c r="C${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.nDoc||"—")}</t></is></c>`;
-        rowsXml+=`<c r="D${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.fVenc||"—")}</t></is></c>`;
-        rowsXml+=clp?`<c r="E${currentRow}" s="3"><v>${clp}</v></c>`:`<c r="E${currentRow}" t="inlineStr" s="${sBase}"><is><t>—</t></is></c>`;
-        rowsXml+=usd?`<c r="F${currentRow}" s="4"><v>${usd}</v></c>`:`<c r="F${currentRow}" t="inlineStr" s="${sBase}"><is><t>—</t></is></c>`;
-        rowsXml+=`<c r="G${currentRow}" t="inlineStr" s="${sBase}"><is><t>${it.pagado?"✓":"—"}</t></is></c>`;
+        rowsXml+=`<c r="C${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.rut||"—")}</t></is></c>`;
+        rowsXml+=`<c r="D${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.nDoc||"—")}</t></is></c>`;
+        rowsXml+=`<c r="E${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.fDoc||"—")}</t></is></c>`;
+        rowsXml+=`<c r="F${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.fVenc||"—")}</t></is></c>`;
+        rowsXml+=`<c r="G${currentRow}" t="inlineStr" s="${sBase}"><is><t>${it.semVenc?`S${it.semVenc}`:"—"}</t></is></c>`;
+        rowsXml+=`<c r="H${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.concepto||"—")}</t></is></c>`;
+        rowsXml+=clp?`<c r="I${currentRow}" s="3"><v>${clp}</v></c>`:`<c r="I${currentRow}" t="inlineStr" s="${sBase}"><is><t>—</t></is></c>`;
+        rowsXml+=usd?`<c r="J${currentRow}" s="4"><v>${usd}</v></c>`:`<c r="J${currentRow}" t="inlineStr" s="${sBase}"><is><t>—</t></is></c>`;
+        rowsXml+=antic?`<c r="K${currentRow}" s="3"><v>${antic}</v></c>`:`<c r="K${currentRow}" t="inlineStr" s="${sBase}"><is><t>—</t></is></c>`;
+        rowsXml+=saldo?`<c r="L${currentRow}" s="4"><v>${saldo}</v></c>`:`<c r="L${currentRow}" t="inlineStr" s="${sBase}"><is><t>—</t></is></c>`;
+        rowsXml+=`<c r="M${currentRow}" t="inlineStr" s="${sBase}"><is><t>${escXml(it.comentario||"")}</t></is></c>`;
+        rowsXml+=`<c r="N${currentRow}" t="inlineStr" s="${sBase}"><is><t>${it.pagado?"✓":"—"}</t></is></c>`;
         rowsXml+=`</row>`;
         currentRow++;
       });
       // Subtotal sección
       const stCLP=secItems.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
       const stUSD=secItems.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
-      grandTotalCLP+=stCLP; grandTotalUSD+=stUSD;
+      const stAntic=secItems.reduce((s,it)=>s+(Number(it.anticipo)||0),0);
+      grandTotalCLP+=stCLP; grandTotalUSD+=stUSD; grandTotalAnticipo+=stAntic;
       rowsXml+=`<row r="${currentRow}" ht="18" customHeight="1">`;
-      rowsXml+=`<c r="A${currentRow}" t="inlineStr" s="8"><is><t></t></is></c>`;
-      rowsXml+=`<c r="B${currentRow}" t="inlineStr" s="8"><is><t></t></is></c>`;
-      rowsXml+=`<c r="C${currentRow}" t="inlineStr" s="8"><is><t></t></is></c>`;
-      rowsXml+=`<c r="D${currentRow}" t="inlineStr" s="8"><is><t>Subtotal</t></is></c>`;
-      rowsXml+=stCLP?`<c r="E${currentRow}" s="9"><v>${stCLP}</v></c>`:`<c r="E${currentRow}" s="8"/>`;
-      rowsXml+=stUSD?`<c r="F${currentRow}" s="10"><v>${stUSD}</v></c>`:`<c r="F${currentRow}" s="8"/>`;
-      rowsXml+=`<c r="G${currentRow}" s="8"/>`;
+      for(let c=0;c<8;c++) rowsXml+=`<c r="${colLetter(c)}${currentRow}" s="8"/>`;
+      rowsXml+=stCLP?`<c r="I${currentRow}" s="9"><v>${stCLP}</v></c>`:`<c r="I${currentRow}" s="8"/>`;
+      rowsXml+=stUSD?`<c r="J${currentRow}" s="10"><v>${stUSD}</v></c>`:`<c r="J${currentRow}" s="8"/>`;
+      rowsXml+=stAntic?`<c r="K${currentRow}" s="9"><v>${stAntic}</v></c>`:`<c r="K${currentRow}" s="8"/>`;
+      const stSaldo=(stUSD||stCLP)-stAntic;
+      rowsXml+=stSaldo?`<c r="L${currentRow}" s="10"><v>${stSaldo}</v></c>`:`<c r="L${currentRow}" s="8"/>`;
+      rowsXml+=`<c r="M${currentRow}" s="8"/><c r="N${currentRow}" s="8"/>`;
       rowsXml+=`</row>`;
       currentRow++;
     });
     // Total general
     rowsXml+=`<row r="${currentRow}" ht="22" customHeight="1">`;
-    rowsXml+=`<c r="A${currentRow}" t="inlineStr" s="11"><is><t></t></is></c>`;
-    rowsXml+=`<c r="B${currentRow}" t="inlineStr" s="11"><is><t></t></is></c>`;
-    rowsXml+=`<c r="C${currentRow}" t="inlineStr" s="11"><is><t></t></is></c>`;
-    rowsXml+=`<c r="D${currentRow}" t="inlineStr" s="11"><is><t>TOTAL NÓMINA</t></is></c>`;
-    rowsXml+=`<c r="E${currentRow}" s="12"><v>${grandTotalCLP}</v></c>`;
-    rowsXml+=`<c r="F${currentRow}" s="13"><v>${grandTotalUSD}</v></c>`;
-    rowsXml+=`<c r="G${currentRow}" s="11"/>`;
+    for(let c=0;c<8;c++) rowsXml+=`<c r="${colLetter(c)}${currentRow}" s="11"/>`;
+    rowsXml+=`<c r="I${currentRow}" s="12"><v>${grandTotalCLP}</v></c>`;
+    rowsXml+=`<c r="J${currentRow}" s="13"><v>${grandTotalUSD}</v></c>`;
+    rowsXml+=`<c r="K${currentRow}" s="12"><v>${grandTotalAnticipo}</v></c>`;
+    rowsXml+=`<c r="L${currentRow}" s="13"><v>${(grandTotalUSD||grandTotalCLP)-grandTotalAnticipo}</v></c>`;
+    rowsXml+=`<c r="M${currentRow}" s="11"/><c r="N${currentRow}" s="11"/>`;
     rowsXml+=`</row>`;
 
     const tableRef=`A${headerRow}:${lastCol}${currentRow}`;
@@ -8638,8 +8680,21 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
       saldosBancos={saldosBancos}
       nominasHermanas={nominasHermanas}
       onSwitchNomina={id=>setSelNomina(id)}
-      onCrearYAbrir={(empresa)=>{
-        crearNomina(empresa, nominaAbierta.semana, nominaAbierta.año);
+      onCrearYAbrir={(empresa, semDest, añoDest, itemAplazado)=>{
+        if(semDest && añoDest) {
+          // Aplazamiento: buscar o crear nómina en semana destino
+          let nomDest = nominas.find(n=>n.empresa===empresa&&n.semana===semDest&&n.año===añoDest);
+          if(!nomDest) {
+            nomDest = nominaVacia(empresa, semDest, añoDest);
+            if(itemAplazado) nomDest.items.push(itemAplazado);
+            setNominas(prev=>{const next=[...prev,nomDest];saveNominas(next);return next;});
+          } else if(itemAplazado) {
+            const updated = {...nomDest, items:[...nomDest.items, itemAplazado]};
+            setNominas(prev=>{const next=prev.map(n=>n.id===nomDest.id?updated:n);saveNominas(next);return next;});
+          }
+        } else {
+          crearNomina(empresa, nominaAbierta.semana, nominaAbierta.año);
+        }
       }}
       onCrearNueva={(empresa, semana, año)=>{
         crearNomina(empresa, semana, año);
