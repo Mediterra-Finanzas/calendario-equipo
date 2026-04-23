@@ -8,12 +8,12 @@ const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','D
 
 function generarMeses() {
   const out = [];
-  let y = 2026, m = 3; // Empieza en Apr-26 (Mar-26 eliminado)
-  while (!(y === 2031 && m === 6)) {
+  let y = 2026, m = 3; // Empieza en Apr-26
+  // Genera Apr-26 a Jun-31 = 63 meses
+  while (out.length < 63) {
     out.push({ label:`${MN[m]}-${String(y).slice(2)}`, y, m, idx:out.length });
     m++; if (m > 11) { m = 0; y++; }
   }
-  out.push({ label:'Jun-31', y:2031, m:5, idx:out.length });
   return out;
 }
 
@@ -48,8 +48,8 @@ const SEMANAS_MES = {
   "Nov-27":["S44","S45","S46","S47"],"Dec-27":["S48","S49","S50","S51"],
 };
 
-const Z65  = () => Array(64).fill(0); // 64 meses: Apr-26 → Jun-31
-function ext(arr) { const r=[...(arr||[])]; while(r.length<64) r.push(0); if(r.length>64) r.splice(64); return r; }
+const Z65  = () => Array(63).fill(0); // 63 meses: Apr-26 → Jun-31
+function ext(arr) { const r=[...(arr||[])]; while(r.length<63) r.push(0); if(r.length>63) r.splice(63); return r; }
 function mIdx(label) { return MESES_65.indexOf(label); }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3029,7 +3029,7 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
         if(sec && Array.isArray(lines)) {
           lines.forEach(al=>{
             if(al && al.label) {
-              const vals = Array(65).fill(0);
+              const vals = Array(63).fill(0);
               if(al.vals) Object.entries(al.vals).forEach(([i,v])=>{
                 const idx=Number(i); if(!isNaN(idx)&&idx>=0&&idx<65) vals[idx]=Number(v)||0;
               });
