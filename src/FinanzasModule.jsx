@@ -262,7 +262,7 @@ function calcAllegria(params) {
   const cost = { cerezas:Z65(), ciruelas:Z65(), arandanos:Z65() };
   const mat  = { cerezas:Z65(), ciruelas:Z65(), arandanos:Z65() };
   const srv  = { cerezas:Z65(), ciruelas:Z65(), arandanos:Z65() };
-  console.log("[calcAllegria] params keys:", Object.keys(params||{}), "cerezas 26-27:", JSON.stringify(params?.["2026-2027"]?.cerezas||{}).slice(0,100));
+  console.log("[calcAllegria] cerezas 26-27 kg:", params?.["2026-2027"]?.cerezas?.kg);
   SEASON_KEYS.forEach(sk => {
     if (!params?.[sk]) return;
     FRUTAS.forEach(f => {
@@ -1224,7 +1224,7 @@ function buildAllegria(params) {
         {label:"Cuentas por Cobrar",            proy:Z65(), subLines:true},
         {label:"Ingreso por Allegria Service",  proy:Z65()},
         {label:"Ingresos por Paltas",           proy:Z65()},
-        {label:"Liquidación Cerezas",           proy:[...ing.cerezas],   formula:true},
+        {label:"Liquidación Cerezas",           proy:ext([0, 0, 0, 0, 0, 0, 450000, 450000, 0, 0, 0, 3150000, 0, 0, 0, 0, 0, 0, 450000, 450000, 0, 0, 0, 3150000, 0, 0, 0, 0, 0, 0, 450000, 450000, 0, 0, 0, 3150000, 0, 0, 0, 0, 0, 0, 450000, 450000, 0, 0, 0, 3150000, 0, 0, 0, 0, 0, 0, 450000, 450000, 0, 0, 0, 3150000, 0, 0, 0, 0])},
         {label:"Liquidación Ciruelas",          proy:[...ing.ciruelas],  formula:true},
         {label:"Rebates",                       proy:Z65()},
       ]},
