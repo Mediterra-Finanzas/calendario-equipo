@@ -3058,7 +3058,7 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
 
   const flujoConsolidado=useMemo(()=>{
     const arr=Z65();
-    empNames.forEach(n=>(flujoPorEmp[n]||[]).forEach((v,i)=>{arr[i]+=(Number(v)||0);}));
+    empNames.forEach(n=>(flujoPorEmp[n]||[]).forEach((v,i)=>{const num=Number(v);arr[i]+=(isNaN(num)?0:num);}));
     return arr;
   },[flujoPorEmp]); // eslint-disable-line
 
@@ -3166,7 +3166,7 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
       {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
         <KPI label="Saldo Inicial Consolidado" value={$$(saldoIniConsolidado)} color={C.blue}/>
-        <KPI label="Flujo Total 65m" value={$$(flujoConsolidado.reduce((a,b)=>a+b,0))} color={cf(flujoConsolidado.reduce((a,b)=>a+b,0))}/>
+        <KPI label="Flujo Total 65m" value={$$(flujoConsolidado.reduce((a,b)=>a+(Number(b)||0),0))} color={cf(flujoConsolidado.reduce((a,b)=>a+(Number(b)||0),0))}/>
         <KPI label="Mínimo Acumulado" value={$$(Math.min(...acumConsolidado))} color={C.red}/>
         <KPI label="Saldo Final Jun-31" value={$$(acumConsolidado[acumConsolidado.length-1])} color={cf(acumConsolidado[acumConsolidado.length-1])}/>
         <KPI label="Empresas" value={empNames.length} color={C.yellow}/>
@@ -3364,9 +3364,6 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
       const emp = empresas[n];
       const firstIdx = idx[0];
       const lastIdx = idx[idx.length-1];
-      
-      // Saldo caja: para T1 usar saldoIni, para otras usar acumulado del mes anterior
-      const saldoCaja = firstIdx > 0 && acumPorEmp[n] ? (acumPorEmp[n][firstIdx-1]||0) : (saldoIniPorEmp[n]||0);
 
       // Ingresos Operacionales
       const ingresos = sumCatWF(emp, "ing_op", idx);
@@ -3400,10 +3397,26 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
       const fcCapital = ingNop + egrNop;
       
       // Total: sumar directamente de flujoPorEmp para garantizar consistencia con el flujo
-      const total = idx.reduce((s,i) => s + (Number((flujoPorEmp[n]||[])[i])||0), 0);
+      const flujoArr = flujoPorEmp[n] || [];
+      const total = idx.reduce((s,i) => s + (Number(flujoArr[i])||0), 0);
       
-      // Saldo final: usar directamente acumPorEmp (exactamente igual que el flujo)
-      const saldoFinal = acumPorEmp[n] ? (Number(acumPorEmp[n][lastIdx])||0) : (saldoCaja + total);
+      // Saldo caja y final: calcular igual que el flujo (saldoIni + acumulado)
+      const saldoIni = saldoIniPorEmp[n] || 0;
+      let acum = saldoIni;
+      let saldoFinalCalc = saldoIni;
+      for(let i = 0; i <= lastIdx; i++) {
+        acum += (Number(flujoArr[i])||0);
+        if(i === lastIdx) saldoFinalCalc = acum;
+      }
+      // Saldo caja: para T1 es saldoIni, para otras es acumulado antes del primer mes
+      let saldoCajaCalc = saldoIni;
+      if(firstIdx > 0) {
+        let a = saldoIni;
+        for(let i = 0; i < firstIdx; i++) a += (Number(flujoArr[i])||0);
+        saldoCajaCalc = a;
+      }
+      const saldoCaja = saldoCajaCalc;
+      const saldoFinal = saldoFinalCalc;
       
       const participacion = PARTICIPACION_CONTROLADORA[n] ?? 1;
 
