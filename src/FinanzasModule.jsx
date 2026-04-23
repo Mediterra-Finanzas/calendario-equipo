@@ -3032,7 +3032,10 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
     const res={};
     empNames.forEach(n=>{
       const arr=Z65();
-      empresasConOverrides[n].sections.forEach(sec=>sec.lines.forEach(l=>l.proy.forEach((v,i)=>{arr[i]+=(v||0)*sec.signo;})));
+      empresasConOverrides[n].sections.forEach(sec=>sec.lines.forEach(l=>l.proy.forEach((v,i)=>{
+        const num = Number(v);
+        arr[i]+=(isNaN(num)?0:num)*sec.signo;
+      })));
       res[n]=arr;
     });
     return res;
