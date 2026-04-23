@@ -6671,8 +6671,12 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
       nextFrisku.sections = nextFrisku.sections.map(sec=>{
         if(sec.cat!=="ing_op") return sec;
         return {...sec, lines: sec.lines.map(l=>{
-          if(l.label==="Ingreso Carga Contenedores")
-            return {...l, proy:[...ingFrisku]};
+          if(l.label==="Ingreso Carga Contenedores") {
+              // Solo sobreescribir meses que tienen valor en ingFrisku
+              const merged = [...l.proy];
+              ingFrisku.forEach((v,i) => { if(v !== 0) merged[i] = v; });
+              return {...l, proy: merged};
+            }
           return l;
         })};
       });
