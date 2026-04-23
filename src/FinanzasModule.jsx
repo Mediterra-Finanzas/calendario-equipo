@@ -3219,10 +3219,18 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
       {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
         <KPI label="Saldo Inicial Consolidado" value={$$(saldoIniConsolidado)} color={C.blue}/>
-        <KPI label="Flujo Total 65m" value={$$(flujoConsolidado.reduce((a,b)=>a+(Number(b)||0),0))} color={cf(flujoConsolidado.reduce((a,b)=>a+(Number(b)||0),0))}/>
-        <KPI label="Mínimo Acumulado" value={$$(Math.min(...acumConsolidado))} color={C.red}/>
+        <KPI label="Flujo Total" value={$$(flujoConsolidado.reduce((a,b)=>a+(Number(b)||0),0))} color={cf(flujoConsolidado.reduce((a,b)=>a+(Number(b)||0),0))}/>
+        <KPI label={"Mínimo Acumulado ("+MESES_65[acumConsolidado.indexOf(Math.min(...acumConsolidado))]+")"} value={$$(Math.min(...acumConsolidado))} color={C.red}/>
         <KPI label="Saldo Final Jun-31" value={$$(acumConsolidado[acumConsolidado.length-1])} color={cf(acumConsolidado[acumConsolidado.length-1])}/>
         <KPI label="Empresas" value={empNames.length} color={C.yellow}/>
+      </div>
+      {/* Flujo al cierre de cada temporada */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
+        {SEASONS.map(s=>{
+          const lastIdx = s.indices[s.indices.length-1];
+          const saldoCierre = acumConsolidado[lastIdx] || 0;
+          return <KPI key={s.key} label={"Cierre "+s.key} value={$$(saldoCierre)} color={saldoCierre<0?C.red:C.green}/>;
+        })}
       </div>
       {/* Gráfico */}
       <Card>
@@ -3240,7 +3248,7 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
           <div>
             <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Vista</div>
             <div style={{display:"flex",gap:0,borderRadius:8,overflow:"hidden",border:`1px solid ${C.border}`}}>
-              {[{id:"sumada",label:"🏛 Sumada"},{id:"por_empresa",label:"🏢 Por empresa"},{id:"waterfall",label:"📊 Waterfall"}].map(v=>(
+              {[{id:"sumada",label:"🏛 Sumada"},{id:"waterfall",label:"📊 Waterfall"}].map(v=>(
                 <button key={v.id} onClick={()=>setVistaConsolidado(v.id)}
                   style={{padding:"7px 18px",border:"none",cursor:"pointer",fontWeight:vistaConsolidado===v.id?800:500,fontSize:12,
                     background:vistaConsolidado===v.id?C.accent:"transparent",
@@ -3480,7 +3488,7 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
         callCapital, financiamiento, pagoCreditos, dividendosRec, otrosIngresosN,
         inversiones, aportesCapital,
         fcCapital, total, saldoFinal,
-        participacionCtrl: total * participacion,
+        participacionCtrl: saldoFinal * participacion,
       };
     });
     return res;
@@ -3516,6 +3524,7 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
     {key:"fcCapital",      label:"Flujo Caja Capital",        tipo:"subtotal"},
     {key:"total",          label:"Total Flujo del Período",   tipo:"total"},
     {key:"saldoFinal",     label:"Saldo Final Caja (USD)",    tipo:"saldoFinal"},
+    {key:"participacionCtrl", label:"Participación Controladora", tipo:"controladora"},
   ];
 
   // Formato miles con signo
@@ -3529,7 +3538,7 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
   // Color según tipo de fila y valor
   function colorFila(tipo, v) {
     if(tipo === "saldo") return C.blue;
-    if(tipo === "saldoFinal") return v < 0 ? C.red : C.blue;
+    if(tipo === "saldoFinal" || tipo === "controladora") return v < 0 ? C.red : C.blue;
     if(tipo === "subtotal") return v >= 0 ? C.green : C.red;
     if(tipo === "total") return v >= 0 ? C.green : C.red;
     if(v === 0 || v == null) return C.muted2;
@@ -3735,13 +3744,6 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
               {SEASONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </div>
-          <div>
-            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.muted,cursor:"pointer"}}>
-              <input type="checkbox" checked={mostrarControladora}
-                onChange={e=>setMostrarControladora(e.target.checked)}/>
-              Mostrar Participación Controladora
-            </label>
-          </div>
           <button onClick={exportarExcel}
             style={{marginLeft:"auto",padding:"8px 16px",borderRadius:8,background:C.teal,
               color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}}>
@@ -3765,7 +3767,7 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
                   fontWeight:700,fontSize:10,minWidth:105}}>
                   {n}
                   <div style={{fontSize:9,color:C.muted2,fontWeight:400,marginTop:2}}>
-                    {empresas[n]?.emoji || ""}
+                    {empresas[n]?.emoji || ""} <span style={{color:C.teal}}>{Math.round((PARTICIPACION_CONTROLADORA[n]??1)*100)}%</span>
                   </div>
                 </th>
               ))}
@@ -3773,12 +3775,6 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
                 fontSize:10,background:`${C.accent}22`,minWidth:120}}>
                 TOTAL
               </th>
-              {mostrarControladora&&(
-                <th style={{padding:"10px 14px",textAlign:"right",color:C.text,fontWeight:900,
-                  fontSize:10,background:`${C.teal}22`,minWidth:140}}>
-                  PART. CONTROLADORA
-                </th>
-              )}
             </tr>
           </thead>
           <tbody>
@@ -3787,18 +3783,20 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
               const isSaldoFinal = f.tipo === "saldoFinal";
               const isSubtotal = f.tipo === "subtotal";
               const isTotal = f.tipo === "total";
+              const isCtrl = f.tipo === "controladora";
               const bg = (isSaldo||isSaldoFinal) ? `${C.blue}11`
                        : isTotal ? `${C.accent}22`
                        : isSubtotal ? `${C.green}11`
+                       : isCtrl ? `${C.teal}15`
                        : i%2===0 ? "transparent" : `${C.border}08`;
-              const fontWeight = (isSaldo||isSaldoFinal||isSubtotal||isTotal) ? 800 : 500;
+              const fontWeight = (isSaldo||isSaldoFinal||isSubtotal||isTotal||isCtrl) ? 800 : 500;
 
               return (
                 <tr key={f.key} style={{background:bg,borderBottom:`1px solid ${C.border}33`}}>
                   <td style={{padding:"8px 14px",position:"sticky",left:0,background:bg,
-                    fontWeight, color:(isSaldo||isSaldoFinal)?C.blue:isTotal?C.accent:isSubtotal?C.green:C.text,
-                    fontSize:(isTotal||isSaldoFinal)?12:11,zIndex:1}}>
-                    {f.label}
+                    fontWeight, color:isCtrl?C.teal:(isSaldo||isSaldoFinal)?C.blue:isTotal?C.accent:isSubtotal?C.green:C.text,
+                    fontSize:(isTotal||isSaldoFinal||isCtrl)?12:11,zIndex:1}}>
+                    {f.label}{isCtrl&&<span style={{fontSize:9,color:C.muted,marginLeft:6}}>(% propiedad)</span>}
                   </td>
                   {empNames.map(n=>{
                     const v = datos[n]?.[f.key] || 0;
@@ -3814,14 +3812,6 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
                     background:`${C.accent}11`,fontSize:(isTotal||isSaldoFinal)?12:11}}>
                     {fmtSaldo(totales[f.key], f.tipo)}
                   </td>
-                  {mostrarControladora&&(
-                    <td style={{padding:"8px 14px",textAlign:"right",
-                      color:isTotal?colorFila("total",totales.participacionCtrl):C.muted2,
-                      fontWeight:isTotal?900:500,
-                      background:`${C.teal}08`,fontSize:isTotal?12:11}}>
-                      {isTotal ? fmt(totales.participacionCtrl) : "—"}
-                    </td>
-                  )}
                 </tr>
               );
             })}
@@ -3830,7 +3820,7 @@ function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPo
       </div>
 
       <div style={{marginTop:10,fontSize:10,color:C.muted,fontStyle:"italic",padding:"0 4px"}}>
-        💡 Cifras en USD · Valores positivos = ingresos / saldo · Valores negativos = egresos · Participación Controladora calcula solo sobre el Total según el % de propiedad de cada entidad.
+        💡 Cifras en USD · Valores positivos = ingresos / saldo · Valores negativos = egresos · Participación Controladora = Saldo Final × % de propiedad.
       </div>
     </div>
   );
@@ -5145,10 +5135,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════════
 function Dashboard({empresas, saldosBancos}) {
-  const gmAcum=useMemo(()=>{
-    let acc=Object.values(empresas).reduce((s,e)=>s+e.saldo_ini,0);
-    return MESES_65.map((_,i)=>{let f=0;Object.values(empresas).forEach(e=>e.sections.forEach(sec=>sec.lines.forEach(l=>{f+=(l.proy[i]||0)*sec.signo;})));acc+=f;return acc;});
-  },[empresas]);
+  const gmAcum = acumConsolidado;
   const EMPRESAS_CHILE = ["Mediterra","Allegria Foods","Allegria Service","Frisku Foods","Allpa Farms","Osiris","Integrity Farms"];
   const EMPRESAS_PERU  = ["Allpa Farms Perú"];
   const HOY_DASH = new Date();
