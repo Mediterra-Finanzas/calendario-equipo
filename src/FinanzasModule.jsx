@@ -414,10 +414,44 @@ function calcPrestamosEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
   const arr = Z65();
   creditos.filter(c => c.empresa === empresa && !c.pagado).forEach(c => {
     if(!c.f_venc || !c.cuota) return;
-    const mes = mesDeDate(c.f_venc);
-    if(!mes || mes.includes("NaN") || mes.includes("undefined")) return;
-    const i   = mIdx(mes);
-    if(i >= 0) arr[i] += Number(c.cuota)||0;
+    const cuota = Number(c.cuota)||0;
+    if(cuota === 0) return;
+    
+    if(c.tipo_cr === "Cuotas Mensuales" && c.f_inicio) {
+      // Distribuir cuotas mensuales desde f_inicio hasta f_venc
+      const inicio = new Date(c.f_inicio);
+      const fin = new Date(c.f_venc);
+      if(isNaN(inicio) || isNaN(fin)) return;
+      let fecha = new Date(inicio);
+      // Primera cuota en el mes siguiente al desembolso
+      fecha.setMonth(fecha.getMonth() + 1);
+      while(fecha <= fin) {
+        const mes = `${MN[fecha.getMonth()]}-${String(fecha.getFullYear()).slice(2)}`;
+        const i = mIdx(mes);
+        if(i >= 0) arr[i] += cuota;
+        fecha.setMonth(fecha.getMonth() + 1);
+      }
+    } else {
+      // Bullet y otros: una cuota al vencimiento
+      const mes = mesDeDate(c.f_venc);
+      if(!mes || mes.includes("NaN")) return;
+      const i = mIdx(mes);
+      if(i >= 0) arr[i] += cuota;
+    }
+  });
+  return arr;
+}
+
+// Calcula ingreso del préstamo (desembolso) en Ingresos No Operacionales
+function calcIngresosPrestamosEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
+  const arr = Z65();
+  creditos.filter(c => c.empresa === empresa && !c.pagado && c.f_inicio).forEach(c => {
+    const monto = Number(c.monto)||0;
+    if(monto === 0) return;
+    const mes = mesDeDate(c.f_inicio);
+    if(!mes || mes.includes("NaN")) return;
+    const i = mIdx(mes);
+    if(i >= 0) arr[i] += monto;
   });
   return arr;
 }
@@ -6621,13 +6655,15 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
               })
             };
           }
-          // ing_nop: Ingreso Renovación (ingresos)
+          // ing_nop: Ingreso Renovación + Ingresos Financiamiento (ingresos)
           if(sec.cat==="ing_nop") {
             return {
               ...sec,
               lines: sec.lines.map(l=>{
                 if(l.label==="Ingreso Renovación")
                   return {...l, proy: calcIngresoRenovacionEmpresa(empNombre, creditosData)};
+                if(l.label==="Ingresos Financiamiento")
+                  return {...l, proy: calcIngresosPrestamosEmpresa(empNombre, creditosData)};
                 return l;
               })
             };
