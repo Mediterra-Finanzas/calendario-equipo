@@ -415,6 +415,7 @@ function calcPrestamosEmpresa(empresa, creditos=CREDITOS_DEFAULT) {
   creditos.filter(c => c.empresa === empresa && !c.pagado).forEach(c => {
     if(!c.f_venc || !c.cuota) return;
     const mes = mesDeDate(c.f_venc);
+    if(!mes || mes.includes("NaN") || mes.includes("undefined")) return;
     const i   = mIdx(mes);
     if(i >= 0) arr[i] += Number(c.cuota)||0;
   });
@@ -5235,9 +5236,18 @@ function Creditos({empresas, creditosData=CREDITOS_DEFAULT, onSaveCreditos, canE
   function openEdit(c){ setForm({...c,monto:String(c.monto),cuota:String(c.cuota)}); setEditId(c.n); setModal(true); }
   function guardar(){
     if(!form.empresa||!form.acreedor||!form.monto||!form.f_venc){alert("Empresa, acreedor, monto y fecha son obligatorios.");return;}
-    const item={...form,monto:parseFloat(form.monto)||0,cuota:parseFloat(form.cuota||form.monto)||0,
-      pagado: form.pagado !== undefined ? form.pagado : false,
-      n:editId||Date.now()};
+    // ID secuencial: max n existente + 1
+    const maxN = creditosData.reduce((m,c)=> Math.max(m, typeof c.n === 'number' && c.n < 100000 ? c.n : 0), 0);
+    const newN = editId || (maxN + 1);
+    const item={
+      ...form,
+      n: newN,
+      monto: parseFloat(form.monto)||0,
+      cuota: parseFloat(form.cuota||form.monto)||0,
+      pagado: form.pagado === true ? true : false,
+      f_venc: form.f_venc || "",
+      f_inicio: form.f_inicio || "",
+    };
     const next=editId
       ? creditosData.map(c=>String(c.n)===String(editId)?item:c)
       : [...creditosData,item];
