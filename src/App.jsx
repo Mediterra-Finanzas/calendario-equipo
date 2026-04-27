@@ -391,7 +391,9 @@ const TABS_PERMISOS_CONFIG = {
     {id:"config",   label:"⚙️ Configuración"},
   ],
   osiris: [
-    {id:"contratos",  label:"📄 Contratos"},
+    {id:"contratos",  label:"📄 Contratos Prod-Exp"},
+    {id:"obtentores", label:"🧬 Contratos Obtentores"},
+    {id:"viveros",    label:"🌱 Contratos Viveros"},
     {id:"royalties",  label:"💰 Royalties / Fee"},
   ],
   finanzas: [
