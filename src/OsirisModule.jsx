@@ -4135,6 +4135,20 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const [subApp,setSubApp]=useState(null);
   const [subTab,setSubTab]=useState("resumen");
 
+  // Hooks para Contratos Obtentores
+  const [obtModal, setObtModal] = useState(false);
+  const [obtEditId, setObtEditId] = useState(null);
+  const [obtDetalle, setObtDetalle] = useState(null);
+  const [obtTab, setObtTab] = useState("general");
+  const EMPTY_OBT = {obtentor:"",f_inicio:"",f_vencimiento:"",renovable:false,observaciones:"",
+    firma_obtentor:false,firma_osiris:false,doc_legal:"",especies:[],anexos:[],pbr:[]};
+  const [obtForm, setObtForm] = useState(EMPTY_OBT);
+
+  // Hooks para Contratos Viveros
+  const [vivModal, setVivModal] = useState(false);
+  const [vivForm, setVivForm] = useState({viverista:"",pais:"",especie:"",variedad:"",fee_usd:"",fee_pct:"",f_contrato:"",f_vencimiento:"",observaciones:""});
+  const [vivEditId, setVivEditId] = useState(null);
+
   // Datos desde Supabase — sin datos de ejemplo (empezar desde cero)
   const ctData  = osirisData?.contratos       ?? CONTRATOS_INIT;
   const clientes= osirisData?.clientes        ?? CLIENTES_INIT;
@@ -4424,15 +4438,6 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   if(subApp==="obtentores") {
     const obtData = osirisData?.obtentores || [];
     const setObt = (list) => setOsirisData(prev=>({...prev, obtentores: list}));
-    const [obtModal, setObtModal] = React.useState(false);
-    const [obtEditId, setObtEditId] = React.useState(null);
-    const [obtDetalle, setObtDetalle] = React.useState(null); // ID del contrato abierto en detalle
-    const [obtTab, setObtTab] = React.useState("general"); // general | especies | pbr | legal | anexos
-
-    const EMPTY_OBT = {obtentor:"",f_inicio:"",f_vencimiento:"",renovable:false,observaciones:"",
-      firma_obtentor:false,firma_osiris:false,doc_legal:"",
-      especies:[],anexos:[],pbr:[]};
-    const [obtForm, setObtForm] = React.useState(EMPTY_OBT);
 
     const guardarObt = () => {
       if(!obtForm.obtentor) { alert("Nombre del obtentor es obligatorio"); return; }
@@ -4807,9 +4812,6 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   if(subApp==="viveros") {
     const vivData = osirisData?.viveros || [];
     const setViv = (list) => setOsirisData(prev=>({...prev, viveros: list}));
-    const [vivModal, setVivModal] = React.useState(false);
-    const [vivForm, setVivForm] = React.useState({viverista:"",pais:"",especie:"",variedad:"",fee_usd:"",fee_pct:"",f_contrato:"",f_vencimiento:"",observaciones:""});
-    const [vivEditId, setVivEditId] = React.useState(null);
     
     const guardarViv = () => {
       if(!vivForm.viverista) { alert("Viverista es obligatorio"); return; }
