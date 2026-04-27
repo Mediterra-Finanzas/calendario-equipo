@@ -3195,6 +3195,13 @@ const CLIENTES_INIT=[
   {id:"cli10",razonSocial:"Fruits Giddings SA de CV",nombreComercial:"Giddings",taxID:"",pais:"Mexico",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
   {id:"cli11",razonSocial:"Frunatural",nombreComercial:"Frunatural",taxID:"",pais:"Mexico",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""},
 ];
+// Maestro de Viveristas — empieza vacío, se agregan según necesidad
+const VIVERISTAS_INIT = [];
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const FORMAS_PAGO = ["Anual","Semestral","Trimestral","Mensual","A demanda","Contra entrega","Otro"];
+const ESTADOS_DHE = ["No iniciado","En proceso","Aprobado","Rechazado","No aplica"];
+const ESTADOS_CONTRATO_OBT = ["Borrador","En revisión","Firmado","Vigente","Vencido","Terminado"];
+const ESTADOS_OC = ["Borrador","Confirmada","En producción","Entregada","Pagada parcial","Pagada total","Anulada"];
 const MONEDAS=["USD","EUR","CLP","PEN"];
 const SECCIONES_CT=[
   {id:"empresa",   label:"🏢 Empresa",         color:"#2563eb"},
@@ -3360,6 +3367,129 @@ function MaestroClientes({clientes,setClientes,can}){
               </tr>
             ))}
             {filtrado.length===0&&<tr><td colSpan={8} style={{textAlign:"center",padding:20,color:"#94a3b8"}}>Sin clientes</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Maestro de Viveristas ────────────────────────────────────
+// Misma estructura que Maestro Clientes (todos los campos)
+function MaestroViveristas({viveristas,setViveristas,can}){
+  const [editId,setEditId]=useState(null);
+  const VACIO={razonSocial:"",nombreComercial:"",taxID:"",pais:"Chile",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""};
+  const [form,setForm]=useState(VACIO);
+  const [showForm,setShowForm]=useState(false);
+  const [busq,setBusq]=useState("");
+
+  function guardar(){
+    if(!form.razonSocial.trim()){alert("Razón Social es obligatoria.");return;}
+    if(editId){
+      const anterior = viveristas.find(v=>v.id===editId);
+      setViveristas(prev=>prev.map(v=>v.id===editId?{...v,...form}:v));
+      if(anterior) {
+        Object.keys(form).forEach(k=>{
+          if(String(anterior[k]||"") !== String(form[k]||"")) {
+            window.auditLog&&window.auditLog("editar", {modulo:"osiris", seccion:"Maestro Viveristas",
+              descripcion:`Editó viverista "${form.razonSocial||anterior.razonSocial}": campo ${k}`,
+              registroId:editId, campo:k,
+              valorAnterior:String(anterior[k]||""), valorNuevo:String(form[k]||"")});
+          }
+        });
+      }
+      setEditId(null);
+    } else {
+      const id = `vrs_${Date.now()}`;
+      setViveristas(prev=>[...prev,{...form,id}]);
+      window.auditLog&&window.auditLog("crear", {modulo:"osiris", seccion:"Maestro Viveristas",
+        descripcion:`Creó viverista "${form.razonSocial}" · ${form.pais||""}`,
+        registroId:id});
+    }
+    setForm(VACIO);
+    setShowForm(false);
+  }
+  function iniciarEdicion(v){
+    setForm({razonSocial:v.razonSocial||"",nombreComercial:v.nombreComercial||"",taxID:v.taxID||"",pais:v.pais||"Chile",direccion:v.direccion||"",ciudad:v.ciudad||"",repLegal:v.repLegal||"",rucRep:v.rucRep||"",contactoCobranza:v.contactoCobranza||""});
+    setEditId(v.id);setShowForm(true);
+  }
+
+  const filtrado = (viveristas||[]).filter(v=>!busq||v.razonSocial.toLowerCase().includes(busq.toLowerCase())||
+    (v.nombreComercial||"").toLowerCase().includes(busq.toLowerCase()));
+  const CAMPOS=[["Razón Social *","razonSocial","text"],["Nombre Comercial","nombreComercial","text"],["TAX ID / RUC","taxID","text"],["País","pais","select"],["Dirección","direccion","text"],["Ciudad","ciudad","text"],["Representante Legal","repLegal","text"],["RUC Representante","rucRep","text"],["Contacto Cobranza","contactoCobranza","text"]];
+
+  return(
+    <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:12,padding:"16px 20px",marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#16a34a"}}>🌱 Maestro de Viveristas</div>
+        <div style={{display:"flex",gap:8}}>
+          <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar..."
+            style={{padding:"5px 10px",borderRadius:6,border:"1px solid #86efac",fontSize:12,outline:"none"}}/>
+          {can&&<button onClick={()=>{setShowForm(v=>!v);setEditId(null);setForm(VACIO);}}
+            style={{padding:"6px 14px",borderRadius:6,background:"#16a34a",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>
+            {showForm&&!editId?"✕":"+ Nuevo viverista"}
+          </button>}
+        </div>
+      </div>
+
+      {showForm&&can&&(
+        <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",marginBottom:12,border:"1px solid #86efac"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#16a34a",marginBottom:10}}>{editId?"Editar viverista":"Nuevo viverista"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10,marginBottom:12}}>
+            {CAMPOS.map(([lbl,campo,tipo])=>(
+              <div key={campo}>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>{lbl}</div>
+                {tipo==="select"
+                  ? <select value={form[campo]} onChange={e=>setForm(p=>({...p,[campo]:e.target.value}))}
+                      style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none"}}>
+                      {["Chile","Peru","Mexico","Corea","España","Argentina","Otro"].map(o=><option key={o}>{o}</option>)}
+                    </select>
+                  : <input type={tipo} value={form[campo]} onChange={e=>setForm(p=>({...p,[campo]:e.target.value}))}
+                      style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                }
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button onClick={()=>{setShowForm(false);setEditId(null);}} style={{padding:"6px 16px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12}}>Cancelar</button>
+            <button onClick={guardar} style={{padding:"6px 16px",borderRadius:6,background:"#16a34a",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>💾 Guardar</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{overflowX:"auto"}}>
+        <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:8,overflow:"hidden",fontSize:12}}>
+          <thead><tr style={{background:"#16a34a",color:"#fff"}}>
+            {["Razón Social","Nombre Comercial","TAX ID","País","Ciudad","Rep. Legal","Contacto Cobranza",""].map(h=>(
+              <th key={h} style={{padding:"7px 10px",textAlign:"left",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {filtrado.map((v,i)=>(
+              <tr key={v.id} style={{borderBottom:"1px solid #f0fdf4",background:i%2===0?"#fff":"#f0fdf4"}}>
+                <td style={{padding:"6px 10px",fontWeight:600,color:"#16a34a"}}>{v.razonSocial}</td>
+                <td style={{padding:"6px 10px",color:"#64748b"}}>{v.nombreComercial||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{v.taxID||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b"}}>{v.pais}</td>
+                <td style={{padding:"6px 10px",color:"#64748b"}}>{v.ciudad||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{v.repLegal||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{v.contactoCobranza||"—"}</td>
+                <td style={{padding:"6px 8px",textAlign:"center"}}>
+                  {can&&<div style={{display:"flex",gap:4}}>
+                    <button onClick={()=>iniciarEdicion(v)} style={{background:"#dbeafe",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#1d4ed8",fontWeight:600}}>✏️</button>
+                    <button onClick={()=>{
+                      if(!window.confirm(`¿Eliminar viverista "${v.razonSocial}"?`))return;
+                      window.auditLog&&window.auditLog("eliminar", {modulo:"osiris", seccion:"Maestro Viveristas",
+                        descripcion:`Eliminó viverista "${v.razonSocial}" · ${v.pais||""}`,
+                        registroId:v.id});
+                      setViveristas(prev=>prev.filter(x=>x.id!==v.id));
+                    }}
+                      style={{background:"#fee2e2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#991b1b",fontWeight:600}}>×</button>
+                  </div>}
+                </td>
+              </tr>
+            ))}
+            {filtrado.length===0&&<tr><td colSpan={8} style={{textAlign:"center",padding:20,color:"#94a3b8"}}>Sin viveristas. {can?"Agrega uno con \"+ Nuevo viverista\".":""}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -4150,11 +4280,12 @@ function estadoVigencia(fechaStr) {
 async function exportarObtentores(obtData) {
   const sectionContratos = {
     titulo: "Contratos Obtentores",
-    headers: ["Obtentor","Fecha Inicio","Fecha Vencimiento","Renovable","Firma Obtentor","Firma Osiris","# Especies","# PBR","# Anexos","Días para vencer","Observaciones"],
+    headers: ["Obtentor","Estado Contrato","Fecha Inicio","Fecha Vencimiento","Renovable","Firma Obtentor","Firma Osiris","# Especies","# PBR","# Anexos","Días para vencer","Link Contrato","Link Doc. Legal","Observaciones"],
     rows: obtData.map(o=>{
       const d = diasParaVencer(o.f_vencimiento);
       return [
         o.obtentor||"",
+        o.estado_contrato||"Borrador",
         o.f_inicio||"",
         o.f_vencimiento||"",
         o.renovable?"Sí":"No",
@@ -4164,31 +4295,51 @@ async function exportarObtentores(obtData) {
         (o.pbr||[]).length,
         (o.anexos||[]).length,
         d!==null?d:"—",
+        o.doc_contrato||"",
+        o.doc_legal||"",
         o.observaciones||"",
       ];
     }),
   };
   const especiesRows = [];
   obtData.forEach(o=>(o.especies||[]).forEach(e=>{
-    especiesRows.push([o.obtentor||"", e.especie||"", e.variedad||"", e.observaciones||""]);
+    especiesRows.push([
+      o.obtentor||"", e.especie||"", e.variedad||"",
+      e.dhe_estado||"No iniciado", e.dhe_fecha_aprob||"", e.dhe_doc||"", e.dhe_observaciones||"",
+      e.observaciones||""
+    ]);
   }));
   const sectionEspecies = {
-    titulo: "Especies/Variedades",
-    headers: ["Obtentor","Especie","Variedad","Observaciones"],
+    titulo: "Especies, Variedades y DHE",
+    headers: ["Obtentor","Especie","Variedad","Estado DHE","Fecha aprob. DHE","Doc. DHE","Obs. DHE","Obs. Variedad"],
     rows: especiesRows,
   };
   const pbrRows = [];
   obtData.forEach(o=>(o.pbr||[]).forEach(p=>{
-    pbrRows.push([o.obtentor||"", p.especie||"", p.pais||"", p.estado||"", p.f_solicitud||"", p.f_resolucion||"", p.observaciones||""]);
+    pbrRows.push([
+      o.obtentor||"", p.especie||"", p.pais||"", p.estado||"",
+      p.f_solicitud||"", p.f_resolucion||"",
+      p.doc_solicitud||"", p.doc_resolucion||"",
+      p.observaciones||""
+    ]);
   }));
   const sectionPBR = {
     titulo: "Registros PBR",
-    headers: ["Obtentor","Especie","País","Estado","Fecha Solicitud","Fecha Resolución","Observaciones"],
+    headers: ["Obtentor","Especie","País","Estado","Fecha Solicitud","Fecha Resolución","Doc. Solicitud","Doc. Resolución","Observaciones"],
     rows: pbrRows,
   };
-  await exportCSV([sectionContratos, sectionEspecies, sectionPBR], null, "Contratos_Obtentores", {
+  const anexosRows = [];
+  obtData.forEach(o=>(o.anexos||[]).forEach(a=>{
+    anexosRows.push([o.obtentor||"", a.descripcion||"", a.fecha||"", a.enlace||"", a.observaciones||""]);
+  }));
+  const sectionAnexos = {
+    titulo: "Anexos",
+    headers: ["Obtentor","Descripción","Fecha","Enlace","Observaciones"],
+    rows: anexosRows,
+  };
+  await exportCSV([sectionContratos, sectionEspecies, sectionPBR, sectionAnexos], null, "Contratos_Obtentores", {
     tituloDoc: "Contratos Obtentores",
-    filtros: `${obtData.length} contratos · ${especiesRows.length} variedades · ${pbrRows.length} PBR`,
+    filtros: `${obtData.length} contratos · ${especiesRows.length} variedades/DHE · ${pbrRows.length} PBR · ${anexosRows.length} anexos`,
   });
   window.auditLog && window.auditLog("exportar", {modulo:"osiris", seccion:"Contratos Obtentores",
     descripcion:`Exportó ${obtData.length} contratos obtentores a Excel`});
@@ -4198,7 +4349,7 @@ async function exportarObtentores(obtData) {
 async function exportarViveros(vivData) {
   const sectionViveros = {
     titulo: "Contratos Viveros",
-    headers: ["Viverista","País","Fecha Contrato","Fecha Vencimiento","Firma Viverista","Firma Osiris","# Variedades","Días para vencer","Observaciones"],
+    headers: ["Viverista","País","Fecha Contrato","Fecha Vencimiento","Forma de Pago","Mes Estim. Pago","Firma Viverista","Firma Osiris","# Variedades","# OC","Días para vencer","Link Contrato","Observaciones"],
     rows: vivData.map(v=>{
       const d = diasParaVencer(v.f_vencimiento);
       return [
@@ -4206,10 +4357,14 @@ async function exportarViveros(vivData) {
         v.pais||"",
         v.f_contrato||"",
         v.f_vencimiento||"",
+        v.forma_pago||"",
+        v.mes_pago_estimado||"",
         v.firma_viverista?"Firmado":"Pendiente",
         v.firma_osiris?"Firmado":"Pendiente",
         (v.variedades||[]).length,
+        (v.ordenesCompra||[]).length,
         d!==null?d:"—",
+        v.doc_contrato||"",
         v.observaciones||"",
       ];
     }),
@@ -4223,12 +4378,58 @@ async function exportarViveros(vivData) {
     headers: ["Viverista","País","Especie","Variedad","Fee USD/planta","Fee % s/venta","Observaciones"],
     rows: varRows,
   };
-  await exportCSV([sectionViveros, sectionVariedades], null, "Contratos_Viveros", {
+  // Sección OC
+  const ocRows = [];
+  vivData.forEach(v=>(v.ordenesCompra||[]).forEach(o=>{
+    const totC = (o.cuotas||[]).reduce((s,c)=>s+(parseFloat(c.monto_usd)||0),0);
+    const totPag = (o.cuotas||[]).filter(c=>c.pagado).reduce((s,c)=>s+(parseFloat(c.monto_usd)||0),0);
+    ocRows.push([
+      v.viverista||"",
+      o.n_oc||"", o.fecha_oc||"",
+      o.cliente_nombre||"",
+      o.especie||"", o.variedad||"",
+      parseFloat(o.cantidad_plantas)||0,
+      parseFloat(o.hectareas)||0,
+      parseFloat(o.fee_usd_planta)||0,
+      parseFloat(o.fee_total_usd)||0,
+      o.estado_oc||"",
+      (o.cuotas||[]).length,
+      totPag,
+      totC-totPag,
+      o.observaciones||"",
+    ]);
+  }));
+  const sectionOC = {
+    titulo: "Órdenes de Compra de Clientes",
+    headers: ["Viverista","N° OC","Fecha OC","Cliente","Especie","Variedad","Plantas","Há","Fee USD/planta","Fee Total USD","Estado","# Cuotas","Cobrado USD","Por cobrar USD","Observaciones"],
+    rows: ocRows,
+  };
+  // Sección Cuotas
+  const cuotasRows = [];
+  vivData.forEach(v=>(v.ordenesCompra||[]).forEach(o=>(o.cuotas||[]).forEach(cu=>{
+    cuotasRows.push([
+      v.viverista||"",
+      o.n_oc||"",
+      o.cliente_nombre||"",
+      cu.fecha||"",
+      parseFloat(cu.monto_usd)||0,
+      cu.pagado?"Pagado":"Por cobrar",
+      cu.fecha_pago||"",
+      cu.n_factura||"",
+      cu.observaciones||"",
+    ]);
+  })));
+  const sectionCuotas = {
+    titulo: "Cuotas / Fechas de Pago",
+    headers: ["Viverista","N° OC","Cliente","Fecha Estimada","Monto USD","Estado","Fecha Pago","N° Factura","Observaciones"],
+    rows: cuotasRows,
+  };
+  await exportCSV([sectionViveros, sectionVariedades, sectionOC, sectionCuotas], null, "Contratos_Viveros", {
     tituloDoc: "Contratos Viveros",
-    filtros: `${vivData.length} viveros · ${varRows.length} variedades autorizadas`,
+    filtros: `${vivData.length} viveros · ${varRows.length} variedades · ${ocRows.length} OC · ${cuotasRows.length} cuotas`,
   });
   window.auditLog && window.auditLog("exportar", {modulo:"osiris", seccion:"Contratos Viveros",
-    descripcion:`Exportó ${vivData.length} contratos viveros a Excel`});
+    descripcion:`Exportó ${vivData.length} contratos viveros, ${ocRows.length} OC y ${cuotasRows.length} cuotas a Excel`});
 }
 
 // ══════════════════════════════════════════════════════════
@@ -4245,11 +4446,12 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const [obtDetalle, setObtDetalle] = useState(null);
   const [obtTab, setObtTab] = useState("general");
   const EMPTY_OBT = {obtentor:"",f_inicio:"",f_vencimiento:"",renovable:false,observaciones:"",
-    firma_obtentor:false,firma_osiris:false,doc_legal:"",especies:[],anexos:[],pbr:[]};
+    firma_obtentor:false,firma_osiris:false,doc_legal:"",doc_contrato:"",estado_contrato:"Borrador",
+    especies:[],anexos:[],pbr:[]};
   const [obtForm, setObtForm] = useState(EMPTY_OBT);
   // Sub-modales Obtentores
   const [espModal, setEspModal] = useState(false);
-  const [espForm, setEspForm] = useState({especie:"",variedad:"",observaciones:""});
+  const [espForm, setEspForm] = useState({especie:"",variedad:"",observaciones:"",dhe_estado:"No iniciado",dhe_fecha_aprob:"",dhe_doc:"",dhe_observaciones:""});
   const [pbrModal, setPbrModal] = useState(false);
   const [pbrForm, setPbrForm] = useState({especie:"",pais:"",estado:"Pendiente",f_solicitud:"",f_resolucion:"",doc_solicitud:"",doc_resolucion:"",observaciones:""});
   const [anxModal, setAnxModal] = useState(false);
@@ -4258,7 +4460,9 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   // Hooks para Contratos Viveros (estructura jerárquica)
   const [vivModal, setVivModal] = useState(false);
   const EMPTY_VIV = {viverista:"",pais:"",f_contrato:"",f_vencimiento:"",renovable:false,
-    firma_viverista:false,firma_osiris:false,doc_legal:"",observaciones:"",variedades:[],anexos:[]};
+    firma_viverista:false,firma_osiris:false,doc_legal:"",doc_contrato:"",observaciones:"",
+    mes_pago_estimado:"",forma_pago:"",
+    variedades:[],anexos:[],ordenesCompra:[]};
   const [vivForm, setVivForm] = useState(EMPTY_VIV);
   const [vivEditId, setVivEditId] = useState(null);
   const [vivDetalle, setVivDetalle] = useState(null);
@@ -4268,10 +4472,25 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const [vvForm, setVvForm] = useState({especie:"",variedad:"",fee_usd:"",fee_pct:"",observaciones:""});
   const [vAnxModal, setVAnxModal] = useState(false);
   const [vAnxForm, setVAnxForm] = useState({descripcion:"",fecha:"",enlace:"",observaciones:""});
+  // Modales para Órdenes de Compra dentro del vivero
+  const [ocModal, setOcModal] = useState(false);
+  const [ocEditId, setOcEditId] = useState(null);
+  const EMPTY_OC = {n_oc:"",fecha_oc:"",cliente_id:"",cliente_nombre:"",
+    variedad_id:"",especie:"",variedad:"",
+    cantidad_plantas:"",hectareas:"",
+    fee_usd_planta:"",fee_total_usd:0,
+    estado_oc:"Borrador",observaciones:"",
+    cuotas:[]};
+  const [ocForm, setOcForm] = useState(EMPTY_OC);
+  const [ocDetalle, setOcDetalle] = useState(null); // ID de OC para ver/editar cuotas
+  const [cuotaModal, setCuotaModal] = useState(false);
+  const [cuotaForm, setCuotaForm] = useState({fecha:"",monto_usd:"",pagado:false,fecha_pago:"",n_factura:"",observaciones:""});
+  const [cuotaEditId, setCuotaEditId] = useState(null);
 
   // Datos desde Supabase — sin datos de ejemplo (empezar desde cero)
   const ctData  = osirisData?.contratos       ?? CONTRATOS_INIT;
   const clientes= osirisData?.clientes        ?? CLIENTES_INIT;
+  const viveristas = osirisData?.viveristas   ?? VIVERISTAS_INIT;
   const tpData  = osirisData?.totalPedidos    ?? [];
   const rpData  = osirisData?.royaltyPlanta   ?? [];
   // Filtrar huérfanos: excluir registros vinculados a pedidos eliminados
@@ -4310,6 +4529,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   },[osirisData, ctData]);
 
   const setClientes=useCallback(fn=>setOsirisData(prev=>({...prev,clientes:       typeof fn==="function"?fn(prev?.clientes       ??CLIENTES_INIT):fn})),[setOsirisData]);
+  const setViveristas=useCallback(fn=>setOsirisData(prev=>({...prev,viveristas:    typeof fn==="function"?fn(prev?.viveristas    ??VIVERISTAS_INIT):fn})),[setOsirisData]);
   const setCt=useCallback(fn=>setOsirisData(prev=>({...prev,contratos:      typeof fn==="function"?fn(prev?.contratos      ??CONTRATOS_INIT):fn})),[setOsirisData]);
   const setTp=useCallback(fn=>setOsirisData(prev=>({...prev,totalPedidos:   typeof fn==="function"?fn(prev?.totalPedidos   ??[]):fn})),[setOsirisData]);
   const setRp=useCallback(fn=>setOsirisData(prev=>({...prev,royaltyPlanta:  typeof fn==="function"?fn(prev?.royaltyPlanta  ??[]):fn})),[setOsirisData]);
@@ -4509,7 +4729,9 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               const arr = osirisData?.viveros||[];
               const venc = arr.filter(v=>{const d=diasParaVencer(v.f_vencimiento);return d!==null && d<0;}).length;
               const por = arr.filter(v=>{const d=diasParaVencer(v.f_vencimiento);return d!==null && d>=0 && d<=90;}).length;
+              const totOC = arr.reduce((s,v)=>s+(v.ordenesCompra||[]).length,0);
               return <>
+                {totOC>0&&<span style={{fontSize:10,background:"rgba(37,99,235,0.2)",color:"#93c5fd",padding:"3px 10px",borderRadius:20,fontWeight:700}}>📦 {totOC} OC</span>}
                 {venc>0&&<span style={{fontSize:10,background:"rgba(239,68,68,0.2)",color:"#f87171",padding:"3px 10px",borderRadius:20,fontWeight:700}}>⚠️ {venc} vencido{venc>1?"s":""}</span>}
                 {por>0&&<span style={{fontSize:10,background:"rgba(251,191,36,0.2)",color:"#fbbf24",padding:"3px 10px",borderRadius:20,fontWeight:700}}>⏳ {por} por vencer</span>}
               </>;
@@ -4632,9 +4854,18 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       if(!canObtentores) return;
       if(!espForm.especie || !espForm.variedad) { alert("Especie y Variedad son obligatorios."); return; }
       const c = contratoActivo;
-      const nueva = {id:`esp_${Date.now()}`, especie:espForm.especie.trim(), variedad:espForm.variedad.trim(), observaciones:espForm.observaciones||""};
+      const nueva = {
+        id:`esp_${Date.now()}`,
+        especie:espForm.especie.trim(),
+        variedad:espForm.variedad.trim(),
+        observaciones:espForm.observaciones||"",
+        dhe_estado:espForm.dhe_estado||"No iniciado",
+        dhe_fecha_aprob:espForm.dhe_fecha_aprob||"",
+        dhe_doc:espForm.dhe_doc||"",
+        dhe_observaciones:espForm.dhe_observaciones||"",
+      };
       updateContrato(c.id, {especies:[...(c.especies||[]), nueva]});
-      setEspForm({especie:"",variedad:"",observaciones:""});
+      setEspForm({especie:"",variedad:"",observaciones:"",dhe_estado:"No iniciado",dhe_fecha_aprob:"",dhe_doc:"",dhe_observaciones:""});
       setEspModal(false);
     };
 
@@ -4730,9 +4961,11 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 <div style={{fontSize:11,color:"#8b949e",marginTop:4}}>
                   {c.f_inicio&&`Desde ${c.f_inicio}`} {c.f_vencimiento&&` · Hasta ${c.f_vencimiento}`}
                   <span style={{color:vig.color,marginLeft:8,fontWeight:700}}>{vig.icon} {vig.label}</span>
+                  {c.doc_contrato&&<a href={c.doc_contrato} target="_blank" rel="noopener noreferrer" style={{marginLeft:10,color:"#a78bfa",fontWeight:700,textDecoration:"none"}}>📄 Abrir contrato</a>}
                 </div>
               </div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {c.estado_contrato&&<span style={{fontSize:10,background:"rgba(124,58,237,0.25)",color:"#c4b5fd",padding:"4px 10px",borderRadius:20,fontWeight:700,border:"1px solid #7c3aed44"}}>📋 {c.estado_contrato}</span>}
                 {c.firma_obtentor&&<span style={{fontSize:10,background:"rgba(34,197,94,0.2)",color:"#4ade80",padding:"4px 10px",borderRadius:20,fontWeight:700}}>✅ Firma Obtentor</span>}
                 {c.firma_osiris&&<span style={{fontSize:10,background:"rgba(34,197,94,0.2)",color:"#4ade80",padding:"4px 10px",borderRadius:20,fontWeight:700}}>✅ Firma Osiris</span>}
                 {c.renovable&&<span style={{fontSize:10,background:"rgba(96,165,250,0.2)",color:"#93c5fd",padding:"4px 10px",borderRadius:20,fontWeight:700}}>🔄 Renovable</span>}
@@ -4765,10 +4998,23 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                   </div>
                 ))}
                 <div>
-                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"flex",alignItems:"center",gap:8,cursor:canObtentores?"pointer":"default"}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado del Contrato</label>
+                  <select disabled={!canObtentores} value={c.estado_contrato||"Borrador"} onChange={e=>updateContrato(c.id,{estado_contrato:e.target.value})}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canObtentores?"#fff":"#f8fafc"}}>
+                    {ESTADOS_CONTRATO_OBT.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"flex",alignItems:"center",gap:8,cursor:canObtentores?"pointer":"default",marginTop:24}}>
                     <input type="checkbox" disabled={!canObtentores} checked={!!c.renovable} onChange={e=>updateContrato(c.id,{renovable:e.target.checked})}/>
                     Contrato renovable
                   </label>
+                </div>
+                <div style={{gridColumn:"1/-1"}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link al contrato (OneDrive/Drive)</label>
+                  <input disabled={!canObtentores} value={c.doc_contrato||""} placeholder="https://..." onChange={e=>updateContrato(c.id,{doc_contrato:e.target.value})}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canObtentores?"#fff":"#f8fafc"}}/>
+                  {c.doc_contrato&&<a href={c.doc_contrato} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#7c3aed",marginTop:6,display:"inline-block",fontWeight:700}}>📄 Abrir contrato</a>}
                 </div>
                 <div style={{gridColumn:"1/-1"}}>
                   <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
@@ -4782,31 +5028,70 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
             {obtTab==="especies"&&(
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                  <div style={{fontWeight:700,color:"#1e293b"}}>Especies y Variedades del Contrato</div>
-                  {canObtentores&&<button onClick={()=>{setEspForm({especie:"",variedad:"",observaciones:""});setEspModal(true);}} style={{padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Especie</button>}
+                  <div style={{fontWeight:700,color:"#1e293b"}}>Especies, Variedades y DHE del Contrato</div>
+                  {canObtentores&&<button onClick={()=>{setEspForm({especie:"",variedad:"",observaciones:"",dhe_estado:"No iniciado",dhe_fecha_aprob:"",dhe_doc:"",dhe_observaciones:""});setEspModal(true);}} style={{padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Especie/Variedad</button>}
+                </div>
+                <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#78350f"}}>
+                  💡 Cada variedad puede tener su propio estado de DHE (Distinción, Homogeneidad y Estabilidad). Al obtener la aprobación del DHE, adjunta el documento.
                 </div>
                 {especies.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No hay especies registradas.</div>:(
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                    <thead><tr style={{background:"#f8fafc"}}>
-                      {["Especie","Variedad","Observaciones",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontWeight:700,fontSize:10,color:"#64748b",borderBottom:"2px solid #e2e8f0"}}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {especies.map(e=>(
-                        <tr key={e.id} style={{borderBottom:"1px solid #f1f5f9"}}>
-                          <td style={{padding:"8px 12px",fontWeight:600}}>{e.especie}</td>
-                          <td style={{padding:"8px 12px"}}>{e.variedad}</td>
-                          <td style={{padding:"8px 12px"}}>
-                            <input disabled={!canObtentores} value={e.observaciones||""} onChange={ev=>{
-                              updateContrato(c.id,{especies:especies.map(x=>x.id===e.id?{...x,observaciones:ev.target.value}:x)});
-                            }} style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:12,background:canObtentores?"#fff":"#f8fafc"}} placeholder="Notas..."/>
-                          </td>
-                          <td style={{padding:"8px 12px"}}>
-                            {canObtentores&&<button onClick={()=>delEspecie(e.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                    {especies.map(e=>{
+                      const dheEstado = e.dhe_estado || "No iniciado";
+                      const dheBg = dheEstado==="Aprobado"?"#f0fdf4":dheEstado==="Rechazado"?"#fef2f2":dheEstado==="En proceso"?"#fef9c3":"#fff";
+                      const dheColor = dheEstado==="Aprobado"?"#16a34a":dheEstado==="Rechazado"?"#dc2626":dheEstado==="En proceso"?"#d97706":"#64748b";
+                      return (
+                        <div key={e.id} style={{border:"1px solid #e2e8f0",borderRadius:10,padding:14,background:dheBg}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+                            <div>
+                              <span style={{fontWeight:800,fontSize:14,color:"#1e293b"}}>🌿 {e.especie}</span>
+                              <span style={{fontSize:13,color:"#475569",marginLeft:6}}>— {e.variedad}</span>
+                            </div>
+                            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                              <span style={{fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:20,background:dheColor+"22",color:dheColor,border:`1px solid ${dheColor}55`}}>
+                                DHE: {dheEstado}
+                              </span>
+                              {canObtentores&&<button onClick={()=>delEspecie(e.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11}}>🗑</button>}
+                            </div>
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,fontSize:11,marginBottom:8}}>
+                            <div>
+                              <div style={{color:"#64748b",fontWeight:600,marginBottom:2}}>Estado DHE</div>
+                              <select disabled={!canObtentores} value={e.dhe_estado||"No iniciado"} onChange={ev=>updateContrato(c.id,{especies:especies.map(x=>x.id===e.id?{...x,dhe_estado:ev.target.value}:x)})}
+                                style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box",fontWeight:700,background:dheBg}}>
+                                {ESTADOS_DHE.map(s=><option key={s} value={s}>{s}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{color:"#64748b",fontWeight:600,marginBottom:2}}>Fecha aprob. DHE</div>
+                              <input type="date" disabled={!canObtentores} value={e.dhe_fecha_aprob||""} onChange={ev=>updateContrato(c.id,{especies:especies.map(x=>x.id===e.id?{...x,dhe_fecha_aprob:ev.target.value}:x)})}
+                                style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box"}}/>
+                            </div>
+                            <div>
+                              <div style={{color:"#64748b",fontWeight:600,marginBottom:2}}>📎 Doc. DHE (URL)</div>
+                              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                                <input disabled={!canObtentores} value={e.dhe_doc||""} placeholder="https://..." onChange={ev=>updateContrato(c.id,{especies:especies.map(x=>x.id===e.id?{...x,dhe_doc:ev.target.value}:x)})}
+                                  style={{flex:1,padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box"}}/>
+                                {e.dhe_doc&&<a href={e.dhe_doc} target="_blank" rel="noopener noreferrer" style={{fontSize:14,textDecoration:"none"}}>📎</a>}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,fontSize:11}}>
+                            <div>
+                              <div style={{color:"#64748b",fontWeight:600,marginBottom:2}}>Obs. DHE</div>
+                              <input disabled={!canObtentores} value={e.dhe_observaciones||""} placeholder="Notas DHE..." onChange={ev=>updateContrato(c.id,{especies:especies.map(x=>x.id===e.id?{...x,dhe_observaciones:ev.target.value}:x)})}
+                                style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box"}}/>
+                            </div>
+                            <div>
+                              <div style={{color:"#64748b",fontWeight:600,marginBottom:2}}>Obs. variedad</div>
+                              <input disabled={!canObtentores} value={e.observaciones||""} placeholder="Notas..." onChange={ev=>updateContrato(c.id,{especies:especies.map(x=>x.id===e.id?{...x,observaciones:ev.target.value}:x)})}
+                                style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box"}}/>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}
@@ -4934,7 +5219,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           {/* Sub-modal: Agregar Especie */}
           {espModal&&(
             <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10000}} onClick={()=>setEspModal(false)}>
-              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:480,maxHeight:"80vh",overflowY:"auto"}}>
+              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:540,maxHeight:"85vh",overflowY:"auto"}}>
                 <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>🌿 Nueva Especie/Variedad</h3>
                 {[["Especie","especie","text","Cerezo, Arándano, Ciruelo..."],["Variedad","variedad","text","Royal Dawn, Magenta..."]].map(([lbl,f,t,ph])=>(
                   <div key={f} style={{marginBottom:12}}>
@@ -4944,9 +5229,37 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                   </div>
                 ))}
                 <div style={{marginBottom:12}}>
-                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones de la variedad</label>
                   <textarea value={espForm.observaciones||""} onChange={e=>setEspForm(p=>({...p,observaciones:e.target.value}))}
-                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:50,boxSizing:"border-box"}}/>
+                </div>
+                {/* Sección DHE */}
+                <div style={{padding:12,background:"#fef3c7",borderRadius:8,border:"1px solid #fbbf24",marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:800,color:"#78350f",marginBottom:8}}>📋 DHE (Distinción, Homogeneidad y Estabilidad)</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado DHE</label>
+                      <select value={espForm.dhe_estado||"No iniciado"} onChange={e=>setEspForm(p=>({...p,dhe_estado:e.target.value}))}
+                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                        {ESTADOS_DHE.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha aprobación</label>
+                      <input type="date" value={espForm.dhe_fecha_aprob||""} onChange={e=>setEspForm(p=>({...p,dhe_fecha_aprob:e.target.value}))}
+                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:8}}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Doc. DHE (URL)</label>
+                    <input value={espForm.dhe_doc||""} placeholder="https://..." onChange={e=>setEspForm(p=>({...p,dhe_doc:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Obs. DHE</label>
+                    <input value={espForm.dhe_observaciones||""} onChange={e=>setEspForm(p=>({...p,dhe_observaciones:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
                 </div>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                   <button onClick={()=>setEspModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
@@ -5178,6 +5491,13 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
                 </div>
               </div>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado del Contrato</label>
+                <select value={obtForm.estado_contrato||"Borrador"} onChange={e=>setObtForm(p=>({...p,estado_contrato:e.target.value}))}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                  {ESTADOS_CONTRATO_OBT.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
               <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:12}}>
                 <input type="checkbox" checked={!!obtForm.renovable} onChange={e=>setObtForm(p=>({...p,renovable:e.target.checked}))}/>
                 <span style={{fontSize:12}}>Contrato renovable</span>
@@ -5193,7 +5513,12 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 </label>
               </div>
               <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link documento legal</label>
+                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link al contrato (OneDrive/Drive)</label>
+                <input value={obtForm.doc_contrato||""} placeholder="https://..." onChange={e=>setObtForm(p=>({...p,doc_contrato:e.target.value}))}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+              </div>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📄 Link doc. legal complementario</label>
                 <input value={obtForm.doc_legal||""} placeholder="https://..." onChange={e=>setObtForm(p=>({...p,doc_legal:e.target.value}))}
                   style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
               </div>
@@ -5230,8 +5555,10 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
         id:v.id, viverista:v.viverista||"", pais:v.pais||"",
         f_contrato:v.f_contrato||"", f_vencimiento:v.f_vencimiento||"",
         renovable:!!v.renovable, firma_viverista:!!v.firma_viverista, firma_osiris:!!v.firma_osiris,
-        doc_legal:v.doc_legal||"", observaciones:v.observaciones||"",
-        variedades, anexos:v.anexos||[],
+        doc_legal:v.doc_legal||"", doc_contrato:v.doc_contrato||"",
+        mes_pago_estimado:v.mes_pago_estimado||"", forma_pago:v.forma_pago||"",
+        observaciones:v.observaciones||"",
+        variedades, anexos:v.anexos||[], ordenesCompra:v.ordenesCompra||[],
       };
     });
     const setViv = (list) => setOsirisData(prev=>({...prev, viveros: list}));
@@ -5323,7 +5650,143 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
         updateVivero(v.id, {anexos:anexos.filter(a=>a.id!==aid)});
       };
 
-      const TABS_VIV = [{id:"general",label:"📋 General"},{id:"variedades",label:"🌱 Variedades Autorizadas"},{id:"legal",label:"⚖️ Legal/Firmas"},{id:"anexos",label:"📎 Anexos"}];
+      // ── Órdenes de Compra: handlers ──
+      const ordenesCompra = v.ordenesCompra || [];
+      const ocActiva = ocDetalle ? ordenesCompra.find(o=>o.id===ocDetalle) : null;
+
+      const calcFeeTotal = (cant, fee) => {
+        const c = parseFloat(cant)||0;
+        const f = parseFloat(fee)||0;
+        return Math.round(c*f*100)/100;
+      };
+
+      const guardarOC = () => {
+        if(!canViveros) return;
+        if(!ocForm.n_oc || !ocForm.cliente_id || !ocForm.variedad_id) {
+          alert("N° OC, Cliente y Variedad son obligatorios."); return;
+        }
+        const cli = clientes.find(c=>c.id===ocForm.cliente_id);
+        const variedadSel = variedades.find(x=>x.id===ocForm.variedad_id);
+        const cantidad = parseFloat(ocForm.cantidad_plantas)||0;
+        const fee = parseFloat(ocForm.fee_usd_planta)||0;
+        const id = ocEditId || `oc_${Date.now()}`;
+        const item = {
+          ...ocForm, id,
+          cliente_nombre: cli?.razonSocial || ocForm.cliente_nombre || "",
+          especie: variedadSel?.especie || "",
+          variedad: variedadSel?.variedad || "",
+          cantidad_plantas: cantidad,
+          hectareas: parseFloat(ocForm.hectareas)||0,
+          fee_usd_planta: fee,
+          fee_total_usd: calcFeeTotal(cantidad, fee),
+          cuotas: ocForm.cuotas || [],
+        };
+        const next = ocEditId
+          ? ordenesCompra.map(o=>o.id===ocEditId?item:o)
+          : [...ordenesCompra, item];
+        updateVivero(v.id, {ordenesCompra: next});
+        window.auditLog && window.auditLog(ocEditId?"editar":"crear", {modulo:"osiris", seccion:"OC Vivero",
+          descripcion:`${ocEditId?"Editó":"Creó"} OC ${item.n_oc} de ${item.cliente_nombre} en vivero "${v.viverista}" · ${item.cantidad_plantas} plantas × $${item.fee_usd_planta} = $${item.fee_total_usd}`});
+        setOcModal(false);
+        setOcEditId(null);
+        setOcForm(EMPTY_OC);
+      };
+
+      const eliminarOC = (oid) => {
+        if(!canViveros) return;
+        const oc = ordenesCompra.find(o=>o.id===oid);
+        if(!oc) return;
+        if(!window.confirm(`¿Eliminar OC ${oc.n_oc} de ${oc.cliente_nombre}?\n\nIncluye ${(oc.cuotas||[]).length} cuotas asociadas.`)) return;
+        updateVivero(v.id, {ordenesCompra: ordenesCompra.filter(o=>o.id!==oid)});
+        if(ocDetalle===oid) setOcDetalle(null);
+        window.auditLog && window.auditLog("eliminar", {modulo:"osiris", seccion:"OC Vivero",
+          descripcion:`Eliminó OC ${oc.n_oc} de ${oc.cliente_nombre} en vivero "${v.viverista}"`});
+      };
+
+      const iniciarEdicionOC = (oc) => {
+        setOcForm({
+          n_oc: oc.n_oc||"", fecha_oc: oc.fecha_oc||"",
+          cliente_id: oc.cliente_id||"", cliente_nombre: oc.cliente_nombre||"",
+          variedad_id: oc.variedad_id||"", especie: oc.especie||"", variedad: oc.variedad||"",
+          cantidad_plantas: oc.cantidad_plantas||"", hectareas: oc.hectareas||"",
+          fee_usd_planta: oc.fee_usd_planta||"", fee_total_usd: oc.fee_total_usd||0,
+          estado_oc: oc.estado_oc||"Borrador", observaciones: oc.observaciones||"",
+          cuotas: oc.cuotas||[],
+        });
+        setOcEditId(oc.id);
+        setOcModal(true);
+      };
+
+      // Heredar fee al cambiar variedad seleccionada
+      const seleccionarVariedadOC = (vid) => {
+        const variedadSel = variedades.find(x=>x.id===vid);
+        if(!variedadSel) { setOcForm(p=>({...p, variedad_id:""})); return; }
+        setOcForm(p=>({
+          ...p,
+          variedad_id: vid,
+          especie: variedadSel.especie||"",
+          variedad: variedadSel.variedad||"",
+          // Hereda fee solo si está vacío en el form actual
+          fee_usd_planta: p.fee_usd_planta || variedadSel.fee_usd || "",
+        }));
+      };
+
+      // Cuotas
+      const guardarCuota = () => {
+        if(!canViveros) return;
+        if(!cuotaForm.fecha || !cuotaForm.monto_usd) { alert("Fecha y Monto son obligatorios."); return; }
+        const id = cuotaEditId || `cuo_${Date.now()}`;
+        const cuotaItem = {
+          id,
+          fecha: cuotaForm.fecha,
+          monto_usd: parseFloat(cuotaForm.monto_usd)||0,
+          pagado: !!cuotaForm.pagado,
+          fecha_pago: cuotaForm.fecha_pago||"",
+          n_factura: cuotaForm.n_factura||"",
+          observaciones: cuotaForm.observaciones||"",
+        };
+        const cuotasNew = cuotaEditId
+          ? (ocActiva?.cuotas||[]).map(c=>c.id===cuotaEditId?cuotaItem:c)
+          : [...(ocActiva?.cuotas||[]), cuotaItem];
+        // Ordenar por fecha
+        cuotasNew.sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+        const ocsNew = ordenesCompra.map(o=>o.id===ocActiva.id?{...o, cuotas: cuotasNew}:o);
+        updateVivero(v.id, {ordenesCompra: ocsNew});
+        window.auditLog && window.auditLog(cuotaEditId?"editar":"crear", {modulo:"osiris", seccion:"Cuotas OC Vivero",
+          descripcion:`${cuotaEditId?"Editó":"Creó"} cuota ${cuotaItem.fecha} por $${cuotaItem.monto_usd} en OC ${ocActiva.n_oc}`});
+        setCuotaModal(false);
+        setCuotaEditId(null);
+        setCuotaForm({fecha:"",monto_usd:"",pagado:false,fecha_pago:"",n_factura:"",observaciones:""});
+      };
+
+      const eliminarCuota = (cid) => {
+        if(!canViveros) return;
+        if(!window.confirm("¿Eliminar esta cuota?")) return;
+        const cuotasNew = (ocActiva?.cuotas||[]).filter(c=>c.id!==cid);
+        const ocsNew = ordenesCompra.map(o=>o.id===ocActiva.id?{...o, cuotas: cuotasNew}:o);
+        updateVivero(v.id, {ordenesCompra: ocsNew});
+        window.auditLog && window.auditLog("eliminar", {modulo:"osiris", seccion:"Cuotas OC Vivero",
+          descripcion:`Eliminó cuota de OC ${ocActiva.n_oc}`});
+      };
+
+      const togglePagadoCuota = (cid) => {
+        if(!canViveros) return;
+        const cuota = (ocActiva?.cuotas||[]).find(c=>c.id===cid);
+        if(!cuota) return;
+        let fp = cuota.fecha_pago;
+        if(!cuota.pagado){
+          const nueva = prompt("Fecha de pago (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
+          if(!nueva) return;
+          fp = nueva;
+        } else {
+          fp = "";
+        }
+        const cuotasNew = (ocActiva?.cuotas||[]).map(c=>c.id===cid?{...c, pagado:!c.pagado, fecha_pago:fp}:c);
+        const ocsNew = ordenesCompra.map(o=>o.id===ocActiva.id?{...o, cuotas: cuotasNew}:o);
+        updateVivero(v.id, {ordenesCompra: ocsNew});
+      };
+
+      const TABS_VIV = [{id:"general",label:"📋 General"},{id:"variedades",label:"🌱 Variedades Autorizadas"},{id:"oc",label:`📦 Órdenes de Compra (${ordenesCompra.length})`},{id:"legal",label:"⚖️ Legal/Firmas"},{id:"anexos",label:"📎 Anexos"}];
       const vig = estadoVigencia(v.f_vencimiento);
 
       return (
@@ -5356,6 +5819,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 <div style={{fontSize:11,color:"#8b949e",marginTop:4}}>
                   {v.pais&&`🌍 ${v.pais}`} {v.f_contrato&&` · Contrato ${v.f_contrato}`} {v.f_vencimiento&&` · Vence ${v.f_vencimiento}`}
                   <span style={{color:vig.color,marginLeft:8,fontWeight:700}}>{vig.icon} {vig.label}</span>
+                  {v.doc_contrato&&<a href={v.doc_contrato} target="_blank" rel="noopener noreferrer" style={{marginLeft:10,color:"#86efac",fontWeight:700,textDecoration:"none"}}>📄 Abrir contrato</a>}
                 </div>
               </div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -5389,6 +5853,28 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                       style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}/>
                   </div>
                 ))}
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Forma de pago a Osiris</label>
+                  <select disabled={!canViveros} value={v.forma_pago||""} onChange={e=>updateVivero(v.id,{forma_pago:e.target.value})}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}>
+                    <option value="">— Seleccionar —</option>
+                    {FORMAS_PAGO.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Mes estimado de pago</label>
+                  <select disabled={!canViveros} value={v.mes_pago_estimado||""} onChange={e=>updateVivero(v.id,{mes_pago_estimado:e.target.value})}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}>
+                    <option value="">— Seleccionar —</option>
+                    {MESES.map(m=><option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div style={{gridColumn:"1/-1"}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link al contrato (OneDrive/Drive)</label>
+                  <input disabled={!canViveros} value={v.doc_contrato||""} placeholder="https://..." onChange={e=>updateVivero(v.id,{doc_contrato:e.target.value})}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}/>
+                  {v.doc_contrato&&<a href={v.doc_contrato} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#16a34a",marginTop:6,display:"inline-block",fontWeight:700}}>📄 Abrir contrato</a>}
+                </div>
                 <div>
                   <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"flex",alignItems:"center",gap:8,cursor:canViveros?"pointer":"default"}}>
                     <input type="checkbox" disabled={!canViveros} checked={!!v.renovable} onChange={e=>updateVivero(v.id,{renovable:e.target.checked})}/>
@@ -5440,6 +5926,180 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                     </tbody>
                   </table>
                 )}
+              </div>
+            )}
+
+            {/* TAB ÓRDENES DE COMPRA */}
+            {vivTab==="oc"&&(
+              <div>
+                {/* Vista lista de OCs */}
+                {!ocActiva && (<>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                    <div style={{fontWeight:700,color:"#1e293b"}}>📦 Órdenes de Compra de Clientes</div>
+                    {canViveros&&<button onClick={()=>{
+                      if(variedades.length===0){alert("Primero debes agregar al menos una variedad autorizada en la pestaña Variedades.");return;}
+                      if(clientes.length===0){alert("No hay clientes en el Maestro de Clientes Osiris.");return;}
+                      setOcForm({...EMPTY_OC, fecha_oc: new Date().toISOString().slice(0,10)});
+                      setOcEditId(null);
+                      setOcModal(true);
+                    }} style={{padding:"6px 14px",borderRadius:8,background:"#2563eb",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Nueva OC</button>}
+                  </div>
+                  <div style={{background:"#dbeafe",border:"1px solid #93c5fd",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#1e3a8a"}}>
+                    💡 Cada OC representa una orden del cliente productor-exportador al viverista. El fee a Osiris se hereda de la variedad pero puedes editarlo. Cada OC tiene sus propias cuotas de pago.
+                  </div>
+                  {/* KPIs de OC */}
+                  {ordenesCompra.length>0&&(
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:8,marginBottom:14}}>
+                      {(()=>{
+                        const totFee = ordenesCompra.reduce((s,o)=>s+(parseFloat(o.fee_total_usd)||0),0);
+                        const totPagado = ordenesCompra.reduce((s,o)=>s+((o.cuotas||[]).filter(c=>c.pagado).reduce((ss,c)=>ss+(parseFloat(c.monto_usd)||0),0)),0);
+                        const totPlantas = ordenesCompra.reduce((s,o)=>s+(parseFloat(o.cantidad_plantas)||0),0);
+                        const totHa = ordenesCompra.reduce((s,o)=>s+(parseFloat(o.hectareas)||0),0);
+                        return [
+                          ["📦 Total OC", ordenesCompra.length, "#2563eb"],
+                          ["🌱 Plantas", totPlantas.toLocaleString("es-CL"), "#16a34a"],
+                          ["📐 Há", totHa.toLocaleString("es-CL",{maximumFractionDigits:1}), "#0f766e"],
+                          ["💰 Fee total", $$(totFee), "#7c3aed"],
+                          ["✅ Cobrado", $$(totPagado), "#16a34a"],
+                          ["⏳ Por cobrar", $$(totFee-totPagado), "#f59e0b"],
+                        ].map(([l,vv,c])=>(
+                          <div key={l} style={{background:"#fff",border:"1px solid #e2e8f0",borderLeft:`4px solid ${c}`,borderRadius:8,padding:"8px 12px"}}>
+                            <div style={{fontSize:9,color:"#64748b",fontWeight:600,marginBottom:2}}>{l}</div>
+                            <div style={{fontSize:14,fontWeight:800,color:c}}>{vv}</div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
+                  {ordenesCompra.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No hay OC registradas. {canViveros?"Crea una con \"+ Nueva OC\".":""}</div>:(
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                        <thead><tr style={{background:"#f8fafc"}}>
+                          {["N° OC","Fecha","Cliente","Variedad","Plantas","Há","Fee USD","Fee Total","Estado","Cuotas",""].map(h=>
+                            <th key={h} style={{padding:"8px 10px",textAlign:["Plantas","Há","Fee USD","Fee Total","Cuotas"].includes(h)?"right":"left",fontWeight:700,fontSize:10,color:"#64748b",borderBottom:"2px solid #e2e8f0",whiteSpace:"nowrap"}}>{h}</th>
+                          )}
+                        </tr></thead>
+                        <tbody>
+                          {ordenesCompra.map(oc=>{
+                            const cuotasArr = oc.cuotas||[];
+                            const totCuotas = cuotasArr.reduce((s,c)=>s+(parseFloat(c.monto_usd)||0),0);
+                            const cuotasOk = cuotasArr.filter(c=>c.pagado).length;
+                            const diff = (parseFloat(oc.fee_total_usd)||0) - totCuotas;
+                            return (
+                              <tr key={oc.id} style={{borderBottom:"1px solid #f1f5f9",cursor:"pointer"}} onClick={()=>setOcDetalle(oc.id)}>
+                                <td style={{padding:"6px 10px",fontWeight:700,color:"#2563eb"}}>{oc.n_oc||"—"}</td>
+                                <td style={{padding:"6px 10px",fontSize:11}}>{oc.fecha_oc||"—"}</td>
+                                <td style={{padding:"6px 10px",fontWeight:600}}>{oc.cliente_nombre||"—"}</td>
+                                <td style={{padding:"6px 10px",fontSize:11}}>{oc.especie} · {oc.variedad}</td>
+                                <td style={{padding:"6px 10px",textAlign:"right"}}>{N(oc.cantidad_plantas)}</td>
+                                <td style={{padding:"6px 10px",textAlign:"right"}}>{N(oc.hectareas)}</td>
+                                <td style={{padding:"6px 10px",textAlign:"right"}}>{$$(oc.fee_usd_planta)}</td>
+                                <td style={{padding:"6px 10px",textAlign:"right",fontWeight:700,color:"#7c3aed"}}>{$$(oc.fee_total_usd)}</td>
+                                <td style={{padding:"6px 10px",fontSize:10}}>
+                                  <span style={{padding:"2px 8px",borderRadius:10,background:oc.estado_oc==="Pagada total"?"#dcfce7":oc.estado_oc==="Anulada"?"#fee2e2":"#fef3c7",color:oc.estado_oc==="Pagada total"?"#16a34a":oc.estado_oc==="Anulada"?"#dc2626":"#d97706",fontWeight:700}}>{oc.estado_oc||"—"}</span>
+                                </td>
+                                <td style={{padding:"6px 10px",textAlign:"right",fontSize:11}}>
+                                  <span style={{color:cuotasOk===cuotasArr.length&&cuotasArr.length>0?"#16a34a":"#64748b"}}>{cuotasOk}/{cuotasArr.length}</span>
+                                  {Math.abs(diff)>0.01&&cuotasArr.length>0&&<span title={`Diferencia: ${$$(diff)}`} style={{marginLeft:4,color:"#dc2626"}}>⚠️</span>}
+                                </td>
+                                <td style={{padding:"6px 10px"}}>
+                                  {canViveros&&<>
+                                    <button onClick={e=>{e.stopPropagation();iniciarEdicionOC(oc);}} style={{background:"#dbeafe",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,marginRight:4}}>✏️</button>
+                                    <button onClick={e=>{e.stopPropagation();eliminarOC(oc.id);}} style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11}}>🗑</button>
+                                  </>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>)}
+
+                {/* Vista detalle OC con cuotas */}
+                {ocActiva && (<>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                    <div>
+                      <button onClick={()=>setOcDetalle(null)} style={{background:"#f1f5f9",border:"none",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:11,marginBottom:8}}>← Volver a la lista</button>
+                      <div style={{fontWeight:800,fontSize:16,color:"#1e293b"}}>📦 OC {ocActiva.n_oc} — {ocActiva.cliente_nombre}</div>
+                      <div style={{fontSize:11,color:"#64748b"}}>
+                        {ocActiva.fecha_oc&&`📅 ${ocActiva.fecha_oc} · `}
+                        🌿 {ocActiva.especie} · {ocActiva.variedad} ·
+                        🌱 {N(ocActiva.cantidad_plantas)} plantas ·
+                        📐 {N(ocActiva.hectareas)} há ·
+                        💵 {$$(ocActiva.fee_usd_planta)}/planta ·
+                        💰 Total: <strong style={{color:"#7c3aed"}}>{$$(ocActiva.fee_total_usd)}</strong>
+                      </div>
+                    </div>
+                    {canViveros&&<button onClick={()=>{
+                      const restante = (parseFloat(ocActiva.fee_total_usd)||0) - (ocActiva.cuotas||[]).reduce((s,c)=>s+(parseFloat(c.monto_usd)||0),0);
+                      setCuotaForm({fecha:"",monto_usd:restante>0?restante.toFixed(2):"",pagado:false,fecha_pago:"",n_factura:"",observaciones:""});
+                      setCuotaEditId(null);
+                      setCuotaModal(true);
+                    }} style={{padding:"6px 14px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Nueva Cuota</button>}
+                  </div>
+                  {/* Verificación de suma */}
+                  {(()=>{
+                    const totC = (ocActiva.cuotas||[]).reduce((s,c)=>s+(parseFloat(c.monto_usd)||0),0);
+                    const diff = (parseFloat(ocActiva.fee_total_usd)||0) - totC;
+                    if(Math.abs(diff)<0.01||(ocActiva.cuotas||[]).length===0) return null;
+                    return (
+                      <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#991b1b"}}>
+                        ⚠️ La suma de cuotas ({$$(totC)}) {diff>0?"es menor":"excede"} al fee total ({$$(ocActiva.fee_total_usd)}). Diferencia: <strong>{$$(Math.abs(diff))}</strong>
+                      </div>
+                    );
+                  })()}
+                  {(ocActiva.cuotas||[]).length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8",border:"1px dashed #e2e8f0",borderRadius:10}}>Sin cuotas. {canViveros?"Agrega una con \"+ Nueva Cuota\".":""}</div>:(
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                      <thead><tr style={{background:"#f8fafc"}}>
+                        {["Fecha estim.","Monto USD","Estado","Fecha pago","N° Factura","Observaciones",""].map(h=>
+                          <th key={h} style={{padding:"8px 10px",textAlign:["Monto USD"].includes(h)?"right":"left",fontWeight:700,fontSize:10,color:"#64748b",borderBottom:"2px solid #e2e8f0",whiteSpace:"nowrap"}}>{h}</th>
+                        )}
+                      </tr></thead>
+                      <tbody>
+                        {(ocActiva.cuotas||[]).map(cu=>(
+                          <tr key={cu.id} style={{borderBottom:"1px solid #f1f5f9",background:cu.pagado?"#f0fdf4":"#fff"}}>
+                            <td style={{padding:"6px 10px",fontWeight:600}}>{cu.fecha}</td>
+                            <td style={{padding:"6px 10px",textAlign:"right",fontWeight:700,color:"#7c3aed"}}>{$$(cu.monto_usd)}</td>
+                            <td style={{padding:"6px 10px"}}>
+                              <span onClick={()=>togglePagadoCuota(cu.id)} style={{
+                                cursor:canViveros?"pointer":"default",
+                                padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:700,
+                                background:cu.pagado?"#dcfce7":"#fef3c7",
+                                color:cu.pagado?"#16a34a":"#d97706",
+                                border:`1px solid ${cu.pagado?"#86efac":"#fde047"}`,
+                              }}>{cu.pagado?"✅ Pagado":"⏳ Por cobrar"}</span>
+                            </td>
+                            <td style={{padding:"6px 10px",fontSize:11}}>{cu.fecha_pago||"—"}</td>
+                            <td style={{padding:"6px 10px",fontSize:11}}>{cu.n_factura||"—"}</td>
+                            <td style={{padding:"6px 10px",fontSize:11,color:"#64748b"}}>{cu.observaciones||"—"}</td>
+                            <td style={{padding:"6px 10px"}}>
+                              {canViveros&&<>
+                                <button onClick={()=>{
+                                  setCuotaForm({fecha:cu.fecha||"",monto_usd:cu.monto_usd||"",pagado:!!cu.pagado,fecha_pago:cu.fecha_pago||"",n_factura:cu.n_factura||"",observaciones:cu.observaciones||""});
+                                  setCuotaEditId(cu.id);
+                                  setCuotaModal(true);
+                                }} style={{background:"#dbeafe",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,marginRight:4}}>✏️</button>
+                                <button onClick={()=>eliminarCuota(cu.id)} style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11}}>🗑</button>
+                              </>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{background:"#f1f5f9",fontWeight:800}}>
+                          <td style={{padding:"8px 10px"}}>TOTAL</td>
+                          <td style={{padding:"8px 10px",textAlign:"right",color:"#7c3aed"}}>{$$((ocActiva.cuotas||[]).reduce((s,c)=>s+(parseFloat(c.monto_usd)||0),0))}</td>
+                          <td colSpan={5} style={{padding:"8px 10px",fontSize:11,color:"#64748b"}}>
+                            Cobrado: <strong style={{color:"#16a34a"}}>{$$((ocActiva.cuotas||[]).filter(c=>c.pagado).reduce((s,c)=>s+(parseFloat(c.monto_usd)||0),0))}</strong>
+                            {" · "}Pendiente: <strong style={{color:"#d97706"}}>{$$((ocActiva.cuotas||[]).filter(c=>!c.pagado).reduce((s,c)=>s+(parseFloat(c.monto_usd)||0),0))}</strong>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  )}
+                </>)}
               </div>
             )}
 
@@ -5573,6 +6233,161 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               </div>
             </div>
           )}
+
+          {/* Sub-modal: Nueva/Editar Orden de Compra */}
+          {ocModal&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10000}} onClick={()=>setOcModal(false)}>
+              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:640,maxHeight:"90vh",overflowY:"auto"}}>
+                <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>{ocEditId?"✏️ Editar":"➕ Nueva"} Orden de Compra</h3>
+
+                {/* Datos básicos OC */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>N° OC <span style={{color:"#dc2626"}}>*</span></label>
+                    <input value={ocForm.n_oc||""} placeholder="OC-2026-001" onChange={e=>setOcForm(p=>({...p,n_oc:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha OC</label>
+                    <input type="date" value={ocForm.fecha_oc||""} onChange={e=>setOcForm(p=>({...p,fecha_oc:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                </div>
+
+                {/* Cliente del Maestro */}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Cliente (Maestro Osiris) <span style={{color:"#dc2626"}}>*</span></label>
+                  <select value={ocForm.cliente_id||""} onChange={e=>{
+                    const cli = clientes.find(c=>c.id===e.target.value);
+                    setOcForm(p=>({...p,cliente_id:e.target.value,cliente_nombre:cli?.razonSocial||""}));
+                  }}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                    <option value="">— Seleccionar cliente —</option>
+                    {clientes.map(c=><option key={c.id} value={c.id}>{c.razonSocial} {c.pais?`(${c.pais})`:""}</option>)}
+                  </select>
+                </div>
+
+                {/* Variedad del contrato */}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Variedad autorizada <span style={{color:"#dc2626"}}>*</span></label>
+                  <select value={ocForm.variedad_id||""} onChange={e=>seleccionarVariedadOC(e.target.value)}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                    <option value="">— Seleccionar variedad —</option>
+                    {variedades.map(x=><option key={x.id} value={x.id}>{x.especie} · {x.variedad} {x.fee_usd?`(fee $${x.fee_usd})`:""}</option>)}
+                  </select>
+                </div>
+
+                {/* Cantidades */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Cantidad plantas</label>
+                    <input type="number" value={ocForm.cantidad_plantas||""} placeholder="0" onChange={e=>{
+                      const cant = e.target.value;
+                      const fee = parseFloat(ocForm.fee_usd_planta)||0;
+                      setOcForm(p=>({...p,cantidad_plantas:cant,fee_total_usd:Math.round((parseFloat(cant)||0)*fee*100)/100}));
+                    }}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",textAlign:"right"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Hectáreas</label>
+                    <input type="number" step="0.01" value={ocForm.hectareas||""} placeholder="0" onChange={e=>setOcForm(p=>({...p,hectareas:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",textAlign:"right"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>
+                      Fee USD/planta
+                      {ocForm.variedad_id&&(()=>{const vv=variedades.find(x=>x.id===ocForm.variedad_id);return vv?.fee_usd?<span style={{fontSize:9,color:"#64748b",fontWeight:500,marginLeft:4}}>(default ${vv.fee_usd})</span>:null;})()}
+                    </label>
+                    <input type="number" step="0.001" value={ocForm.fee_usd_planta||""} placeholder="0.00" onChange={e=>{
+                      const fee = e.target.value;
+                      const cant = parseFloat(ocForm.cantidad_plantas)||0;
+                      setOcForm(p=>({...p,fee_usd_planta:fee,fee_total_usd:Math.round(cant*(parseFloat(fee)||0)*100)/100}));
+                    }}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",textAlign:"right"}}/>
+                  </div>
+                </div>
+
+                {/* Total calculado */}
+                <div style={{padding:12,background:"#ede9fe",borderRadius:8,border:"1px solid #c4b5fd",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:12,fontWeight:700,color:"#5b21b6"}}>💰 Fee total calculado:</span>
+                  <span style={{fontSize:18,fontWeight:900,color:"#7c3aed"}}>{$$(ocForm.fee_total_usd)}</span>
+                </div>
+
+                {/* Estado */}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado de la OC</label>
+                  <select value={ocForm.estado_oc||"Borrador"} onChange={e=>setOcForm(p=>({...p,estado_oc:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                    {ESTADOS_OC.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea value={ocForm.observaciones||""} onChange={e=>setOcForm(p=>({...p,observaciones:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                </div>
+
+                {/* Info: las cuotas se gestionan tras crear la OC */}
+                {!ocEditId&&<div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#78350f"}}>
+                  💡 Tras crear la OC, podrás agregar las cuotas/fechas de pago entrando al detalle de la OC.
+                </div>}
+
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>{setOcModal(false);setOcEditId(null);}} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
+                  <button onClick={guardarOC} style={{padding:"8px 16px",borderRadius:8,background:"#2563eb",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>{ocEditId?"Guardar cambios":"Crear OC"}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-modal: Nueva/Editar Cuota */}
+          {cuotaModal&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10001}} onClick={()=>setCuotaModal(false)}>
+              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:520,maxHeight:"85vh",overflowY:"auto"}}>
+                <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>{cuotaEditId?"✏️ Editar":"➕ Nueva"} Cuota de Pago</h3>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha estimada <span style={{color:"#dc2626"}}>*</span></label>
+                    <input type="date" value={cuotaForm.fecha||""} onChange={e=>setCuotaForm(p=>({...p,fecha:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Monto USD <span style={{color:"#dc2626"}}>*</span></label>
+                    <input type="number" step="0.01" value={cuotaForm.monto_usd||""} onChange={e=>setCuotaForm(p=>({...p,monto_usd:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",textAlign:"right"}}/>
+                  </div>
+                </div>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:12,padding:8,background:"#f8fafc",borderRadius:8}}>
+                  <input type="checkbox" checked={!!cuotaForm.pagado} onChange={e=>setCuotaForm(p=>({...p,pagado:e.target.checked,fecha_pago:e.target.checked&&!p.fecha_pago?new Date().toISOString().slice(0,10):p.fecha_pago}))}/>
+                  <span style={{fontSize:12,fontWeight:600}}>✅ Cuota pagada</span>
+                </label>
+                {cuotaForm.pagado&&(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha de pago</label>
+                      <input type="date" value={cuotaForm.fecha_pago||""} onChange={e=>setCuotaForm(p=>({...p,fecha_pago:e.target.value}))}
+                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>N° Factura</label>
+                      <input value={cuotaForm.n_factura||""} onChange={e=>setCuotaForm(p=>({...p,n_factura:e.target.value}))}
+                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                    </div>
+                  </div>
+                )}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea value={cuotaForm.observaciones||""} onChange={e=>setCuotaForm(p=>({...p,observaciones:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:50,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>{setCuotaModal(false);setCuotaEditId(null);}} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
+                  <button onClick={guardarCuota} style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>{cuotaEditId?"Guardar cambios":"Crear cuota"}</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -5605,20 +6420,36 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
 
         {/* KPIs */}
         <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16}}>
-          {[
-            ["📊 Total viveros",   vivData.length, "#16a34a"],
-            ["⚠️ Vencidos",          totVencidos,    "#dc2626"],
-            ["⏳ Vencen ≤ 90 días", totPorVencer,  "#f59e0b"],
-            ["🌱 Variedades",       vivData.reduce((s,v)=>s+(v.variedades||[]).length,0), "#7c3aed"],
-            ["✅ Firmados",          vivData.filter(v=>v.firma_viverista&&v.firma_osiris).length, "#0f766e"],
-          ].map(([l,v,c])=>(
-            <div key={l} style={{background:"#21283b",border:"1px solid #30363d",borderLeft:`4px solid ${c}`,
-              borderRadius:10,padding:"12px 16px",flex:1,minWidth:140}}>
-              <div style={{fontSize:10,color:"#8b949e",fontWeight:600,marginBottom:4}}>{l}</div>
-              <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
-            </div>
-          ))}
+          {(()=>{
+            // Agregar métricas de OC
+            const totOC = vivData.reduce((s,v)=>s+(v.ordenesCompra||[]).length,0);
+            const totFeeOC = vivData.reduce((s,v)=>s+(v.ordenesCompra||[]).reduce((ss,o)=>ss+(parseFloat(o.fee_total_usd)||0),0),0);
+            const totCobrado = vivData.reduce((s,v)=>s+(v.ordenesCompra||[]).reduce((ss,o)=>ss+((o.cuotas||[]).filter(c=>c.pagado).reduce((sss,c)=>sss+(parseFloat(c.monto_usd)||0),0)),0),0);
+            const porCobrarOC = totFeeOC - totCobrado;
+            return [
+              ["📊 Total viveros",   vivData.length, "#16a34a"],
+              ["⚠️ Vencidos",          totVencidos,    "#dc2626"],
+              ["⏳ Vencen ≤ 90 días", totPorVencer,  "#f59e0b"],
+              ["🌱 Variedades",       vivData.reduce((s,v)=>s+(v.variedades||[]).length,0), "#7c3aed"],
+              ["📦 OC totales",       totOC,           "#2563eb"],
+              ["💰 Por cobrar OC",    $$(porCobrarOC), "#fbbf24"],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{background:"#21283b",border:"1px solid #30363d",borderLeft:`4px solid ${c}`,
+                borderRadius:10,padding:"12px 16px",flex:1,minWidth:140}}>
+                <div style={{fontSize:10,color:"#8b949e",fontWeight:600,marginBottom:4}}>{l}</div>
+                <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
+              </div>
+            ));
+          })()}
         </div>
+
+        {/* Maestro de Viveristas (collapsible) */}
+        {canVerViveros&&<div style={{marginBottom:16}}>
+          <details style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:10}}>
+            <summary style={{padding:"10px 16px",cursor:"pointer",fontSize:12,fontWeight:700,color:"#16a34a"}}>🌱 Maestro de Viveristas ({(viveristas||[]).length})</summary>
+            <div style={{padding:"0 16px 16px"}}><MaestroViveristas viveristas={viveristas} setViveristas={setViveristas} can={canViveros}/></div>
+          </details>
+        </div>}
 
         <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
