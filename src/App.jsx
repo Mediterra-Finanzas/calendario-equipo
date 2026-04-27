@@ -1403,14 +1403,14 @@ export default function App(){
                 royaltyComercial: mergeEdits(prev.royaltyComercial||[], extractUserEdits(saved.royaltyComercial)),
                 feeViveros:       mergeEdits(prev.feeViveros||[],       extractUserEdits(saved.feeViveros)),
                 totalPedidos:     mergeEdits(prev.totalPedidos||[],     extractUserEdits(saved.totalPedidos)),
-                contratos:   saved.contratos   || prev.contratos   || [],
-                clientes:    saved.clientes    || prev.clientes    || [],
-                // Maestros de catálogo: restaurar tal cual desde Supabase
-                especies:    saved.especies    || prev.especies    || [],
-                variedades:  saved.variedades  || prev.variedades  || [],
-                obtentores:  saved.obtentores  || prev.obtentores  || [],
-                viveros:     saved.viveros     || prev.viveros     || [],
-                viveristas:  saved.viveristas  || prev.viveristas  || [],
+                contratos:   Array.isArray(saved.contratos)   ? saved.contratos   : (prev.contratos   || []),
+                clientes:    Array.isArray(saved.clientes)    ? saved.clientes    : (prev.clientes    || []),
+                // Maestros de catálogo: restaurar tal cual desde Supabase (validar que sean arrays)
+                especies:    Array.isArray(saved.especies)    ? saved.especies    : (prev.especies    || []),
+                variedades:  Array.isArray(saved.variedades)  ? saved.variedades  : (prev.variedades  || []),
+                obtentores:  Array.isArray(saved.obtentores)  ? saved.obtentores  : (prev.obtentores  || []),
+                viveros:     Array.isArray(saved.viveros)     ? saved.viveros     : (prev.viveros     || []),
+                viveristas:  Array.isArray(saved.viveristas)  ? saved.viveristas  : (prev.viveristas  || []),
               };
             });
           }
