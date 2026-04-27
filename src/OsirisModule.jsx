@@ -2856,6 +2856,367 @@ function ReconciliacionIQ({rpData, feData, rcData, tpData}) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════
+// DASHBOARD ANALÍTICO — vista cruzada de plantaciones y cobros
+// Filtros: temporada, país, especie, variedad, cliente, estado cobranza
+// KPIs: ingresos por concepto (CF/RP/RC), por cobrar, cobrado, WHT
+// Gráficos: plantas por especie, há por país, comparativo temporadas
+// ══════════════════════════════════════════════════════════════
+function DashboardAnalitico({ctData,feData,rpData,rcData,tpData}) {
+  const [filtroPais,setFiltroPais]=useState("Todos");
+  const [filtroEspecie,setFiltroEspecie]=useState("Todos");
+  const [filtroVariedad,setFiltroVariedad]=useState("Todos");
+  const [filtroCliente,setFiltroCliente]=useState("");
+  const [filtroTemp,setFiltroTemp]=useState("Todas");
+  const [filtroCobranza,setFiltroCobranza]=useState("Todos");
+
+  // ── Universos de filtros ──
+  const paises = useMemo(()=>["Todos",...Array.from(new Set((tpData||[]).map(p=>p.pais).filter(Boolean))).sort()],[tpData]);
+  const especies = useMemo(()=>["Todos",...Array.from(new Set((tpData||[]).map(p=>p.especie).filter(Boolean))).sort()],[tpData]);
+  const variedades = useMemo(()=>{
+    const filtrados = filtroEspecie==="Todos"
+      ? (tpData||[])
+      : (tpData||[]).filter(p=>p.especie===filtroEspecie);
+    return ["Todos",...Array.from(new Set(filtrados.map(p=>p.variedad).filter(Boolean))).sort()];
+  },[tpData,filtroEspecie]);
+  const temporadas = useMemo(()=>{
+    const tset = new Set();
+    (rcData||[]).forEach(r=>r.temporada&&tset.add(r.temporada));
+    return ["Todas",...Array.from(tset).sort()];
+  },[rcData]);
+
+  const matchPlantacion = (p) =>
+    (filtroPais==="Todos"||p.pais===filtroPais)&&
+    (filtroEspecie==="Todos"||p.especie===filtroEspecie)&&
+    (filtroVariedad==="Todos"||p.variedad===filtroVariedad)&&
+    (!filtroCliente||(p.cliente||"").toLowerCase().includes(filtroCliente.toLowerCase()));
+
+  const matchTemp = (r) => filtroTemp==="Todas"||r.temporada===filtroTemp;
+
+  // ── tpFilt: plantaciones filtradas ──
+  const tpFilt = useMemo(()=>(tpData||[]).filter(matchPlantacion),[tpData,filtroPais,filtroEspecie,filtroVariedad,filtroCliente]);
+
+  // ── feFilt / rpFilt / rcFilt: cobros filtrados ──
+  const matchCobranza = (r) => filtroCobranza==="Todos" || (filtroCobranza==="Pagado" ? !!r.pagado : !r.pagado);
+
+  const feFilt = useMemo(()=>(feData||[]).filter(r=>
+    (filtroPais==="Todos"||r.pais===filtroPais)&&
+    (!filtroCliente||(r.cliente||"").toLowerCase().includes(filtroCliente.toLowerCase()))&&
+    matchCobranza(r)
+  ),[feData,filtroPais,filtroCliente,filtroCobranza]);
+
+  const rpFilt = useMemo(()=>(rpData||[]).filter(r=>{
+    const ct = (ctData||[]).find(c=>c.id===r.ctId);
+    const tieneVariedadFiltrada = filtroEspecie==="Todos" && filtroVariedad==="Todos" ? true :
+      (ct?.plantaciones||[]).some(p=>
+        (filtroEspecie==="Todos"||p.especie===filtroEspecie)&&
+        (filtroVariedad==="Todos"||p.variedad===filtroVariedad)
+      );
+    return (filtroPais==="Todos"||r.pais===filtroPais)&&
+      (!filtroCliente||(r.cliente||"").toLowerCase().includes(filtroCliente.toLowerCase()))&&
+      matchCobranza(r)&&
+      tieneVariedadFiltrada;
+  }),[rpData,ctData,filtroPais,filtroEspecie,filtroVariedad,filtroCliente,filtroCobranza]);
+
+  const rcFilt = useMemo(()=>(rcData||[]).filter(r=>{
+    const ct = (ctData||[]).find(c=>c.id===r.ctId);
+    const tieneVariedadFiltrada = filtroEspecie==="Todos" && filtroVariedad==="Todos" ? true :
+      (ct?.plantaciones||[]).some(p=>
+        (filtroEspecie==="Todos"||p.especie===filtroEspecie)&&
+        (filtroVariedad==="Todos"||p.variedad===filtroVariedad)
+      );
+    return (filtroPais==="Todos"||r.pais===filtroPais)&&
+      (!filtroCliente||(r.cliente||"").toLowerCase().includes(filtroCliente.toLowerCase()))&&
+      matchTemp(r)&&matchCobranza(r)&&tieneVariedadFiltrada;
+  }),[rcData,ctData,filtroPais,filtroEspecie,filtroVariedad,filtroCliente,filtroTemp,filtroCobranza]);
+
+  // ── KPIs ──
+  const sumNum = (arr,getter) => arr.reduce((s,r)=>s+(parseFloat(getter(r))||0),0);
+
+  const totPlantas = sumNum(tpFilt, p=>p.nPlantas);
+  const totHa = sumNum(tpFilt, p=>p.hectareas);
+  const cantContratos = new Set(tpFilt.map(p=>p.ctId)).size;
+
+  const cfFact = sumNum(feFilt, r=>r.montoUSD);
+  const cfNeto = sumNum(feFilt, r=>(parseFloat(r.montoUSD)||0)*pct(r.pais));
+  const cfPagado = sumNum(feFilt.filter(r=>r.pagado), r=>(parseFloat(r.montoUSD)||0)*pct(r.pais));
+
+  const rpFact = sumNum(rpFilt, r=>r.montoFact);
+  const rpNeto = sumNum(rpFilt, r=>r.montoCobro);
+  const rpPagado = sumNum(rpFilt.filter(r=>r.pagado), r=>r.montoCobro);
+
+  const rcFact = sumNum(rcFilt, r=>r.montoFact);
+  const rcNeto = sumNum(rcFilt, r=>r.montoCobro);
+  const rcPagado = sumNum(rcFilt.filter(r=>r.pagado), r=>r.montoCobro);
+
+  const totFact = cfFact + rpFact + rcFact;
+  const totNeto = cfNeto + rpNeto + rcNeto;
+  const totPagado = cfPagado + rpPagado + rcPagado;
+  const totWHT = totFact - totNeto;
+  const porCobrar = totNeto - totPagado;
+
+  // ── Datos para gráficos ──
+  // Plantas por especie
+  const plantasPorEspecie = useMemo(()=>{
+    const map = {};
+    tpFilt.forEach(p=>{
+      const k = p.especie||"(sin)";
+      map[k] = (map[k]||0)+(parseFloat(p.nPlantas)||0);
+    });
+    return Object.entries(map).map(([especie,plantas])=>({especie,plantas})).sort((a,b)=>b.plantas-a.plantas);
+  },[tpFilt]);
+
+  // Há por país
+  const haPorPais = useMemo(()=>{
+    const map = {};
+    tpFilt.forEach(p=>{
+      const k = p.pais||"(sin)";
+      map[k] = (map[k]||0)+(parseFloat(p.hectareas)||0);
+    });
+    return Object.entries(map).map(([pais,ha])=>({pais,ha:parseFloat(ha.toFixed(2))})).sort((a,b)=>b.ha-a.ha);
+  },[tpFilt]);
+
+  // Comparativo por temporada (RC)
+  const ingresosPorTemporada = useMemo(()=>{
+    const map = {};
+    rcFilt.forEach(r=>{
+      const k = r.temporada;
+      if(!map[k]) map[k]={fact:0, cobrado:0, porCobrar:0};
+      map[k].fact     += parseFloat(r.montoFact)||0;
+      if(r.pagado) map[k].cobrado += parseFloat(r.montoCobro)||0;
+      else         map[k].porCobrar += parseFloat(r.montoCobro)||0;
+    });
+    return Object.entries(map).map(([temp,v])=>({temporada:temp,...v})).sort((a,b)=>a.temporada.localeCompare(b.temporada));
+  },[rcFilt]);
+
+  const KpiCard = ({label,val,sub,col}) => (
+    <div style={{flex:1,minWidth:160,background:"#fff",borderRadius:10,padding:"12px 14px",borderLeft:`4px solid ${col}`,boxShadow:"0 1px 4px #0001"}}>
+      <div style={{fontSize:10,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>{label}</div>
+      <div style={{fontSize:18,fontWeight:900,color:col,marginTop:3}}>{val}</div>
+      {sub&&<div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>{sub}</div>}
+    </div>
+  );
+
+  const fmt = (v) => `$${(parseFloat(v)||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0})}`;
+
+  // Bar chart simple en SVG
+  const BarChart = ({data, getLabel, getValue, color="#7c3aed", fmtVal=v=>v.toLocaleString()}) => {
+    if(data.length===0) return <div style={{padding:20,textAlign:"center",color:"#94a3b8",fontSize:12}}>Sin datos</div>;
+    const maxV = Math.max(...data.map(getValue),1);
+    return (
+      <div>
+        {data.slice(0,12).map((d,i)=>{
+          const v = getValue(d);
+          const pct = (v/maxV)*100;
+          return (
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+              <div style={{width:120,fontSize:11,color:"#475569",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getLabel(d)}</div>
+              <div style={{flex:1,background:"#f1f5f9",height:24,borderRadius:6,overflow:"hidden",position:"relative"}}>
+                <div style={{width:`${pct}%`,height:"100%",background:color,borderRadius:6,transition:"width 0.3s"}}/>
+                <div style={{position:"absolute",right:6,top:0,bottom:0,display:"flex",alignItems:"center",fontSize:10,fontWeight:700,color:"#fff",textShadow:"0 1px 2px #0006"}}>{fmtVal(v)}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      {/* Filtros */}
+      <div style={{background:"linear-gradient(135deg,#f0f9ff,#dbeafe)",border:"1px solid #93c5fd",borderRadius:12,padding:16}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#1e3a8a",marginBottom:10}}>🔎 Filtros</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
+          <div>
+            <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>País</div>
+            <select value={filtroPais} onChange={e=>setFiltroPais(e.target.value)} style={{width:"100%",padding:"6px 10px",borderRadius:6,border:"1px solid #93c5fd",fontSize:12,background:"#fff"}}>
+              {paises.map(p=><option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Especie</div>
+            <select value={filtroEspecie} onChange={e=>{setFiltroEspecie(e.target.value);setFiltroVariedad("Todos");}} style={{width:"100%",padding:"6px 10px",borderRadius:6,border:"1px solid #93c5fd",fontSize:12,background:"#fff"}}>
+              {especies.map(p=><option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Variedad</div>
+            <select value={filtroVariedad} onChange={e=>setFiltroVariedad(e.target.value)} style={{width:"100%",padding:"6px 10px",borderRadius:6,border:"1px solid #93c5fd",fontSize:12,background:"#fff"}}>
+              {variedades.map(p=><option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Cliente</div>
+            <input value={filtroCliente} onChange={e=>setFiltroCliente(e.target.value)} placeholder="Buscar..."
+              style={{width:"100%",padding:"6px 10px",borderRadius:6,border:"1px solid #93c5fd",fontSize:12,boxSizing:"border-box"}}/>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Temporada (RC)</div>
+            <select value={filtroTemp} onChange={e=>setFiltroTemp(e.target.value)} style={{width:"100%",padding:"6px 10px",borderRadius:6,border:"1px solid #93c5fd",fontSize:12,background:"#fff"}}>
+              {temporadas.map(p=><option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Estado cobranza</div>
+            <select value={filtroCobranza} onChange={e=>setFiltroCobranza(e.target.value)} style={{width:"100%",padding:"6px 10px",borderRadius:6,border:"1px solid #93c5fd",fontSize:12,background:"#fff"}}>
+              <option>Todos</option><option>Pagado</option><option>Por cobrar</option>
+            </select>
+          </div>
+          <div style={{display:"flex",alignItems:"flex-end"}}>
+            <button onClick={()=>{setFiltroPais("Todos");setFiltroEspecie("Todos");setFiltroVariedad("Todos");setFiltroCliente("");setFiltroTemp("Todas");setFiltroCobranza("Todos");}}
+              style={{padding:"6px 12px",borderRadius:6,background:"#1e293b",color:"#fff",border:"none",cursor:"pointer",fontSize:11,fontWeight:600}}>↺ Reset</button>
+          </div>
+        </div>
+      </div>
+
+      {/* KPIs operativos */}
+      <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+        <KpiCard label="Plantaciones" val={tpFilt.length} sub={`${cantContratos} contrato${cantContratos!==1?"s":""}`} col="#15803d"/>
+        <KpiCard label="Plantas" val={totPlantas.toLocaleString()} sub={`${totHa.toFixed(2)} há totales`} col="#16a34a"/>
+        <KpiCard label="Ingresos facturables" val={fmt(totFact)} sub="100% USD bruto" col="#0f766e"/>
+        <KpiCard label="Neto cobrable" val={fmt(totNeto)} sub={`WHT ${fmt(totWHT)}`} col="#0d9488"/>
+        <KpiCard label="Cobrado" val={fmt(totPagado)} sub={`${totNeto>0?Math.round(totPagado/totNeto*100):0}% del neto`} col="#22c55e"/>
+        <KpiCard label="Por cobrar" val={fmt(porCobrar)} sub="Saldo pendiente" col="#f59e0b"/>
+      </div>
+
+      {/* KPIs por concepto */}
+      <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001"}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:12}}>💰 Ingresos por concepto</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0"}}>
+              {["Concepto","Registros","Facturable","WHT","Neto","Cobrado","Por cobrar","%"].map(h=>(
+                <th key={h} style={{padding:"8px 10px",textAlign:h==="Concepto"?"left":"right",fontSize:11,fontWeight:700,color:"#475569"}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {[
+                {k:"💵 Contract Fee",  fact:cfFact, neto:cfNeto, pagado:cfPagado, n:feFilt.length, col:"#92400e"},
+                {k:"🌱 Royalty Planta", fact:rpFact, neto:rpNeto, pagado:rpPagado, n:rpFilt.length, col:"#15803d"},
+                {k:"📈 Royalty Comercial", fact:rcFact, neto:rcNeto, pagado:rcPagado, n:rcFilt.length, col:"#9d174d"},
+              ].map(row=>{
+                const wht = row.fact - row.neto;
+                const pc = row.neto - row.pagado;
+                const pctPag = row.neto>0?Math.round(row.pagado/row.neto*100):0;
+                return (
+                  <tr key={row.k} style={{borderBottom:"1px solid #f1f5f9"}}>
+                    <td style={{padding:"8px 10px",fontWeight:700,color:row.col}}>{row.k}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right"}}>{row.n}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600}}>{fmt(row.fact)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right",color:wht>0?"#dc2626":"#94a3b8"}}>{wht>0?`-${fmt(wht)}`:"—"}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:"#0f766e"}}>{fmt(row.neto)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:"#22c55e"}}>{fmt(row.pagado)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:"#f59e0b"}}>{fmt(pc)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right"}}>
+                      <span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:700,
+                        background:pctPag>=80?"#dcfce7":pctPag>=50?"#fef3c7":"#fee2e2",
+                        color:pctPag>=80?"#15803d":pctPag>=50?"#92400e":"#991b1b"}}>{pctPag}%</span>
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr style={{background:"#f0fdfa",fontWeight:900,borderTop:"2px solid #14b8a6"}}>
+                <td style={{padding:"10px"}}>TOTAL</td>
+                <td style={{padding:"10px",textAlign:"right"}}>{feFilt.length+rpFilt.length+rcFilt.length}</td>
+                <td style={{padding:"10px",textAlign:"right",color:"#0f766e"}}>{fmt(totFact)}</td>
+                <td style={{padding:"10px",textAlign:"right",color:"#dc2626"}}>{totWHT>0?`-${fmt(totWHT)}`:"—"}</td>
+                <td style={{padding:"10px",textAlign:"right",color:"#0f766e"}}>{fmt(totNeto)}</td>
+                <td style={{padding:"10px",textAlign:"right",color:"#22c55e"}}>{fmt(totPagado)}</td>
+                <td style={{padding:"10px",textAlign:"right",color:"#f59e0b"}}>{fmt(porCobrar)}</td>
+                <td style={{padding:"10px",textAlign:"right"}}>{totNeto>0?Math.round(totPagado/totNeto*100):0}%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Gráficos */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(360px,1fr))",gap:14}}>
+        <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001"}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:12}}>🌿 Plantas por especie</div>
+          <BarChart data={plantasPorEspecie} getLabel={d=>d.especie} getValue={d=>d.plantas} color="#16a34a" fmtVal={v=>v.toLocaleString()}/>
+        </div>
+        <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001"}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:12}}>🌍 Hectáreas por país</div>
+          <BarChart data={haPorPais} getLabel={d=>d.pais} getValue={d=>d.ha} color="#0284c7" fmtVal={v=>`${v.toFixed(2)} há`}/>
+        </div>
+        <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001",gridColumn:"1 / -1"}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:12}}>📈 Royalty Comercial — Comparativo por temporada</div>
+          {ingresosPorTemporada.length===0?(
+            <div style={{padding:20,textAlign:"center",color:"#94a3b8",fontSize:12}}>Sin datos. Asegúrate que los contratos tengan plantaciones y temporada inicio definida.</div>
+          ):(
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead><tr style={{background:"#fce7f3"}}>
+                  {["Temporada","Facturable","Cobrado","Por cobrar","%"].map(h=>(
+                    <th key={h} style={{padding:"7px 10px",textAlign:h==="Temporada"?"left":"right",fontSize:11,fontWeight:700,color:"#9d174d"}}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {ingresosPorTemporada.map(r=>{
+                    const totT = r.cobrado + r.porCobrar;
+                    const pctC = totT>0?Math.round(r.cobrado/totT*100):0;
+                    return (
+                      <tr key={r.temporada} style={{borderBottom:"1px solid #fce7f3"}}>
+                        <td style={{padding:"6px 10px",fontWeight:700,color:"#9d174d"}}>{r.temporada}</td>
+                        <td style={{padding:"6px 10px",textAlign:"right",fontWeight:600}}>{fmt(r.fact)}</td>
+                        <td style={{padding:"6px 10px",textAlign:"right",color:"#22c55e",fontWeight:700}}>{fmt(r.cobrado)}</td>
+                        <td style={{padding:"6px 10px",textAlign:"right",color:"#f59e0b",fontWeight:700}}>{fmt(r.porCobrar)}</td>
+                        <td style={{padding:"6px 10px",textAlign:"right"}}>
+                          <span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:700,
+                            background:pctC>=80?"#dcfce7":pctC>=50?"#fef3c7":"#fee2e2",
+                            color:pctC>=80?"#15803d":pctC>=50?"#92400e":"#991b1b"}}>{pctC}%</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Detalle plantaciones filtradas */}
+      <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 6px #0001"}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:12}}>📋 Plantaciones filtradas ({tpFilt.length})</div>
+        {tpFilt.length===0?(
+          <div style={{padding:20,textAlign:"center",color:"#94a3b8",fontSize:12}}>Sin plantaciones que coincidan con los filtros.</div>
+        ):(
+          <div style={{overflowX:"auto",maxHeight:340}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:"#f8fafc"}}>
+                {["Cliente","País","Especie","Variedad","Plantas","Há","Sublicenciatario","Estado"].map(h=>(
+                  <th key={h} style={{padding:"6px 8px",textAlign:h==="Plantas"||h==="Há"?"right":"left",fontSize:10,fontWeight:700,color:"#475569",borderBottom:"2px solid #e2e8f0"}}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {tpFilt.map((p,i)=>(
+                  <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2?"#f8fafc":"#fff"}}>
+                    <td style={{padding:"5px 8px",fontWeight:600}}>{p.cliente||"—"}</td>
+                    <td style={{padding:"5px 8px"}}>{p.pais||"—"}</td>
+                    <td style={{padding:"5px 8px"}}>{p.especie||"—"}</td>
+                    <td style={{padding:"5px 8px",fontWeight:600,color:"#15803d"}}>{p.variedad||"—"}</td>
+                    <td style={{padding:"5px 8px",textAlign:"right"}}>{(parseFloat(p.nPlantas)||0).toLocaleString()}</td>
+                    <td style={{padding:"5px 8px",textAlign:"right"}}>{(parseFloat(p.hectareas)||0).toFixed(2)}</td>
+                    <td style={{padding:"5px 8px",fontStyle:p.sublicenciatario?"normal":"italic",color:p.sublicenciatario?"#0284c7":"#94a3b8"}}>{p.sublicenciatario||"—"}</td>
+                    <td style={{padding:"5px 8px"}}>
+                      <span style={{padding:"2px 8px",borderRadius:10,fontSize:9,fontWeight:700,
+                        background:p.estado==="Productivo"?"#dcfce7":p.estado==="Plantado"?"#fef3c7":p.estado==="Anulado"?"#fee2e2":"#e0e7ff",
+                        color:p.estado==="Productivo"?"#15803d":p.estado==="Plantado"?"#92400e":p.estado==="Anulado"?"#991b1b":"#3730a3"}}>{p.estado||"Confirmado"}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Resumen({rpData,feData,rcData,fvData,tpData}) {
   const hoy=new Date();hoy.setHours(0,0,0,0);
   const [expandedMes,setExpandedMes]=useState(null);
@@ -3197,18 +3558,58 @@ const CLIENTES_INIT=[
 ];
 // Maestro de Viveristas — empieza vacío, se agregan según necesidad
 const VIVERISTAS_INIT = [];
+// Maestro de Variedades — empieza vacío, se puede pre-poblar desde contratos obtentores
+const VARIEDADES_INIT = [];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const FORMAS_PAGO = ["Anual","Semestral","Trimestral","Mensual","A demanda","Contra entrega","Otro"];
 const ESTADOS_DHE = ["No iniciado","En proceso","Aprobado","Rechazado","No aplica"];
 const ESTADOS_CONTRATO_OBT = ["Borrador","En revisión","Firmado","Vigente","Vencido","Terminado"];
 const ESTADOS_OC = ["Borrador","Confirmada","En producción","Entregada","Pagada parcial","Pagada total","Anulada"];
+
+// ── Royalty Comercial: mes de cobro por defecto según país ──
+const RC_MES_DEFAULT_POR_PAIS = {
+  "Peru":   "Mayo",
+  "Chile":  "Abril",
+  "Mexico": "Julio",
+  "México": "Julio",
+};
+// ── Temporada: julio del año T → junio del año T+1 ──
+function temporadaActual() {
+  const hoy = new Date();
+  const año = hoy.getMonth() >= 6 ? hoy.getFullYear() : hoy.getFullYear() - 1;
+  return `${año}/${año+1}`;
+}
+function temporadasEntre(inicioTemp, finFecha) {
+  // inicioTemp formato "YYYY/YYYY+1", finFecha en formato fecha o vacío
+  if(!inicioTemp) return [];
+  const [a1] = String(inicioTemp).split("/").map(s=>parseInt(s));
+  if(isNaN(a1)) return [];
+  let fin;
+  if(finFecha){
+    const f = new Date(finFecha);
+    fin = isNaN(f.getTime()) ? a1+10 : (f.getMonth()>=6 ? f.getFullYear() : f.getFullYear()-1);
+  } else {
+    fin = a1+10; // si no hay fin, asumimos 10 temporadas
+  }
+  const out = [];
+  for(let y=a1; y<=fin; y++) out.push(`${y}/${y+1}`);
+  return out;
+}
+// ── Cuotas default Royalty por Planta ──
+const RP_CUOTAS_DEFAULT = [
+  {id:"cuo_firma",      descripcion:"Al firmar contrato",      pct:50, fechaEvento:""},
+  {id:"cuo_plantacion", descripcion:"A la plantación",         pct:50, fechaEvento:""},
+];
 const MONEDAS=["USD","EUR","CLP","PEN"];
 const SECCIONES_CT=[
-  {id:"empresa",   label:"🏢 Empresa",         color:"#2563eb"},
-  {id:"contrato",  label:"📄 Contrato",         color:"#7c3aed"},
-  {id:"rep",       label:"👤 Representante",    color:"#0f766e"},
-  {id:"ubicacion", label:"🌱 Ubicación plantas",color:"#16a34a"},
-  {id:"factura",   label:"💰 Facturación",      color:"#d97706"},
+  {id:"empresa",         label:"🏢 Empresa",            color:"#2563eb"},
+  {id:"contrato",        label:"📄 Contrato",            color:"#7c3aed"},
+  {id:"rep",             label:"👤 Representante",       color:"#0f766e"},
+  {id:"ubicacion",       label:"🌱 Ubicación plantas",   color:"#16a34a"},
+  {id:"plantaciones",    label:"🌿 Plantaciones",        color:"#15803d"},
+  {id:"sublicenciatarios",label:"🤝 Sublicenciatarios",   color:"#0284c7"},
+  {id:"factura",         label:"💰 Facturación",         color:"#d97706"},
+  {id:"cobros",          label:"💵 Cobros derivados",    color:"#be185d"},
 ];
 
 const CONTRATOS_INIT=[
@@ -3497,7 +3898,310 @@ function MaestroViveristas({viveristas,setViveristas,can}){
   );
 }
 
-// ── Exportar contratos a Excel (.xlsx) con formato ──────────
+// ── Maestro de Variedades ────────────────────────────────────
+// Catálogo central de variedades, linkable con contratos de obtentor
+function MaestroVariedades({variedades,setVariedades,can,obtentores=[]}){
+  const [editId,setEditId]=useState(null);
+  const VACIO={especie:"",variedad:"",obtentor:"",observaciones:""};
+  const [form,setForm]=useState(VACIO);
+  const [showForm,setShowForm]=useState(false);
+  const [busq,setBusq]=useState("");
+
+  // Recopilar variedades únicas desde contratos obtentores (para sugerir)
+  const variedadesObtentor = useMemo(()=>{
+    const out = [];
+    (obtentores||[]).forEach(o=>(o.especies||[]).forEach(e=>{
+      out.push({especie:e.especie, variedad:e.variedad, obtentor:o.obtentor});
+    }));
+    return out;
+  },[obtentores]);
+  const sugerencias = variedadesObtentor.filter(s=>
+    !(variedades||[]).some(v=>v.especie===s.especie && v.variedad===s.variedad)
+  );
+
+  function guardar(){
+    if(!form.especie.trim() || !form.variedad.trim()){alert("Especie y Variedad son obligatorias.");return;}
+    // Evitar duplicados
+    const dupe = (variedades||[]).find(v =>
+      v.id !== editId &&
+      v.especie?.toLowerCase().trim() === form.especie.toLowerCase().trim() &&
+      v.variedad?.toLowerCase().trim() === form.variedad.toLowerCase().trim()
+    );
+    if(dupe){alert(`Ya existe la variedad "${form.especie} · ${form.variedad}".`);return;}
+    if(editId){
+      const anterior = variedades.find(v=>v.id===editId);
+      setVariedades(prev=>prev.map(v=>v.id===editId?{...v,...form}:v));
+      if(anterior) {
+        Object.keys(form).forEach(k=>{
+          if(String(anterior[k]||"") !== String(form[k]||"")) {
+            window.auditLog&&window.auditLog("editar", {modulo:"osiris", seccion:"Maestro Variedades",
+              descripcion:`Editó variedad "${form.especie} · ${form.variedad}": campo ${k}`,
+              registroId:editId, campo:k,
+              valorAnterior:String(anterior[k]||""), valorNuevo:String(form[k]||"")});
+          }
+        });
+      }
+      setEditId(null);
+    } else {
+      const id = `var_${Date.now()}`;
+      setVariedades(prev=>[...(prev||[]),{...form,id}]);
+      window.auditLog&&window.auditLog("crear", {modulo:"osiris", seccion:"Maestro Variedades",
+        descripcion:`Creó variedad "${form.especie} · ${form.variedad}"${form.obtentor?` · Obtentor ${form.obtentor}`:""}`,
+        registroId:id});
+    }
+    setForm(VACIO);
+    setShowForm(false);
+  }
+  function importarSugerencia(s){
+    if(!can) return;
+    const dupe = (variedades||[]).find(v=>
+      v.especie?.toLowerCase().trim() === s.especie.toLowerCase().trim() &&
+      v.variedad?.toLowerCase().trim() === s.variedad.toLowerCase().trim()
+    );
+    if(dupe) return;
+    const id = `var_${Date.now()}`;
+    setVariedades(prev=>[...(prev||[]),{id, especie:s.especie, variedad:s.variedad, obtentor:s.obtentor, observaciones:""}]);
+    window.auditLog&&window.auditLog("crear", {modulo:"osiris", seccion:"Maestro Variedades",
+      descripcion:`Importó variedad desde Obtentor "${s.especie} · ${s.variedad}" (${s.obtentor})`,
+      registroId:id});
+  }
+  function importarTodas(){
+    if(!can || sugerencias.length===0) return;
+    if(!window.confirm(`¿Importar ${sugerencias.length} variedades desde los contratos obtentores?`)) return;
+    const nuevas = sugerencias.map(s=>({
+      id:`var_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+      especie:s.especie, variedad:s.variedad, obtentor:s.obtentor, observaciones:""
+    }));
+    setVariedades(prev=>[...(prev||[]),...nuevas]);
+    window.auditLog&&window.auditLog("crear", {modulo:"osiris", seccion:"Maestro Variedades",
+      descripcion:`Importó ${nuevas.length} variedades desde contratos obtentores`});
+  }
+  function iniciarEdicion(v){
+    setForm({especie:v.especie||"",variedad:v.variedad||"",obtentor:v.obtentor||"",observaciones:v.observaciones||""});
+    setEditId(v.id);setShowForm(true);
+  }
+
+  const filtrado = (variedades||[]).filter(v=>!busq||
+    v.especie.toLowerCase().includes(busq.toLowerCase())||
+    v.variedad.toLowerCase().includes(busq.toLowerCase())||
+    (v.obtentor||"").toLowerCase().includes(busq.toLowerCase()));
+
+  return(
+    <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:12,padding:"16px 20px",marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#78350f"}}>🌿 Maestro de Variedades</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar..."
+            style={{padding:"5px 10px",borderRadius:6,border:"1px solid #fbbf24",fontSize:12,outline:"none"}}/>
+          {can&&sugerencias.length>0&&<button onClick={importarTodas}
+            style={{padding:"6px 12px",borderRadius:6,background:"#7c3aed",color:"#fff",border:"none",cursor:"pointer",fontSize:11,fontWeight:600}}>
+            📥 Importar {sugerencias.length} desde Obtentores
+          </button>}
+          {can&&<button onClick={()=>{setShowForm(v=>!v);setEditId(null);setForm(VACIO);}}
+            style={{padding:"6px 14px",borderRadius:6,background:"#d97706",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>
+            {showForm&&!editId?"✕":"+ Nueva variedad"}
+          </button>}
+        </div>
+      </div>
+
+      {showForm&&can&&(
+        <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",marginBottom:12,border:"1px solid #fbbf24"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#78350f",marginBottom:10}}>{editId?"Editar variedad":"Nueva variedad"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div>
+              <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Especie *</div>
+              <input value={form.especie} placeholder="Cerezo, Arándano, Uva..." onChange={e=>setForm(p=>({...p,especie:e.target.value}))}
+                style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Variedad *</div>
+              <input value={form.variedad} placeholder="Royal Dawn, Sweet Heart..." onChange={e=>setForm(p=>({...p,variedad:e.target.value}))}
+                style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Obtentor</div>
+              <input value={form.obtentor} placeholder="SunWorld, IFG, Bloom Fresh..." onChange={e=>setForm(p=>({...p,obtentor:e.target.value}))}
+                list="obtentores-list"
+                style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+              <datalist id="obtentores-list">
+                {[...new Set((obtentores||[]).map(o=>o.obtentor).filter(Boolean))].map(o=><option key={o} value={o}/>)}
+              </datalist>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Observaciones</div>
+              <input value={form.observaciones} onChange={e=>setForm(p=>({...p,observaciones:e.target.value}))}
+                style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button onClick={()=>{setShowForm(false);setEditId(null);}} style={{padding:"6px 16px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12}}>Cancelar</button>
+            <button onClick={guardar} style={{padding:"6px 16px",borderRadius:6,background:"#d97706",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:600}}>💾 Guardar</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{overflowX:"auto"}}>
+        <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:8,overflow:"hidden",fontSize:12}}>
+          <thead><tr style={{background:"#d97706",color:"#fff"}}>
+            {["Especie","Variedad","Obtentor","Observaciones",""].map(h=>(
+              <th key={h} style={{padding:"7px 10px",textAlign:"left",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {filtrado.map((v,i)=>(
+              <tr key={v.id} style={{borderBottom:"1px solid #fef3c7",background:i%2===0?"#fff":"#fffbeb"}}>
+                <td style={{padding:"6px 10px",fontWeight:600,color:"#78350f"}}>{v.especie}</td>
+                <td style={{padding:"6px 10px",fontWeight:600,color:"#1e293b"}}>{v.variedad}</td>
+                <td style={{padding:"6px 10px",color:"#64748b"}}>{v.obtentor||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{v.observaciones||"—"}</td>
+                <td style={{padding:"6px 8px",textAlign:"center"}}>
+                  {can&&<div style={{display:"flex",gap:4}}>
+                    <button onClick={()=>iniciarEdicion(v)} style={{background:"#dbeafe",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#1d4ed8",fontWeight:600}}>✏️</button>
+                    <button onClick={()=>{
+                      if(!window.confirm(`¿Eliminar variedad "${v.especie} · ${v.variedad}"?`))return;
+                      window.auditLog&&window.auditLog("eliminar", {modulo:"osiris", seccion:"Maestro Variedades",
+                        descripcion:`Eliminó variedad "${v.especie} · ${v.variedad}"`,
+                        registroId:v.id});
+                      setVariedades(prev=>(prev||[]).filter(x=>x.id!==v.id));
+                    }}
+                      style={{background:"#fee2e2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#991b1b",fontWeight:600}}>×</button>
+                  </div>}
+                </td>
+              </tr>
+            ))}
+            {filtrado.length===0&&<tr><td colSpan={5} style={{textAlign:"center",padding:20,color:"#94a3b8"}}>Sin variedades. {can?(sugerencias.length>0?`Hay ${sugerencias.length} sugerencias desde obtentores.`:"Agrega una con \"+ Nueva variedad\"."):""}</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+// ══════════════════════════════════════════════════════════
+// DERIVADORES DE INGRESOS DESDE CONTRATO
+// El contrato es la fuente de verdad. Estos helpers calculan
+// los registros de Contract Fee, Royalty Planta y Royalty Comercial.
+// ══════════════════════════════════════════════════════════
+function derivarContractFeeDesdeContratos(ctData) {
+  return (ctData||[])
+    .filter(ct => ct.tipoContractFee && ct.tipoContractFee !== "Sin Contract Fee")
+    .map(ct => ({
+      id: `cf_${ct.id}`,
+      ctId: ct.id,
+      cliente: ct.razonSocial,
+      pais: ct.pais,
+      montoUSD: Number(ct.montoContractFee)||0,
+      montoNeto: (Number(ct.montoContractFee)||0) * pct(ct.pais),
+      whtPct: pct(ct.pais)===1 ? 0 : 15,
+      detalle: ct.tipoContractFee,
+      fechaContrato: ct.fechaContrato || "",
+      pagado: !!ct.contractFeePagado,
+      fechaPago: ct.contractFeeFechaPago || "",
+      nFact: ct.contractFeeNFact || "",
+      _fromContract: true,
+    }));
+}
+
+function derivarRoyaltyPlantaDesdeContratos(ctData) {
+  // Por cada cuota × contrato genera un registro
+  const out = [];
+  (ctData||[]).forEach(ct => {
+    const totPlantas = (ct.plantaciones||[]).reduce((s,p)=>s+(Number(p.nPlantas)||0),0);
+    if(totPlantas===0) return;
+    const valorPorPlanta = Number(ct.valorRoyaltyPlanta)||1;
+    const montoTotalUSD = totPlantas * valorPorPlanta;
+    const cuotas = ct.rpPlantaCuotas && ct.rpPlantaCuotas.length>0 ? ct.rpPlantaCuotas : RP_CUOTAS_DEFAULT;
+    cuotas.forEach((cuo, idx) => {
+      const pctCuota = (Number(cuo.pct)||0)/100;
+      const montoCuota = montoTotalUSD * pctCuota;
+      out.push({
+        id: `rp_${ct.id}_${cuo.id||idx}`,
+        ctId: ct.id,
+        cuotaId: cuo.id||`cuo_${idx}`,
+        cliente: ct.razonSocial,
+        pais: ct.pais,
+        nPlantas: totPlantas,
+        usdPlanta: valorPorPlanta,
+        descripcionCuota: cuo.descripcion||`Cuota ${idx+1}`,
+        pctCuota: Number(cuo.pct)||0,
+        montoFact: montoCuota,                 // 100%
+        montoCobro: montoCuota * pct(ct.pais), // con WHT
+        whtPct: pct(ct.pais)===1 ? 0 : 15,
+        fechaEvento: cuo.fechaEvento || "",
+        pagado: !!cuo.pagado,
+        fechaPago: cuo.fechaPago || "",
+        nFact: cuo.nFact || "",
+        _fromContract: true,
+      });
+    });
+  });
+  return out;
+}
+
+function derivarRoyaltyComercialDesdeContratos(ctData) {
+  // Por cada temporada × contrato genera un registro
+  const out = [];
+  (ctData||[]).forEach(ct => {
+    const haTotal = (ct.plantaciones||[]).reduce((s,p)=>s+(Number(p.hectareas)||0),0);
+    if(haTotal===0) return;
+    const valorPorHa = Number(ct.valorRoyaltyComercial)||0;
+    if(valorPorHa===0) return;
+    const inicioTemp = ct.rcInicioTemporada || temporadaActual();
+    const mesCobro = ct.rcMesCobro || RC_MES_DEFAULT_POR_PAIS[ct.pais] || "Abril";
+    const temps = temporadasEntre(inicioTemp, ct.fechaTermino);
+    temps.forEach(temp => {
+      const montoFact = haTotal * valorPorHa;
+      const montoCobro = montoFact * pct(ct.pais);
+      // Pagos guardados por temporada en el contrato
+      const pagosKey = ct.rcPagos || {};
+      const pago = pagosKey[temp] || {};
+      out.push({
+        id: `rc_${ct.id}_${temp.replace("/","")}`,
+        ctId: ct.id,
+        temporada: temp,
+        cliente: ct.razonSocial,
+        pais: ct.pais,
+        haTotal,
+        valorPorHa,
+        montoFact,
+        montoCobro,
+        whtPct: pct(ct.pais)===1 ? 0 : 15,
+        mesCobro,
+        añoCobro: parseInt(temp.split("/")[1]),
+        pagado: !!pago.pagado,
+        fechaPago: pago.fechaPago || "",
+        nFact: pago.nFact || "",
+        _fromContract: true,
+      });
+    });
+  });
+  return out;
+}
+
+function derivarTotalPedidosDesdeContratos(ctData) {
+  // Una fila por plantación de cada contrato
+  const out = [];
+  (ctData||[]).forEach(ct => {
+    (ct.plantaciones||[]).forEach(p => {
+      out.push({
+        id: `tp_${ct.id}_${p.id}`,
+        ctId: ct.id,
+        plantacionId: p.id,
+        cliente: ct.razonSocial,
+        pais: ct.pais,
+        especie: p.especie || "",
+        variedad: p.variedad || "",
+        nPlantas: Number(p.nPlantas)||0,
+        hectareas: Number(p.hectareas)||0,
+        fechaPlantacion: p.fechaPlantacion || "",
+        sublicenciatario: p.sublicenciatario_nombre || "",
+        estado: p.estado || "Confirmado",
+        _fromContract: true,
+      });
+    });
+  });
+  return out;
+}
+
 async function exportarContratos(filtrado) {
   const anx = r => {
     const partes = [];
@@ -3557,7 +4261,7 @@ async function exportarContratos(filtrado) {
   });
 }
 
-function ControlContratos({data,setData,clientes,setClientes,can}){
+function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[],setVariedadesMaestro,obtentoresData=[],can}){
   const [vista,setVista]=useState("tabla");
   const [sel,setSel]=useState(null);
   const [sec,setSec]=useState("empresa");
@@ -3568,6 +4272,7 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
   const [tiposAnexo,setTiposAnexo]=useState(TIPOS_ANEXO_BASE);
   const [showMantenedor,setShowMantenedor]=useState(false);
   const [showClientes,setShowClientes]=useState(false);
+  const [showVariedades,setShowVariedades]=useState(false);
   const [nuevoTipo,setNuevoTipo]=useState("");
   const [nuevoAnexo,setNuevoAnexo]=useState("");
   const [clienteSelId,setClienteSelId]=useState("");
@@ -3583,11 +4288,24 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
     tipoContractFee:"Sin Devolución",montoContractFee:30000,
     valorRoyaltyPlanta:1.00,valorRoyaltyComercial:3000,
     royaltyInflacion:false,mesFacuracionRC:"",notas:"",
-    // Nuevos campos
+    // Nuevos campos sesión 9
+    plantaciones:[],
+    sublicenciatarios:[],
+    rcInicioTemporada:"",  // ej "2026/2027"
+    rcMesCobro:"",          // hereda de RC_MES_DEFAULT_POR_PAIS si vacío al usar
+    rpPlantaCuotas:[
+      {id:"cuo_firma",      descripcion:"Al firmar contrato", pct:50, fechaEvento:""},
+      {id:"cuo_plantacion", descripcion:"A la plantación",    pct:50, fechaEvento:""},
+    ],
+    rcPagos:{},   // {temporada: {pagado, fechaPago, nFact}}
+    contractFeePagado:false, contractFeeFechaPago:"", contractFeeNFact:"",
+    // Multa
     llevaMulta:false,haMinContrato:0,
     tieneAnioPrueba:false,cantAnioPrueba:1,
   };
   const [form,setForm]=useState(formVacio);
+  // Wizard de "nuevo contrato": paso actual
+  const [wizStep, setWizStep] = useState(1);
 
   const upd=(id,c,v)=>setData(prev=>prev.map(r=>{
     if(r.id!==id) return r;
@@ -3928,6 +4646,451 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
               </div>
             </div>
           )}
+
+          {/* ── SECCIÓN: PLANTACIONES (variedades plantadas) ── */}
+          {sec==="plantaciones"&&(<>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+              <div style={{fontSize:13,color:"#475569"}}>
+                🌿 Plantaciones del licenciatario principal — variedades, plantas y hectáreas que generan los royalties.
+              </div>
+              {can&&<button onClick={()=>{
+                const variedadDefault = (variedadesMaestro||[])[0];
+                const nuevaPlant = {
+                  id:`plt_${Date.now()}`,
+                  variedad_id: variedadDefault?.id || "",
+                  especie:    variedadDefault?.especie || "",
+                  variedad:   variedadDefault?.variedad || "",
+                  nPlantas:   0,
+                  hectareas:  0,
+                  fechaPlantacion:"",
+                  sublicenciatario_id:"",
+                  sublicenciatario_nombre:"",
+                  estado:"Confirmado",
+                };
+                const next = [...(r.plantaciones||[]), nuevaPlant];
+                upd(r.id,"plantaciones",next);
+              }} style={{background:"#15803d",color:"#fff",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar plantación</button>}
+            </div>
+
+            {(r.plantaciones||[]).length===0?(
+              <div style={{padding:30,textAlign:"center",color:"#94a3b8",border:"1px dashed #e2e8f0",borderRadius:10}}>
+                <div style={{fontSize:32,marginBottom:8}}>🌿</div>
+                <div style={{fontSize:12}}>Sin plantaciones registradas. {can?"Haz clic en \"+ Agregar plantación\" para empezar.":""}</div>
+                <div style={{fontSize:11,color:"#64748b",marginTop:6}}>💡 Las plantaciones alimentan automáticamente Royalty Planta (cantidad × USD/planta) y Royalty Comercial (há × USD/há).</div>
+              </div>
+            ):(<>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
+                  <thead><tr style={{background:"#15803d",color:"#fff"}}>
+                    {["Especie","Variedad","Plantas","Hectáreas","Fecha plantación","Sublicenciatario","Estado",""].map(h=>(
+                      <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {(r.plantaciones||[]).map((p,i)=>{
+                      const updPl = (campo, valor) => {
+                        const next = (r.plantaciones||[]).map(x=>x.id===p.id?{...x,[campo]:valor}:x);
+                        upd(r.id,"plantaciones",next);
+                      };
+                      const seleccionarVariedad = (vid) => {
+                        const vv = (variedadesMaestro||[]).find(x=>x.id===vid);
+                        const next = (r.plantaciones||[]).map(x=>x.id===p.id?{
+                          ...x,
+                          variedad_id: vid,
+                          especie:  vv?.especie || x.especie,
+                          variedad: vv?.variedad || x.variedad,
+                        }:x);
+                        upd(r.id,"plantaciones",next);
+                      };
+                      const seleccionarSublic = (sid) => {
+                        const sub = (r.sublicenciatarios||[]).find(s=>s.id===sid);
+                        const next = (r.plantaciones||[]).map(x=>x.id===p.id?{
+                          ...x,
+                          sublicenciatario_id: sid,
+                          sublicenciatario_nombre: sub?.razonSocial || "",
+                        }:x);
+                        upd(r.id,"plantaciones",next);
+                      };
+                      return (
+                        <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2?"#f8fafc":"#fff"}}>
+                          <td style={{padding:"6px 8px"}}>
+                            {(variedadesMaestro||[]).length>0?(
+                              <select disabled={!can} value={p.variedad_id||""} onChange={e=>seleccionarVariedad(e.target.value)}
+                                style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                                <option value="">— Seleccionar —</option>
+                                {(variedadesMaestro||[]).map(v=><option key={v.id} value={v.id}>{v.especie} · {v.variedad}</option>)}
+                              </select>
+                            ):(
+                              <input disabled={!can} value={p.especie||""} onChange={e=>updPl("especie",e.target.value)}
+                                style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
+                            )}
+                          </td>
+                          <td style={{padding:"6px 8px",fontWeight:600}}>{p.variedad||"—"}</td>
+                          <td style={{padding:"6px 8px"}}>
+                            <input type="number" disabled={!can} value={p.nPlantas||0} onChange={e=>updPl("nPlantas",parseInt(e.target.value)||0)}
+                              style={{width:90,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,textAlign:"right"}}/>
+                          </td>
+                          <td style={{padding:"6px 8px"}}>
+                            <input type="number" step="0.01" disabled={!can} value={p.hectareas||0} onChange={e=>updPl("hectareas",parseFloat(e.target.value)||0)}
+                              style={{width:80,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,textAlign:"right"}}/>
+                          </td>
+                          <td style={{padding:"6px 8px"}}>
+                            <input type="date" disabled={!can} value={p.fechaPlantacion||""} onChange={e=>updPl("fechaPlantacion",e.target.value)}
+                              style={{padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
+                          </td>
+                          <td style={{padding:"6px 8px"}}>
+                            <select disabled={!can} value={p.sublicenciatario_id||""} onChange={e=>seleccionarSublic(e.target.value)}
+                              style={{padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff",maxWidth:160}}>
+                              <option value="">— Sin sublicencia —</option>
+                              {(r.sublicenciatarios||[]).map(s=><option key={s.id} value={s.id}>{s.razonSocial}</option>)}
+                            </select>
+                          </td>
+                          <td style={{padding:"6px 8px"}}>
+                            <select disabled={!can} value={p.estado||"Confirmado"} onChange={e=>updPl("estado",e.target.value)}
+                              style={{padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                              <option>Confirmado</option><option>Plantado</option><option>Productivo</option><option>Anulado</option>
+                            </select>
+                          </td>
+                          <td style={{padding:"6px 8px",textAlign:"center"}}>
+                            {can&&<button onClick={()=>{
+                              if(!window.confirm(`¿Eliminar la plantación "${p.especie} · ${p.variedad}"?`))return;
+                              const next = (r.plantaciones||[]).filter(x=>x.id!==p.id);
+                              upd(r.id,"plantaciones",next);
+                            }} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#991b1b"}}>🗑</button>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr style={{background:"#f0fdf4",fontWeight:800}}>
+                      <td colSpan={2} style={{padding:"7px 10px",color:"#15803d"}}>TOTALES</td>
+                      <td style={{padding:"7px 10px",color:"#15803d",textAlign:"right"}}>{N((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.nPlantas)||0),0))}</td>
+                      <td style={{padding:"7px 10px",color:"#15803d",textAlign:"right"}}>{N((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.hectareas)||0),0).toFixed(2))}</td>
+                      <td colSpan={4}></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style={{marginTop:12,padding:12,background:"#f0fdf4",borderRadius:10,fontSize:11,color:"#14532d",borderLeft:"4px solid #16a34a"}}>
+                💡 <strong>Royalty Planta estimado:</strong> {(r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.nPlantas)||0),0)} plantas × ${r.valorRoyaltyPlanta||1}/planta = <strong>${N(((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.nPlantas)||0),0)*(r.valorRoyaltyPlanta||1)).toFixed(2))}</strong> (100% facturado, {pct(r.pais)===1?"sin WHT":"15% WHT"})
+                <br/>
+                💡 <strong>Royalty Comercial anual:</strong> {N((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.hectareas)||0),0).toFixed(2))} há × ${N(r.valorRoyaltyComercial||0)}/há = <strong>${N(((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.hectareas)||0),0)*(r.valorRoyaltyComercial||0)).toFixed(2))}</strong>/temporada (100% facturado)
+              </div>
+            </>)}
+          </>)}
+
+          {/* ── SECCIÓN: SUBLICENCIATARIOS (informativo) ── */}
+          {sec==="sublicenciatarios"&&(<>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+              <div style={{fontSize:13,color:"#475569"}}>
+                🤝 Empresas sublicenciatarias del licenciatario principal — <em>solo informativo, sin impacto financiero directo</em>.
+              </div>
+              {can&&<button onClick={()=>{
+                const nuevoSub = {
+                  id:`sub_${Date.now()}`,
+                  razonSocial:"", pais:"Peru", taxID:"",
+                  nombrePredio:"", direccionPredio:"", region:"",
+                  hectareas:0, plantas:0,
+                  variedades:"",
+                  observaciones:"",
+                };
+                const next = [...(r.sublicenciatarios||[]), nuevoSub];
+                upd(r.id,"sublicenciatarios",next);
+              }} style={{background:"#0284c7",color:"#fff",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar sublicenciatario</button>}
+            </div>
+            {(r.sublicenciatarios||[]).length===0?(
+              <div style={{padding:30,textAlign:"center",color:"#94a3b8",border:"1px dashed #e2e8f0",borderRadius:10}}>
+                <div style={{fontSize:32,marginBottom:8}}>🤝</div>
+                <div style={{fontSize:12}}>Sin sublicenciatarios. {can?"Agrega uno con el botón de arriba.":""}</div>
+              </div>
+            ):(
+              <div style={{display:"grid",gridTemplateColumns:"1fr",gap:12}}>
+                {(r.sublicenciatarios||[]).map(s=>{
+                  const updSub = (campo, valor) => {
+                    const next = (r.sublicenciatarios||[]).map(x=>x.id===s.id?{...x,[campo]:valor}:x);
+                    upd(r.id,"sublicenciatarios",next);
+                  };
+                  return (
+                    <div key={s.id} style={{background:"#fff",border:"1px solid #bae6fd",borderRadius:10,padding:14}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                        <div style={{fontSize:13,fontWeight:700,color:"#0c4a6e"}}>🤝 {s.razonSocial||"(sin nombre)"}</div>
+                        {can&&<button onClick={()=>{
+                          if(!window.confirm(`¿Eliminar al sublicenciatario "${s.razonSocial||"(sin nombre)"}"?`))return;
+                          const next = (r.sublicenciatarios||[]).filter(x=>x.id!==s.id);
+                          upd(r.id,"sublicenciatarios",next);
+                        }} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#991b1b"}}>🗑</button>}
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+                        <div>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Razón Social</div>
+                          <input disabled={!can} value={s.razonSocial||""} onChange={e=>updSub("razonSocial",e.target.value)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                        </div>
+                        <div>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>País</div>
+                          <select disabled={!can} value={s.pais||"Peru"} onChange={e=>updSub("pais",e.target.value)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box",background:"#fff"}}>
+                            <option>Peru</option><option>Chile</option><option>Mexico</option><option>Colombia</option><option>Otro</option>
+                          </select>
+                        </div>
+                        <div>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>RUC / Tax ID</div>
+                          <input disabled={!can} value={s.taxID||""} onChange={e=>updSub("taxID",e.target.value)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                        </div>
+                        <div>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Nombre del Predio</div>
+                          <input disabled={!can} value={s.nombrePredio||""} onChange={e=>updSub("nombrePredio",e.target.value)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                        </div>
+                        <div style={{gridColumn:"span 2"}}>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Dirección Predio</div>
+                          <input disabled={!can} value={s.direccionPredio||""} onChange={e=>updSub("direccionPredio",e.target.value)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                        </div>
+                        <div>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Región / Estado</div>
+                          <input disabled={!can} value={s.region||""} onChange={e=>updSub("region",e.target.value)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                        </div>
+                        <div>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Hectáreas</div>
+                          <input type="number" step="0.01" disabled={!can} value={s.hectareas||0} onChange={e=>updSub("hectareas",parseFloat(e.target.value)||0)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box",textAlign:"right"}}/>
+                        </div>
+                        <div>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Plantas</div>
+                          <input type="number" disabled={!can} value={s.plantas||0} onChange={e=>updSub("plantas",parseInt(e.target.value)||0)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box",textAlign:"right"}}/>
+                        </div>
+                        <div style={{gridColumn:"span 2"}}>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Variedades cultivadas</div>
+                          <input disabled={!can} value={s.variedades||""} placeholder="Royal Dawn, Sweet Heart..." onChange={e=>updSub("variedades",e.target.value)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                        </div>
+                        <div style={{gridColumn:"1 / -1"}}>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Observaciones</div>
+                          <input disabled={!can} value={s.observaciones||""} onChange={e=>updSub("observaciones",e.target.value)}
+                            style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>)}
+
+          {/* ── SECCIÓN: COBROS DERIVADOS ── */}
+          {sec==="cobros"&&(<>
+            <div style={{fontSize:13,color:"#475569",marginBottom:12}}>
+              💵 Configuración de cobros derivada de plantaciones. Cuando facture: <strong>100%</strong> del monto. Cuando cobre: <strong>{pct(r.pais)===1?"100%":"85%"}</strong> ({pct(r.pais)===1?"sin WHT":"WHT 15%"} en {r.pais}).
+            </div>
+
+            {/* Sub-sección 1: Contract Fee */}
+            <div style={{background:"#fff",border:"1px solid #fde68a",borderRadius:10,padding:14,marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#92400e",marginBottom:10}}>💰 Contract Fee</div>
+              {r.tipoContractFee==="Sin Contract Fee"?(
+                <div style={{padding:14,background:"#fef3c7",borderRadius:8,fontSize:12,color:"#78350f"}}>Este contrato no contempla Contract Fee. Configurable en la sección Facturación.</div>
+              ):(
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,alignItems:"end"}}>
+                  <div>
+                    <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Monto USD</div>
+                    <div style={{padding:"7px 10px",background:"#f8fafc",borderRadius:6,fontSize:13,fontWeight:700,color:"#92400e"}}>${N(r.montoContractFee||0)}</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Neto cobro (USD)</div>
+                    <div style={{padding:"7px 10px",background:"#dcfce7",borderRadius:6,fontSize:13,fontWeight:700,color:"#15803d"}}>${N(((r.montoContractFee||0)*pct(r.pais)).toFixed(2))}</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>N° Factura</div>
+                    <input disabled={!can} value={r.contractFeeNFact||""} onChange={e=>upd(r.id,"contractFeeNFact",e.target.value)}
+                      style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Estado</div>
+                    <label style={{display:"flex",alignItems:"center",gap:6,cursor:can?"pointer":"default",padding:"7px 10px",background:r.contractFeePagado?"#dcfce7":"#fef3c7",borderRadius:6,fontSize:11,fontWeight:700,color:r.contractFeePagado?"#15803d":"#92400e"}}>
+                      <input type="checkbox" disabled={!can} checked={!!r.contractFeePagado} onChange={e=>upd(r.id,"contractFeePagado",e.target.checked)}/>
+                      {r.contractFeePagado?"✅ Pagado":"⏳ Por cobrar"}
+                    </label>
+                  </div>
+                  {r.contractFeePagado&&<div>
+                    <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Fecha pago</div>
+                    <input type="date" disabled={!can} value={r.contractFeeFechaPago||""} onChange={e=>upd(r.id,"contractFeeFechaPago",e.target.value)}
+                      style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                  </div>}
+                </div>
+              )}
+            </div>
+
+            {/* Sub-sección 2: Royalty Planta - cuotas */}
+            <div style={{background:"#fff",border:"1px solid #bbf7d0",borderRadius:10,padding:14,marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#15803d"}}>🌱 Royalty Planta — Plan de cuotas</div>
+                {can&&<button onClick={()=>{
+                  const nuevaCuota = {id:`cuo_${Date.now()}`, descripcion:"Nueva cuota", pct:0, fechaEvento:""};
+                  const next = [...(r.rpPlantaCuotas||[]), nuevaCuota];
+                  upd(r.id,"rpPlantaCuotas",next);
+                }} style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>+ Cuota</button>}
+              </div>
+              {(()=>{
+                const totPlantas = (r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.nPlantas)||0),0);
+                const valorPP = parseFloat(r.valorRoyaltyPlanta)||1;
+                const totRP = totPlantas * valorPP;
+                const cuotas = r.rpPlantaCuotas||[];
+                const sumPct = cuotas.reduce((s,c)=>s+(parseFloat(c.pct)||0),0);
+                return (
+                  <>
+                    <div style={{padding:10,background:"#f0fdf4",borderRadius:8,marginBottom:10,fontSize:11,color:"#14532d"}}>
+                      <strong>Base:</strong> {N(totPlantas)} plantas × ${valorPP}/planta = <strong>${N(totRP.toFixed(2))}</strong> · Suma cuotas: <strong style={{color:Math.abs(sumPct-100)<0.01?"#15803d":"#dc2626"}}>{sumPct}%</strong>
+                    </div>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                      <thead><tr style={{background:"#dcfce7"}}>
+                        {["Descripción","%","Monto Fact.","Monto Cobro","Fecha evento","Pagado","Fecha pago","N° Fact.",""].map(h=>(
+                          <th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:10,fontWeight:700,color:"#14532d"}}>{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody>
+                        {cuotas.map(c=>{
+                          const monto = totRP * (parseFloat(c.pct)||0)/100;
+                          const updCuo = (campo, valor) => {
+                            const next = cuotas.map(x=>x.id===c.id?{...x,[campo]:valor}:x);
+                            upd(r.id,"rpPlantaCuotas",next);
+                          };
+                          return (
+                            <tr key={c.id} style={{borderBottom:"1px solid #f1f5f9"}}>
+                              <td style={{padding:"5px 8px"}}>
+                                <input disabled={!can} value={c.descripcion||""} onChange={e=>updCuo("descripcion",e.target.value)}
+                                  style={{width:"100%",padding:"4px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                              </td>
+                              <td style={{padding:"5px 8px"}}>
+                                <input type="number" disabled={!can} value={c.pct||0} onChange={e=>updCuo("pct",parseFloat(e.target.value)||0)}
+                                  style={{width:60,padding:"4px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11,textAlign:"right"}}/>
+                              </td>
+                              <td style={{padding:"5px 8px",fontWeight:700,color:"#15803d"}}>${N(monto.toFixed(2))}</td>
+                              <td style={{padding:"5px 8px",fontWeight:700,color:"#16a34a"}}>${N((monto*pct(r.pais)).toFixed(2))}</td>
+                              <td style={{padding:"5px 8px"}}>
+                                <input type="date" disabled={!can} value={c.fechaEvento||""} onChange={e=>updCuo("fechaEvento",e.target.value)}
+                                  style={{padding:"4px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11}}/>
+                              </td>
+                              <td style={{padding:"5px 8px",textAlign:"center"}}>
+                                <input type="checkbox" disabled={!can} checked={!!c.pagado} onChange={e=>updCuo("pagado",e.target.checked)}/>
+                              </td>
+                              <td style={{padding:"5px 8px"}}>
+                                <input type="date" disabled={!can || !c.pagado} value={c.fechaPago||""} onChange={e=>updCuo("fechaPago",e.target.value)}
+                                  style={{padding:"4px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11,opacity:c.pagado?1:0.5}}/>
+                              </td>
+                              <td style={{padding:"5px 8px"}}>
+                                <input disabled={!can} value={c.nFact||""} onChange={e=>updCuo("nFact",e.target.value)}
+                                  style={{width:80,padding:"4px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11}}/>
+                              </td>
+                              <td style={{padding:"5px 8px"}}>
+                                {can&&<button onClick={()=>{
+                                  const next = cuotas.filter(x=>x.id!==c.id);
+                                  upd(r.id,"rpPlantaCuotas",next);
+                                }} style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"3px 6px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>×</button>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Sub-sección 3: Royalty Comercial — Calendario por temporada */}
+            <div style={{background:"#fff",border:"1px solid #fbcfe8",borderRadius:10,padding:14}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#9d174d",marginBottom:10}}>📈 Royalty Comercial — Calendario por temporada</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Temporada inicio</div>
+                  <input disabled={!can} value={r.rcInicioTemporada||""} placeholder="2026/2027" onChange={e=>upd(r.id,"rcInicioTemporada",e.target.value)}
+                    style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                  <div style={{fontSize:9,color:"#94a3b8",marginTop:2}}>Formato: AAAA/AAAA</div>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Mes de cobro</div>
+                  <select disabled={!can} value={r.rcMesCobro||RC_MES_DEFAULT_POR_PAIS[r.pais]||"Abril"} onChange={e=>upd(r.id,"rcMesCobro",e.target.value)}
+                    style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box",background:"#fff"}}>
+                    {MESES.map(m=><option key={m}>{m}</option>)}
+                  </select>
+                  <div style={{fontSize:9,color:"#94a3b8",marginTop:2}}>Default {r.pais}: {RC_MES_DEFAULT_POR_PAIS[r.pais]||"—"}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>USD/há</div>
+                  <div style={{padding:"7px 10px",background:"#fdf2f8",borderRadius:6,fontSize:13,fontWeight:700,color:"#9d174d"}}>${N(r.valorRoyaltyComercial||0)}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Há totales</div>
+                  <div style={{padding:"7px 10px",background:"#f8fafc",borderRadius:6,fontSize:13,fontWeight:700,color:"#1e293b"}}>{N(((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.hectareas)||0),0)).toFixed(2))} há</div>
+                </div>
+              </div>
+
+              {(()=>{
+                const haTotal = (r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.hectareas)||0),0);
+                if(haTotal===0) return <div style={{padding:14,background:"#fdf2f8",borderRadius:8,fontSize:11,color:"#9d174d"}}>⚠️ Aún no hay hectáreas registradas en Plantaciones. Agrega plantaciones para ver el calendario.</div>;
+                if(!r.rcInicioTemporada) return <div style={{padding:14,background:"#fdf2f8",borderRadius:8,fontSize:11,color:"#9d174d"}}>⚠️ Define la "Temporada inicio" arriba (ej. 2026/2027) para ver el calendario.</div>;
+                const valor = parseFloat(r.valorRoyaltyComercial)||0;
+                const temps = temporadasEntre(r.rcInicioTemporada, r.fechaTermino);
+                const pagos = r.rcPagos||{};
+                const updPago = (temp, campo, valor) => {
+                  const np = {...(r.rcPagos||{})};
+                  np[temp] = {...(np[temp]||{}), [campo]:valor};
+                  upd(r.id,"rcPagos",np);
+                };
+                const totalAcumulado = temps.length * haTotal * valor;
+                return (
+                  <>
+                    <div style={{padding:10,background:"#fdf2f8",borderRadius:8,marginBottom:10,fontSize:11,color:"#9d174d"}}>
+                      <strong>{temps.length}</strong> temporada{temps.length!==1?"s":""} desde {r.rcInicioTemporada}
+                      {r.fechaTermino?` hasta término ${r.fechaTermino}`:" (10 años proyectados)"} ·
+                      Total facturable acumulado: <strong>${N(totalAcumulado.toFixed(2))}</strong>
+                    </div>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                        <thead><tr style={{background:"#fce7f3"}}>
+                          {["Temporada","Mes cobro","Há","$/há","Bruto","WHT","Neto","Pagado","Fecha pago","N° Fact."].map(h=>(
+                            <th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:10,fontWeight:700,color:"#9d174d"}}>{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {temps.map(t=>{
+                            const bruto = haTotal * valor;
+                            const wht = bruto * (1-pct(r.pais));
+                            const neto = bruto - wht;
+                            const p = pagos[t] || {};
+                            return (
+                              <tr key={t} style={{borderBottom:"1px solid #fce7f3",background:p.pagado?"#f0fdf4":""}}>
+                                <td style={{padding:"5px 8px",fontWeight:700,color:"#9d174d"}}>{t}</td>
+                                <td style={{padding:"5px 8px"}}>{r.rcMesCobro||RC_MES_DEFAULT_POR_PAIS[r.pais]||"—"} {parseInt(t.split("/")[1])}</td>
+                                <td style={{padding:"5px 8px",textAlign:"right"}}>{N(haTotal.toFixed(2))}</td>
+                                <td style={{padding:"5px 8px",textAlign:"right"}}>${N(valor)}</td>
+                                <td style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:"#9d174d"}}>${N(bruto.toFixed(2))}</td>
+                                <td style={{padding:"5px 8px",textAlign:"right",color:"#dc2626"}}>{wht>0?`-$${N(wht.toFixed(2))}`:"—"}</td>
+                                <td style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:"#15803d"}}>${N(neto.toFixed(2))}</td>
+                                <td style={{padding:"5px 8px",textAlign:"center"}}>
+                                  <input type="checkbox" disabled={!can} checked={!!p.pagado} onChange={e=>updPago(t,"pagado",e.target.checked)}/>
+                                </td>
+                                <td style={{padding:"5px 8px"}}>
+                                  <input type="date" disabled={!can || !p.pagado} value={p.fechaPago||""} onChange={e=>updPago(t,"fechaPago",e.target.value)}
+                                    style={{padding:"4px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11,opacity:p.pagado?1:0.5}}/>
+                                </td>
+                                <td style={{padding:"5px 8px"}}>
+                                  <input disabled={!can} value={p.nFact||""} onChange={e=>updPago(t,"nFact",e.target.value)}
+                                    style={{width:80,padding:"4px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11}}/>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </>)}
         </div>
       </div>
     );
@@ -4091,6 +5254,116 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
                 style={{width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,resize:"vertical",boxSizing:"border-box"}}/>
             </div>
           </div>
+
+          {/* Plantaciones + RC Setup en modo NUEVO */}
+          <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#15803d"}}>🌿 Plantaciones (variedades plantadas)</div>
+              <button onClick={()=>{
+                const variedadDefault = (variedadesMaestro||[])[0];
+                const nuevaPlant = {
+                  id:`plt_${Date.now()}`,
+                  variedad_id: variedadDefault?.id || "",
+                  especie:    variedadDefault?.especie || "",
+                  variedad:   variedadDefault?.variedad || "",
+                  nPlantas:0, hectareas:0, fechaPlantacion:"",
+                  sublicenciatario_id:"", sublicenciatario_nombre:"", estado:"Confirmado",
+                };
+                setF("plantaciones",[...(form.plantaciones||[]), nuevaPlant]);
+              }} style={{background:"#15803d",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar plantación</button>
+            </div>
+            {(form.plantaciones||[]).length===0?(
+              <div style={{padding:20,textAlign:"center",color:"#94a3b8",border:"1px dashed #e2e8f0",borderRadius:8,fontSize:12}}>
+                Sin plantaciones. Agrega al menos una para que se calculen los royalties.
+              </div>
+            ):(
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead><tr style={{background:"#dcfce7"}}>
+                    {["Especie","Variedad","Plantas","Há","Fecha plant.","Sublicenciatario",""].map(h=>(<th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:11,fontWeight:700,color:"#14532d"}}>{h}</th>))}
+                  </tr></thead>
+                  <tbody>
+                    {(form.plantaciones||[]).map(p=>{
+                      const updPl = (campo, valor)=>{
+                        const next = (form.plantaciones||[]).map(x=>x.id===p.id?{...x,[campo]:valor}:x);
+                        setF("plantaciones",next);
+                      };
+                      const seleccionarVar = (vid)=>{
+                        const vv = (variedadesMaestro||[]).find(x=>x.id===vid);
+                        const next = (form.plantaciones||[]).map(x=>x.id===p.id?{
+                          ...x, variedad_id:vid, especie:vv?.especie||x.especie, variedad:vv?.variedad||x.variedad,
+                        }:x);
+                        setF("plantaciones",next);
+                      };
+                      const seleccionarSub = (sid)=>{
+                        const sub = (form.sublicenciatarios||[]).find(s=>s.id===sid);
+                        const next = (form.plantaciones||[]).map(x=>x.id===p.id?{
+                          ...x, sublicenciatario_id:sid, sublicenciatario_nombre:sub?.razonSocial||"",
+                        }:x);
+                        setF("plantaciones",next);
+                      };
+                      return (
+                        <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9"}}>
+                          <td style={{padding:"5px 8px"}}>
+                            {(variedadesMaestro||[]).length>0?(
+                              <select value={p.variedad_id||""} onChange={e=>seleccionarVar(e.target.value)}
+                                style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                                <option value="">— Seleccionar —</option>
+                                {(variedadesMaestro||[]).map(v=><option key={v.id} value={v.id}>{v.especie} · {v.variedad}</option>)}
+                              </select>
+                            ):(<input value={p.especie||""} onChange={e=>updPl("especie",e.target.value)} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11}}/>)}
+                          </td>
+                          <td style={{padding:"5px 8px",fontWeight:600}}>{p.variedad||"—"}</td>
+                          <td style={{padding:"5px 8px"}}>
+                            <input type="number" value={p.nPlantas||0} onChange={e=>updPl("nPlantas",parseInt(e.target.value)||0)} style={{width:80,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,textAlign:"right"}}/>
+                          </td>
+                          <td style={{padding:"5px 8px"}}>
+                            <input type="number" step="0.01" value={p.hectareas||0} onChange={e=>updPl("hectareas",parseFloat(e.target.value)||0)} style={{width:70,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,textAlign:"right"}}/>
+                          </td>
+                          <td style={{padding:"5px 8px"}}>
+                            <input type="date" value={p.fechaPlantacion||""} onChange={e=>updPl("fechaPlantacion",e.target.value)} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11}}/>
+                          </td>
+                          <td style={{padding:"5px 8px"}}>
+                            <select value={p.sublicenciatario_id||""} onChange={e=>seleccionarSub(e.target.value)}
+                              style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff",maxWidth:140}}>
+                              <option value="">— Sin sublicencia —</option>
+                              {(form.sublicenciatarios||[]).map(s=><option key={s.id} value={s.id}>{s.razonSocial||"(sin nombre)"}</option>)}
+                            </select>
+                          </td>
+                          <td style={{padding:"5px 8px"}}>
+                            <button onClick={()=>{
+                              const next = (form.plantaciones||[]).filter(x=>x.id!==p.id);
+                              setF("plantaciones",next);
+                            }} style={{background:"#fef2f2",border:"none",borderRadius:5,padding:"3px 7px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>×</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{marginTop:14,padding:12,background:"#fffbeb",borderRadius:8,fontSize:11,color:"#78350f"}}>
+              ⚙️ <strong>Configuración Royalty Comercial:</strong> Se cobra 1 vez al año en el mes definido, por cada hectárea plantada.
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginTop:10}}>
+              <div>
+                <label style={{fontSize:11,fontWeight:600,color:"#374151",display:"block",marginBottom:3}}>Temporada inicio</label>
+                <input value={form.rcInicioTemporada||""} placeholder={temporadaActual()} onChange={e=>setF("rcInicioTemporada",e.target.value)}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                <div style={{fontSize:9,color:"#94a3b8",marginTop:2}}>Formato: AAAA/AAAA · Default: {temporadaActual()}</div>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:600,color:"#374151",display:"block",marginBottom:3}}>Mes de cobro</label>
+                <select value={form.rcMesCobro||RC_MES_DEFAULT_POR_PAIS[form.pais]||"Abril"} onChange={e=>setF("rcMesCobro",e.target.value)}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",background:"#fff"}}>
+                  {MESES.map(m=><option key={m}>{m}</option>)}
+                </select>
+                <div style={{fontSize:9,color:"#94a3b8",marginTop:2}}>Default {form.pais}: {RC_MES_DEFAULT_POR_PAIS[form.pais]||"—"}</div>
+              </div>
+            </div>
+          </div>
+
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",paddingBottom:16}}>
             <button onClick={()=>{setVista("tabla");setForm(formVacio);}} style={{padding:"9px 22px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:14}}>Cancelar</button>
             <button onClick={guardarNuevo} style={{padding:"9px 22px",borderRadius:8,border:"none",background:C.azul,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:600}}>Guardar contrato</button>
@@ -4115,13 +5388,17 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
             style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:700}}>
             ⬇️ Exportar Excel
           </button>
-          {can&&<button onClick={()=>{setShowMantenedor(v=>!v);setShowClientes(false);}}
+          {can&&<button onClick={()=>{setShowMantenedor(v=>!v);setShowClientes(false);setShowVariedades(false);}}
             style={{background:showMantenedor?"#1e293b":"#f1f5f9",color:showMantenedor?"#fff":"#1e293b",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>
             ⚙️ Tipos
           </button>}
-          {can&&<button onClick={()=>{setShowClientes(v=>!v);setShowMantenedor(false);}}
+          {can&&<button onClick={()=>{setShowClientes(v=>!v);setShowMantenedor(false);setShowVariedades(false);}}
             style={{background:showClientes?"#0f766e":"#f1f5f9",color:showClientes?"#fff":"#1e293b",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>
             👥 Clientes
+          </button>}
+          {can&&<button onClick={()=>{setShowVariedades(v=>!v);setShowMantenedor(false);setShowClientes(false);}}
+            style={{background:showVariedades?"#d97706":"#f1f5f9",color:showVariedades?"#fff":"#1e293b",border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>
+            🌿 Variedades
           </button>}
         </div>
       </div>
@@ -4179,6 +5456,9 @@ function ControlContratos({data,setData,clientes,setClientes,can}){
 
       {/* Maestro clientes inline */}
       {showClientes&&<MaestroClientes clientes={clientes} setClientes={setClientes} can={can}/>}
+
+      {/* Maestro variedades inline */}
+      {showVariedades&&<MaestroVariedades variedades={variedadesMaestro} setVariedades={setVariedadesMaestro} can={can} obtentores={obtentoresData}/>}
 
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar empresa..."
@@ -4514,15 +5794,55 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const ctData  = osirisData?.contratos       ?? CONTRATOS_INIT;
   const clientes= osirisData?.clientes        ?? CLIENTES_INIT;
   const viveristas = osirisData?.viveristas   ?? VIVERISTAS_INIT;
-  const tpData  = osirisData?.totalPedidos    ?? [];
-  const rpData  = osirisData?.royaltyPlanta   ?? [];
-  // Filtrar huérfanos: excluir registros vinculados a pedidos eliminados
-  const tpIds   = useMemo(()=>new Set((osirisData?.totalPedidos??[]).map(r=>r.id)),[osirisData]);
-  const rcData  = useMemo(()=>(osirisData?.royaltyComercial??[]).filter(r=>!r.tpId||tpIds.has(r.tpId)),[osirisData,tpIds]);
+  const variedadesMaestro = osirisData?.variedades ?? VARIEDADES_INIT;
+  const obtentoresData = osirisData?.obtentores || [];
+  // ── Datos derivados desde el contrato (fuente de verdad) ──
+  // tpData: Total Pedidos, ahora derivado de plantaciones del contrato.
+  //   Se preservan los pedidos manuales antiguos para no romper la transición.
+  const tpData = useMemo(()=>{
+    const fromContracts = derivarTotalPedidosDesdeContratos(ctData);
+    const manuales = (osirisData?.totalPedidos||[]).filter(r=>!r._fromContract && !r.ctId);
+    return [...fromContracts, ...manuales];
+  },[osirisData, ctData]);
+
+  const tpIds   = useMemo(()=>new Set(tpData.map(r=>r.id)),[tpData]);
+
+  // rpData: Royalty Planta, derivado de cuotas del contrato + overrides manuales
+  const rpData = useMemo(()=>{
+    const fromContracts = derivarRoyaltyPlantaDesdeContratos(ctData);
+    const raw = osirisData?.royaltyPlanta || [];
+    // Aplicar overrides: si hay un registro manual con mismo id (rp_ctId_cuotaId), prevalece
+    const overridesMap = {};
+    raw.forEach(r=>{ if(r.id) overridesMap[r.id]=r; });
+    const merged = fromContracts.map(rec=>{
+      const ov = overridesMap[rec.id];
+      if(!ov) return rec;
+      // Solo aplicamos campos que el usuario pudo editar (estado de pago, factura, fecha de pago, observaciones, montos override)
+      return {...rec, ...ov, _fromContract: true, _hasOverride: true};
+    });
+    // Manuales legacy (sin ctId) se preservan
+    const manualesLegacy = raw.filter(r=>!r.ctId && !r._fromContract);
+    return [...merged, ...manualesLegacy];
+  },[osirisData, ctData]);
+
+  // rcData: Royalty Comercial derivado de plantaciones × temporadas
+  const rcData = useMemo(()=>{
+    const fromContracts = derivarRoyaltyComercialDesdeContratos(ctData);
+    const raw = osirisData?.royaltyComercial || [];
+    const overridesMap = {};
+    raw.forEach(r=>{ if(r.id) overridesMap[r.id]=r; });
+    const merged = fromContracts.map(rec=>{
+      const ov = overridesMap[rec.id];
+      if(!ov) return rec;
+      return {...rec, ...ov, _fromContract: true, _hasOverride: true};
+    });
+    const manualesLegacy = raw.filter(r=>!r.ctId && !r._fromContract);
+    return [...merged, ...manualesLegacy];
+  },[osirisData, ctData]);
+
   const fvData  = useMemo(()=>(osirisData?.feeViveros??[]).filter(r=>!r.tpId||tpIds.has(r.tpId)),[osirisData,tpIds]);
 
-  // feData: vista reactiva — lee osirisData directamente (no variable intermedia)
-  // Evita el problema de referencia nueva en cada render con ?? []
+  // feData: Contract Fee derivado del contrato (formato actual mantenido)
   const feData = useMemo(()=>{
     const raw = osirisData?.feeEntrada || [];
     const edits = {};
@@ -4553,6 +5873,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
 
   const setClientes=useCallback(fn=>setOsirisData(prev=>({...prev,clientes:       typeof fn==="function"?fn(prev?.clientes       ??CLIENTES_INIT):fn})),[setOsirisData]);
   const setViveristas=useCallback(fn=>setOsirisData(prev=>({...prev,viveristas:    typeof fn==="function"?fn(prev?.viveristas    ??VIVERISTAS_INIT):fn})),[setOsirisData]);
+  const setVariedadesMaestro=useCallback(fn=>setOsirisData(prev=>({...prev,variedades:    typeof fn==="function"?fn(prev?.variedades    ??VARIEDADES_INIT):fn})),[setOsirisData]);
   const setCt=useCallback(fn=>setOsirisData(prev=>({...prev,contratos:      typeof fn==="function"?fn(prev?.contratos      ??CONTRATOS_INIT):fn})),[setOsirisData]);
   const setTp=useCallback(fn=>setOsirisData(prev=>({...prev,totalPedidos:   typeof fn==="function"?fn(prev?.totalPedidos   ??[]):fn})),[setOsirisData]);
   const setRp=useCallback(fn=>setOsirisData(prev=>({...prev,royaltyPlanta:  typeof fn==="function"?fn(prev?.royaltyPlanta  ??[]):fn})),[setOsirisData]);
@@ -4597,6 +5918,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
 
   const SUBTABS=[
     {id:"resumen",          label:"📊 Resumen",          badge:0},
+    {id:"dashboard",        label:"📊 Dashboard",        badge:0},
     {id:"graficos",         label:"🌿 Plantas",          badge:0},
     {id:"totalPedidos",     label:"📦 Total Pedidos",     badge:sinConfirmar},
     {id:"royaltyPlanta",    label:"🌱 Royalty/Planta",    badge:0},
@@ -4818,7 +6140,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       )}
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
         {canVerContratos
-        ? <ControlContratos data={ctData} setData={setCt} clientes={clientes} setClientes={setClientes} can={canContratos}/>
+        ? <ControlContratos data={ctData} setData={setCt} clientes={clientes} setClientes={setClientes} variedadesMaestro={variedadesMaestro} setVariedadesMaestro={setVariedadesMaestro} obtentoresData={obtentoresData} can={canContratos}/>
         : <div style={{textAlign:"center",padding:40,color:"#94a3b8"}}>Sin acceso a Contratos</div>
       }
       </div>
@@ -7554,6 +8876,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       {/* Contenido */}
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
         {subTab==="resumen"          &&<Resumen        rpData={rpData} feData={feData} rcData={rcData} fvData={fvData} tpData={tpData}/>}
+        {subTab==="dashboard"        &&<DashboardAnalitico ctData={ctData} feData={feData} rpData={rpData} rcData={rcData} tpData={tpData}/>}
         {subTab==="graficos"         &&<GraficosPlantas tpData={tpData} rpData={rpData}/>}
         {subTab==="totalPedidos"     &&<TotalPedidos     data={tpData} setData={setTp} rpData={rpData} setRpData={setRp} rcData={rcData} setRcData={setRc} fvData={fvData} setFvData={setFv} can={canIngresos} clientes={clientes} onDeletePedido={id=>setOsirisData(prev=>({...prev,totalPedidos:(prev.totalPedidos||[]).filter(x=>x.id!==id),royaltyPlanta:(prev.royaltyPlanta||[]).filter(x=>x.tpId!==id),royaltyComercial:(prev.royaltyComercial||[]).filter(x=>x.tpId!==id),feeViveros:(prev.feeViveros||[]).filter(x=>x.tpId!==id)}))}/>}
         {subTab==="royaltyPlanta"    &&<RoyaltyPlanta    data={rpData} setData={setRp} tpData={tpData} can={canIngresos} clientes={clientes}/>}
