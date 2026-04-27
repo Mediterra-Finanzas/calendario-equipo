@@ -4349,12 +4349,13 @@ async function exportarObtentores(obtData) {
 async function exportarViveros(vivData) {
   const sectionViveros = {
     titulo: "Contratos Viveros",
-    headers: ["Viverista","País","Fecha Contrato","Fecha Vencimiento","Forma de Pago","Mes Estim. Pago","Firma Viverista","Firma Osiris","# Variedades","# OC","Días para vencer","Link Contrato","Observaciones"],
+    headers: ["Viverista","País","Estado Contrato","Fecha Contrato","Fecha Vencimiento","Forma de Pago","Mes Estim. Pago","Firma Viverista","Firma Osiris","# Variedades","# OC","Días para vencer","Link Contrato","Observaciones"],
     rows: vivData.map(v=>{
       const d = diasParaVencer(v.f_vencimiento);
       return [
         v.viverista||"",
         v.pais||"",
+        v.estado_contrato||"Borrador",
         v.f_contrato||"",
         v.f_vencimiento||"",
         v.forma_pago||"",
@@ -4449,6 +4450,13 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
     firma_obtentor:false,firma_osiris:false,doc_legal:"",doc_contrato:"",estado_contrato:"Borrador",
     especies:[],anexos:[],pbr:[]};
   const [obtForm, setObtForm] = useState(EMPTY_OBT);
+  // Wizard: paso actual (1=cabecera, 2=especies/DHE, 3=PBR)
+  const [obtWizStep, setObtWizStep] = useState(1);
+  // Forms inline del wizard (paso 2 y 3) — para agregar especies/PBR sin abrir submodales
+  const EMPTY_ESP_INLINE = {especie:"",variedad:"",observaciones:"",dhe_estado:"No iniciado",dhe_fecha_aprob:"",dhe_doc:"",dhe_observaciones:""};
+  const EMPTY_PBR_INLINE = {especie:"",pais:"",estado:"Pendiente",f_solicitud:"",f_resolucion:"",doc_solicitud:"",doc_resolucion:"",observaciones:""};
+  const [obtWizEspForm, setObtWizEspForm] = useState(EMPTY_ESP_INLINE);
+  const [obtWizPbrForm, setObtWizPbrForm] = useState(EMPTY_PBR_INLINE);
   // Sub-modales Obtentores
   const [espModal, setEspModal] = useState(false);
   const [espForm, setEspForm] = useState({especie:"",variedad:"",observaciones:"",dhe_estado:"No iniciado",dhe_fecha_aprob:"",dhe_doc:"",dhe_observaciones:""});
@@ -4461,12 +4469,27 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const [vivModal, setVivModal] = useState(false);
   const EMPTY_VIV = {viverista:"",pais:"",f_contrato:"",f_vencimiento:"",renovable:false,
     firma_viverista:false,firma_osiris:false,doc_legal:"",doc_contrato:"",observaciones:"",
-    mes_pago_estimado:"",forma_pago:"",
+    mes_pago_estimado:"",forma_pago:"",estado_contrato:"Borrador",
     variedades:[],anexos:[],ordenesCompra:[]};
   const [vivForm, setVivForm] = useState(EMPTY_VIV);
   const [vivEditId, setVivEditId] = useState(null);
   const [vivDetalle, setVivDetalle] = useState(null);
   const [vivTab, setVivTab] = useState("general");
+  // Wizard Viveros: paso 1=cabecera, 2=variedades, 3=anexos, 4=OC, 5=cuotas
+  const [vivWizStep, setVivWizStep] = useState(1);
+  const EMPTY_VV_INLINE = {especie:"",variedad:"",fee_usd:"",fee_pct:"",observaciones:""};
+  const EMPTY_VANX_INLINE = {descripcion:"",fecha:"",enlace:"",observaciones:""};
+  const EMPTY_OC_INLINE = {n_oc:"",fecha_oc:"",cliente_id:"",cliente_nombre:"",
+    variedad_id:"",especie:"",variedad:"",
+    cantidad_plantas:"",hectareas:"",
+    fee_usd_planta:"",fee_total_usd:0,
+    estado_oc:"Borrador",observaciones:""};
+  const EMPTY_CUOTA_INLINE = {fecha:"",monto_usd:"",pagado:false,fecha_pago:"",n_factura:"",observaciones:""};
+  const [vivWizVvForm, setVivWizVvForm] = useState(EMPTY_VV_INLINE);
+  const [vivWizAnxForm, setVivWizAnxForm] = useState(EMPTY_VANX_INLINE);
+  const [vivWizOcForm, setVivWizOcForm] = useState(EMPTY_OC_INLINE);
+  const [vivWizCuotaForm, setVivWizCuotaForm] = useState(EMPTY_CUOTA_INLINE);
+  const [vivWizOcExpandido, setVivWizOcExpandido] = useState(null); // id de OC en paso 5 cuya sección de cuotas está abierta
   // Sub-modales Viveros
   const [vvModal, setVvModal] = useState(false);
   const [vvForm, setVvForm] = useState({especie:"",variedad:"",fee_usd:"",fee_pct:"",observaciones:""});
@@ -4822,10 +4845,17 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       item.anexos   = item.anexos   || [];
       const next = obtEditId ? obtData.map(o=>o.id===obtEditId?item:o) : [...obtData, item];
       setObt(next);
+      const extras = [];
+      if(item.especies.length>0) extras.push(`${item.especies.length} variedad${item.especies.length>1?"es":""}`);
+      if(item.pbr.length>0) extras.push(`${item.pbr.length} PBR`);
+      const extraStr = extras.length ? ` · ${extras.join(", ")}` : "";
       window.auditLog && window.auditLog(obtEditId?"editar":"crear", {modulo:"osiris", seccion:"Contratos Obtentores",
-        descripcion:`${obtEditId?"Editó":"Creó"} contrato obtentor "${item.obtentor}"${item.f_vencimiento?` · vence ${item.f_vencimiento}`:""}`});
+        descripcion:`${obtEditId?"Editó":"Creó"} contrato obtentor "${item.obtentor}"${item.f_vencimiento?` · vence ${item.f_vencimiento}`:""}${extraStr}`});
       setObtModal(false);
       setObtEditId(null);
+      setObtWizStep(1);
+      setObtWizEspForm(EMPTY_ESP_INLINE);
+      setObtWizPbrForm(EMPTY_PBR_INLINE);
     };
 
     const updateContrato = (id, updates) => {
@@ -5420,7 +5450,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 style={{padding:"8px 16px",borderRadius:8,background:"#0f766e",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
                 📥 Exportar Excel
               </button>
-              {canObtentores&&<button onClick={()=>{setObtForm(EMPTY_OBT);setObtEditId(null);setObtModal(true);}}
+              {canObtentores&&<button onClick={()=>{setObtForm(EMPTY_OBT);setObtEditId(null);setObtWizStep(1);setObtWizEspForm(EMPTY_ESP_INLINE);setObtWizPbrForm(EMPTY_PBR_INLINE);setObtModal(true);}}
                 style={{padding:"8px 16px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
                 + Nuevo Contrato
               </button>}
@@ -5455,7 +5485,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                         <span style={{fontSize:10,background:"rgba(124,58,237,0.15)",color:"#7c3aed",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{nEsp} esp.</span>
                         <span style={{fontSize:10,background:"rgba(251,191,36,0.15)",color:"#d97706",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{nPbr} PBR</span>
                         {canObtentores&&<>
-                          <button onClick={e=>{e.stopPropagation();setObtForm({...EMPTY_OBT,...o});setObtEditId(o.id);setObtModal(true);}}
+                          <button onClick={e=>{e.stopPropagation();setObtForm({...EMPTY_OBT,...o});setObtEditId(o.id);setObtWizStep(1);setObtWizEspForm(EMPTY_ESP_INLINE);setObtWizPbrForm(EMPTY_PBR_INLINE);setObtModal(true);}}
                             style={{background:"#f0f9ff",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>✏️</button>
                           <button onClick={e=>{e.stopPropagation();eliminarObt(o.id);}}
                             style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>
@@ -5469,71 +5499,347 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           )}
         </div>
 
-        {/* Modal: Nuevo/Editar Obtentor */}
-        {obtModal&&(
+        {/* Modal Wizard: Nuevo/Editar Obtentor (3 pasos) */}
+        {obtModal&&(()=>{
+          const wizEspecies = obtForm.especies || [];
+          const wizPbr      = obtForm.pbr      || [];
+
+          const agregarEspWiz = () => {
+            if(!obtWizEspForm.especie || !obtWizEspForm.variedad) {
+              alert("Especie y Variedad son obligatorios."); return;
+            }
+            const nueva = {
+              id:`esp_${Date.now()}`,
+              especie:obtWizEspForm.especie.trim(),
+              variedad:obtWizEspForm.variedad.trim(),
+              observaciones:obtWizEspForm.observaciones||"",
+              dhe_estado:obtWizEspForm.dhe_estado||"No iniciado",
+              dhe_fecha_aprob:obtWizEspForm.dhe_fecha_aprob||"",
+              dhe_doc:obtWizEspForm.dhe_doc||"",
+              dhe_observaciones:obtWizEspForm.dhe_observaciones||"",
+            };
+            setObtForm(p=>({...p, especies:[...(p.especies||[]), nueva]}));
+            setObtWizEspForm(EMPTY_ESP_INLINE);
+          };
+          const quitarEspWiz = (eid) => {
+            // Verificar PBR vinculados al nombre de especie
+            const espRemovida = wizEspecies.find(e=>e.id===eid);
+            if(!espRemovida) return;
+            const pbrVinc = wizPbr.filter(p=>p.especie === espRemovida.especie);
+            if(pbrVinc.length>0) {
+              if(!window.confirm(`Hay ${pbrVinc.length} registro(s) PBR vinculados a "${espRemovida.especie}". Si la eliminas, esos PBR quedarán huérfanos. ¿Continuar?`)) return;
+            }
+            setObtForm(p=>({...p, especies:(p.especies||[]).filter(e=>e.id!==eid)}));
+          };
+
+          const agregarPbrWiz = () => {
+            if(!obtWizPbrForm.especie || !obtWizPbrForm.pais) {
+              alert("Especie y País son obligatorios."); return;
+            }
+            if(obtWizPbrForm.f_solicitud && obtWizPbrForm.f_resolucion && new Date(obtWizPbrForm.f_resolucion) < new Date(obtWizPbrForm.f_solicitud)) {
+              alert("La fecha de resolución no puede ser anterior a la fecha de solicitud."); return;
+            }
+            const nuevo = {id:`pbr_${Date.now()}`, ...obtWizPbrForm};
+            setObtForm(p=>({...p, pbr:[...(p.pbr||[]), nuevo]}));
+            setObtWizPbrForm(EMPTY_PBR_INLINE);
+          };
+          const quitarPbrWiz = (pid) => {
+            setObtForm(p=>({...p, pbr:(p.pbr||[]).filter(x=>x.id!==pid)}));
+          };
+
+          // Estados visuales del stepper
+          const Step = ({n, label, active, done}) => {
+            const bg = active?"#7c3aed":done?"#16a34a":"#e2e8f0";
+            const col = active||done?"#fff":"#94a3b8";
+            return (
+              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
+                <div style={{
+                  width:28,height:28,borderRadius:"50%",
+                  background:bg,color:col,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:13,fontWeight:800,flexShrink:0
+                }}>{done?"✓":n}</div>
+                <div style={{
+                  fontSize:11,fontWeight:active?700:500,
+                  color:active?"#1e293b":done?"#16a34a":"#94a3b8",
+                  whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"
+                }}>{label}</div>
+              </div>
+            );
+          };
+
+          const irPaso = (n) => {
+            // Validar paso 1 antes de avanzar
+            if(obtWizStep===1 && n>1 && !obtForm.obtentor) {
+              alert("Nombre del obtentor es obligatorio para continuar."); return;
+            }
+            if(obtWizStep===1 && n>1 && obtForm.f_inicio && obtForm.f_vencimiento && new Date(obtForm.f_vencimiento) < new Date(obtForm.f_inicio)) {
+              alert("La fecha de vencimiento no puede ser anterior a la fecha de inicio."); return;
+            }
+            setObtWizStep(n);
+          };
+
+          return (
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}} onClick={()=>setObtModal(false)}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:560,maxHeight:"85vh",overflowY:"auto"}}>
-              <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>{obtEditId?"✏️ Editar":"➕ Nuevo"} Contrato Obtentor</h3>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Nombre del Obtentor <span style={{color:"#dc2626"}}>*</span></label>
-                <input value={obtForm.obtentor||""} placeholder="Ej. SunWorld, IFG, Bloom Fresh..." onChange={e=>setObtForm(p=>({...p,obtentor:e.target.value}))}
-                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:680,maxHeight:"92vh",overflowY:"auto"}}>
+              <h3 style={{margin:"0 0 18px",color:"#1e293b"}}>{obtEditId?"✏️ Editar":"➕ Nuevo"} Contrato Obtentor</h3>
+
+              {/* Stepper */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,padding:"12px 8px",background:"#f8fafc",borderRadius:10}}>
+                <Step n={1} label="Cabecera"        active={obtWizStep===1} done={obtWizStep>1}/>
+                <div style={{flex:"0 0 30px",height:2,background:obtWizStep>1?"#16a34a":"#e2e8f0"}}/>
+                <Step n={2} label="Especies / DHE"  active={obtWizStep===2} done={obtWizStep>2}/>
+                <div style={{flex:"0 0 30px",height:2,background:obtWizStep>2?"#16a34a":"#e2e8f0"}}/>
+                <Step n={3} label="Registros PBR"   active={obtWizStep===3} done={false}/>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                <div>
-                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Inicio</label>
-                  <input type="date" value={obtForm.f_inicio||""} onChange={e=>setObtForm(p=>({...p,f_inicio:e.target.value}))}
+
+              {/* PASO 1 — Cabecera */}
+              {obtWizStep===1&&(<>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Nombre del Obtentor <span style={{color:"#dc2626"}}>*</span></label>
+                  <input value={obtForm.obtentor||""} placeholder="Ej. SunWorld, IFG, Bloom Fresh..." onChange={e=>setObtForm(p=>({...p,obtentor:e.target.value}))}
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
                 </div>
-                <div>
-                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Vencimiento</label>
-                  <input type="date" value={obtForm.f_vencimiento||""} onChange={e=>setObtForm(p=>({...p,f_vencimiento:e.target.value}))}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Inicio</label>
+                    <input type="date" value={obtForm.f_inicio||""} onChange={e=>setObtForm(p=>({...p,f_inicio:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Vencimiento</label>
+                    <input type="date" value={obtForm.f_vencimiento||""} onChange={e=>setObtForm(p=>({...p,f_vencimiento:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado del Contrato</label>
+                  <select value={obtForm.estado_contrato||"Borrador"} onChange={e=>setObtForm(p=>({...p,estado_contrato:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                    {ESTADOS_CONTRATO_OBT.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:12}}>
+                  <input type="checkbox" checked={!!obtForm.renovable} onChange={e=>setObtForm(p=>({...p,renovable:e.target.checked}))}/>
+                  <span style={{fontSize:12}}>Contrato renovable</span>
+                </label>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8}}>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                    <input type="checkbox" checked={!!obtForm.firma_obtentor} onChange={e=>setObtForm(p=>({...p,firma_obtentor:e.target.checked}))}/>
+                    <span style={{fontSize:12}}>✅ Firma Obtentor</span>
+                  </label>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                    <input type="checkbox" checked={!!obtForm.firma_osiris} onChange={e=>setObtForm(p=>({...p,firma_osiris:e.target.checked}))}/>
+                    <span style={{fontSize:12}}>✅ Firma Osiris</span>
+                  </label>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link al contrato (OneDrive/Drive)</label>
+                  <input value={obtForm.doc_contrato||""} placeholder="https://..." onChange={e=>setObtForm(p=>({...p,doc_contrato:e.target.value}))}
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
                 </div>
-              </div>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado del Contrato</label>
-                <select value={obtForm.estado_contrato||"Borrador"} onChange={e=>setObtForm(p=>({...p,estado_contrato:e.target.value}))}
-                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
-                  {ESTADOS_CONTRATO_OBT.map(s=><option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:12}}>
-                <input type="checkbox" checked={!!obtForm.renovable} onChange={e=>setObtForm(p=>({...p,renovable:e.target.checked}))}/>
-                <span style={{fontSize:12}}>Contrato renovable</span>
-              </label>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8}}>
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-                  <input type="checkbox" checked={!!obtForm.firma_obtentor} onChange={e=>setObtForm(p=>({...p,firma_obtentor:e.target.checked}))}/>
-                  <span style={{fontSize:12}}>✅ Firma Obtentor</span>
-                </label>
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-                  <input type="checkbox" checked={!!obtForm.firma_osiris} onChange={e=>setObtForm(p=>({...p,firma_osiris:e.target.checked}))}/>
-                  <span style={{fontSize:12}}>✅ Firma Osiris</span>
-                </label>
-              </div>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link al contrato (OneDrive/Drive)</label>
-                <input value={obtForm.doc_contrato||""} placeholder="https://..." onChange={e=>setObtForm(p=>({...p,doc_contrato:e.target.value}))}
-                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
-              </div>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📄 Link doc. legal complementario</label>
-                <input value={obtForm.doc_legal||""} placeholder="https://..." onChange={e=>setObtForm(p=>({...p,doc_legal:e.target.value}))}
-                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
-              </div>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
-                <textarea value={obtForm.observaciones||""} onChange={e=>setObtForm(p=>({...p,observaciones:e.target.value}))}
-                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
-              </div>
-              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                <button onClick={()=>setObtModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
-                <button onClick={guardarObt} style={{padding:"8px 16px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>{obtEditId?"Guardar cambios":"Crear contrato"}</button>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📄 Link doc. legal complementario</label>
+                  <input value={obtForm.doc_legal||""} placeholder="https://..." onChange={e=>setObtForm(p=>({...p,doc_legal:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea value={obtForm.observaciones||""} onChange={e=>setObtForm(p=>({...p,observaciones:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                </div>
+              </>)}
+
+              {/* PASO 2 — Especies/Variedades + DHE */}
+              {obtWizStep===2&&(<>
+                <div style={{background:"#ede9fe",border:"1px solid #c4b5fd",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:11,color:"#5b21b6"}}>
+                  💡 Agrega cada variedad cubierta por el contrato. Luego en el paso 3 podrás registrar PBR vinculados a estas variedades. <strong>Este paso es opcional</strong> — puedes saltarlo y agregar después desde la vista detalle.
+                </div>
+
+                {/* Lista de especies ya agregadas */}
+                {wizEspecies.length>0&&(
+                  <div style={{marginBottom:14,border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+                    <div style={{background:"#f8fafc",padding:"8px 12px",fontSize:11,fontWeight:700,color:"#475569"}}>
+                      Variedades agregadas ({wizEspecies.length})
+                    </div>
+                    {wizEspecies.map(e=>{
+                      const dheCol = e.dhe_estado==="Aprobado"?"#16a34a":e.dhe_estado==="Rechazado"?"#dc2626":e.dhe_estado==="En proceso"?"#d97706":"#64748b";
+                      return (
+                        <div key={e.id} style={{padding:"10px 12px",borderTop:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>🌿 {e.especie} — {e.variedad}</div>
+                            <div style={{fontSize:10,color:"#64748b",marginTop:2}}>
+                              <span style={{color:dheCol,fontWeight:700}}>DHE: {e.dhe_estado||"No iniciado"}</span>
+                              {e.dhe_fecha_aprob&&` · Aprob. ${e.dhe_fecha_aprob}`}
+                              {e.dhe_doc&&" · 📎 Doc"}
+                            </div>
+                          </div>
+                          <button onClick={()=>quitarEspWiz(e.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#991b1b"}}>🗑</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Form inline para agregar nueva especie */}
+                <div style={{border:"1px dashed #c4b5fd",borderRadius:10,padding:14,background:"#faf5ff",marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#5b21b6",marginBottom:10}}>+ Agregar nueva variedad</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Especie <span style={{color:"#dc2626"}}>*</span></label>
+                      <input value={obtWizEspForm.especie||""} placeholder="Cerezo, Arándano..." onChange={e=>setObtWizEspForm(p=>({...p,especie:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Variedad <span style={{color:"#dc2626"}}>*</span></label>
+                      <input value={obtWizEspForm.variedad||""} placeholder="Royal Dawn..." onChange={e=>setObtWizEspForm(p=>({...p,variedad:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                  </div>
+                  <div style={{padding:10,background:"#fef3c7",borderRadius:6,marginBottom:8,fontSize:11,fontWeight:700,color:"#78350f"}}>📋 DHE (Distinción, Homogeneidad y Estabilidad)</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Estado DHE</label>
+                      <select value={obtWizEspForm.dhe_estado||"No iniciado"} onChange={e=>setObtWizEspForm(p=>({...p,dhe_estado:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",background:"#fff"}}>
+                        {ESTADOS_DHE.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fecha aprobación DHE</label>
+                      <input type="date" value={obtWizEspForm.dhe_fecha_aprob||""} onChange={e=>setObtWizEspForm(p=>({...p,dhe_fecha_aprob:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:8}}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>📎 Doc. DHE (URL)</label>
+                    <input value={obtWizEspForm.dhe_doc||""} placeholder="https://..." onChange={e=>setObtWizEspForm(p=>({...p,dhe_doc:e.target.value}))}
+                      style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                  </div>
+                  <div style={{marginBottom:8}}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Obs. DHE / Variedad</label>
+                    <input value={obtWizEspForm.dhe_observaciones||""} onChange={e=>setObtWizEspForm(p=>({...p,dhe_observaciones:e.target.value,observaciones:e.target.value}))}
+                      style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                  </div>
+                  <button onClick={agregarEspWiz} style={{width:"100%",padding:"8px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar variedad a la lista</button>
+                </div>
+              </>)}
+
+              {/* PASO 3 — Registros PBR */}
+              {obtWizStep===3&&(<>
+                <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:11,color:"#78350f"}}>
+                  💡 Cada PBR es un registro de Protección de Obtenciones Vegetales en un país específico, vinculado a una de las variedades del contrato. <strong>Este paso es opcional</strong>.
+                </div>
+
+                {wizEspecies.length===0?(
+                  <div style={{padding:30,textAlign:"center",color:"#94a3b8",border:"1px dashed #e2e8f0",borderRadius:10,marginBottom:12}}>
+                    <div style={{fontSize:32,marginBottom:8}}>🌿</div>
+                    <div style={{fontSize:12}}>Para registrar un PBR primero necesitas agregar al menos una variedad.</div>
+                    <button onClick={()=>setObtWizStep(2)} style={{marginTop:10,padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>← Volver al paso 2</button>
+                  </div>
+                ):(<>
+                  {/* Lista de PBR ya agregados */}
+                  {wizPbr.length>0&&(
+                    <div style={{marginBottom:14,border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+                      <div style={{background:"#f8fafc",padding:"8px 12px",fontSize:11,fontWeight:700,color:"#475569"}}>
+                        PBR agregados ({wizPbr.length})
+                      </div>
+                      {wizPbr.map(p=>{
+                        const stCol = p.estado==="Aprobado"?"#16a34a":p.estado==="Rechazado"?"#dc2626":p.estado==="En Revisión"?"#0284c7":p.estado==="Solicitado"?"#7c3aed":"#d97706";
+                        return (
+                          <div key={p.id} style={{padding:"10px 12px",borderTop:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>📜 {p.especie} — 🌍 {p.pais}</div>
+                              <div style={{fontSize:10,color:"#64748b",marginTop:2}}>
+                                <span style={{color:stCol,fontWeight:700}}>{p.estado}</span>
+                                {p.f_solicitud&&` · Sol. ${p.f_solicitud}`}
+                                {p.f_resolucion&&` · Res. ${p.f_resolucion}`}
+                              </div>
+                            </div>
+                            <button onClick={()=>quitarPbrWiz(p.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#991b1b"}}>🗑</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Form inline para agregar nuevo PBR */}
+                  <div style={{border:"1px dashed #fbbf24",borderRadius:10,padding:14,background:"#fffbeb",marginBottom:12}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#78350f",marginBottom:10}}>+ Agregar nuevo registro PBR</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Especie <span style={{color:"#dc2626"}}>*</span></label>
+                        <select value={obtWizPbrForm.especie||""} onChange={e=>setObtWizPbrForm(p=>({...p,especie:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",background:"#fff"}}>
+                          <option value="">— Seleccionar —</option>
+                          {[...new Set(wizEspecies.map(e=>e.especie))].map(esp=><option key={esp} value={esp}>{esp}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>País <span style={{color:"#dc2626"}}>*</span></label>
+                        <input value={obtWizPbrForm.pais||""} placeholder="Chile, Perú, México..." onChange={e=>setObtWizPbrForm(p=>({...p,pais:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                      </div>
+                    </div>
+                    <div style={{marginBottom:10}}>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Estado PBR</label>
+                      <select value={obtWizPbrForm.estado||"Pendiente"} onChange={e=>setObtWizPbrForm(p=>({...p,estado:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",background:"#fff"}}>
+                        <option value="Pendiente">⏳ Pendiente</option>
+                        <option value="Solicitado">📨 Solicitado</option>
+                        <option value="En Revisión">🔍 En Revisión</option>
+                        <option value="Aprobado">✅ Aprobado</option>
+                        <option value="Rechazado">❌ Rechazado</option>
+                      </select>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fecha Solicitud</label>
+                        <input type="date" value={obtWizPbrForm.f_solicitud||""} onChange={e=>setObtWizPbrForm(p=>({...p,f_solicitud:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fecha Resolución</label>
+                        <input type="date" value={obtWizPbrForm.f_resolucion||""} onChange={e=>setObtWizPbrForm(p=>({...p,f_resolucion:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>📎 Doc. Solicitud (URL)</label>
+                        <input value={obtWizPbrForm.doc_solicitud||""} placeholder="https://..." onChange={e=>setObtWizPbrForm(p=>({...p,doc_solicitud:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>📎 Doc. Resolución (URL)</label>
+                        <input value={obtWizPbrForm.doc_resolucion||""} placeholder="https://..." onChange={e=>setObtWizPbrForm(p=>({...p,doc_resolucion:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                      </div>
+                    </div>
+                    <div style={{marginBottom:10}}>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Observaciones</label>
+                      <input value={obtWizPbrForm.observaciones||""} onChange={e=>setObtWizPbrForm(p=>({...p,observaciones:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                    <button onClick={agregarPbrWiz} style={{width:"100%",padding:"8px 14px",borderRadius:8,background:"#f59e0b",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar PBR a la lista</button>
+                  </div>
+                </>)}
+              </>)}
+
+              {/* Footer wizard: navegación */}
+              <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",marginTop:18,paddingTop:14,borderTop:"1px solid #e2e8f0"}}>
+                <button onClick={()=>setObtModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12}}>Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  {obtWizStep>1&&<button onClick={()=>setObtWizStep(obtWizStep-1)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#f8fafc",cursor:"pointer",fontSize:12,fontWeight:600}}>← Anterior</button>}
+                  {obtWizStep<3&&<button onClick={()=>irPaso(obtWizStep+1)} style={{padding:"8px 16px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>Siguiente →</button>}
+                  {obtWizStep===3&&<button onClick={guardarObt} style={{padding:"8px 18px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}}>{obtEditId?"💾 Guardar cambios":"✅ Crear contrato"}</button>}
+                </div>
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
+
       </div>
     );
   }
@@ -5554,6 +5860,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       return {
         id:v.id, viverista:v.viverista||"", pais:v.pais||"",
         f_contrato:v.f_contrato||"", f_vencimiento:v.f_vencimiento||"",
+        estado_contrato:v.estado_contrato||"Borrador",
         renovable:!!v.renovable, firma_viverista:!!v.firma_viverista, firma_osiris:!!v.firma_osiris,
         doc_legal:v.doc_legal||"", doc_contrato:v.doc_contrato||"",
         mes_pago_estimado:v.mes_pago_estimado||"", forma_pago:v.forma_pago||"",
@@ -5573,14 +5880,29 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       const existing = vivEditId ? vivData.find(v=>v.id===vivEditId) : null;
       const item = {...(existing||{}), ...vivForm, id};
       // Asegurar arrays
-      item.variedades = item.variedades || [];
-      item.anexos     = item.anexos     || [];
+      item.variedades    = item.variedades    || [];
+      item.anexos        = item.anexos        || [];
+      item.ordenesCompra = item.ordenesCompra || [];
       const next = vivEditId ? vivData.map(v=>v.id===vivEditId?item:v) : [...vivData, item];
       setViv(next);
+      // Resumen para auditoría
+      const totCuotas = item.ordenesCompra.reduce((s,o)=>s+(o.cuotas||[]).length,0);
+      const extras = [];
+      if(item.variedades.length>0)    extras.push(`${item.variedades.length} variedad${item.variedades.length>1?"es":""}`);
+      if(item.anexos.length>0)        extras.push(`${item.anexos.length} anexo${item.anexos.length>1?"s":""}`);
+      if(item.ordenesCompra.length>0) extras.push(`${item.ordenesCompra.length} OC`);
+      if(totCuotas>0)                 extras.push(`${totCuotas} cuota${totCuotas>1?"s":""}`);
+      const extraStr = extras.length ? ` · ${extras.join(", ")}` : "";
       window.auditLog && window.auditLog(vivEditId?"editar":"crear", {modulo:"osiris", seccion:"Contratos Viveros",
-        descripcion:`${vivEditId?"Editó":"Creó"} contrato vivero "${item.viverista}"${item.pais?` · ${item.pais}`:""}${item.f_vencimiento?` · vence ${item.f_vencimiento}`:""}`});
+        descripcion:`${vivEditId?"Editó":"Creó"} contrato vivero "${item.viverista}"${item.pais?` · ${item.pais}`:""}${item.f_vencimiento?` · vence ${item.f_vencimiento}`:""}${extraStr}`});
       setVivModal(false);
       setVivEditId(null);
+      setVivWizStep(1);
+      setVivWizVvForm(EMPTY_VV_INLINE);
+      setVivWizAnxForm(EMPTY_VANX_INLINE);
+      setVivWizOcForm(EMPTY_OC_INLINE);
+      setVivWizCuotaForm(EMPTY_CUOTA_INLINE);
+      setVivWizOcExpandido(null);
     };
 
     const updateVivero = (id, updates) => {
@@ -5823,6 +6145,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 </div>
               </div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {v.estado_contrato&&<span style={{fontSize:10,background:"rgba(22,163,74,0.25)",color:"#86efac",padding:"4px 10px",borderRadius:20,fontWeight:700,border:"1px solid #16a34a44"}}>📋 {v.estado_contrato}</span>}
                 {v.firma_viverista&&<span style={{fontSize:10,background:"rgba(34,197,94,0.2)",color:"#4ade80",padding:"4px 10px",borderRadius:20,fontWeight:700}}>✅ Firma Viverista</span>}
                 {v.firma_osiris&&<span style={{fontSize:10,background:"rgba(34,197,94,0.2)",color:"#4ade80",padding:"4px 10px",borderRadius:20,fontWeight:700}}>✅ Firma Osiris</span>}
                 {v.renovable&&<span style={{fontSize:10,background:"rgba(96,165,250,0.2)",color:"#93c5fd",padding:"4px 10px",borderRadius:20,fontWeight:700}}>🔄 Renovable</span>}
@@ -5867,6 +6190,13 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}>
                     <option value="">— Seleccionar —</option>
                     {MESES.map(m=><option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado del Contrato</label>
+                  <select disabled={!canViveros} value={v.estado_contrato||"Borrador"} onChange={e=>updateVivero(v.id,{estado_contrato:e.target.value})}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}>
+                    {ESTADOS_CONTRATO_OBT.map(s=><option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div style={{gridColumn:"1/-1"}}>
@@ -6459,7 +6789,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 style={{padding:"8px 16px",borderRadius:8,background:"#0f766e",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
                 📥 Exportar Excel
               </button>
-              {canViveros&&<button onClick={()=>{setVivForm(EMPTY_VIV);setVivEditId(null);setVivModal(true);}}
+              {canViveros&&<button onClick={()=>{setVivForm(EMPTY_VIV);setVivEditId(null);setVivWizStep(1);setVivWizVvForm(EMPTY_VV_INLINE);setVivWizAnxForm(EMPTY_VANX_INLINE);setVivWizOcForm(EMPTY_OC_INLINE);setVivWizCuotaForm(EMPTY_CUOTA_INLINE);setVivWizOcExpandido(null);setVivModal(true);}}
                 style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
                 + Nuevo Vivero
               </button>}
@@ -6492,7 +6822,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                         {v.renovable&&<span style={{fontSize:10,background:"rgba(96,165,250,0.15)",color:"#3b82f6",padding:"3px 10px",borderRadius:20,fontWeight:700}}>🔄</span>}
                         <span style={{fontSize:10,background:"rgba(22,163,74,0.15)",color:"#16a34a",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{nVar} var.</span>
                         {canViveros&&<>
-                          <button onClick={e=>{e.stopPropagation();setVivForm({...EMPTY_VIV,...v});setVivEditId(v.id);setVivModal(true);}}
+                          <button onClick={e=>{e.stopPropagation();setVivForm({...EMPTY_VIV,...v});setVivEditId(v.id);setVivWizStep(1);setVivWizVvForm(EMPTY_VV_INLINE);setVivWizAnxForm(EMPTY_VANX_INLINE);setVivWizOcForm(EMPTY_OC_INLINE);setVivWizCuotaForm(EMPTY_CUOTA_INLINE);setVivWizOcExpandido(null);setVivModal(true);}}
                             style={{background:"#f0f9ff",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>✏️</button>
                           <button onClick={e=>{e.stopPropagation();eliminarViv(v.id);}}
                             style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>
@@ -6506,64 +6836,654 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           )}
         </div>
 
-        {/* Modal: Nuevo/Editar Vivero */}
-        {vivModal&&(
+        {/* Modal Wizard: Nuevo/Editar Vivero (5 pasos) */}
+        {vivModal&&(()=>{
+          const wizVariedades = vivForm.variedades || [];
+          const wizAnexos     = vivForm.anexos     || [];
+          const wizOCs        = vivForm.ordenesCompra || [];
+
+          // ── Helpers paso 2 (variedades) ──
+          const agregarVarWiz = () => {
+            if(!vivWizVvForm.especie || !vivWizVvForm.variedad) {
+              alert("Especie y Variedad son obligatorios."); return;
+            }
+            const nueva = {
+              id:`vv_${Date.now()}`,
+              especie:vivWizVvForm.especie.trim(),
+              variedad:vivWizVvForm.variedad.trim(),
+              fee_usd:parseFloat(vivWizVvForm.fee_usd)||0,
+              fee_pct:parseFloat(vivWizVvForm.fee_pct)||0,
+              observaciones:vivWizVvForm.observaciones||"",
+            };
+            setVivForm(p=>({...p, variedades:[...(p.variedades||[]), nueva]}));
+            setVivWizVvForm(EMPTY_VV_INLINE);
+          };
+          const quitarVarWiz = (vid) => {
+            const variedadRemovida = wizVariedades.find(v=>v.id===vid);
+            if(!variedadRemovida) return;
+            // Verificar OC vinculadas
+            const ocVinc = wizOCs.filter(o=>o.variedad_id === vid);
+            if(ocVinc.length>0) {
+              if(!window.confirm(`Hay ${ocVinc.length} OC vinculada(s) a "${variedadRemovida.especie} · ${variedadRemovida.variedad}". Si la eliminas, esas OC quedarán huérfanas. ¿Continuar?`)) return;
+            }
+            setVivForm(p=>({...p, variedades:(p.variedades||[]).filter(v=>v.id!==vid)}));
+          };
+
+          // ── Helpers paso 3 (anexos) ──
+          const agregarAnxWiz = () => {
+            if(!vivWizAnxForm.descripcion) { alert("Descripción del anexo es obligatoria."); return; }
+            const nuevo = {id:`vanx_${Date.now()}`, ...vivWizAnxForm};
+            setVivForm(p=>({...p, anexos:[...(p.anexos||[]), nuevo]}));
+            setVivWizAnxForm(EMPTY_VANX_INLINE);
+          };
+          const quitarAnxWiz = (aid) => {
+            setVivForm(p=>({...p, anexos:(p.anexos||[]).filter(a=>a.id!==aid)}));
+          };
+
+          // ── Helpers paso 4 (OC) ──
+          const seleccionarVariedadWizOC = (vid) => {
+            const vv = wizVariedades.find(x=>x.id===vid);
+            if(!vv) { setVivWizOcForm(p=>({...p,variedad_id:""})); return; }
+            setVivWizOcForm(p=>({
+              ...p,
+              variedad_id: vid,
+              especie: vv.especie||"",
+              variedad: vv.variedad||"",
+              fee_usd_planta: p.fee_usd_planta || vv.fee_usd || "",
+            }));
+          };
+          const calcFeeTotalWiz = (cant, fee) => Math.round((parseFloat(cant)||0)*(parseFloat(fee)||0)*100)/100;
+          const agregarOcWiz = () => {
+            if(!vivWizOcForm.n_oc || !vivWizOcForm.cliente_id || !vivWizOcForm.variedad_id) {
+              alert("N° OC, Cliente y Variedad son obligatorios."); return;
+            }
+            const cli = clientes.find(c=>c.id===vivWizOcForm.cliente_id);
+            const cant = parseFloat(vivWizOcForm.cantidad_plantas)||0;
+            const fee  = parseFloat(vivWizOcForm.fee_usd_planta)||0;
+            const nueva = {
+              id:`oc_${Date.now()}`,
+              ...vivWizOcForm,
+              cliente_nombre: cli?.razonSocial || "",
+              cantidad_plantas: cant,
+              hectareas: parseFloat(vivWizOcForm.hectareas)||0,
+              fee_usd_planta: fee,
+              fee_total_usd: calcFeeTotalWiz(cant, fee),
+              cuotas: [],
+            };
+            setVivForm(p=>({...p, ordenesCompra:[...(p.ordenesCompra||[]), nueva]}));
+            setVivWizOcForm(EMPTY_OC_INLINE);
+          };
+          const quitarOcWiz = (oid) => {
+            const oc = wizOCs.find(o=>o.id===oid);
+            if(oc && (oc.cuotas||[]).length>0) {
+              if(!window.confirm(`Esta OC tiene ${oc.cuotas.length} cuota(s) registrada(s). ¿Eliminar de todos modos?`)) return;
+            }
+            setVivForm(p=>({...p, ordenesCompra:(p.ordenesCompra||[]).filter(o=>o.id!==oid)}));
+            if(vivWizOcExpandido===oid) setVivWizOcExpandido(null);
+          };
+
+          // ── Helpers paso 5 (cuotas) ──
+          const agregarCuotaWiz = (ocId) => {
+            if(!vivWizCuotaForm.fecha || !vivWizCuotaForm.monto_usd) {
+              alert("Fecha y Monto son obligatorios."); return;
+            }
+            const cuota = {
+              id:`cuo_${Date.now()}`,
+              fecha:vivWizCuotaForm.fecha,
+              monto_usd:parseFloat(vivWizCuotaForm.monto_usd)||0,
+              pagado:!!vivWizCuotaForm.pagado,
+              fecha_pago:vivWizCuotaForm.fecha_pago||"",
+              n_factura:vivWizCuotaForm.n_factura||"",
+              observaciones:vivWizCuotaForm.observaciones||"",
+            };
+            setVivForm(p=>({
+              ...p,
+              ordenesCompra: (p.ordenesCompra||[]).map(o=>{
+                if(o.id!==ocId) return o;
+                const cuotasNew = [...(o.cuotas||[]), cuota];
+                cuotasNew.sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+                return {...o, cuotas: cuotasNew};
+              }),
+            }));
+            setVivWizCuotaForm(EMPTY_CUOTA_INLINE);
+          };
+          const quitarCuotaWiz = (ocId, cid) => {
+            setVivForm(p=>({
+              ...p,
+              ordenesCompra: (p.ordenesCompra||[]).map(o=>
+                o.id!==ocId ? o : {...o, cuotas:(o.cuotas||[]).filter(c=>c.id!==cid)}
+              ),
+            }));
+          };
+
+          // Stepper helpers
+          const Step = ({n, label, active, done}) => {
+            const bg = active?"#16a34a":done?"#0f766e":"#e2e8f0";
+            const col = active||done?"#fff":"#94a3b8";
+            return (
+              <div style={{display:"flex",alignItems:"center",gap:6,flex:1,minWidth:0}}>
+                <div style={{
+                  width:26,height:26,borderRadius:"50%",
+                  background:bg,color:col,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:12,fontWeight:800,flexShrink:0
+                }}>{done?"✓":n}</div>
+                <div style={{
+                  fontSize:10,fontWeight:active?700:500,
+                  color:active?"#1e293b":done?"#0f766e":"#94a3b8",
+                  whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"
+                }}>{label}</div>
+              </div>
+            );
+          };
+          const irPaso = (n) => {
+            if(vivWizStep===1 && n>1 && !vivForm.viverista) {
+              alert("Viverista es obligatorio para continuar."); return;
+            }
+            if(vivWizStep===1 && n>1 && vivForm.f_contrato && vivForm.f_vencimiento && new Date(vivForm.f_vencimiento) < new Date(vivForm.f_contrato)) {
+              alert("La fecha de vencimiento no puede ser anterior a la fecha de contrato."); return;
+            }
+            setVivWizStep(n);
+          };
+
+          // Resumen totales OC
+          const totFeeAllOC = wizOCs.reduce((s,o)=>s+(parseFloat(o.fee_total_usd)||0),0);
+          const totCuotasAllOC = wizOCs.reduce((s,o)=>s+(o.cuotas||[]).reduce((ss,c)=>ss+(parseFloat(c.monto_usd)||0),0),0);
+
+          return (
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}} onClick={()=>setVivModal(false)}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:560,maxHeight:"85vh",overflowY:"auto"}}>
-              <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>{vivEditId?"✏️ Editar":"➕ Nuevo"} Contrato Vivero</h3>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Viverista <span style={{color:"#dc2626"}}>*</span></label>
-                <input value={vivForm.viverista||""} placeholder="Ej. Vivero La Esperanza, Genética del Sur..." onChange={e=>setVivForm(p=>({...p,viverista:e.target.value}))}
-                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:760,maxHeight:"94vh",overflowY:"auto"}}>
+              <h3 style={{margin:"0 0 18px",color:"#1e293b"}}>{vivEditId?"✏️ Editar":"➕ Nuevo"} Contrato Vivero</h3>
+
+              {/* Stepper */}
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:20,padding:"12px 8px",background:"#f8fafc",borderRadius:10}}>
+                <Step n={1} label="Cabecera"   active={vivWizStep===1} done={vivWizStep>1}/>
+                <div style={{flex:"0 0 18px",height:2,background:vivWizStep>1?"#0f766e":"#e2e8f0"}}/>
+                <Step n={2} label="Variedades" active={vivWizStep===2} done={vivWizStep>2}/>
+                <div style={{flex:"0 0 18px",height:2,background:vivWizStep>2?"#0f766e":"#e2e8f0"}}/>
+                <Step n={3} label="Anexos"     active={vivWizStep===3} done={vivWizStep>3}/>
+                <div style={{flex:"0 0 18px",height:2,background:vivWizStep>3?"#0f766e":"#e2e8f0"}}/>
+                <Step n={4} label="OC Clientes" active={vivWizStep===4} done={vivWizStep>4}/>
+                <div style={{flex:"0 0 18px",height:2,background:vivWizStep>4?"#0f766e":"#e2e8f0"}}/>
+                <Step n={5} label="Cuotas"     active={vivWizStep===5} done={false}/>
               </div>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>País</label>
-                <input value={vivForm.pais||""} placeholder="Chile, Perú, México..." onChange={e=>setVivForm(p=>({...p,pais:e.target.value}))}
-                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                <div>
-                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Contrato</label>
-                  <input type="date" value={vivForm.f_contrato||""} onChange={e=>setVivForm(p=>({...p,f_contrato:e.target.value}))}
+
+              {/* PASO 1 — CABECERA */}
+              {vivWizStep===1&&(<>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Viverista <span style={{color:"#dc2626"}}>*</span></label>
+                  {(viveristas||[]).length>0?(
+                    <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
+                      <select value={(viveristas||[]).find(vv=>vv.razonSocial===vivForm.viverista)?.id||""} onChange={e=>{
+                        const vrs = (viveristas||[]).find(x=>x.id===e.target.value);
+                        if(vrs) setVivForm(p=>({...p,viverista:vrs.razonSocial,pais:p.pais||vrs.pais||""}));
+                      }}
+                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                        <option value="">— Seleccionar del Maestro —</option>
+                        {(viveristas||[]).map(vrs=><option key={vrs.id} value={vrs.id}>{vrs.razonSocial} {vrs.pais?`(${vrs.pais})`:""}</option>)}
+                      </select>
+                      <input value={vivForm.viverista||""} placeholder="O escribir libre..." onChange={e=>setVivForm(p=>({...p,viverista:e.target.value}))}
+                        style={{padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",width:220}}/>
+                    </div>
+                  ):(
+                    <input value={vivForm.viverista||""} placeholder="Ej. Vivero La Esperanza, Genética del Sur..." onChange={e=>setVivForm(p=>({...p,viverista:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  )}
+                  {(viveristas||[]).length===0&&<div style={{fontSize:10,color:"#64748b",marginTop:4}}>💡 Aún no hay viveristas en el Maestro. Puedes agregarlos después o escribir libremente aquí.</div>}
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>País</label>
+                  <input value={vivForm.pais||""} placeholder="Chile, Perú, México..." onChange={e=>setVivForm(p=>({...p,pais:e.target.value}))}
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
                 </div>
-                <div>
-                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Vencimiento</label>
-                  <input type="date" value={vivForm.f_vencimiento||""} onChange={e=>setVivForm(p=>({...p,f_vencimiento:e.target.value}))}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Contrato</label>
+                    <input type="date" value={vivForm.f_contrato||""} onChange={e=>setVivForm(p=>({...p,f_contrato:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Vencimiento</label>
+                    <input type="date" value={vivForm.f_vencimiento||""} onChange={e=>setVivForm(p=>({...p,f_vencimiento:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado del Contrato</label>
+                  <select value={vivForm.estado_contrato||"Borrador"} onChange={e=>setVivForm(p=>({...p,estado_contrato:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                    {ESTADOS_CONTRATO_OBT.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Forma de pago a Osiris</label>
+                    <select value={vivForm.forma_pago||""} onChange={e=>setVivForm(p=>({...p,forma_pago:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                      <option value="">— Seleccionar —</option>
+                      {FORMAS_PAGO.map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Mes estimado de pago</label>
+                    <select value={vivForm.mes_pago_estimado||""} onChange={e=>setVivForm(p=>({...p,mes_pago_estimado:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                      <option value="">— Seleccionar —</option>
+                      {MESES.map(m=><option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:12}}>
+                  <input type="checkbox" checked={!!vivForm.renovable} onChange={e=>setVivForm(p=>({...p,renovable:e.target.checked}))}/>
+                  <span style={{fontSize:12}}>Contrato renovable</span>
+                </label>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8}}>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                    <input type="checkbox" checked={!!vivForm.firma_viverista} onChange={e=>setVivForm(p=>({...p,firma_viverista:e.target.checked}))}/>
+                    <span style={{fontSize:12}}>✅ Firma Viverista</span>
+                  </label>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                    <input type="checkbox" checked={!!vivForm.firma_osiris} onChange={e=>setVivForm(p=>({...p,firma_osiris:e.target.checked}))}/>
+                    <span style={{fontSize:12}}>✅ Firma Osiris</span>
+                  </label>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link al contrato (OneDrive/Drive)</label>
+                  <input value={vivForm.doc_contrato||""} placeholder="https://..." onChange={e=>setVivForm(p=>({...p,doc_contrato:e.target.value}))}
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
                 </div>
-              </div>
-              <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:12}}>
-                <input type="checkbox" checked={!!vivForm.renovable} onChange={e=>setVivForm(p=>({...p,renovable:e.target.checked}))}/>
-                <span style={{fontSize:12}}>Contrato renovable</span>
-              </label>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8}}>
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-                  <input type="checkbox" checked={!!vivForm.firma_viverista} onChange={e=>setVivForm(p=>({...p,firma_viverista:e.target.checked}))}/>
-                  <span style={{fontSize:12}}>✅ Firma Viverista</span>
-                </label>
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-                  <input type="checkbox" checked={!!vivForm.firma_osiris} onChange={e=>setVivForm(p=>({...p,firma_osiris:e.target.checked}))}/>
-                  <span style={{fontSize:12}}>✅ Firma Osiris</span>
-                </label>
-              </div>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link documento legal</label>
-                <input value={vivForm.doc_legal||""} placeholder="https://..." onChange={e=>setVivForm(p=>({...p,doc_legal:e.target.value}))}
-                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
-              </div>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
-                <textarea value={vivForm.observaciones||""} onChange={e=>setVivForm(p=>({...p,observaciones:e.target.value}))}
-                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
-              </div>
-              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                <button onClick={()=>setVivModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
-                <button onClick={guardarViv} style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>{vivEditId?"Guardar cambios":"Crear vivero"}</button>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📄 Link doc. legal complementario</label>
+                  <input value={vivForm.doc_legal||""} placeholder="https://..." onChange={e=>setVivForm(p=>({...p,doc_legal:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea value={vivForm.observaciones||""} onChange={e=>setVivForm(p=>({...p,observaciones:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                </div>
+              </>)}
+
+              {/* PASO 2 — VARIEDADES */}
+              {vivWizStep===2&&(<>
+                <div style={{background:"#dcfce7",border:"1px solid #86efac",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:11,color:"#14532d"}}>
+                  💡 Agrega las variedades autorizadas a producir por este viverista. <strong>Este paso es opcional</strong> — puedes saltar y agregar después desde el detalle.
+                </div>
+
+                {wizVariedades.length>0&&(
+                  <div style={{marginBottom:14,border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+                    <div style={{background:"#f8fafc",padding:"8px 12px",fontSize:11,fontWeight:700,color:"#475569"}}>
+                      Variedades agregadas ({wizVariedades.length})
+                    </div>
+                    {wizVariedades.map(v=>(
+                      <div key={v.id} style={{padding:"10px 12px",borderTop:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>🌿 {v.especie} — {v.variedad}</div>
+                          <div style={{fontSize:10,color:"#64748b",marginTop:2}}>
+                            {v.fee_usd?<>💵 ${v.fee_usd}/planta</>:null}
+                            {v.fee_pct?<> · 📊 {v.fee_pct}% s/venta</>:null}
+                            {v.observaciones?<> · {v.observaciones}</>:null}
+                          </div>
+                        </div>
+                        <button onClick={()=>quitarVarWiz(v.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#991b1b"}}>🗑</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{border:"1px dashed #86efac",borderRadius:10,padding:14,background:"#f0fdf4",marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#14532d",marginBottom:10}}>+ Agregar nueva variedad</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Especie <span style={{color:"#dc2626"}}>*</span></label>
+                      <input value={vivWizVvForm.especie||""} placeholder="Cerezo, Arándano..." onChange={e=>setVivWizVvForm(p=>({...p,especie:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Variedad <span style={{color:"#dc2626"}}>*</span></label>
+                      <input value={vivWizVvForm.variedad||""} placeholder="Royal Dawn..." onChange={e=>setVivWizVvForm(p=>({...p,variedad:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fee USD/planta</label>
+                      <input type="number" step="0.01" value={vivWizVvForm.fee_usd||""} placeholder="0.85" onChange={e=>setVivWizVvForm(p=>({...p,fee_usd:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",textAlign:"right"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fee % s/venta</label>
+                      <input type="number" step="0.1" value={vivWizVvForm.fee_pct||""} placeholder="3" onChange={e=>setVivWizVvForm(p=>({...p,fee_pct:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",textAlign:"right"}}/>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Observaciones</label>
+                    <input value={vivWizVvForm.observaciones||""} onChange={e=>setVivWizVvForm(p=>({...p,observaciones:e.target.value}))}
+                      style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                  </div>
+                  <button onClick={agregarVarWiz} style={{width:"100%",padding:"8px 14px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar variedad a la lista</button>
+                </div>
+              </>)}
+
+              {/* PASO 3 — ANEXOS */}
+              {vivWizStep===3&&(<>
+                <div style={{background:"#dbeafe",border:"1px solid #93c5fd",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:11,color:"#1e3a8a"}}>
+                  💡 Adjunta documentos complementarios al contrato (adendas, cartas compromiso, certificados...). <strong>Paso opcional</strong>.
+                </div>
+
+                {wizAnexos.length>0&&(
+                  <div style={{marginBottom:14,border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+                    <div style={{background:"#f8fafc",padding:"8px 12px",fontSize:11,fontWeight:700,color:"#475569"}}>
+                      Anexos agregados ({wizAnexos.length})
+                    </div>
+                    {wizAnexos.map(a=>(
+                      <div key={a.id} style={{padding:"10px 12px",borderTop:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>📎 {a.descripcion}</div>
+                          <div style={{fontSize:10,color:"#64748b",marginTop:2}}>
+                            {a.fecha&&`📅 ${a.fecha}`}
+                            {a.enlace&&<> · <a href={a.enlace} target="_blank" rel="noopener noreferrer" style={{color:"#2563eb"}}>📎 Abrir</a></>}
+                            {a.observaciones&&` · ${a.observaciones}`}
+                          </div>
+                        </div>
+                        <button onClick={()=>quitarAnxWiz(a.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#991b1b"}}>🗑</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{border:"1px dashed #93c5fd",borderRadius:10,padding:14,background:"#eff6ff",marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#1e3a8a",marginBottom:10}}>+ Agregar nuevo anexo</div>
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Descripción <span style={{color:"#dc2626"}}>*</span></label>
+                    <input value={vivWizAnxForm.descripcion||""} placeholder="Adenda 2026, Carta compromiso..." onChange={e=>setVivWizAnxForm(p=>({...p,descripcion:e.target.value}))}
+                      style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fecha</label>
+                      <input type="date" value={vivWizAnxForm.fecha||""} onChange={e=>setVivWizAnxForm(p=>({...p,fecha:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Enlace (URL)</label>
+                      <input value={vivWizAnxForm.enlace||""} placeholder="https://..." onChange={e=>setVivWizAnxForm(p=>({...p,enlace:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Observaciones</label>
+                    <input value={vivWizAnxForm.observaciones||""} onChange={e=>setVivWizAnxForm(p=>({...p,observaciones:e.target.value}))}
+                      style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                  </div>
+                  <button onClick={agregarAnxWiz} style={{width:"100%",padding:"8px 14px",borderRadius:8,background:"#2563eb",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar anexo a la lista</button>
+                </div>
+              </>)}
+
+              {/* PASO 4 — ÓRDENES DE COMPRA */}
+              {vivWizStep===4&&(<>
+                <div style={{background:"#ede9fe",border:"1px solid #c4b5fd",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:11,color:"#5b21b6"}}>
+                  💡 Cada OC es una orden del cliente productor-exportador al viverista. El fee a Osiris se hereda de la variedad pero puedes editarlo. Las cuotas/fechas de pago se configuran en el siguiente paso. <strong>Paso opcional</strong>.
+                </div>
+
+                {wizVariedades.length===0?(
+                  <div style={{padding:30,textAlign:"center",color:"#94a3b8",border:"1px dashed #e2e8f0",borderRadius:10,marginBottom:12}}>
+                    <div style={{fontSize:32,marginBottom:8}}>🌿</div>
+                    <div style={{fontSize:12}}>Para registrar una OC primero necesitas agregar al menos una variedad.</div>
+                    <button onClick={()=>setVivWizStep(2)} style={{marginTop:10,padding:"6px 14px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>← Volver al paso 2</button>
+                  </div>
+                ):clientes.length===0?(
+                  <div style={{padding:30,textAlign:"center",color:"#94a3b8",border:"1px dashed #e2e8f0",borderRadius:10,marginBottom:12}}>
+                    <div style={{fontSize:32,marginBottom:8}}>👥</div>
+                    <div style={{fontSize:12}}>No hay clientes en el Maestro de Clientes Osiris. Carga al menos uno antes.</div>
+                  </div>
+                ):(<>
+                  {wizOCs.length>0&&(
+                    <div style={{marginBottom:14,border:"1px solid #e2e8f0",borderRadius:10,overflow:"hidden"}}>
+                      <div style={{background:"#f8fafc",padding:"8px 12px",fontSize:11,fontWeight:700,color:"#475569",display:"flex",justifyContent:"space-between"}}>
+                        <span>OC agregadas ({wizOCs.length})</span>
+                        <span style={{color:"#7c3aed"}}>Total fee: {$$(totFeeAllOC)}</span>
+                      </div>
+                      {wizOCs.map(oc=>(
+                        <div key={oc.id} style={{padding:"10px 12px",borderTop:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>📦 OC {oc.n_oc} — {oc.cliente_nombre}</div>
+                            <div style={{fontSize:10,color:"#64748b",marginTop:2}}>
+                              🌿 {oc.especie} · {oc.variedad} · {N(oc.cantidad_plantas)} plantas
+                              {oc.hectareas?` · ${N(oc.hectareas)} há`:""}
+                              {oc.fee_usd_planta?` · $${oc.fee_usd_planta}/planta`:""}
+                              <span style={{color:"#7c3aed",fontWeight:700,marginLeft:6}}>= {$$(oc.fee_total_usd)}</span>
+                            </div>
+                          </div>
+                          <button onClick={()=>quitarOcWiz(oc.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#991b1b"}}>🗑</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{border:"1px dashed #c4b5fd",borderRadius:10,padding:14,background:"#faf5ff",marginBottom:12}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#5b21b6",marginBottom:10}}>+ Agregar nueva OC</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>N° OC <span style={{color:"#dc2626"}}>*</span></label>
+                        <input value={vivWizOcForm.n_oc||""} placeholder="OC-2026-001" onChange={e=>setVivWizOcForm(p=>({...p,n_oc:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fecha OC</label>
+                        <input type="date" value={vivWizOcForm.fecha_oc||""} onChange={e=>setVivWizOcForm(p=>({...p,fecha_oc:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                      </div>
+                    </div>
+                    <div style={{marginBottom:10}}>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Cliente <span style={{color:"#dc2626"}}>*</span></label>
+                      <select value={vivWizOcForm.cliente_id||""} onChange={e=>{
+                        const cli = clientes.find(c=>c.id===e.target.value);
+                        setVivWizOcForm(p=>({...p,cliente_id:e.target.value,cliente_nombre:cli?.razonSocial||""}));
+                      }}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",background:"#fff"}}>
+                        <option value="">— Seleccionar cliente —</option>
+                        {clientes.map(c=><option key={c.id} value={c.id}>{c.razonSocial} {c.pais?`(${c.pais})`:""}</option>)}
+                      </select>
+                    </div>
+                    <div style={{marginBottom:10}}>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Variedad <span style={{color:"#dc2626"}}>*</span></label>
+                      <select value={vivWizOcForm.variedad_id||""} onChange={e=>seleccionarVariedadWizOC(e.target.value)}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",background:"#fff"}}>
+                        <option value="">— Seleccionar variedad —</option>
+                        {wizVariedades.map(x=><option key={x.id} value={x.id}>{x.especie} · {x.variedad} {x.fee_usd?`(fee $${x.fee_usd})`:""}</option>)}
+                      </select>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Plantas</label>
+                        <input type="number" value={vivWizOcForm.cantidad_plantas||""} onChange={e=>{
+                          const cant = e.target.value;
+                          setVivWizOcForm(p=>({...p,cantidad_plantas:cant,fee_total_usd:calcFeeTotalWiz(cant,p.fee_usd_planta)}));
+                        }}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",textAlign:"right"}}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Hectáreas</label>
+                        <input type="number" step="0.01" value={vivWizOcForm.hectareas||""} onChange={e=>setVivWizOcForm(p=>({...p,hectareas:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",textAlign:"right"}}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fee USD/planta</label>
+                        <input type="number" step="0.001" value={vivWizOcForm.fee_usd_planta||""} onChange={e=>{
+                          const fee = e.target.value;
+                          setVivWizOcForm(p=>({...p,fee_usd_planta:fee,fee_total_usd:calcFeeTotalWiz(p.cantidad_plantas,fee)}));
+                        }}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",textAlign:"right"}}/>
+                      </div>
+                    </div>
+                    <div style={{padding:8,background:"#ede9fe",borderRadius:6,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontSize:11,fontWeight:700,color:"#5b21b6"}}>💰 Fee total:</span>
+                      <span style={{fontSize:14,fontWeight:900,color:"#7c3aed"}}>{$$(vivWizOcForm.fee_total_usd)}</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Estado OC</label>
+                        <select value={vivWizOcForm.estado_oc||"Borrador"} onChange={e=>setVivWizOcForm(p=>({...p,estado_oc:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",background:"#fff"}}>
+                          {ESTADOS_OC.map(s=><option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Observaciones</label>
+                        <input value={vivWizOcForm.observaciones||""} onChange={e=>setVivWizOcForm(p=>({...p,observaciones:e.target.value}))}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                      </div>
+                    </div>
+                    <button onClick={agregarOcWiz} style={{width:"100%",padding:"8px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar OC a la lista</button>
+                  </div>
+                </>)}
+              </>)}
+
+              {/* PASO 5 — CUOTAS POR OC */}
+              {vivWizStep===5&&(<>
+                <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:11,color:"#78350f"}}>
+                  💡 Para cada OC del paso anterior, agrega las cuotas/fechas de pago. Haz clic en una OC para expandirla. <strong>Paso opcional</strong> — puedes saltar y agregar después desde el detalle.
+                </div>
+
+                {wizOCs.length===0?(
+                  <div style={{padding:30,textAlign:"center",color:"#94a3b8",border:"1px dashed #e2e8f0",borderRadius:10,marginBottom:12}}>
+                    <div style={{fontSize:32,marginBottom:8}}>📦</div>
+                    <div style={{fontSize:12}}>No hay OC para configurar cuotas. {wizVariedades.length>0?"Vuelve al paso 4 para agregarlas.":"O salta a crear el contrato sin cuotas."}</div>
+                    {wizVariedades.length>0&&<button onClick={()=>setVivWizStep(4)} style={{marginTop:10,padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>← Volver al paso 4</button>}
+                  </div>
+                ):(<>
+                  {/* Resumen */}
+                  <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:140,background:"#f8fafc",padding:"10px 12px",borderRadius:8,borderLeft:"4px solid #7c3aed"}}>
+                      <div style={{fontSize:9,color:"#64748b",fontWeight:600}}>Total fee OC</div>
+                      <div style={{fontSize:16,fontWeight:900,color:"#7c3aed"}}>{$$(totFeeAllOC)}</div>
+                    </div>
+                    <div style={{flex:1,minWidth:140,background:"#f8fafc",padding:"10px 12px",borderRadius:8,borderLeft:"4px solid #16a34a"}}>
+                      <div style={{fontSize:9,color:"#64748b",fontWeight:600}}>Total cuotas</div>
+                      <div style={{fontSize:16,fontWeight:900,color:"#16a34a"}}>{$$(totCuotasAllOC)}</div>
+                    </div>
+                    <div style={{flex:1,minWidth:140,background:Math.abs(totFeeAllOC-totCuotasAllOC)<0.01?"#dcfce7":"#fef2f2",padding:"10px 12px",borderRadius:8,borderLeft:`4px solid ${Math.abs(totFeeAllOC-totCuotasAllOC)<0.01?"#16a34a":"#dc2626"}`}}>
+                      <div style={{fontSize:9,color:"#64748b",fontWeight:600}}>Diferencia</div>
+                      <div style={{fontSize:16,fontWeight:900,color:Math.abs(totFeeAllOC-totCuotasAllOC)<0.01?"#16a34a":"#dc2626"}}>{$$(totFeeAllOC-totCuotasAllOC)}</div>
+                    </div>
+                  </div>
+
+                  {wizOCs.map(oc=>{
+                    const expandido = vivWizOcExpandido===oc.id;
+                    const totC = (oc.cuotas||[]).reduce((s,c)=>s+(parseFloat(c.monto_usd)||0),0);
+                    const diff = (parseFloat(oc.fee_total_usd)||0) - totC;
+                    const diffOk = Math.abs(diff)<0.01;
+                    return (
+                      <div key={oc.id} style={{border:"1px solid #e2e8f0",borderRadius:10,marginBottom:10,overflow:"hidden"}}>
+                        <div onClick={()=>setVivWizOcExpandido(expandido?null:oc.id)}
+                          style={{padding:"10px 12px",background:expandido?"#fef3c7":"#fff",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>{expandido?"▼":"▶"} OC {oc.n_oc} — {oc.cliente_nombre}</div>
+                            <div style={{fontSize:10,color:"#64748b",marginTop:2}}>
+                              🌿 {oc.especie} · {oc.variedad} ·
+                              💰 {$$(oc.fee_total_usd)} ·
+                              📋 {(oc.cuotas||[]).length} cuota{(oc.cuotas||[]).length!==1?"s":""}
+                              {!diffOk&&<span style={{color:"#dc2626",marginLeft:6}}>⚠️ diff {$$(diff)}</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        {expandido&&(
+                          <div style={{padding:14,background:"#fffbeb",borderTop:"1px solid #fde68a"}}>
+                            {/* Lista cuotas existentes */}
+                            {(oc.cuotas||[]).length>0&&(
+                              <div style={{marginBottom:12,background:"#fff",borderRadius:8,overflow:"hidden",border:"1px solid #fde68a"}}>
+                                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                                  <thead>
+                                    <tr style={{background:"#fef3c7"}}>
+                                      <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,color:"#78350f"}}>Fecha</th>
+                                      <th style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:"#78350f"}}>Monto USD</th>
+                                      <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,color:"#78350f"}}>Estado</th>
+                                      <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,color:"#78350f"}}>N° Fact.</th>
+                                      <th style={{padding:"6px 8px"}}></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(oc.cuotas||[]).map(cu=>(
+                                      <tr key={cu.id} style={{borderTop:"1px solid #fef3c7",background:cu.pagado?"#f0fdf4":"#fff"}}>
+                                        <td style={{padding:"5px 8px",fontWeight:600}}>{cu.fecha}</td>
+                                        <td style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:"#7c3aed"}}>{$$(cu.monto_usd)}</td>
+                                        <td style={{padding:"5px 8px"}}>
+                                          <span style={{padding:"2px 6px",borderRadius:10,fontSize:9,fontWeight:700,background:cu.pagado?"#dcfce7":"#fef3c7",color:cu.pagado?"#16a34a":"#d97706"}}>{cu.pagado?"✅ Pagado":"⏳ Por cobrar"}</span>
+                                        </td>
+                                        <td style={{padding:"5px 8px",fontSize:10}}>{cu.n_factura||"—"}</td>
+                                        <td style={{padding:"5px 8px"}}>
+                                          <button onClick={()=>quitarCuotaWiz(oc.id, cu.id)} style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"2px 6px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>🗑</button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            {/* Form para agregar cuota nueva */}
+                            <div style={{background:"#fff",borderRadius:8,padding:10,border:"1px dashed #fbbf24"}}>
+                              <div style={{fontSize:11,fontWeight:700,color:"#78350f",marginBottom:8}}>+ Agregar cuota a esta OC</div>
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                                <div>
+                                  <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>Fecha estim. <span style={{color:"#dc2626"}}>*</span></label>
+                                  <input type="date" value={vivWizCuotaForm.fecha||""} onChange={e=>setVivWizCuotaForm(p=>({...p,fecha:e.target.value}))}
+                                    style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                                </div>
+                                <div>
+                                  <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>Monto USD <span style={{color:"#dc2626"}}>*</span></label>
+                                  <input type="number" step="0.01" value={vivWizCuotaForm.monto_usd||""} placeholder={diff>0?`Sugerido: ${diff.toFixed(2)}`:""} onChange={e=>setVivWizCuotaForm(p=>({...p,monto_usd:e.target.value}))}
+                                    style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box",textAlign:"right"}}/>
+                                </div>
+                              </div>
+                              <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",marginBottom:8,fontSize:11}}>
+                                <input type="checkbox" checked={!!vivWizCuotaForm.pagado} onChange={e=>setVivWizCuotaForm(p=>({...p,pagado:e.target.checked,fecha_pago:e.target.checked&&!p.fecha_pago?new Date().toISOString().slice(0,10):p.fecha_pago}))}/>
+                                ✅ Cuota pagada
+                              </label>
+                              {vivWizCuotaForm.pagado&&(
+                                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                                  <div>
+                                    <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>Fecha pago</label>
+                                    <input type="date" value={vivWizCuotaForm.fecha_pago||""} onChange={e=>setVivWizCuotaForm(p=>({...p,fecha_pago:e.target.value}))}
+                                      style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                                  </div>
+                                  <div>
+                                    <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>N° Factura</label>
+                                    <input value={vivWizCuotaForm.n_factura||""} onChange={e=>setVivWizCuotaForm(p=>({...p,n_factura:e.target.value}))}
+                                      style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                                  </div>
+                                </div>
+                              )}
+                              <div style={{marginBottom:8}}>
+                                <input value={vivWizCuotaForm.observaciones||""} placeholder="Observaciones..." onChange={e=>setVivWizCuotaForm(p=>({...p,observaciones:e.target.value}))}
+                                  style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                              </div>
+                              <button onClick={()=>agregarCuotaWiz(oc.id)} style={{width:"100%",padding:"7px 12px",borderRadius:6,background:"#f59e0b",border:"none",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Agregar cuota</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>)}
+              </>)}
+
+              {/* Footer wizard: navegación */}
+              <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",marginTop:18,paddingTop:14,borderTop:"1px solid #e2e8f0"}}>
+                <button onClick={()=>setVivModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12}}>Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  {vivWizStep>1&&<button onClick={()=>setVivWizStep(vivWizStep-1)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#f8fafc",cursor:"pointer",fontSize:12,fontWeight:600}}>← Anterior</button>}
+                  {vivWizStep<5&&<button onClick={()=>irPaso(vivWizStep+1)} style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>Siguiente →</button>}
+                  {vivWizStep===5&&<button onClick={guardarViv} style={{padding:"8px 18px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}}>{vivEditId?"💾 Guardar cambios":"✅ Crear vivero"}</button>}
+                </div>
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
+
       </div>
     );
   }
