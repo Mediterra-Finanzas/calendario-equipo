@@ -886,10 +886,9 @@ function TotalPedidos({data,setData,rpData,setRpData,rcData,setRcData,fvData,set
           </div>
         ))}
         <div style={{display:"flex",gap:8,alignSelf:"center",flexWrap:"wrap"}}>
-          {can&&<button onClick={()=>setModal(true)}
-            style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700}}>
-            + Nuevo Pedido
-          </button>}
+          <div style={{fontSize:11,color:"#64748b",fontStyle:"italic",alignSelf:"center",padding:"6px 12px",background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:6}}>
+            🔗 Datos derivados de Contratos Productores
+          </div>
           {can&&<button onClick={()=>setShowRegalias(v=>!v)}
             style={{background:showRegalias?"#16a34a":"#f1f5f9",color:showRegalias?"#fff":C.sl,border:"1px solid #e2e8f0",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>
             ⚙️ Regalías
@@ -956,9 +955,9 @@ function TotalPedidos({data,setData,rpData,setRpData,rcData,setRcData,fvData,set
                   }
                 </td>
                 <td style={{padding:"7px 10px",fontWeight:600}}>
-                  <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
+                  <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can&&!r._fromContract}/>
                 </td>
-                <td style={{padding:"7px 10px",fontSize:12}}><Cell val={r.pais} onChange={v=>upd(r.id,"pais",v)} opts={PAISES} can={can}/></td>
+                <td style={{padding:"7px 10px",fontSize:12}}><Cell val={r.pais} onChange={v=>upd(r.id,"pais",v)} opts={PAISES} can={can&&!r._fromContract}/></td>
                 <td style={{padding:"7px 10px",fontSize:11}}><Cell val={r.vivero||""} onChange={v=>upd(r.id,"vivero",v)} opts={VIVEROS} can={can}/></td>
                 <td style={{padding:"7px 10px",textAlign:"center",fontSize:11}}>
                   <Cell val={r.fechaPedido||""} onChange={v=>upd(r.id,"fechaPedido",v)} type="date" can={can}/>
@@ -967,10 +966,10 @@ function TotalPedidos({data,setData,rpData,setRpData,rcData,setRcData,fvData,set
                   {r.añoEntrega} T{r.trimEntrega}
                 </td>
                 <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.teal}}>
-                  <Cell val={r.nPlantas} onChange={v=>upd(r.id,"nPlantas",parseFloat(v)||0)} type="number" can={can}/>
+                  <Cell val={r.nPlantas} onChange={v=>upd(r.id,"nPlantas",parseFloat(v)||0)} type="number" can={can&&!r._fromContract}/>
                 </td>
                 <td style={{padding:"7px 10px",textAlign:"right"}}>
-                  <Cell val={r.ha||""} onChange={v=>upd(r.id,"ha",parseFloat(v)||0)} type="number" can={can} ph="0"/>
+                  <Cell val={r.ha||""} onChange={v=>upd(r.id,"ha",parseFloat(v)||0)} type="number" can={can&&!r._fromContract} ph="0"/>
                 </td>
                 <td style={{padding:"7px 10px",textAlign:"center",fontSize:11}}>
                   <Cell val={r.regaliaVivero||regalias[r.vivero]||0.45} onChange={v=>upd(r.id,"regaliaVivero",parseFloat(v)||0)} type="number" can={can}/>
@@ -1007,6 +1006,9 @@ function TotalPedidos({data,setData,rpData,setRpData,rcData,setRcData,fvData,set
                   }
                 </td>
                 {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                  {r._fromContract?(
+                    <span title="Eliminar el contrato productor para borrar este registro" style={{color:"#94a3b8",fontSize:14}}>🔒</span>
+                  ):(
                   <button onClick={()=>{
                     if(!window.confirm(`¿Eliminar pedido de "${r.cliente}"?\nTambién se eliminarán las filas vinculadas en Royalty/Planta, Royalty Comercial y Fee Vivero.`))return;
                     const id=r.id;
@@ -1023,6 +1025,7 @@ function TotalPedidos({data,setData,rpData,setRpData,rcData,setRcData,fvData,set
                     }
                   }}
                     style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:700}}>×</button>
+                  )}
                 </td>}
               </tr>
             ))}
@@ -1361,11 +1364,9 @@ function RoyaltyPlanta({data,setData,tpData,can,clientes=[]}) {
             <div style={{fontSize:20,fontWeight:800,color:c}}>{v}</div>
           </div>
         ))}
-        {can&&<button onClick={()=>setModal(true)}
-          style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",
-            cursor:"pointer",fontSize:12,fontWeight:700,alignSelf:"center"}}>
-          + Agregar
-        </button>}
+        <div style={{fontSize:11,color:"#64748b",fontStyle:"italic",alignSelf:"center",padding:"6px 12px",background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:6}}>
+          🔗 Derivado de Contratos Productores
+        </div>
       </div>
 
       <BarraFiltros
@@ -1408,13 +1409,13 @@ function RoyaltyPlanta({data,setData,tpData,can,clientes=[]}) {
               return(
                 <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
                   <td style={{padding:"7px 10px",fontWeight:600}}>
-                    <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
+                    <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can&&!r._fromContract}/>
                   </td>
-                  <td style={{padding:"7px 10px",fontSize:12}}><Cell val={r.pais} onChange={v=>upd(r.id,"pais",v)} opts={PAISES} can={can}/></td>
-                  <td style={{padding:"7px 10px",fontSize:11}}><Cell val={r.vivero||""} onChange={v=>upd(r.id,"vivero",v)} opts={VIVEROS} can={can}/></td>
+                  <td style={{padding:"7px 10px",fontSize:12}}><Cell val={r.pais} onChange={v=>upd(r.id,"pais",v)} opts={PAISES} can={can&&!r._fromContract}/></td>
+                  <td style={{padding:"7px 10px",fontSize:11}}><Cell val={r.vivero||""} onChange={v=>upd(r.id,"vivero",v)} opts={VIVEROS} can={can&&!r._fromContract}/></td>
                   <td style={{padding:"7px 10px",textAlign:"center",fontSize:12,color:C.gris}}>{r.añoEntrega||r.año||"—"}</td>
-                  <td style={{padding:"7px 10px",textAlign:"right",fontWeight:600}}><Cell val={r.nPlantas} onChange={v=>upd(r.id,"nPlantas",parseFloat(v)||0)} type="number" can={can}/></td>
-                  <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.usdPlanta||""} onChange={v=>upd(r.id,"usdPlanta",parseFloat(v)||0)} type="number" can={can} ph="0.00"/></td>
+                  <td style={{padding:"7px 10px",textAlign:"right",fontWeight:600}}><Cell val={r.nPlantas} onChange={v=>upd(r.id,"nPlantas",parseFloat(v)||0)} type="number" can={can&&!r._fromContract}/></td>
+                  <td style={{padding:"7px 10px",textAlign:"center"}}><Cell val={r.usdPlanta||""} onChange={v=>upd(r.id,"usdPlanta",parseFloat(v)||0)} type="number" can={can&&!r._fromContract} ph="0.00"/></td>
                   <td style={{padding:"7px 10px",textAlign:"right",fontWeight:700,color:C.azul}}>{$$(r.montoFact)}</td>
                   <td style={{padding:"7px 10px",textAlign:"center",fontSize:11}}>
                     {whtLabel(r.pais)
@@ -1442,6 +1443,9 @@ function RoyaltyPlanta({data,setData,tpData,can,clientes=[]}) {
                     <Cell val={r.fechaPago||""} onChange={v=>upd(r.id,"fechaPago",v)} type="date" can={can}/>
                   </td>
                   {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                    {r._fromContract?(
+                      <span title="Eliminar el contrato productor para borrar este registro" style={{color:"#94a3b8",fontSize:14}}>🔒</span>
+                    ):(
                     <button onClick={()=>{
                       if(!window.confirm(`¿Eliminar royalty de "${r.cliente}"?`))return;
                       window.auditLog&&window.auditLog("eliminar", {modulo:"osiris", seccion:"Royalty Planta",
@@ -1450,6 +1454,7 @@ function RoyaltyPlanta({data,setData,tpData,can,clientes=[]}) {
                       setData(prev=>prev.filter(x=>x.id!==r.id));
                     }}
                       style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:700}}>×</button>
+                    )}
                   </td>}
                 </tr>
               );
@@ -1879,11 +1884,9 @@ function RoyaltyComercial({data,setData,tpData,can,clientes=[]}) {
             <div style={{fontSize:20,fontWeight:800,color:c}}>{v}</div>
           </div>
         ))}
-        {can&&<button onClick={()=>setModal(true)}
-          style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",
-            cursor:"pointer",fontSize:12,fontWeight:700,alignSelf:"center"}}>
-          + Agregar
-        </button>}
+        <div style={{fontSize:11,color:"#64748b",fontStyle:"italic",alignSelf:"center",padding:"6px 12px",background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:6}}>
+          🔗 Derivado de Contratos Productores
+        </div>
       </div>
 
       <BarraFiltros
@@ -1926,15 +1929,15 @@ function RoyaltyComercial({data,setData,tpData,can,clientes=[]}) {
                 <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",
                   background:r.alertaActiva?"#fffbeb":i%2===0?"#fff":"#f8fafc"}}>
                   <td style={{padding:"7px 10px",fontWeight:600}}>
-                    <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can}/>
+                    <NombreCliente nombre={r.cliente} clientes={clientes} onChange={v=>upd(r.id,"cliente",v)} can={can&&!r._fromContract}/>
                   </td>
                   <td style={{padding:"7px 10px",fontSize:12,color:C.gris}}>{r.pais}</td>
                   <td style={{padding:"7px 10px",textAlign:"right",fontWeight:600,
                     background:(!r.ha||r.ha===0)&&can?"#fffbeb":"transparent"}}>
-                    <Cell val={r.ha||""} onChange={v=>upd(r.id,"ha",parseFloat(v)||0)} type="number" can={can} ph="Ingrese Há"/>
+                    <Cell val={r.ha||""} onChange={v=>upd(r.id,"ha",parseFloat(v)||0)} type="number" can={can&&!r._fromContract} ph="Ingrese Há"/>
                   </td>
                   <td style={{padding:"7px 10px",textAlign:"center"}}>
-                    <Cell val={r.usdHa||3000} onChange={v=>upd(r.id,"usdHa",parseFloat(v)||3000)} type="number" can={can}/>
+                    <Cell val={r.usdHa||3000} onChange={v=>upd(r.id,"usdHa",parseFloat(v)||3000)} type="number" can={can&&!r._fromContract}/>
                   </td>
                   <td style={{padding:"7px 10px",textAlign:"center",fontWeight:600,fontSize:12}}>
                     {can ? (
@@ -1981,6 +1984,9 @@ function RoyaltyComercial({data,setData,tpData,can,clientes=[]}) {
                     }
                   </td>
                   {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                    {r._fromContract?(
+                      <span title="Eliminar el contrato productor para borrar este registro" style={{color:"#94a3b8",fontSize:14}}>🔒</span>
+                    ):(
                     <button onClick={()=>{
                       if(!window.confirm(`¿Eliminar royalty comercial de "${r.cliente}" ${r.añoCobro}?`))return;
                       window.auditLog&&window.auditLog("eliminar", {modulo:"osiris", seccion:"Royalty Comercial",
@@ -1989,6 +1995,7 @@ function RoyaltyComercial({data,setData,tpData,can,clientes=[]}) {
                       setData(prev=>prev.filter(x=>x.id!==r.id));
                     }}
                       style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:700}}>×</button>
+                    )}
                   </td>}
                 </tr>
               );
@@ -2124,11 +2131,9 @@ function FeeViveros({data,setData,tpData,can,clientes=[]}) {
             <div style={{fontSize:20,fontWeight:800,color:c}}>{v}</div>
           </div>
         ))}
-        {can&&<button onClick={()=>setModal(true)}
-          style={{background:C.azul,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",
-            cursor:"pointer",fontSize:12,fontWeight:700,alignSelf:"center"}}>
-          + Agregar
-        </button>}
+        <div style={{fontSize:11,color:"#64748b",fontStyle:"italic",alignSelf:"center",padding:"6px 12px",background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:6}}>
+          🔗 Derivado de Contratos Productores
+        </div>
       </div>
 
       <BarraFiltros
@@ -2169,15 +2174,15 @@ function FeeViveros({data,setData,tpData,can,clientes=[]}) {
               const facturado=r.nFact&&String(r.nFact).trim()!=="";
               return(
                 <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8fafc"}}>
-                  <td style={{padding:"7px 10px",fontSize:11}}><Cell val={r.vivero||""} onChange={v=>upd(r.id,"vivero",v)} opts={["Synergiabio","Agromillora"]} can={can}/></td>
+                  <td style={{padding:"7px 10px",fontSize:11}}><Cell val={r.vivero||""} onChange={v=>upd(r.id,"vivero",v)} opts={["Synergiabio","Agromillora"]} can={can&&!r._fromContract}/></td>
                   <td style={{padding:"7px 10px",fontWeight:600}}>
-                    <NombreCliente nombre={r.empresa} clientes={clientes} onChange={v=>upd(r.id,"empresa",v)} can={can}/>
+                    <NombreCliente nombre={r.empresa} clientes={clientes} onChange={v=>upd(r.id,"empresa",v)} can={can&&!r._fromContract}/>
                   </td>
                   <td style={{padding:"7px 10px",fontSize:11,color:C.gris}}>{r.pais}</td>
                   <td style={{padding:"7px 10px",fontSize:11,color:C.gris}}><Cell val={r.proforma||""} onChange={v=>upd(r.id,"proforma",v)} can={can}/></td>
                   <td style={{padding:"7px 10px",textAlign:"center",fontWeight:600}}>{N(r.nPlantas)}</td>
                   <td style={{padding:"7px 10px",textAlign:"center",fontWeight:600,color:C.verde}}>
-                    <Cell val={r.regalia||""} onChange={v=>upd(r.id,"regalia",parseFloat(v)||0)} type="number" can={can} ph="0.45"/>
+                    <Cell val={r.regalia||""} onChange={v=>upd(r.id,"regalia",parseFloat(v)||0)} type="number" can={can&&!r._fromContract} ph="0.45"/>
                   </td>
                   <td style={{padding:"7px 10px",textAlign:"center",fontSize:11}}>
                     <span style={{background:pct(r.pais)===1?C.verdeBg:"#fee2e2",
@@ -2219,6 +2224,9 @@ function FeeViveros({data,setData,tpData,can,clientes=[]}) {
                     <BadgePago pagado={r.pagado} onChange={v=>upd(r.id,"pagado",v)} onFechaPago={f=>upd(r.id,"fechaPago",f)} can={can}/>
                   </td>
                   {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                    {r._fromContract?(
+                      <span title="Eliminar el contrato productor para borrar este registro" style={{color:"#94a3b8",fontSize:14}}>🔒</span>
+                    ):(
                     <button onClick={()=>{
                       if(!window.confirm(`¿Eliminar fee vivero de "${r.empresa}"?`))return;
                       window.auditLog&&window.auditLog("eliminar", {modulo:"osiris", seccion:"Fee Viveros",
@@ -2227,6 +2235,7 @@ function FeeViveros({data,setData,tpData,can,clientes=[]}) {
                       setData(prev=>prev.filter(x=>x.id!==r.id));
                     }}
                       style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,color:"#991b1b",fontWeight:700}}>×</button>
+                    )}
                   </td>}
                 </tr>
               );
@@ -4558,6 +4567,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
   const formVacio={
     razonSocial:"",nombreComercial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",
     tipoContrato:"Licencia",moneda:"USD",fechaContrato:"",fechaTermino:"",
+    renovable:false,fechaTerminoNueva:"",
     firmadoLicenciado:false,firmadoOsiris:false,verDigital:"",linkContrato:"",
     anexo1:{...formAnexoVacio},anexo2:{...formAnexoVacio},anexo3:{...formAnexoVacio},
     nombreRep:"",personeria:"",nombrePredio:"",direccionPredio:"",cuartel:"",
@@ -4771,6 +4781,16 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                 <Campo label="Moneda" campo="moneda" opts={MONEDAS} r={r}/>
                 <Campo label="Fecha Contrato" campo="fechaContrato" tipo="date" r={r}/>
                 <Campo label="Fecha Término" campo="fechaTermino" tipo="date" r={r}/>
+                <div>
+                  <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Renovable</div>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",
+                    background:r.renovable?"#dbeafe":"#f1f5f9",border:`1px solid ${r.renovable?"#60a5fa":"#d1d5db"}`,
+                    borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:600,color:r.renovable?"#1d4ed8":"#94a3b8"}}>
+                    <input type="checkbox" disabled={!can} checked={!!r.renovable} onChange={()=>upd(r.id,"renovable",!r.renovable)} style={{accentColor:"#2563eb"}}/>
+                    🔄 Contrato renovable
+                  </label>
+                </div>
+                {r.renovable&&<Campo label="📆 Nueva Fecha Vencimiento" campo="fechaTerminoNueva" tipo="date" r={r}/>}
                 <Campo label="Ver Digital (URL)" campo="verDigital" r={r}/>
                 <Campo label="📎 Link OneDrive contrato" campo="linkContrato" r={r}/>
               </div>
@@ -5089,64 +5109,70 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                       const enMaestro = (variedadesMaestro||[]).some(v=>v.id===p.variedad_id);
                       return (
                         <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2?"#f8fafc":"#fff"}}>
-                          {/* Especie: dropdown maestro + fallback input libre */}
+                          {/* Especie: dropdown puro del maestro + Crear nuevo */}
                           <td style={{padding:"6px 8px",minWidth:140}}>
                             <div style={{display:"flex",gap:4,alignItems:"center"}}>
                               {colorEsp&&<div title={p.especie} style={{width:14,height:14,borderRadius:3,background:colorEsp,flexShrink:0,boxShadow:"0 1px 2px #0002"}}/>}
-                              {(especiesMaestro||[]).length>0?(
-                                <select disabled={!can} value={p.especie||""} onChange={e=>{
-                                  if(e.target.value==="__libre__") {
-                                    const txt = window.prompt("Escribe el nombre de la especie (no quedará vinculada al maestro):", p.especie||"");
-                                    if(txt!==null) updPlMulti({especie:txt.trim(), variedad_id:""});
-                                  } else {
-                                    // Cambiar especie limpia variedad_id si la variedad actual ya no corresponde
-                                    const variedadActualOK = (variedadesMaestro||[]).some(v=>v.id===p.variedad_id && v.especie===e.target.value);
-                                    updPlMulti({
-                                      especie: e.target.value,
-                                      variedad_id: variedadActualOK ? p.variedad_id : "",
-                                    });
-                                  }
-                                }} style={{flex:1,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
-                                  <option value="">— Seleccionar —</option>
-                                  {(especiesMaestro||[]).map(e=><option key={e.id} value={e.nombre}>{e.nombre}</option>)}
-                                  <option value="__libre__">✏️ Otra (escribir libre)</option>
-                                </select>
-                              ):(
-                                <input disabled={!can} value={p.especie||""} placeholder="Cerezo, Arándano..."
-                                  onChange={e=>updPl("especie",e.target.value)}
-                                  style={{flex:1,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
-                              )}
+                              <select disabled={!can} value={p.especie||""} onChange={e=>{
+                                if(e.target.value==="__nueva__") {
+                                  const nombre = window.prompt("Nombre de la nueva especie:");
+                                  if(!nombre || !nombre.trim()) return;
+                                  const nombreNorm = nombre.trim();
+                                  const dupe = (especiesMaestro||[]).find(x=>x.nombre.toLowerCase().trim()===nombreNorm.toLowerCase());
+                                  if(dupe) { updPlMulti({especie:dupe.nombre, variedad_id:""}); return; }
+                                  const id = `esp_${Date.now()}`;
+                                  const idxColor = (especiesMaestro||[]).length % COLORES_ESPECIES.length;
+                                  const nueva = {id, nombre:nombreNorm, color:COLORES_ESPECIES[idxColor].hex, observaciones:""};
+                                  setEspeciesMaestro&&setEspeciesMaestro(prev=>[...(prev||[]),nueva]);
+                                  window.auditLog&&window.auditLog("crear",{modulo:"osiris",seccion:"Maestro Especies",
+                                    descripcion:`Creó especie "${nombreNorm}" desde plantaciones`,registroId:id});
+                                  updPlMulti({especie:nombreNorm, variedad_id:""});
+                                } else {
+                                  const variedadActualOK = (variedadesMaestro||[]).some(v=>v.id===p.variedad_id && v.especie===e.target.value);
+                                  updPlMulti({
+                                    especie: e.target.value,
+                                    variedad_id: variedadActualOK ? p.variedad_id : "",
+                                    variedad: variedadActualOK ? p.variedad : "",
+                                  });
+                                }
+                              }} style={{flex:1,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                                <option value="">— Seleccionar —</option>
+                                {(especiesMaestro||[]).map(e=><option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+                                {can&&<option value="__nueva__">＋ Crear nueva especie...</option>}
+                              </select>
                             </div>
                           </td>
-                          {/* Variedad: dropdown maestro filtrado por especie + fallback input libre */}
+                          {/* Variedad: dropdown puro filtrado por especie + Crear nueva */}
                           <td style={{padding:"6px 8px",minWidth:140}}>
                             {(()=>{
                               const variedadesFiltradas = p.especie
                                 ? (variedadesMaestro||[]).filter(v=>v.especie===p.especie)
-                                : (variedadesMaestro||[]);
-                              if(variedadesFiltradas.length>0) {
-                                return (
-                                  <select disabled={!can} value={p.variedad_id||""} onChange={e=>{
-                                    if(e.target.value==="__libre__") {
-                                      const txt = window.prompt("Escribe el nombre de la variedad (no quedará vinculada al maestro):", p.variedad||"");
-                                      if(txt!==null) updPlMulti({variedad: txt.trim(), variedad_id:""});
-                                    } else {
-                                      seleccionarVariedad(e.target.value);
-                                    }
-                                  }} style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
-                                    <option value="">{p.variedad ? `(libre) ${p.variedad}` : "— Seleccionar —"}</option>
-                                    {variedadesFiltradas.map(v=>(
-                                      <option key={v.id} value={v.id}>{v.variedad}{v.obtentor?` · ${v.obtentor}`:""}</option>
-                                    ))}
-                                    <option value="__libre__">✏️ Otra (escribir libre)</option>
-                                  </select>
-                                );
-                              }
-                              // Fallback: input libre
+                                : [];
                               return (
-                                <input disabled={!can} value={p.variedad||""} placeholder="Royal Dawn..."
-                                  onChange={e=>updPl("variedad",e.target.value)}
-                                  style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
+                                <select disabled={!can||!p.especie} value={p.variedad_id||""} onChange={e=>{
+                                  if(e.target.value==="__nueva__") {
+                                    if(!p.especie){alert("Selecciona primero la especie.");return;}
+                                    const nombre = window.prompt(`Nombre de la nueva variedad (especie: ${p.especie}):`);
+                                    if(!nombre || !nombre.trim()) return;
+                                    const nombreNorm = nombre.trim();
+                                    const dupe = (variedadesMaestro||[]).find(v=>v.especie===p.especie && v.variedad.toLowerCase().trim()===nombreNorm.toLowerCase());
+                                    if(dupe){ seleccionarVariedad(dupe.id); return; }
+                                    const id = `var_${Date.now()}`;
+                                    const nueva = {id, especie:p.especie, variedad:nombreNorm, obtentor:"", observaciones:""};
+                                    setVariedadesMaestro&&setVariedadesMaestro(prev=>[...(prev||[]),nueva]);
+                                    window.auditLog&&window.auditLog("crear",{modulo:"osiris",seccion:"Maestro Variedades",
+                                      descripcion:`Creó variedad "${p.especie} · ${nombreNorm}" desde plantaciones`,registroId:id});
+                                    seleccionarVariedad(id);
+                                  } else {
+                                    seleccionarVariedad(e.target.value);
+                                  }
+                                }} style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:p.especie?"#fff":"#f1f5f9"}}>
+                                  <option value="">{p.especie?"— Seleccionar —":"(Selecciona especie primero)"}</option>
+                                  {variedadesFiltradas.map(v=>(
+                                    <option key={v.id} value={v.id}>{v.variedad}{v.obtentor?` · ${v.obtentor}`:""}</option>
+                                  ))}
+                                  {can&&p.especie&&<option value="__nueva__">＋ Crear nueva variedad...</option>}
+                                </select>
                               );
                             })()}
                           </td>
@@ -5618,6 +5644,16 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
               <CampoNuevo label="Moneda" campo="moneda" opts={MONEDAS} form={form} setF={setF}/>
               <CampoNuevo label="Fecha Contrato" campo="fechaContrato" tipo="date" form={form} setF={setF}/>
               <CampoNuevo label="Fecha Término" campo="fechaTermino" tipo="date" form={form} setF={setF}/>
+              <div>
+                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Renovable</div>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",
+                  background:form.renovable?"#dbeafe":"#f1f5f9",border:`1px solid ${form.renovable?"#60a5fa":"#d1d5db"}`,
+                  borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:600,color:form.renovable?"#1d4ed8":"#94a3b8"}}>
+                  <input type="checkbox" checked={!!form.renovable} onChange={()=>setF("renovable",!form.renovable)} style={{accentColor:"#2563eb"}}/>
+                  🔄 Contrato renovable
+                </label>
+              </div>
+              {form.renovable&&<CampoNuevo label="📆 Nueva Fecha Vencimiento" campo="fechaTerminoNueva" tipo="date" form={form} setF={setF}/>}
               <CampoNuevo label="Ver Digital (URL)" campo="verDigital" form={form} setF={setF}/>
               <CampoNuevo label="📎 Link OneDrive contrato" campo="linkContrato" form={form} setF={setF}/>
             </div>
@@ -5794,53 +5830,64 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                       const colorEsp = espMaestro?.color;
                       return (
                         <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9"}}>
-                          {/* Especie dual-mode */}
+                          {/* Especie: dropdown puro + Crear nueva */}
                           <td style={{padding:"5px 8px",minWidth:130}}>
                             <div style={{display:"flex",gap:4,alignItems:"center"}}>
                               {colorEsp&&<div title={p.especie} style={{width:12,height:12,borderRadius:3,background:colorEsp,flexShrink:0,boxShadow:"0 1px 2px #0002"}}/>}
-                              {(especiesMaestro||[]).length>0?(
-                                <select value={p.especie||""} onChange={e=>{
-                                  if(e.target.value==="__libre__") {
-                                    const txt = window.prompt("Escribe el nombre de la especie:", p.especie||"");
-                                    if(txt!==null) updPlMulti({especie:txt.trim(), variedad_id:""});
-                                  } else {
-                                    const variedadActualOK = (variedadesMaestro||[]).some(v=>v.id===p.variedad_id && v.especie===e.target.value);
-                                    updPlMulti({especie:e.target.value, variedad_id: variedadActualOK ? p.variedad_id : ""});
-                                  }
-                                }} style={{flex:1,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
-                                  <option value="">— Seleccionar —</option>
-                                  {(especiesMaestro||[]).map(e=><option key={e.id} value={e.nombre}>{e.nombre}</option>)}
-                                  <option value="__libre__">✏️ Otra (escribir libre)</option>
-                                </select>
-                              ):(<input value={p.especie||""} placeholder="Cerezo, Arándano..." onChange={e=>updPl("especie",e.target.value)} style={{flex:1,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11}}/>)}
+                              <select value={p.especie||""} onChange={e=>{
+                                if(e.target.value==="__nueva__") {
+                                  const nombre = window.prompt("Nombre de la nueva especie:");
+                                  if(!nombre || !nombre.trim()) return;
+                                  const nombreNorm = nombre.trim();
+                                  const dupe = (especiesMaestro||[]).find(x=>x.nombre.toLowerCase().trim()===nombreNorm.toLowerCase());
+                                  if(dupe) { updPlMulti({especie:dupe.nombre, variedad_id:""}); return; }
+                                  const id = `esp_${Date.now()}`;
+                                  const idxColor = (especiesMaestro||[]).length % COLORES_ESPECIES.length;
+                                  const nueva = {id, nombre:nombreNorm, color:COLORES_ESPECIES[idxColor].hex, observaciones:""};
+                                  setEspeciesMaestro&&setEspeciesMaestro(prev=>[...(prev||[]),nueva]);
+                                  window.auditLog&&window.auditLog("crear",{modulo:"osiris",seccion:"Maestro Especies",
+                                    descripcion:`Creó especie "${nombreNorm}" desde plantaciones (modo nuevo)`,registroId:id});
+                                  updPlMulti({especie:nombreNorm, variedad_id:""});
+                                } else {
+                                  const variedadActualOK = (variedadesMaestro||[]).some(v=>v.id===p.variedad_id && v.especie===e.target.value);
+                                  updPlMulti({especie:e.target.value, variedad_id: variedadActualOK ? p.variedad_id : "", variedad: variedadActualOK ? p.variedad : ""});
+                                }
+                              }} style={{flex:1,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                                <option value="">— Seleccionar —</option>
+                                {(especiesMaestro||[]).map(e=><option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+                                <option value="__nueva__">＋ Crear nueva especie...</option>
+                              </select>
                             </div>
                           </td>
-                          {/* Variedad dual-mode */}
+                          {/* Variedad: dropdown puro filtrado + Crear nueva */}
                           <td style={{padding:"5px 8px",minWidth:130}}>
                             {(()=>{
                               const variedadesFiltradas = p.especie
                                 ? (variedadesMaestro||[]).filter(v=>v.especie===p.especie)
-                                : (variedadesMaestro||[]);
-                              if(variedadesFiltradas.length>0) {
-                                return (
-                                  <select value={p.variedad_id||""} onChange={e=>{
-                                    if(e.target.value==="__libre__") {
-                                      const txt = window.prompt("Escribe el nombre de la variedad:", p.variedad||"");
-                                      if(txt!==null) updPlMulti({variedad: txt.trim(), variedad_id:""});
-                                    } else {
-                                      seleccionarVar(e.target.value);
-                                    }
-                                  }} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff",width:"100%"}}>
-                                    <option value="">{p.variedad ? `(libre) ${p.variedad}` : "— Seleccionar —"}</option>
-                                    {variedadesFiltradas.map(v=>(
-                                      <option key={v.id} value={v.id}>{v.variedad}</option>
-                                    ))}
-                                    <option value="__libre__">✏️ Otra (escribir libre)</option>
-                                  </select>
-                                );
-                              }
+                                : [];
                               return (
-                                <input value={p.variedad||""} placeholder="Royal Dawn..." onChange={e=>updPl("variedad",e.target.value)} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,width:"100%"}}/>
+                                <select disabled={!p.especie} value={p.variedad_id||""} onChange={e=>{
+                                  if(e.target.value==="__nueva__") {
+                                    if(!p.especie){alert("Selecciona primero la especie.");return;}
+                                    const nombre = window.prompt(`Nombre de la nueva variedad (especie: ${p.especie}):`);
+                                    if(!nombre || !nombre.trim()) return;
+                                    const nombreNorm = nombre.trim();
+                                    const dupe = (variedadesMaestro||[]).find(v=>v.especie===p.especie && v.variedad.toLowerCase().trim()===nombreNorm.toLowerCase());
+                                    if(dupe){ seleccionarVar(dupe.id); return; }
+                                    const id = `var_${Date.now()}`;
+                                    const nueva = {id, especie:p.especie, variedad:nombreNorm, obtentor:"", observaciones:""};
+                                    setVariedadesMaestro&&setVariedadesMaestro(prev=>[...(prev||[]),nueva]);
+                                    window.auditLog&&window.auditLog("crear",{modulo:"osiris",seccion:"Maestro Variedades",
+                                      descripcion:`Creó variedad "${p.especie} · ${nombreNorm}" desde plantaciones (modo nuevo)`,registroId:id});
+                                    seleccionarVar(id);
+                                  } else {
+                                    seleccionarVar(e.target.value);
+                                  }
+                                }} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:p.especie?"#fff":"#f1f5f9",width:"100%"}}>
+                                  <option value="">{p.especie?"— Seleccionar —":"(Selecciona especie primero)"}</option>
+                                  {variedadesFiltradas.map(v=>(<option key={v.id} value={v.id}>{v.variedad}</option>))}
+                                  {p.especie&&<option value="__nueva__">＋ Crear nueva variedad...</option>}
+                                </select>
                               );
                             })()}
                           </td>
@@ -6282,7 +6329,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const [obtEditId, setObtEditId] = useState(null);
   const [obtDetalle, setObtDetalle] = useState(null);
   const [obtTab, setObtTab] = useState("general");
-  const EMPTY_OBT = {obtentor:"",f_inicio:"",f_vencimiento:"",renovable:false,observaciones:"",
+  const EMPTY_OBT = {obtentor:"",f_inicio:"",f_vencimiento:"",renovable:false,f_vencimiento_nueva:"",observaciones:"",
     firma_obtentor:false,firma_osiris:false,doc_legal:"",doc_contrato:"",estado_contrato:"Borrador",
     especies:[],anexos:[],pbr:[]};
   const [obtForm, setObtForm] = useState(EMPTY_OBT);
@@ -6303,7 +6350,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
 
   // Hooks para Contratos Viveros (estructura jerárquica)
   const [vivModal, setVivModal] = useState(false);
-  const EMPTY_VIV = {viverista:"",pais:"",f_contrato:"",f_vencimiento:"",renovable:false,
+  const EMPTY_VIV = {viverista:"",pais:"",f_contrato:"",f_vencimiento:"",renovable:false,f_vencimiento_nueva:"",
     firma_viverista:false,firma_osiris:false,doc_legal:"",doc_contrato:"",observaciones:"",
     mes_pago_estimado:"",forma_pago:"",estado_contrato:"Borrador",
     variedades:[],anexos:[],ordenesCompra:[]};
@@ -6903,6 +6950,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 <div style={{fontSize:20,fontWeight:900,color:"#e6edf3"}}>🧬 {c.obtentor}</div>
                 <div style={{fontSize:11,color:"#8b949e",marginTop:4}}>
                   {c.f_inicio&&`Desde ${c.f_inicio}`} {c.f_vencimiento&&` · Hasta ${c.f_vencimiento}`}
+                  {c.renovable&&c.f_vencimiento_nueva&&<span style={{color:"#60a5fa",marginLeft:6,fontWeight:700}}>🔄 Nueva: {c.f_vencimiento_nueva}</span>}
                   <span style={{color:vig.color,marginLeft:8,fontWeight:700}}>{vig.icon} {vig.label}</span>
                   {c.doc_contrato&&<a href={c.doc_contrato} target="_blank" rel="noopener noreferrer" style={{marginLeft:10,color:"#a78bfa",fontWeight:700,textDecoration:"none"}}>📄 Abrir contrato</a>}
                 </div>
@@ -6953,6 +7001,13 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                     Contrato renovable
                   </label>
                 </div>
+                {c.renovable&&(
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📆 Nueva Fecha Vencimiento</label>
+                    <input type="date" disabled={!canObtentores} value={c.f_vencimiento_nueva||""} onChange={e=>updateContrato(c.id,{f_vencimiento_nueva:e.target.value})}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #93c5fd",fontSize:13,boxSizing:"border-box",background:canObtentores?"#eff6ff":"#f8fafc"}}/>
+                  </div>
+                )}
                 <div style={{gridColumn:"1/-1"}}>
                   <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link al contrato (OneDrive/Drive)</label>
                   <input disabled={!canObtentores} value={c.doc_contrato||""} placeholder="https://..." onChange={e=>updateContrato(c.id,{doc_contrato:e.target.value})}
@@ -7536,6 +7591,13 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                   <input type="checkbox" checked={!!obtForm.renovable} onChange={e=>setObtForm(p=>({...p,renovable:e.target.checked}))}/>
                   <span style={{fontSize:12}}>Contrato renovable</span>
                 </label>
+                {obtForm.renovable&&(
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📆 Nueva Fecha Vencimiento</label>
+                    <input type="date" value={obtForm.f_vencimiento_nueva||""} onChange={e=>setObtForm(p=>({...p,f_vencimiento_nueva:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #93c5fd",fontSize:13,boxSizing:"border-box",background:"#eff6ff"}}/>
+                  </div>
+                )}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8}}>
                   <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
                     <input type="checkbox" checked={!!obtForm.firma_obtentor} onChange={e=>setObtForm(p=>({...p,firma_obtentor:e.target.checked}))}/>
@@ -8053,6 +8115,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 <div style={{fontSize:20,fontWeight:900,color:"#e6edf3"}}>🌱 {v.viverista}</div>
                 <div style={{fontSize:11,color:"#8b949e",marginTop:4}}>
                   {v.pais&&`🌍 ${v.pais}`} {v.f_contrato&&` · Contrato ${v.f_contrato}`} {v.f_vencimiento&&` · Vence ${v.f_vencimiento}`}
+                  {v.renovable&&v.f_vencimiento_nueva&&<span style={{color:"#60a5fa",marginLeft:6,fontWeight:700}}>🔄 Nueva: {v.f_vencimiento_nueva}</span>}
                   <span style={{color:vig.color,marginLeft:8,fontWeight:700}}>{vig.icon} {vig.label}</span>
                   {v.doc_contrato&&<a href={v.doc_contrato} target="_blank" rel="noopener noreferrer" style={{marginLeft:10,color:"#86efac",fontWeight:700,textDecoration:"none"}}>📄 Abrir contrato</a>}
                 </div>
@@ -8990,6 +9053,13 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                   <input type="checkbox" checked={!!vivForm.renovable} onChange={e=>setVivForm(p=>({...p,renovable:e.target.checked}))}/>
                   <span style={{fontSize:12}}>Contrato renovable</span>
                 </label>
+                {vivForm.renovable&&(
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📆 Nueva Fecha Vencimiento</label>
+                    <input type="date" value={vivForm.f_vencimiento_nueva||""} onChange={e=>setVivForm(p=>({...p,f_vencimiento_nueva:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #93c5fd",fontSize:13,boxSizing:"border-box",background:"#eff6ff"}}/>
+                  </div>
+                )}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8}}>
                   <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
                     <input type="checkbox" checked={!!vivForm.firma_viverista} onChange={e=>setVivForm(p=>({...p,firma_viverista:e.target.checked}))}/>
