@@ -1411,6 +1411,8 @@ export default function App(){
                 obtentores:  Array.isArray(saved.obtentores)  ? saved.obtentores  : (prev.obtentores  || []),
                 viveros:     Array.isArray(saved.viveros)     ? saved.viveros     : (prev.viveros     || []),
                 viveristas:  Array.isArray(saved.viveristas)  ? saved.viveristas  : (prev.viveristas  || []),
+                opTecnica:   (saved.opTecnica && typeof saved.opTecnica === "object" && !Array.isArray(saved.opTecnica))
+                             ? saved.opTecnica : (prev.opTecnica || {}),
               };
             });
           }
