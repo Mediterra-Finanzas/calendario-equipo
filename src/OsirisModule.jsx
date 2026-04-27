@@ -4537,7 +4537,7 @@ async function exportarContratos(filtrado) {
   });
 }
 
-function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[],setVariedadesMaestro,especiesMaestro=[],setEspeciesMaestro,obtentoresData=[],can}){
+function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[],setVariedadesMaestro,especiesMaestro=[],setEspeciesMaestro,obtentoresData=[],viverosData=[],setViveros,can}){
   const [vista,setVista]=useState("tabla");
   const [sel,setSel]=useState(null);
   const [sec,setSec]=useState("empresa");
@@ -4598,6 +4598,70 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
     return {...r,[c]:v};
   }));
   const setF=(c,v)=>setForm(p=>({...p,[c]:v}));
+
+  // ── Helpers para sincronizar OC del vivero con plantaciones ─────────
+  // Cuando una plantación se crea/edita/elimina con vivero asociado, las OCs
+  // del contrato del vivero se mantienen sincronizadas automáticamente.
+  function generarOCEnVivero(plantacion) {
+    if(!setViveros) return;
+    if(!plantacion?.vivero_id || !plantacion?.nPlantas || !plantacion?.vivero_fee_usd) return;
+    const ocId = `oc_plt_${plantacion.id}_${Date.now()}`;
+    const productorActual = data.find(c=>c.plantaciones?.some(p=>p.id===plantacion.id));
+    setViveros(prev => (prev||[]).map(v=>{
+      if(v.id !== plantacion.vivero_id) return v;
+      const nuevaOC = {
+        id: ocId,
+        n_oc: `OC-${(v.ordenesCompra||[]).length+1}`,
+        cliente: productorActual?.razonSocial || "",
+        ctId: productorActual?.id || "",
+        plantacionId: plantacion.id,
+        variedad_id: plantacion.variedad_id || "",
+        especie: plantacion.especie || "",
+        variedad: plantacion.variedad || "",
+        plantas: plantacion.nPlantas,
+        fee: plantacion.vivero_fee_usd,
+        total: (plantacion.nPlantas||0) * (plantacion.vivero_fee_usd||0),
+        estado: "Pendiente",
+        f_oc: new Date().toISOString().split("T")[0],
+        observaciones: `Generada automáticamente desde plantación ${plantacion.especie} · ${plantacion.variedad}`,
+        _fromPlantacion: true,
+      };
+      return {...v, ordenesCompra: [...(v.ordenesCompra||[]), nuevaOC]};
+    }));
+    // También actualizar la plantación con el ocId
+    if(productorActual) {
+      const nextPl = (productorActual.plantaciones||[]).map(x =>
+        x.id === plantacion.id ? {...x, vivero_oc_id: ocId} : x);
+      setData(prev => prev.map(c => c.id === productorActual.id ? {...c, plantaciones:nextPl} : c));
+    }
+    window.auditLog && window.auditLog("crear", {modulo:"osiris", seccion:"OC Vivero (auto)",
+      descripcion:`OC autogenerada en vivero "${plantacion.vivero_nombre}" desde plantación ${plantacion.especie} · ${plantacion.variedad}: ${plantacion.nPlantas} plantas × $${plantacion.vivero_fee_usd}`,
+      registroId:ocId});
+  }
+  function actualizarOCEnVivero(viveroId, ocId, cambios) {
+    if(!setViveros || !viveroId || !ocId) return;
+    setViveros(prev => (prev||[]).map(v=>{
+      if(v.id !== viveroId) return v;
+      return {
+        ...v,
+        ordenesCompra: (v.ordenesCompra||[]).map(oc =>
+          oc.id === ocId ? {...oc, ...cambios} : oc)
+      };
+    }));
+  }
+  function removerOCDelVivero(viveroId, ocId) {
+    if(!setViveros || !viveroId || !ocId) return;
+    setViveros(prev => (prev||[]).map(v=>{
+      if(v.id !== viveroId) return v;
+      return {
+        ...v,
+        ordenesCompra: (v.ordenesCompra||[]).filter(oc => oc.id !== ocId)
+      };
+    }));
+    window.auditLog && window.auditLog("eliminar", {modulo:"osiris", seccion:"OC Vivero (auto)",
+      descripcion:`OC eliminada por unvinculación de plantación`,
+      registroId:ocId});
+  }
 
   const filtrado=data.filter(r=>
     (filtroPais==="Todos"||r.pais===filtroPais)&&
@@ -4891,37 +4955,51 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
             </div>
           )}
           {sec==="factura"&&(
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:16}}>
-              <div>
-                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Tipo Contract Fee</div>
-                <Cell val={r.tipoContractFee} onChange={v=>upd(r.id,"tipoContractFee",v)} opts={TIPOS_FEE} can={can}/>
+            <>
+              <div style={{padding:"10px 14px",background:"#fef3c7",borderRadius:8,border:"1px solid #fde68a",marginBottom:14,fontSize:11,color:"#78350f"}}>
+                💡 <strong>Recordatorio fiscal:</strong> Contract Fee no lleva WHT. Royalty Planta y Royalty Comercial sí están sujetos a WHT 15% en Perú/México (en Chile, sin WHT).
               </div>
-              <div>
-                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Monto Contract Fee (USD)</div>
-                <Cell val={r.montoContractFee} onChange={v=>upd(r.id,"montoContractFee",parseFloat(v)||0)} type="number" can={can}/>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))",gap:16}}>
+                <div>
+                  <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Tipo Contract Fee</div>
+                  <Cell val={r.tipoContractFee} onChange={v=>upd(r.id,"tipoContractFee",v)} opts={TIPOS_FEE} can={can}/>
+                  <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>Sin WHT</div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Monto Contract Fee (USD)</div>
+                  <Cell val={r.montoContractFee} onChange={v=>upd(r.id,"montoContractFee",parseFloat(v)||0)} type="number" can={can}/>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Valor Royalty/Planta (USD)</div>
+                  <Cell val={r.valorRoyaltyPlanta} onChange={v=>upd(r.id,"valorRoyaltyPlanta",parseFloat(v)||0)} type="number" can={can}/>
+                  <div style={{fontSize:9,color:pct(r.pais)===1?"#94a3b8":"#dc2626",marginTop:3}}>{pct(r.pais)===1?"Sin WHT (Chile)":"WHT 15% — neto = "+(((Number(r.valorRoyaltyPlanta)||0)*0.85).toFixed(2))+" USD/planta"}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Valor Royalty Comercial (USD/Há)</div>
+                  <Cell val={r.valorRoyaltyComercial} onChange={v=>upd(r.id,"valorRoyaltyComercial",parseFloat(v)||0)} type="number" can={can}/>
+                  <div style={{fontSize:9,color:pct(r.pais)===1?"#94a3b8":"#dc2626",marginTop:3}}>{pct(r.pais)===1?"Sin WHT (Chile)":"WHT 15% — neto = $"+(((Number(r.valorRoyaltyComercial)||0)*0.85).toFixed(0))+"/há"}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>📅 Mes Facturación RC</div>
+                  <Cell val={r.mesFacuracionRC||""} onChange={v=>upd(r.id,"mesFacuracionRC",v)} opts={["—",...MESES_ANO]} can={can}/>
+                  <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>Default {r.pais}: {RC_MES_DEFAULT_POR_PAIS[r.pais]||"Abril"}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>📆 Año primer cobro RC</div>
+                  <Cell val={r.anioPrimerCobroRC||""} onChange={v=>upd(r.id,"anioPrimerCobroRC",parseInt(v)||"")} type="number" can={can}/>
+                  <div style={{fontSize:9,color:"#94a3b8",marginTop:3}}>Ej. 2027 — luego se repite cada año hasta término</div>
+                </div>
+                <div style={{display:"flex",alignItems:"flex-end",paddingBottom:4}}>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",
+                    background:r.royaltyInflacion?C.amBg:"#f1f5f9",border:`1px solid ${r.royaltyInflacion?"#fde047":"#d1d5db"}`,
+                    borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:600,
+                    color:r.royaltyInflacion?C.am:"#94a3b8"}}>
+                    <input type="checkbox" checked={r.royaltyInflacion||false} disabled={!can} onChange={()=>upd(r.id,"royaltyInflacion",!r.royaltyInflacion)} style={{accentColor:"#d97706"}}/>
+                    📈 Sujeto a Inflación
+                  </label>
+                </div>
               </div>
-              <div>
-                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Valor Royalty/Planta (USD)</div>
-                <Cell val={r.valorRoyaltyPlanta} onChange={v=>upd(r.id,"valorRoyaltyPlanta",parseFloat(v)||0)} type="number" can={can}/>
-              </div>
-              <div>
-                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Valor Royalty Comercial (USD/Há)</div>
-                <Cell val={r.valorRoyaltyComercial} onChange={v=>upd(r.id,"valorRoyaltyComercial",parseFloat(v)||0)} type="number" can={can}/>
-              </div>
-              <div>
-                <div style={{fontSize:11,color:C.gris,fontWeight:600,marginBottom:4}}>Mes Facturación Royalty Comercial</div>
-                <Cell val={r.mesFacuracionRC||""} onChange={v=>upd(r.id,"mesFacuracionRC",v)} opts={["—",...MESES_ANO]} can={can}/>
-              </div>
-              <div style={{display:"flex",alignItems:"flex-end",paddingBottom:4}}>
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:can?"pointer":"default",
-                  background:r.royaltyInflacion?C.amBg:"#f1f5f9",border:`1px solid ${r.royaltyInflacion?"#fde047":"#d1d5db"}`,
-                  borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:600,
-                  color:r.royaltyInflacion?C.am:"#94a3b8"}}>
-                  <input type="checkbox" checked={r.royaltyInflacion||false} disabled={!can} onChange={()=>upd(r.id,"royaltyInflacion",!r.royaltyInflacion)} style={{accentColor:"#d97706"}}/>
-                  📈 Sujeto a Inflación
-                </label>
-              </div>
-            </div>
+            </>
           )}
 
           {/* ── SECCIÓN: PLANTACIONES (variedades plantadas) ── */}
@@ -4959,7 +5037,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
                   <thead><tr style={{background:"#15803d",color:"#fff"}}>
-                    {["Especie","Variedad","Plantas","Hectáreas","Fecha plantación","Sublicenciatario","Estado",""].map(h=>(
+                    {["Especie","Variedad","Plantas","Hectáreas","Fecha plantación","Sublicenciatario","Vivero","Fee USD/planta","Estado",""].map(h=>(
                       <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr></thead>
@@ -4969,56 +5047,118 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                         const next = (r.plantaciones||[]).map(x=>x.id===p.id?{...x,[campo]:valor}:x);
                         upd(r.id,"plantaciones",next);
                       };
-                      const seleccionarVariedad = (vid) => {
-                        const vv = (variedadesMaestro||[]).find(x=>x.id===vid);
-                        const next = (r.plantaciones||[]).map(x=>x.id===p.id?{
-                          ...x,
-                          variedad_id: vid,
-                          especie:  vv?.especie || x.especie,
-                          variedad: vv?.variedad || x.variedad,
-                        }:x);
+                      const updPlMulti = (cambios) => {
+                        const next = (r.plantaciones||[]).map(x=>x.id===p.id?{...x,...cambios}:x);
                         upd(r.id,"plantaciones",next);
+                      };
+                      const seleccionarVariedad = (vid) => {
+                        if(!vid){ updPlMulti({variedad_id:"", especie:p.especie, variedad:p.variedad}); return; }
+                        const vv = (variedadesMaestro||[]).find(x=>x.id===vid);
+                        updPlMulti({
+                          variedad_id: vid,
+                          especie:  vv?.especie || p.especie,
+                          variedad: vv?.variedad || p.variedad,
+                        });
                       };
                       const seleccionarSublic = (sid) => {
                         const sub = (r.sublicenciatarios||[]).find(s=>s.id===sid);
-                        const next = (r.plantaciones||[]).map(x=>x.id===p.id?{
-                          ...x,
+                        updPlMulti({
                           sublicenciatario_id: sid,
                           sublicenciatario_nombre: sub?.razonSocial || "",
-                        }:x);
-                        upd(r.id,"plantaciones",next);
+                        });
                       };
+                      const seleccionarVivero = (vivId) => {
+                        if(!vivId){
+                          // Si tenía OC vinculada, preguntar
+                          if(p.vivero_oc_id && window.confirm("Esta plantación tenía vivero asociado con OC generada. ¿Eliminar también la OC del vivero?")) {
+                            removerOCDelVivero(p.vivero_id, p.vivero_oc_id);
+                          }
+                          updPlMulti({vivero_id:"", vivero_nombre:"", vivero_fee_usd:0, vivero_oc_id:""});
+                          return;
+                        }
+                        const viv = (viverosData||[]).find(v=>v.id===vivId);
+                        updPlMulti({
+                          vivero_id: vivId,
+                          vivero_nombre: viv?.viverista || "",
+                        });
+                      };
+                      // Especie color del Maestro
+                      const espMaestro = (especiesMaestro||[]).find(e=>e.nombre.toLowerCase().trim()===(p.especie||"").toLowerCase().trim());
+                      const colorEsp = espMaestro?.color;
+                      // Variedad coincide con maestro (para el dual-mode)
+                      const enMaestro = (variedadesMaestro||[]).some(v=>v.id===p.variedad_id);
                       return (
                         <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2?"#f8fafc":"#fff"}}>
-                          <td style={{padding:"6px 8px"}}>
-                            {(()=>{
-                              const espMaestro = (especiesMaestro||[]).find(e=>e.nombre.toLowerCase().trim()===(p.especie||"").toLowerCase().trim());
-                              const colorEsp = espMaestro?.color;
-                              return (variedadesMaestro||[]).length>0?(
-                                <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                                  {colorEsp&&<div title={p.especie} style={{width:14,height:14,borderRadius:3,background:colorEsp,flexShrink:0,boxShadow:"0 1px 2px #0002"}}/>}
-                                  <select disabled={!can} value={p.variedad_id||""} onChange={e=>seleccionarVariedad(e.target.value)}
-                                    style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
-                                    <option value="">— Seleccionar —</option>
-                                    {/* Agrupar por especie */}
-                                    {Array.from(new Set((variedadesMaestro||[]).map(v=>v.especie).filter(Boolean))).sort().map(esp=>(
-                                      <optgroup key={esp} label={esp}>
-                                        {(variedadesMaestro||[]).filter(v=>v.especie===esp).map(v=>(
-                                          <option key={v.id} value={v.id}>{v.variedad}</option>
-                                        ))}
-                                      </optgroup>
-                                    ))}
-                                  </select>
-                                </div>
+                          {/* Especie: dropdown maestro + fallback input libre */}
+                          <td style={{padding:"6px 8px",minWidth:140}}>
+                            <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                              {colorEsp&&<div title={p.especie} style={{width:14,height:14,borderRadius:3,background:colorEsp,flexShrink:0,boxShadow:"0 1px 2px #0002"}}/>}
+                              {(especiesMaestro||[]).length>0?(
+                                <select disabled={!can} value={p.especie||""} onChange={e=>{
+                                  if(e.target.value==="__libre__") {
+                                    const txt = window.prompt("Escribe el nombre de la especie (no quedará vinculada al maestro):", p.especie||"");
+                                    if(txt!==null) updPlMulti({especie:txt.trim(), variedad_id:""});
+                                  } else {
+                                    // Cambiar especie limpia variedad_id si la variedad actual ya no corresponde
+                                    const variedadActualOK = (variedadesMaestro||[]).some(v=>v.id===p.variedad_id && v.especie===e.target.value);
+                                    updPlMulti({
+                                      especie: e.target.value,
+                                      variedad_id: variedadActualOK ? p.variedad_id : "",
+                                    });
+                                  }
+                                }} style={{flex:1,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                                  <option value="">— Seleccionar —</option>
+                                  {(especiesMaestro||[]).map(e=><option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+                                  <option value="__libre__">✏️ Otra (escribir libre)</option>
+                                </select>
                               ):(
-                                <input disabled={!can} value={p.especie||""} onChange={e=>updPl("especie",e.target.value)}
+                                <input disabled={!can} value={p.especie||""} placeholder="Cerezo, Arándano..."
+                                  onChange={e=>updPl("especie",e.target.value)}
+                                  style={{flex:1,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
+                              )}
+                            </div>
+                          </td>
+                          {/* Variedad: dropdown maestro filtrado por especie + fallback input libre */}
+                          <td style={{padding:"6px 8px",minWidth:140}}>
+                            {(()=>{
+                              const variedadesFiltradas = p.especie
+                                ? (variedadesMaestro||[]).filter(v=>v.especie===p.especie)
+                                : (variedadesMaestro||[]);
+                              if(variedadesFiltradas.length>0) {
+                                return (
+                                  <select disabled={!can} value={p.variedad_id||""} onChange={e=>{
+                                    if(e.target.value==="__libre__") {
+                                      const txt = window.prompt("Escribe el nombre de la variedad (no quedará vinculada al maestro):", p.variedad||"");
+                                      if(txt!==null) updPlMulti({variedad: txt.trim(), variedad_id:""});
+                                    } else {
+                                      seleccionarVariedad(e.target.value);
+                                    }
+                                  }} style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                                    <option value="">{p.variedad ? `(libre) ${p.variedad}` : "— Seleccionar —"}</option>
+                                    {variedadesFiltradas.map(v=>(
+                                      <option key={v.id} value={v.id}>{v.variedad}{v.obtentor?` · ${v.obtentor}`:""}</option>
+                                    ))}
+                                    <option value="__libre__">✏️ Otra (escribir libre)</option>
+                                  </select>
+                                );
+                              }
+                              // Fallback: input libre
+                              return (
+                                <input disabled={!can} value={p.variedad||""} placeholder="Royal Dawn..."
+                                  onChange={e=>updPl("variedad",e.target.value)}
                                   style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
                               );
                             })()}
                           </td>
-                          <td style={{padding:"6px 8px",fontWeight:600}}>{p.variedad||"—"}</td>
                           <td style={{padding:"6px 8px"}}>
-                            <input type="number" disabled={!can} value={p.nPlantas||0} onChange={e=>updPl("nPlantas",parseInt(e.target.value)||0)}
+                            <input type="number" disabled={!can} value={p.nPlantas||0} onChange={e=>{
+                              const n = parseInt(e.target.value)||0;
+                              updPlMulti({nPlantas:n});
+                              // Si tiene OC vinculada, actualizar la OC también
+                              if(p.vivero_oc_id && p.vivero_id) {
+                                actualizarOCEnVivero(p.vivero_id, p.vivero_oc_id, {plantas:n, total:n*(p.vivero_fee_usd||0)});
+                              }
+                            }}
                               style={{width:90,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,textAlign:"right"}}/>
                           </td>
                           <td style={{padding:"6px 8px"}}>
@@ -5036,6 +5176,50 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                               {(r.sublicenciatarios||[]).map(s=><option key={s.id} value={s.id}>{s.razonSocial}</option>)}
                             </select>
                           </td>
+                          {/* NUEVO: Vivero */}
+                          <td style={{padding:"6px 8px"}}>
+                            {(viverosData||[]).length>0?(
+                              <select disabled={!can} value={p.vivero_id||""} onChange={e=>seleccionarVivero(e.target.value)}
+                                style={{padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff",maxWidth:170}}>
+                                <option value="">— Sin vivero —</option>
+                                {(viverosData||[]).map(v=>(
+                                  <option key={v.id} value={v.id}>{v.viverista || "Sin nombre"}{v.pais?` · ${v.pais}`:""}</option>
+                                ))}
+                              </select>
+                            ):(
+                              <span style={{fontSize:10,color:"#94a3b8",fontStyle:"italic"}}>Sin contratos vivero</span>
+                            )}
+                          </td>
+                          {/* NUEVO: Fee USD/planta */}
+                          <td style={{padding:"6px 8px"}}>
+                            <input type="number" step="0.001" disabled={!can||!p.vivero_id} value={p.vivero_fee_usd||0}
+                              placeholder={p.vivero_id?"0.00":"—"}
+                              onChange={e=>{
+                                const fee = parseFloat(e.target.value)||0;
+                                updPlMulti({vivero_fee_usd:fee});
+                                if(p.vivero_oc_id && p.vivero_id) {
+                                  actualizarOCEnVivero(p.vivero_id, p.vivero_oc_id, {fee, total:(p.nPlantas||0)*fee});
+                                }
+                              }}
+                              style={{width:80,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,textAlign:"right",background:p.vivero_id?"#fff":"#f1f5f9"}}/>
+                            {p.vivero_id&&p.nPlantas>0&&(p.vivero_fee_usd||0)>0&&(
+                              <div style={{fontSize:9,color:"#64748b",marginTop:2,textAlign:"right"}}>
+                                Total: ${N(((p.nPlantas||0)*(p.vivero_fee_usd||0)).toFixed(0))}
+                              </div>
+                            )}
+                            {p.vivero_id&&!p.vivero_oc_id&&p.nPlantas>0&&(p.vivero_fee_usd||0)>0&&can&&(
+                              <button onClick={()=>generarOCEnVivero(p)}
+                                title="Generar OC en el contrato del vivero"
+                                style={{marginTop:3,padding:"2px 6px",borderRadius:4,background:"#0d9488",color:"#fff",border:"none",fontSize:9,cursor:"pointer",fontWeight:600,display:"block",width:"100%"}}>
+                                ⚡ Generar OC
+                              </button>
+                            )}
+                            {p.vivero_oc_id&&(
+                              <div style={{fontSize:9,color:"#0d9488",marginTop:2,fontWeight:600,textAlign:"right"}}>
+                                ✓ OC vinculada
+                              </div>
+                            )}
+                          </td>
                           <td style={{padding:"6px 8px"}}>
                             <select disabled={!can} value={p.estado||"Confirmado"} onChange={e=>updPl("estado",e.target.value)}
                               style={{padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
@@ -5045,6 +5229,12 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                           <td style={{padding:"6px 8px",textAlign:"center"}}>
                             {can&&<button onClick={()=>{
                               if(!window.confirm(`¿Eliminar la plantación "${p.especie} · ${p.variedad}"?`))return;
+                              // Si tiene OC vinculada, preguntar si también eliminar la OC del vivero
+                              if(p.vivero_oc_id && p.vivero_id) {
+                                if(window.confirm(`Esta plantación tiene una OC vinculada en el vivero "${p.vivero_nombre||"el vivero"}". ¿Eliminar también esa OC?`)) {
+                                  removerOCDelVivero(p.vivero_id, p.vivero_oc_id);
+                                }
+                              }
                               const next = (r.plantaciones||[]).filter(x=>x.id!==p.id);
                               upd(r.id,"plantaciones",next);
                             }} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#991b1b"}}>🗑</button>}
@@ -5056,7 +5246,9 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                       <td colSpan={2} style={{padding:"7px 10px",color:"#15803d"}}>TOTALES</td>
                       <td style={{padding:"7px 10px",color:"#15803d",textAlign:"right"}}>{N((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.nPlantas)||0),0))}</td>
                       <td style={{padding:"7px 10px",color:"#15803d",textAlign:"right"}}>{N((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.hectareas)||0),0).toFixed(2))}</td>
-                      <td colSpan={4}></td>
+                      <td colSpan={3}></td>
+                      <td style={{padding:"7px 10px",color:"#dc2626",textAlign:"right"}} title="Total egreso por viveros">${N((r.plantaciones||[]).reduce((s,p)=>s+((parseFloat(p.nPlantas)||0)*(parseFloat(p.vivero_fee_usd)||0)),0).toFixed(0))}</td>
+                      <td colSpan={2}></td>
                     </tr>
                   </tbody>
                 </table>
@@ -5065,6 +5257,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                 💡 <strong>Royalty Planta estimado:</strong> {(r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.nPlantas)||0),0)} plantas × ${r.valorRoyaltyPlanta||1}/planta = <strong>${N(((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.nPlantas)||0),0)*(r.valorRoyaltyPlanta||1)).toFixed(2))}</strong> (100% facturado, {pct(r.pais)===1?"sin WHT":"15% WHT"})
                 <br/>
                 💡 <strong>Royalty Comercial anual:</strong> {N((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.hectareas)||0),0).toFixed(2))} há × ${N(r.valorRoyaltyComercial||0)}/há = <strong>${N(((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.hectareas)||0),0)*(r.valorRoyaltyComercial||0)).toFixed(2))}</strong>/temporada (100% facturado)
+                {(r.plantaciones||[]).some(p=>p.vivero_id)&&<><br/>💸 <strong style={{color:"#dc2626"}}>Egreso por viveros:</strong> ${N((r.plantaciones||[]).reduce((s,p)=>s+((parseFloat(p.nPlantas)||0)*(parseFloat(p.vivero_fee_usd)||0)),0).toFixed(0))} (one-time, USD)</>}
               </div>
             </>)}
           </>)}
@@ -5571,7 +5764,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                   <thead><tr style={{background:"#dcfce7"}}>
-                    {["Especie","Variedad","Plantas","Há","Fecha plant.","Sublicenciatario",""].map(h=>(<th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:11,fontWeight:700,color:"#14532d"}}>{h}</th>))}
+                    {["Especie","Variedad","Plantas","Há","Fecha plant.","Sublicenciatario","Vivero","Fee USD/planta",""].map(h=>(<th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:11,fontWeight:700,color:"#14532d"}}>{h}</th>))}
                   </tr></thead>
                   <tbody>
                     {(form.plantaciones||[]).map(p=>{
@@ -5579,45 +5772,78 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                         const next = (form.plantaciones||[]).map(x=>x.id===p.id?{...x,[campo]:valor}:x);
                         setF("plantaciones",next);
                       };
-                      const seleccionarVar = (vid)=>{
-                        const vv = (variedadesMaestro||[]).find(x=>x.id===vid);
-                        const next = (form.plantaciones||[]).map(x=>x.id===p.id?{
-                          ...x, variedad_id:vid, especie:vv?.especie||x.especie, variedad:vv?.variedad||x.variedad,
-                        }:x);
+                      const updPlMulti = (cambios)=>{
+                        const next = (form.plantaciones||[]).map(x=>x.id===p.id?{...x,...cambios}:x);
                         setF("plantaciones",next);
+                      };
+                      const seleccionarVar = (vid)=>{
+                        if(!vid){ updPlMulti({variedad_id:""}); return; }
+                        const vv = (variedadesMaestro||[]).find(x=>x.id===vid);
+                        updPlMulti({variedad_id:vid, especie:vv?.especie||p.especie, variedad:vv?.variedad||p.variedad});
                       };
                       const seleccionarSub = (sid)=>{
                         const sub = (form.sublicenciatarios||[]).find(s=>s.id===sid);
-                        const next = (form.plantaciones||[]).map(x=>x.id===p.id?{
-                          ...x, sublicenciatario_id:sid, sublicenciatario_nombre:sub?.razonSocial||"",
-                        }:x);
-                        setF("plantaciones",next);
+                        updPlMulti({sublicenciatario_id:sid, sublicenciatario_nombre:sub?.razonSocial||""});
                       };
+                      const seleccionarViv = (vivId)=>{
+                        if(!vivId){ updPlMulti({vivero_id:"", vivero_nombre:"", vivero_fee_usd:0}); return; }
+                        const viv = (viverosData||[]).find(v=>v.id===vivId);
+                        updPlMulti({vivero_id:vivId, vivero_nombre:viv?.viverista||""});
+                      };
+                      const espMaestro = (especiesMaestro||[]).find(e=>e.nombre.toLowerCase().trim()===(p.especie||"").toLowerCase().trim());
+                      const colorEsp = espMaestro?.color;
                       return (
                         <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9"}}>
-                          <td style={{padding:"5px 8px"}}>
+                          {/* Especie dual-mode */}
+                          <td style={{padding:"5px 8px",minWidth:130}}>
+                            <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                              {colorEsp&&<div title={p.especie} style={{width:12,height:12,borderRadius:3,background:colorEsp,flexShrink:0,boxShadow:"0 1px 2px #0002"}}/>}
+                              {(especiesMaestro||[]).length>0?(
+                                <select value={p.especie||""} onChange={e=>{
+                                  if(e.target.value==="__libre__") {
+                                    const txt = window.prompt("Escribe el nombre de la especie:", p.especie||"");
+                                    if(txt!==null) updPlMulti({especie:txt.trim(), variedad_id:""});
+                                  } else {
+                                    const variedadActualOK = (variedadesMaestro||[]).some(v=>v.id===p.variedad_id && v.especie===e.target.value);
+                                    updPlMulti({especie:e.target.value, variedad_id: variedadActualOK ? p.variedad_id : ""});
+                                  }
+                                }} style={{flex:1,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                                  <option value="">— Seleccionar —</option>
+                                  {(especiesMaestro||[]).map(e=><option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+                                  <option value="__libre__">✏️ Otra (escribir libre)</option>
+                                </select>
+                              ):(<input value={p.especie||""} placeholder="Cerezo, Arándano..." onChange={e=>updPl("especie",e.target.value)} style={{flex:1,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11}}/>)}
+                            </div>
+                          </td>
+                          {/* Variedad dual-mode */}
+                          <td style={{padding:"5px 8px",minWidth:130}}>
                             {(()=>{
-                              const espMaestro = (especiesMaestro||[]).find(e=>e.nombre.toLowerCase().trim()===(p.especie||"").toLowerCase().trim());
-                              const colorEsp = espMaestro?.color;
-                              return (variedadesMaestro||[]).length>0?(
-                                <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                                  {colorEsp&&<div title={p.especie} style={{width:14,height:14,borderRadius:3,background:colorEsp,flexShrink:0,boxShadow:"0 1px 2px #0002"}}/>}
-                                  <select value={p.variedad_id||""} onChange={e=>seleccionarVar(e.target.value)}
-                                    style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
-                                    <option value="">— Seleccionar —</option>
-                                    {Array.from(new Set((variedadesMaestro||[]).map(v=>v.especie).filter(Boolean))).sort().map(esp=>(
-                                      <optgroup key={esp} label={esp}>
-                                        {(variedadesMaestro||[]).filter(v=>v.especie===esp).map(v=>(
-                                          <option key={v.id} value={v.id}>{v.variedad}</option>
-                                        ))}
-                                      </optgroup>
+                              const variedadesFiltradas = p.especie
+                                ? (variedadesMaestro||[]).filter(v=>v.especie===p.especie)
+                                : (variedadesMaestro||[]);
+                              if(variedadesFiltradas.length>0) {
+                                return (
+                                  <select value={p.variedad_id||""} onChange={e=>{
+                                    if(e.target.value==="__libre__") {
+                                      const txt = window.prompt("Escribe el nombre de la variedad:", p.variedad||"");
+                                      if(txt!==null) updPlMulti({variedad: txt.trim(), variedad_id:""});
+                                    } else {
+                                      seleccionarVar(e.target.value);
+                                    }
+                                  }} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff",width:"100%"}}>
+                                    <option value="">{p.variedad ? `(libre) ${p.variedad}` : "— Seleccionar —"}</option>
+                                    {variedadesFiltradas.map(v=>(
+                                      <option key={v.id} value={v.id}>{v.variedad}</option>
                                     ))}
+                                    <option value="__libre__">✏️ Otra (escribir libre)</option>
                                   </select>
-                                </div>
-                              ):(<input value={p.especie||""} onChange={e=>updPl("especie",e.target.value)} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11}}/>);
+                                );
+                              }
+                              return (
+                                <input value={p.variedad||""} placeholder="Royal Dawn..." onChange={e=>updPl("variedad",e.target.value)} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,width:"100%"}}/>
+                              );
                             })()}
                           </td>
-                          <td style={{padding:"5px 8px",fontWeight:600}}>{p.variedad||"—"}</td>
                           <td style={{padding:"5px 8px"}}>
                             <input type="number" value={p.nPlantas||0} onChange={e=>updPl("nPlantas",parseInt(e.target.value)||0)} style={{width:80,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,textAlign:"right"}}/>
                           </td>
@@ -5633,6 +5859,25 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                               <option value="">— Sin sublicencia —</option>
                               {(form.sublicenciatarios||[]).map(s=><option key={s.id} value={s.id}>{s.razonSocial||"(sin nombre)"}</option>)}
                             </select>
+                          </td>
+                          {/* NUEVO: Vivero */}
+                          <td style={{padding:"5px 8px"}}>
+                            {(viverosData||[]).length>0?(
+                              <select value={p.vivero_id||""} onChange={e=>seleccionarViv(e.target.value)}
+                                style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff",maxWidth:160}}>
+                                <option value="">— Sin vivero —</option>
+                                {(viverosData||[]).map(v=>(<option key={v.id} value={v.id}>{v.viverista||"Sin nombre"}</option>))}
+                              </select>
+                            ):(
+                              <span style={{fontSize:10,color:"#94a3b8",fontStyle:"italic"}}>Sin contratos</span>
+                            )}
+                          </td>
+                          {/* NUEVO: Fee USD/planta */}
+                          <td style={{padding:"5px 8px"}}>
+                            <input type="number" step="0.001" disabled={!p.vivero_id} value={p.vivero_fee_usd||0}
+                              placeholder={p.vivero_id?"0.00":"—"}
+                              onChange={e=>updPl("vivero_fee_usd",parseFloat(e.target.value)||0)}
+                              style={{width:75,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,textAlign:"right",background:p.vivero_id?"#fff":"#f1f5f9"}}/>
                           </td>
                           <td style={{padding:"5px 8px"}}>
                             <button onClick={()=>{
@@ -6185,6 +6430,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
 
   const setClientes=useCallback(fn=>setOsirisData(prev=>({...prev,clientes:       typeof fn==="function"?fn(prev?.clientes       ??CLIENTES_INIT):fn})),[setOsirisData]);
   const setViveristas=useCallback(fn=>setOsirisData(prev=>({...prev,viveristas:    typeof fn==="function"?fn(prev?.viveristas    ??VIVERISTAS_INIT):fn})),[setOsirisData]);
+  const setVivGlobal=useCallback(fn=>setOsirisData(prev=>({...prev,viveros:       typeof fn==="function"?fn(prev?.viveros       ??[]):fn})),[setOsirisData]);
   const setVariedadesMaestro=useCallback(fn=>setOsirisData(prev=>({...prev,variedades:    typeof fn==="function"?fn(prev?.variedades    ??VARIEDADES_INIT):fn})),[setOsirisData]);
   const setEspeciesMaestro=useCallback(fn=>setOsirisData(prev=>({...prev,especies:    typeof fn==="function"?fn(prev?.especies    ??ESPECIES_INIT):fn})),[setOsirisData]);
   const setCt=useCallback(fn=>setOsirisData(prev=>({...prev,contratos:      typeof fn==="function"?fn(prev?.contratos      ??CONTRATOS_INIT):fn})),[setOsirisData]);
@@ -6485,7 +6731,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       )}
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
         {canVerContratos
-        ? <ControlContratos data={ctData} setData={setCt} clientes={clientes} setClientes={setClientes} variedadesMaestro={variedadesMaestro} setVariedadesMaestro={setVariedadesMaestro} especiesMaestro={especiesMaestro} setEspeciesMaestro={setEspeciesMaestro} obtentoresData={obtentoresData} can={canContratos}/>
+        ? <ControlContratos data={ctData} setData={setCt} clientes={clientes} setClientes={setClientes} variedadesMaestro={variedadesMaestro} setVariedadesMaestro={setVariedadesMaestro} especiesMaestro={especiesMaestro} setEspeciesMaestro={setEspeciesMaestro} obtentoresData={obtentoresData} viverosData={osirisData?.viveros||[]} setViveros={setVivGlobal} can={canContratos}/>
         : <div style={{textAlign:"center",padding:40,color:"#94a3b8"}}>Sin acceso a Contratos</div>
       }
       </div>
