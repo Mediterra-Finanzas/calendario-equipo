@@ -3640,6 +3640,26 @@ const RP_CUOTAS_DEFAULT = [
   {id:"cuo_plantacion", descripcion:"A la plantación",         pct:50, fechaEvento:""},
 ];
 const MONEDAS=["USD","EUR","CLP","PEN"];
+
+// ═══════════════════════════════════════════════════════════════════
+// MODELO DE DATOS — Bloques nuevos (Operación Técnica + Seguimiento)
+// ═══════════════════════════════════════════════════════════════════
+
+// Bloque 1: Operación Técnica
+const TIPOS_VISITA = ["Técnica","Comercial","Recepción","Vivero","Día de campo","Otra"];
+const ESTADOS_VISITA = ["Programada","Realizada","Cancelada","Reprogramada"];
+const ESTADOS_MEDIDA = ["Abierta","En proceso","Cerrada","Descartada"];
+const ESTADOS_TEST_BLOCK = ["Planificado","En curso","Finalizado","Cancelado"];
+const TIPOS_INFORME = ["Visita Técnica","Visita Comercial","Recepción","Medida Correctiva","Final de Temporada","Otro"];
+const ENTREGABLES_SUBLICENCIADO = ["Brochure","Presentaciones","Manual técnico","Informes","Días de campo","Otros"];
+
+// Bloque 2: Estado de pedido enriquecido (Productores)
+const ESTADOS_PEDIDO = ["Cotizado","OC enviada","Negociando","Confirmado","En producción","Despachado","Recibido","Anulado"];
+const ESTADOS_DESPACHO = ["Programado","En tránsito","Entregado","Con observaciones"];
+
+// Bloque 3: Estado OC Vivero enriquecido
+const ESTADOS_OC_VIVERO = ["Borrador","Enviada","Negociando","Confirmada","En producción","Lista","Despachada","Recibida","Anulada"];
+
 const SECCIONES_CT=[
   {id:"empresa",         label:"🏢 Empresa",            color:"#2563eb"},
   {id:"contrato",        label:"📄 Contrato",            color:"#7c3aed"},
@@ -3933,6 +3953,476 @@ function MaestroViveristas({viveristas,setViveristas,can}){
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// OPERACIÓN TÉCNICA — Hub transversal (visitas, informes, test blocks,
+// equipo técnico, medidas correctivas, entregables)
+// ═══════════════════════════════════════════════════════════════════
+function OperacionTecnica({data, setData, ctData=[], viverosData=[], obtentoresData=[], can}) {
+  const [subTab, setSubTab] = useState("visitas");
+  const [modal, setModal] = useState(null); // "visita"|"informe"|"testblock"|"tecnico"|"medida"|"entregable"
+  const [busq, setBusq] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("Todos");
+  const [filtroEstado, setFiltroEstado] = useState("Todos");
+
+  // Data slices
+  const visitas       = Array.isArray(data?.visitas)       ? data.visitas       : [];
+  const informes      = Array.isArray(data?.informes)      ? data.informes      : [];
+  const testBlocks    = Array.isArray(data?.testBlocks)    ? data.testBlocks    : [];
+  const equipoTecnico = Array.isArray(data?.equipoTecnico) ? data.equipoTecnico : [];
+  const medidas       = Array.isArray(data?.medidas)       ? data.medidas       : [];
+  const entregables   = Array.isArray(data?.entregables)   ? data.entregables   : [];
+
+  const upd = (key, val) => setData(prev => ({...(prev||{}), [key]: val}));
+
+  // ── CRUD helpers ──
+  function addItem(key, item) {
+    upd(key, [...(data?.[key]||[]), {...item, id:`${key.slice(0,3)}_${Date.now()}`}]);
+    window.auditLog&&window.auditLog("crear",{modulo:"osiris",seccion:`Op. Técnica · ${key}`,descripcion:`Creó ${key}: ${item.titulo||item.nombre||item.tipo||""}`});
+  }
+  function updItem(key, id, changes) {
+    upd(key, (data?.[key]||[]).map(x=>x.id===id?{...x,...changes}:x));
+  }
+  function delItem(key, id, label) {
+    if(!window.confirm(`¿Eliminar "${label}"?`)) return;
+    upd(key, (data?.[key]||[]).filter(x=>x.id!==id));
+    window.auditLog&&window.auditLog("eliminar",{modulo:"osiris",seccion:`Op. Técnica · ${key}`,descripcion:`Eliminó: ${label}`,registroId:id});
+  }
+
+  // ── Forms ──
+  const VACIO_VISITA = {tipo:"Técnica",fecha:"",cliente:"",ctId:"",viveroId:"",lugar:"",objetivo:"",resultado:"",estado:"Programada",responsable:"",fotos:"",observaciones:""};
+  const VACIO_INFORME = {tipo:"Visita Técnica",titulo:"",fecha:"",ctId:"",contenido:"",conclusiones:"",adjunto:"",responsable:""};
+  const VACIO_TEST = {nombre:"",especie:"",variedad:"",ubicacion:"",fechaInicio:"",fechaFin:"",estado:"Planificado",responsable:"",resultados:"",observaciones:""};
+  const VACIO_TECNICO = {nombre:"",rol:"Asesor por especie",especie:"",email:"",telefono:"",modalidad:"Part time",observaciones:""};
+  const VACIO_MEDIDA = {titulo:"",ctId:"",fecha:"",descripcionProblema:"",accionCorrectiva:"",responsable:"",fechaCierre:"",estado:"Abierta",observaciones:""};
+  const VACIO_ENTREGABLE = {ctId:"",sublicenciatario:"",items:ENTREGABLES_SUBLICENCIADO.map(e=>({nombre:e,entregado:false,fecha:"",observaciones:""}))};
+  const [form, setForm] = useState({});
+
+  // Clientes para dropdown (de contratos productores)
+  const clientesOpts = useMemo(()=>["Todos",...new Set((ctData||[]).map(c=>c.razonSocial).filter(Boolean))],[ctData]);
+  const viverosOpts = useMemo(()=>(viverosData||[]).map(v=>({id:v.id,label:v.viverista||"Sin nombre"})),[viverosData]);
+
+  // ── Filtrado ──
+  function filtrar(arr, campoTipo="tipo", campoEstado="estado") {
+    return arr.filter(r=>
+      (filtroTipo==="Todos"||r[campoTipo]===filtroTipo)&&
+      (filtroEstado==="Todos"||r[campoEstado]===filtroEstado)&&
+      (!busq||JSON.stringify(r).toLowerCase().includes(busq.toLowerCase()))
+    );
+  }
+
+  // ── KPIs ──
+  const kpis = useMemo(()=>{
+    const hoy = new Date().toISOString().slice(0,10);
+    return {
+      visitasProg: visitas.filter(v=>v.estado==="Programada"&&v.fecha>=hoy).length,
+      visitasRealizadas: visitas.filter(v=>v.estado==="Realizada").length,
+      medidasAbiertas: medidas.filter(m=>m.estado==="Abierta"||m.estado==="En proceso").length,
+      testActivos: testBlocks.filter(t=>t.estado==="En curso").length,
+      informesPend: visitas.filter(v=>v.estado==="Realizada"&&!informes.some(i=>i.visitaId===v.id)).length,
+      entregablesPend: entregables.reduce((s,e)=>s+e.items.filter(i=>!i.entregado).length,0),
+      tecnicos: equipoTecnico.length,
+    };
+  },[visitas,informes,testBlocks,medidas,entregables,equipoTecnico]);
+
+  const TABS = [
+    {id:"visitas",     label:"📋 Visitas",           badge:kpis.visitasProg||null},
+    {id:"informes",    label:"📝 Informes",           badge:kpis.informesPend||null},
+    {id:"testblocks",  label:"🧪 Test Blocks",        badge:kpis.testActivos||null},
+    {id:"equipo",      label:"👨‍🔬 Equipo Técnico",     badge:kpis.tecnicos||null},
+    {id:"medidas",     label:"⚠️ Medidas Correctivas", badge:kpis.medidasAbiertas||null},
+    {id:"entregables", label:"📦 Entregables",         badge:kpis.entregablesPend||null},
+  ];
+
+  // ── Guardar form genérico ──
+  function guardarForm(key, vacio) {
+    if(form._editId) {
+      updItem(key, form._editId, form);
+    } else {
+      addItem(key, form);
+    }
+    setForm({});
+    setModal(null);
+  }
+  function abrirNuevo(modalKey, vacio) { setForm({...vacio}); setModal(modalKey); }
+  function abrirEditar(modalKey, item) { setForm({...item, _editId:item.id}); setModal(modalKey); }
+
+  // ── Helper: dropdown de clientes (contratos productores) ──
+  const ClienteSelect = ({value, onChange, disabled}) => (
+    <select disabled={disabled} value={value||""} onChange={e=>onChange(e.target.value)}
+      style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,background:"#fff",boxSizing:"border-box"}}>
+      <option value="">— Seleccionar cliente —</option>
+      {(ctData||[]).map(c=><option key={c.id} value={c.id}>{c.razonSocial} · {c.pais}</option>)}
+    </select>
+  );
+  const Input = ({label,value,onChange,type="text",placeholder="",disabled=false,rows=0}) => (
+    <div>
+      <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>{label}</div>
+      {rows>0?(
+        <textarea disabled={disabled} value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows}
+          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,resize:"vertical",boxSizing:"border-box"}}/>
+      ):(
+        <input type={type} disabled={disabled} value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+      )}
+    </div>
+  );
+  const Select = ({label,value,onChange,opts=[],disabled=false}) => (
+    <div>
+      <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>{label}</div>
+      <select disabled={disabled} value={value||""} onChange={e=>onChange(e.target.value)}
+        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,background:"#fff",boxSizing:"border-box"}}>
+        <option value="">— Seleccionar —</option>
+        {opts.map(o=><option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+
+  // Badge de estado con color
+  const BadgeEstado = ({estado, map}) => {
+    const colores = map || {
+      "Programada":"#3b82f6","Realizada":"#16a34a","Cancelada":"#94a3b8","Reprogramada":"#d97706",
+      "Abierta":"#dc2626","En proceso":"#d97706","Cerrada":"#16a34a","Descartada":"#94a3b8",
+      "Planificado":"#3b82f6","En curso":"#d97706","Finalizado":"#16a34a","Cancelado":"#94a3b8",
+    };
+    const c = colores[estado]||"#64748b";
+    return <span style={{padding:"3px 10px",borderRadius:20,fontSize:10,fontWeight:700,background:`${c}22`,color:c,border:`1px solid ${c}44`,whiteSpace:"nowrap"}}>{estado}</span>;
+  };
+
+  // ── Tabla genérica ──
+  function TablaGenerica({cols, rows, onEdit, onDel, emptyMsg}) {
+    return (
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
+          <thead><tr style={{background:"#1e293b",color:"#fff"}}>
+            {cols.map(c=><th key={c.label} style={{padding:"8px 10px",textAlign:c.right?"right":"left",fontSize:11,fontWeight:700,whiteSpace:"nowrap",width:c.w||"auto"}}>{c.label}</th>)}
+            {can&&<th style={{padding:"8px 10px",width:60}}></th>}
+          </tr></thead>
+          <tbody>
+            {rows.length===0&&<tr><td colSpan={cols.length+(can?1:0)} style={{textAlign:"center",padding:32,color:"#94a3b8",fontSize:13}}>{emptyMsg||"Sin registros"}</td></tr>}
+            {rows.map((r,i)=>(
+              <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9",background:i%2?"#f8fafc":"#fff"}}>
+                {cols.map(c=><td key={c.label} style={{padding:"7px 10px",textAlign:c.right?"right":"left",...(c.style||{})}}>{c.render?c.render(r):r[c.field]||"—"}</td>)}
+                {can&&<td style={{padding:"4px 6px",textAlign:"center"}}>
+                  <div style={{display:"flex",gap:4}}>
+                    <button onClick={()=>onEdit(r)} style={{background:"#dbeafe",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#1d4ed8",fontWeight:600}}>✏️</button>
+                    <button onClick={()=>onDel(r)} style={{background:"#fee2e2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#991b1b",fontWeight:600}}>×</button>
+                  </div>
+                </td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // ── Modal genérico ──
+  function ModalForm({titulo, onSave, children}) {
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+        onClick={()=>setModal(null)}>
+        <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",maxWidth:600,width:"100%",maxHeight:"85vh",overflow:"auto",boxShadow:"0 24px 64px #0004"}}
+          onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:16,fontWeight:800,color:"#1e293b",marginBottom:16}}>{titulo}</div>
+          {children}
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:20}}>
+            <button onClick={()=>setModal(null)} style={{padding:"8px 20px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12}}>Cancelar</button>
+            <button onClick={onSave} style={{padding:"8px 20px",borderRadius:8,background:"#1e293b",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}}>💾 Guardar</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Helper: nombre de cliente por ctId
+  const nombreCliente = (ctId) => {
+    const ct = (ctData||[]).find(c=>c.id===ctId);
+    return ct ? `${ct.razonSocial} · ${ct.pais}` : "—";
+  };
+
+  return (
+    <div style={{fontFamily:"'IBM Plex Sans',system-ui,sans-serif"}}>
+      {/* KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:10,marginBottom:16}}>
+        {[
+          {label:"Visitas programadas", val:kpis.visitasProg, col:"#3b82f6", bg:"#dbeafe"},
+          {label:"Visitas realizadas",  val:kpis.visitasRealizadas, col:"#16a34a", bg:"#dcfce7"},
+          {label:"Medidas abiertas",    val:kpis.medidasAbiertas, col:"#dc2626", bg:"#fee2e2"},
+          {label:"Test blocks activos",  val:kpis.testActivos, col:"#d97706", bg:"#fef3c7"},
+          {label:"Informes pendientes", val:kpis.informesPend, col:"#7c3aed", bg:"#ede9fe"},
+          {label:"Entregables pend.",   val:kpis.entregablesPend, col:"#0284c7", bg:"#e0f2fe"},
+          {label:"Técnicos",            val:kpis.tecnicos, col:"#0f766e", bg:"#ccfbf1"},
+        ].map(k=>(
+          <div key={k.label} style={{background:k.bg,borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:10,color:k.col,fontWeight:600}}>{k.label}</div>
+            <div style={{fontSize:22,fontWeight:800,color:k.col}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Sub-tabs */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>{setSubTab(t.id);setFiltroTipo("Todos");setFiltroEstado("Todos");setBusq("");}}
+            style={{padding:"8px 14px",borderRadius:8,border:subTab===t.id?"2px solid #1e293b":"1px solid #e2e8f0",
+              background:subTab===t.id?"#1e293b":"#fff",color:subTab===t.id?"#fff":"#1e293b",
+              cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+            {t.label}
+            {t.badge&&<span style={{background:subTab===t.id?"#fff":"#dc2626",color:subTab===t.id?"#1e293b":"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:800}}>{t.badge}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Barra filtros + botón agregar */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar..."
+          style={{padding:"7px 12px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,flex:1,minWidth:150,outline:"none"}}/>
+        {can&&<button onClick={()=>{
+          if(subTab==="visitas") abrirNuevo("visita", VACIO_VISITA);
+          else if(subTab==="informes") abrirNuevo("informe", VACIO_INFORME);
+          else if(subTab==="testblocks") abrirNuevo("testblock", VACIO_TEST);
+          else if(subTab==="equipo") abrirNuevo("tecnico", VACIO_TECNICO);
+          else if(subTab==="medidas") abrirNuevo("medida", VACIO_MEDIDA);
+          else if(subTab==="entregables") abrirNuevo("entregable", VACIO_ENTREGABLE);
+        }} style={{padding:"8px 16px",borderRadius:8,background:"#1e293b",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar</button>}
+      </div>
+
+      {/* ── TAB: Visitas ── */}
+      {subTab==="visitas"&&<TablaGenerica
+        cols={[
+          {label:"Fecha",field:"fecha",w:100},
+          {label:"Tipo",render:r=><BadgeEstado estado={r.tipo}/>,w:110},
+          {label:"Cliente/Vivero",render:r=>r.ctId?nombreCliente(r.ctId):(r.viveroId?(viverosData||[]).find(v=>v.id===r.viveroId)?.viverista||"—":"—")},
+          {label:"Lugar",field:"lugar"},
+          {label:"Responsable",field:"responsable"},
+          {label:"Estado",render:r=><BadgeEstado estado={r.estado}/>,w:120},
+          {label:"Objetivo",field:"objetivo",style:{maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},
+        ]}
+        rows={filtrar(visitas)}
+        onEdit={r=>abrirEditar("visita",r)}
+        onDel={r=>delItem("visitas",r.id,`Visita ${r.tipo} ${r.fecha}`)}
+        emptyMsg="Sin visitas registradas. Programa la primera visita técnica o comercial."
+      />}
+
+      {/* ── TAB: Informes ── */}
+      {subTab==="informes"&&<TablaGenerica
+        cols={[
+          {label:"Fecha",field:"fecha",w:100},
+          {label:"Tipo",render:r=><BadgeEstado estado={r.tipo}/>,w:130},
+          {label:"Título",field:"titulo",style:{fontWeight:600}},
+          {label:"Cliente",render:r=>r.ctId?nombreCliente(r.ctId):"—"},
+          {label:"Responsable",field:"responsable"},
+          {label:"Adjunto",render:r=>r.adjunto?<a href={r.adjunto} target="_blank" rel="noreferrer" style={{color:"#2563eb",fontSize:11,fontWeight:600}}>📎 Ver</a>:"—"},
+        ]}
+        rows={filtrar(informes,"tipo","tipo")}
+        onEdit={r=>abrirEditar("informe",r)}
+        onDel={r=>delItem("informes",r.id,r.titulo)}
+        emptyMsg="Sin informes. Crea uno después de una visita o recepción."
+      />}
+
+      {/* ── TAB: Test Blocks ── */}
+      {subTab==="testblocks"&&<TablaGenerica
+        cols={[
+          {label:"Nombre",field:"nombre",style:{fontWeight:600}},
+          {label:"Especie",field:"especie"},
+          {label:"Variedad",field:"variedad"},
+          {label:"Ubicación",field:"ubicacion"},
+          {label:"Inicio",field:"fechaInicio",w:100},
+          {label:"Fin",field:"fechaFin",w:100},
+          {label:"Estado",render:r=><BadgeEstado estado={r.estado}/>,w:110},
+          {label:"Responsable",field:"responsable"},
+        ]}
+        rows={filtrar(testBlocks,"estado","estado")}
+        onEdit={r=>abrirEditar("testblock",r)}
+        onDel={r=>delItem("testBlocks",r.id,r.nombre)}
+        emptyMsg="Sin test blocks. Registra ensayos de variedades."
+      />}
+
+      {/* ── TAB: Equipo Técnico ── */}
+      {subTab==="equipo"&&<TablaGenerica
+        cols={[
+          {label:"Nombre",field:"nombre",style:{fontWeight:600}},
+          {label:"Rol",field:"rol"},
+          {label:"Especie",field:"especie"},
+          {label:"Modalidad",field:"modalidad"},
+          {label:"Email",field:"email"},
+          {label:"Teléfono",field:"telefono"},
+        ]}
+        rows={filtrar(equipoTecnico,"rol","rol")}
+        onEdit={r=>abrirEditar("tecnico",r)}
+        onDel={r=>delItem("equipoTecnico",r.id,r.nombre)}
+        emptyMsg="Sin técnicos registrados."
+      />}
+
+      {/* ── TAB: Medidas Correctivas ── */}
+      {subTab==="medidas"&&<TablaGenerica
+        cols={[
+          {label:"Fecha",field:"fecha",w:100},
+          {label:"Título",field:"titulo",style:{fontWeight:600}},
+          {label:"Cliente",render:r=>r.ctId?nombreCliente(r.ctId):"General"},
+          {label:"Problema",field:"descripcionProblema",style:{maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},
+          {label:"Responsable",field:"responsable"},
+          {label:"Estado",render:r=><BadgeEstado estado={r.estado}/>,w:120},
+          {label:"Cierre",field:"fechaCierre",w:100},
+        ]}
+        rows={filtrar(medidas,"estado","estado")}
+        onEdit={r=>abrirEditar("medida",r)}
+        onDel={r=>delItem("medidas",r.id,r.titulo)}
+        emptyMsg="Sin medidas correctivas. Registra cuando haya problemas en campo."
+      />}
+
+      {/* ── TAB: Entregables ── */}
+      {subTab==="entregables"&&(
+        <div>
+          {entregables.length===0?(
+            <div style={{textAlign:"center",padding:32,color:"#94a3b8",border:"1px dashed #e2e8f0",borderRadius:10}}>
+              Sin entregables. Agrega un checklist por sublicenciatario.
+            </div>
+          ):(
+            entregables.map((e,ei)=>{
+              const ct = (ctData||[]).find(c=>c.id===e.ctId);
+              const completados = e.items.filter(i=>i.entregado).length;
+              return (
+                <div key={e.id||ei} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:"14px 18px",marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13,color:"#1e293b"}}>{ct?.razonSocial||"—"} · {e.sublicenciatario||"General"}</div>
+                      <div style={{fontSize:11,color:"#64748b"}}>{completados}/{e.items.length} entregados</div>
+                    </div>
+                    <div style={{display:"flex",gap:4}}>
+                      {can&&<button onClick={()=>abrirEditar("entregable",e)} style={{background:"#dbeafe",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#1d4ed8",fontWeight:600}}>✏️</button>}
+                      {can&&<button onClick={()=>delItem("entregables",e.id,`Entregables ${ct?.razonSocial||""}`)} style={{background:"#fee2e2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,color:"#991b1b",fontWeight:600}}>×</button>}
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div style={{height:8,background:"#f1f5f9",borderRadius:4,overflow:"hidden",marginBottom:8}}>
+                    <div style={{height:"100%",background:"#16a34a",borderRadius:4,width:`${(completados/Math.max(e.items.length,1))*100}%`,transition:"width 0.3s"}}/>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
+                    {e.items.map((item,ii)=>(
+                      <label key={ii} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:6,
+                        background:item.entregado?"#f0fdf4":"#fff",border:`1px solid ${item.entregado?"#86efac":"#e2e8f0"}`,
+                        cursor:can?"pointer":"default",fontSize:12}}>
+                        <input type="checkbox" disabled={!can} checked={item.entregado} onChange={()=>{
+                          const newItems = [...e.items];
+                          newItems[ii] = {...newItems[ii], entregado:!newItems[ii].entregado, fecha:!newItems[ii].entregado?new Date().toISOString().slice(0,10):""};
+                          updItem("entregables", e.id, {items:newItems});
+                        }} style={{accentColor:"#16a34a"}}/>
+                        <span style={{textDecoration:item.entregado?"line-through":"none",color:item.entregado?"#16a34a":"#1e293b",fontWeight:item.entregado?400:600}}>{item.nombre}</span>
+                        {item.fecha&&<span style={{fontSize:9,color:"#94a3b8",marginLeft:"auto"}}>{item.fecha}</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* ═══ MODALES ═══ */}
+
+      {modal==="visita"&&<ModalForm titulo={form._editId?"Editar visita":"Nueva visita"} onSave={()=>guardarForm("visitas",VACIO_VISITA)}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Select label="Tipo *" value={form.tipo} onChange={v=>setForm(p=>({...p,tipo:v}))} opts={TIPOS_VISITA}/>
+          <Input label="Fecha *" value={form.fecha} onChange={v=>setForm(p=>({...p,fecha:v}))} type="date"/>
+          <div>
+            <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Cliente (contrato)</div>
+            <ClienteSelect value={form.ctId} onChange={v=>setForm(p=>({...p,ctId:v}))}/>
+          </div>
+          <Select label="Estado" value={form.estado} onChange={v=>setForm(p=>({...p,estado:v}))} opts={ESTADOS_VISITA}/>
+          <Input label="Lugar" value={form.lugar} onChange={v=>setForm(p=>({...p,lugar:v}))} placeholder="Fundo, ciudad..."/>
+          <Input label="Responsable" value={form.responsable} onChange={v=>setForm(p=>({...p,responsable:v}))} placeholder="Nombre del técnico"/>
+        </div>
+        <Input label="Objetivo" value={form.objetivo} onChange={v=>setForm(p=>({...p,objetivo:v}))} rows={2} placeholder="¿Qué se busca con esta visita?"/>
+        <Input label="Resultado / Observaciones" value={form.resultado} onChange={v=>setForm(p=>({...p,resultado:v}))} rows={2} placeholder="Conclusiones post-visita..."/>
+        <Input label="📎 Link fotos/adjuntos" value={form.fotos} onChange={v=>setForm(p=>({...p,fotos:v}))} placeholder="https://drive.google.com/..."/>
+      </ModalForm>}
+
+      {modal==="informe"&&<ModalForm titulo={form._editId?"Editar informe":"Nuevo informe"} onSave={()=>guardarForm("informes",VACIO_INFORME)}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Select label="Tipo *" value={form.tipo} onChange={v=>setForm(p=>({...p,tipo:v}))} opts={TIPOS_INFORME}/>
+          <Input label="Fecha *" value={form.fecha} onChange={v=>setForm(p=>({...p,fecha:v}))} type="date"/>
+          <Input label="Título *" value={form.titulo} onChange={v=>setForm(p=>({...p,titulo:v}))} placeholder="Informe de visita a..."/>
+          <div>
+            <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Cliente (contrato)</div>
+            <ClienteSelect value={form.ctId} onChange={v=>setForm(p=>({...p,ctId:v}))}/>
+          </div>
+          <Input label="Responsable" value={form.responsable} onChange={v=>setForm(p=>({...p,responsable:v}))}/>
+          <Input label="📎 Adjunto (URL)" value={form.adjunto} onChange={v=>setForm(p=>({...p,adjunto:v}))} placeholder="https://..."/>
+        </div>
+        <Input label="Contenido" value={form.contenido} onChange={v=>setForm(p=>({...p,contenido:v}))} rows={4} placeholder="Descripción detallada..."/>
+        <Input label="Conclusiones" value={form.conclusiones} onChange={v=>setForm(p=>({...p,conclusiones:v}))} rows={2}/>
+      </ModalForm>}
+
+      {modal==="testblock"&&<ModalForm titulo={form._editId?"Editar test block":"Nuevo test block"} onSave={()=>guardarForm("testBlocks",VACIO_TEST)}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Input label="Nombre *" value={form.nombre} onChange={v=>setForm(p=>({...p,nombre:v}))} placeholder="Test Blueberry X-2026"/>
+          <Input label="Especie" value={form.especie} onChange={v=>setForm(p=>({...p,especie:v}))} placeholder="Arándano"/>
+          <Input label="Variedad" value={form.variedad} onChange={v=>setForm(p=>({...p,variedad:v}))} placeholder="Atlas, OZBlue..."/>
+          <Input label="Ubicación" value={form.ubicacion} onChange={v=>setForm(p=>({...p,ubicacion:v}))} placeholder="Fundo, parcela..."/>
+          <Input label="Fecha inicio" value={form.fechaInicio} onChange={v=>setForm(p=>({...p,fechaInicio:v}))} type="date"/>
+          <Input label="Fecha fin" value={form.fechaFin} onChange={v=>setForm(p=>({...p,fechaFin:v}))} type="date"/>
+          <Select label="Estado" value={form.estado} onChange={v=>setForm(p=>({...p,estado:v}))} opts={ESTADOS_TEST_BLOCK}/>
+          <Input label="Responsable" value={form.responsable} onChange={v=>setForm(p=>({...p,responsable:v}))}/>
+        </div>
+        <Input label="Resultados" value={form.resultados} onChange={v=>setForm(p=>({...p,resultados:v}))} rows={3} placeholder="Datos de rendimiento, observaciones..."/>
+        <Input label="Observaciones" value={form.observaciones} onChange={v=>setForm(p=>({...p,observaciones:v}))} rows={2}/>
+      </ModalForm>}
+
+      {modal==="tecnico"&&<ModalForm titulo={form._editId?"Editar técnico":"Nuevo técnico"} onSave={()=>guardarForm("equipoTecnico",VACIO_TECNICO)}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Input label="Nombre *" value={form.nombre} onChange={v=>setForm(p=>({...p,nombre:v}))}/>
+          <Select label="Rol" value={form.rol} onChange={v=>setForm(p=>({...p,rol:v}))} opts={["Asesor por especie","Técnico part time","Asesoría integral (AI)","Documentación técnica","Otro"]}/>
+          <Input label="Especie asignada" value={form.especie} onChange={v=>setForm(p=>({...p,especie:v}))} placeholder="Cerezo, Arándano..."/>
+          <Select label="Modalidad" value={form.modalidad} onChange={v=>setForm(p=>({...p,modalidad:v}))} opts={["Full time","Part time","Por proyecto","Consultor externo"]}/>
+          <Input label="Email" value={form.email} onChange={v=>setForm(p=>({...p,email:v}))} type="email"/>
+          <Input label="Teléfono" value={form.telefono} onChange={v=>setForm(p=>({...p,telefono:v}))}/>
+        </div>
+        <Input label="Observaciones" value={form.observaciones} onChange={v=>setForm(p=>({...p,observaciones:v}))} rows={2}/>
+      </ModalForm>}
+
+      {modal==="medida"&&<ModalForm titulo={form._editId?"Editar medida correctiva":"Nueva medida correctiva"} onSave={()=>guardarForm("medidas",VACIO_MEDIDA)}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Input label="Título *" value={form.titulo} onChange={v=>setForm(p=>({...p,titulo:v}))} placeholder="Problema de plantación..."/>
+          <Input label="Fecha detección *" value={form.fecha} onChange={v=>setForm(p=>({...p,fecha:v}))} type="date"/>
+          <div>
+            <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Cliente (contrato)</div>
+            <ClienteSelect value={form.ctId} onChange={v=>setForm(p=>({...p,ctId:v}))}/>
+          </div>
+          <Select label="Estado" value={form.estado} onChange={v=>setForm(p=>({...p,estado:v}))} opts={ESTADOS_MEDIDA}/>
+          <Input label="Responsable" value={form.responsable} onChange={v=>setForm(p=>({...p,responsable:v}))}/>
+          <Input label="Fecha cierre" value={form.fechaCierre} onChange={v=>setForm(p=>({...p,fechaCierre:v}))} type="date"/>
+        </div>
+        <Input label="Descripción del problema *" value={form.descripcionProblema} onChange={v=>setForm(p=>({...p,descripcionProblema:v}))} rows={3} placeholder="Qué se detectó, en qué parcela, magnitud..."/>
+        <Input label="Acción correctiva" value={form.accionCorrectiva} onChange={v=>setForm(p=>({...p,accionCorrectiva:v}))} rows={3} placeholder="Qué se hizo o se hará para corregir..."/>
+        <Input label="Observaciones" value={form.observaciones} onChange={v=>setForm(p=>({...p,observaciones:v}))} rows={2}/>
+      </ModalForm>}
+
+      {modal==="entregable"&&<ModalForm titulo={form._editId?"Editar entregables":"Nuevo checklist de entregables"} onSave={()=>guardarForm("entregables",VACIO_ENTREGABLE)}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+          <div>
+            <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Cliente (contrato) *</div>
+            <ClienteSelect value={form.ctId} onChange={v=>setForm(p=>({...p,ctId:v}))}/>
+          </div>
+          <Input label="Sublicenciatario" value={form.sublicenciatario} onChange={v=>setForm(p=>({...p,sublicenciatario:v}))} placeholder="Nombre del sublicenciatario"/>
+        </div>
+        <div style={{fontSize:11,fontWeight:700,color:"#1e293b",marginBottom:8}}>Checklist de entregables:</div>
+        {(form.items||[]).map((item,i)=>(
+          <label key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:6,background:item.entregado?"#f0fdf4":"#fff",border:"1px solid #e2e8f0",marginBottom:4,fontSize:12,cursor:"pointer"}}>
+            <input type="checkbox" checked={item.entregado} onChange={()=>{
+              const newItems = [...(form.items||[])];
+              newItems[i] = {...newItems[i], entregado:!newItems[i].entregado};
+              setForm(p=>({...p,items:newItems}));
+            }} style={{accentColor:"#16a34a"}}/>
+            {item.nombre}
+          </label>
+        ))}
+      </ModalForm>}
     </div>
   );
 }
@@ -6478,6 +6968,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const setClientes=useCallback(fn=>setOsirisData(prev=>({...prev,clientes:       typeof fn==="function"?fn(prev?.clientes       ??CLIENTES_INIT):fn})),[setOsirisData]);
   const setViveristas=useCallback(fn=>setOsirisData(prev=>({...prev,viveristas:    typeof fn==="function"?fn(prev?.viveristas    ??VIVERISTAS_INIT):fn})),[setOsirisData]);
   const setVivGlobal=useCallback(fn=>setOsirisData(prev=>({...prev,viveros:       typeof fn==="function"?fn(prev?.viveros       ??[]):fn})),[setOsirisData]);
+  const setOpTecnica=useCallback(fn=>setOsirisData(prev=>({...prev,opTecnica:    typeof fn==="function"?fn(prev?.opTecnica    ??{}):fn})),[setOsirisData]);
   const setVariedadesMaestro=useCallback(fn=>setOsirisData(prev=>({...prev,variedades:    typeof fn==="function"?fn(prev?.variedades    ??VARIEDADES_INIT):fn})),[setOsirisData]);
   const setEspeciesMaestro=useCallback(fn=>setOsirisData(prev=>({...prev,especies:    typeof fn==="function"?fn(prev?.especies    ??ESPECIES_INIT):fn})),[setOsirisData]);
   const setCt=useCallback(fn=>setOsirisData(prev=>({...prev,contratos:      typeof fn==="function"?fn(prev?.contratos      ??CONTRATOS_INIT):fn})),[setOsirisData]);
@@ -6721,6 +7212,31 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
             })()}
           </div>
           <div style={{position:"absolute",right:16,bottom:16,fontSize:20,color:"#16a34a44"}}>→</div>
+        </div>
+
+        {/* Operación Técnica */}
+        <div onClick={()=>setSubApp("opTecnica")}
+          style={{background:"linear-gradient(135deg,#1c2333,#0ea5e922)",borderRadius:16,padding:"24px 20px",
+            border:"1px solid #0ea5e944",cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
+          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+          onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+          <div style={{fontSize:32,marginBottom:10}}>🔬</div>
+          <div style={{fontWeight:800,fontSize:16,color:"#e6edf3",marginBottom:4}}>Operación Técnica</div>
+          <div style={{fontSize:11,color:"#8b949e",marginBottom:12}}>Visitas, informes, test blocks, equipo técnico, medidas correctivas</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {(()=>{
+              const ot = osirisData?.opTecnica || {};
+              const nVisitas = Array.isArray(ot.visitas) ? ot.visitas.filter(v=>v.estado==="Programada").length : 0;
+              const nMedidas = Array.isArray(ot.medidas) ? ot.medidas.filter(m=>m.estado==="Abierta"||m.estado==="En proceso").length : 0;
+              const nTest = Array.isArray(ot.testBlocks) ? ot.testBlocks.filter(t=>t.estado==="En curso").length : 0;
+              return <>
+                {nVisitas>0&&<span style={{fontSize:10,background:"rgba(59,130,246,0.2)",color:"#93c5fd",padding:"3px 10px",borderRadius:20,fontWeight:700}}>📋 {nVisitas} visitas prog.</span>}
+                {nMedidas>0&&<span style={{fontSize:10,background:"rgba(239,68,68,0.2)",color:"#f87171",padding:"3px 10px",borderRadius:20,fontWeight:700}}>⚠️ {nMedidas} medidas abiertas</span>}
+                {nTest>0&&<span style={{fontSize:10,background:"rgba(217,119,6,0.2)",color:"#fbbf24",padding:"3px 10px",borderRadius:20,fontWeight:700}}>🧪 {nTest} test activos</span>}
+              </>;
+            })()}
+          </div>
+          <div style={{position:"absolute",right:16,bottom:16,fontSize:20,color:"#0ea5e944"}}>→</div>
         </div>
 
         {/* Seguimiento Tareas */}
@@ -7815,6 +8331,43 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           );
         })()}
 
+      </div>
+    );
+  }
+
+  // ── OPERACIÓN TÉCNICA ─────────────────────────────────────
+  if(subApp==="opTecnica") {
+    const opData = osirisData?.opTecnica || {};
+    const canOp = esEditorOAdmin; // usar mismos permisos base
+    return (
+      <div style={{fontFamily:"'IBM Plex Sans',system-ui,sans-serif",minHeight:"100vh",
+        background:"linear-gradient(160deg,#0d1117,#161b22)",color:"#e6edf3",padding:20}}>
+        <div style={{maxWidth:1300,margin:"0 auto"}}>
+          {/* Header */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <button onClick={()=>setSubApp(null)}
+                style={{background:"#21283b",border:"1px solid #30363d",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#e6edf3",fontSize:13,fontWeight:700}}>
+                ← Hub Osiris
+              </button>
+              <div>
+                <div style={{fontSize:22,fontWeight:900,color:"#e6edf3"}}>🔬 Operación Técnica</div>
+                <div style={{fontSize:11,color:"#8b949e"}}>Visitas · Informes · Test Blocks · Equipo · Medidas Correctivas · Entregables</div>
+              </div>
+            </div>
+          </div>
+          <OperacionTecnica
+            data={opData}
+            setData={val => {
+              if(typeof val === "function") setOpTecnica(val);
+              else setOpTecnica(val);
+            }}
+            ctData={ctData}
+            viverosData={Array.isArray(osirisData?.viveros)?osirisData.viveros:[]}
+            obtentoresData={obtentoresData}
+            can={canOp}
+          />
+        </div>
       </div>
     );
   }
