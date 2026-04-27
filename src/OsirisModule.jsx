@@ -4127,6 +4127,110 @@ function Breadcrumb({items}) {
   );
 }
 
+// ── Helper: días hasta vencimiento (puede ser negativo si está vencido) ──
+function diasParaVencer(fechaStr) {
+  if(!fechaStr) return null;
+  const f = new Date(fechaStr);
+  if(isNaN(f.getTime())) return null;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return Math.ceil((f - hoy) / (1000*60*60*24));
+}
+
+// ── Helper: estado de vigencia con color ──
+function estadoVigencia(fechaStr) {
+  const d = diasParaVencer(fechaStr);
+  if(d === null)  return {label:"Sin fecha",   color:"#94a3b8", bg:"#f1f5f9", icon:"❔"};
+  if(d < 0)       return {label:`Vencido hace ${Math.abs(d)} d.`, color:"#dc2626", bg:"#fee2e2", icon:"⚠️"};
+  if(d <= 30)     return {label:`Vence en ${d} d.`, color:"#dc2626", bg:"#fee2e2", icon:"🔴"};
+  if(d <= 90)     return {label:`Vence en ${d} d.`, color:"#d97706", bg:"#fef3c7", icon:"🟡"};
+  return {label:`Vigente (${d} d.)`, color:"#16a34a", bg:"#dcfce7", icon:"🟢"};
+}
+
+// ── Export Excel: Contratos Obtentores ──
+async function exportarObtentores(obtData) {
+  const sectionContratos = {
+    titulo: "Contratos Obtentores",
+    headers: ["Obtentor","Fecha Inicio","Fecha Vencimiento","Renovable","Firma Obtentor","Firma Osiris","# Especies","# PBR","# Anexos","Días para vencer","Observaciones"],
+    rows: obtData.map(o=>{
+      const d = diasParaVencer(o.f_vencimiento);
+      return [
+        o.obtentor||"",
+        o.f_inicio||"",
+        o.f_vencimiento||"",
+        o.renovable?"Sí":"No",
+        o.firma_obtentor?"Firmado":"Pendiente",
+        o.firma_osiris?"Firmado":"Pendiente",
+        (o.especies||[]).length,
+        (o.pbr||[]).length,
+        (o.anexos||[]).length,
+        d!==null?d:"—",
+        o.observaciones||"",
+      ];
+    }),
+  };
+  const especiesRows = [];
+  obtData.forEach(o=>(o.especies||[]).forEach(e=>{
+    especiesRows.push([o.obtentor||"", e.especie||"", e.variedad||"", e.observaciones||""]);
+  }));
+  const sectionEspecies = {
+    titulo: "Especies/Variedades",
+    headers: ["Obtentor","Especie","Variedad","Observaciones"],
+    rows: especiesRows,
+  };
+  const pbrRows = [];
+  obtData.forEach(o=>(o.pbr||[]).forEach(p=>{
+    pbrRows.push([o.obtentor||"", p.especie||"", p.pais||"", p.estado||"", p.f_solicitud||"", p.f_resolucion||"", p.observaciones||""]);
+  }));
+  const sectionPBR = {
+    titulo: "Registros PBR",
+    headers: ["Obtentor","Especie","País","Estado","Fecha Solicitud","Fecha Resolución","Observaciones"],
+    rows: pbrRows,
+  };
+  await exportCSV([sectionContratos, sectionEspecies, sectionPBR], null, "Contratos_Obtentores", {
+    tituloDoc: "Contratos Obtentores",
+    filtros: `${obtData.length} contratos · ${especiesRows.length} variedades · ${pbrRows.length} PBR`,
+  });
+  window.auditLog && window.auditLog("exportar", {modulo:"osiris", seccion:"Contratos Obtentores",
+    descripcion:`Exportó ${obtData.length} contratos obtentores a Excel`});
+}
+
+// ── Export Excel: Contratos Viveros ──
+async function exportarViveros(vivData) {
+  const sectionViveros = {
+    titulo: "Contratos Viveros",
+    headers: ["Viverista","País","Fecha Contrato","Fecha Vencimiento","Firma Viverista","Firma Osiris","# Variedades","Días para vencer","Observaciones"],
+    rows: vivData.map(v=>{
+      const d = diasParaVencer(v.f_vencimiento);
+      return [
+        v.viverista||"",
+        v.pais||"",
+        v.f_contrato||"",
+        v.f_vencimiento||"",
+        v.firma_viverista?"Firmado":"Pendiente",
+        v.firma_osiris?"Firmado":"Pendiente",
+        (v.variedades||[]).length,
+        d!==null?d:"—",
+        v.observaciones||"",
+      ];
+    }),
+  };
+  const varRows = [];
+  vivData.forEach(v=>(v.variedades||[]).forEach(x=>{
+    varRows.push([v.viverista||"", v.pais||"", x.especie||"", x.variedad||"", x.fee_usd||0, x.fee_pct||0, x.observaciones||""]);
+  }));
+  const sectionVariedades = {
+    titulo: "Variedades Autorizadas",
+    headers: ["Viverista","País","Especie","Variedad","Fee USD/planta","Fee % s/venta","Observaciones"],
+    rows: varRows,
+  };
+  await exportCSV([sectionViveros, sectionVariedades], null, "Contratos_Viveros", {
+    tituloDoc: "Contratos Viveros",
+    filtros: `${vivData.length} viveros · ${varRows.length} variedades autorizadas`,
+  });
+  window.auditLog && window.auditLog("exportar", {modulo:"osiris", seccion:"Contratos Viveros",
+    descripcion:`Exportó ${vivData.length} contratos viveros a Excel`});
+}
+
 // ══════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL — Hub Osiris mejorado
 // ══════════════════════════════════════════════════════════
@@ -4143,11 +4247,27 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   const EMPTY_OBT = {obtentor:"",f_inicio:"",f_vencimiento:"",renovable:false,observaciones:"",
     firma_obtentor:false,firma_osiris:false,doc_legal:"",especies:[],anexos:[],pbr:[]};
   const [obtForm, setObtForm] = useState(EMPTY_OBT);
+  // Sub-modales Obtentores
+  const [espModal, setEspModal] = useState(false);
+  const [espForm, setEspForm] = useState({especie:"",variedad:"",observaciones:""});
+  const [pbrModal, setPbrModal] = useState(false);
+  const [pbrForm, setPbrForm] = useState({especie:"",pais:"",estado:"Pendiente",f_solicitud:"",f_resolucion:"",doc_solicitud:"",doc_resolucion:"",observaciones:""});
+  const [anxModal, setAnxModal] = useState(false);
+  const [anxForm, setAnxForm] = useState({descripcion:"",fecha:"",enlace:"",observaciones:""});
 
-  // Hooks para Contratos Viveros
+  // Hooks para Contratos Viveros (estructura jerárquica)
   const [vivModal, setVivModal] = useState(false);
-  const [vivForm, setVivForm] = useState({viverista:"",pais:"",especie:"",variedad:"",fee_usd:"",fee_pct:"",f_contrato:"",f_vencimiento:"",observaciones:""});
+  const EMPTY_VIV = {viverista:"",pais:"",f_contrato:"",f_vencimiento:"",renovable:false,
+    firma_viverista:false,firma_osiris:false,doc_legal:"",observaciones:"",variedades:[],anexos:[]};
+  const [vivForm, setVivForm] = useState(EMPTY_VIV);
   const [vivEditId, setVivEditId] = useState(null);
+  const [vivDetalle, setVivDetalle] = useState(null);
+  const [vivTab, setVivTab] = useState("general");
+  // Sub-modales Viveros
+  const [vvModal, setVvModal] = useState(false);
+  const [vvForm, setVvForm] = useState({especie:"",variedad:"",fee_usd:"",fee_pct:"",observaciones:""});
+  const [vAnxModal, setVAnxModal] = useState(false);
+  const [vAnxForm, setVAnxForm] = useState({descripcion:"",fecha:"",enlace:"",observaciones:""});
 
   // Datos desde Supabase — sin datos de ejemplo (empezar desde cero)
   const ctData  = osirisData?.contratos       ?? CONTRATOS_INIT;
@@ -4206,13 +4326,21 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   // Admin tiene acceso total; editor/consulta dependen de tabPermisos
   const permContratos   = tabPermisos?.contratos || "editar";
   const permRoyalties   = tabPermisos?.royalties || "editar";
-  const canVerContratos = permContratos !== "sin_acceso";
-  const canVerRoyalties = permRoyalties !== "sin_acceso";
+  const permObtentores  = tabPermisos?.obtentores || tabPermisos?.contratos || "editar"; // hereda de contratos si no está definido
+  const permViveros     = tabPermisos?.viveros    || tabPermisos?.contratos || "editar"; // hereda de contratos si no está definido
+  const canVerContratos  = permContratos  !== "sin_acceso";
+  const canVerRoyalties  = permRoyalties  !== "sin_acceso";
+  const canVerObtentores = permObtentores !== "sin_acceso";
+  const canVerViveros    = permViveros    !== "sin_acceso";
   // Solo puede editar si: no es consulta AND rol editor/admin AND permiso = "editar"
   const canContratos = !esConsulta && esEditorOAdmin &&
     (rolActual === "admin" || permContratos === "editar");
   const canIngresos  = !esConsulta && esEditorOAdmin &&
     (rolActual === "admin" || permRoyalties === "editar");
+  const canObtentores = !esConsulta && esEditorOAdmin &&
+    (rolActual === "admin" || permObtentores === "editar");
+  const canViveros    = !esConsulta && esEditorOAdmin &&
+    (rolActual === "admin" || permViveros === "editar");
   const can = canIngresos;
 
   const totPend=
@@ -4343,31 +4471,49 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
         </div>
 
         {/* Contratos Obtentores */}
-        <div onClick={()=>setSubApp("obtentores")}
+        <div onClick={()=>{if(canVerObtentores)setSubApp("obtentores");}}
           style={{background:"linear-gradient(135deg,#1c2333,#7c3aed22)",borderRadius:16,padding:"24px 20px",
-            border:"1px solid #7c3aed44",cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
-          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+            border:"1px solid #7c3aed44",cursor:canVerObtentores?"pointer":"not-allowed",opacity:canVerObtentores?1:0.5,transition:"all 0.2s",position:"relative",overflow:"hidden"}}
+          onMouseEnter={e=>{if(canVerObtentores)e.currentTarget.style.transform="translateY(-2px)";}}
           onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
           <div style={{fontSize:32,marginBottom:10}}>🧬</div>
           <div style={{fontWeight:800,fontSize:16,color:"#e6edf3",marginBottom:4}}>Contratos Obtentores</div>
           <div style={{fontSize:11,color:"#8b949e",marginBottom:12}}>Contratos con obtentores de genética, especies y variedades</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             <span style={{fontSize:10,background:"rgba(124,58,237,0.2)",color:"#c4b5fd",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{(osirisData?.obtentores||[]).length} contratos</span>
+            {(()=>{
+              const arr = osirisData?.obtentores||[];
+              const venc = arr.filter(o=>{const d=diasParaVencer(o.f_vencimiento);return d!==null && d<0;}).length;
+              const por = arr.filter(o=>{const d=diasParaVencer(o.f_vencimiento);return d!==null && d>=0 && d<=90;}).length;
+              return <>
+                {venc>0&&<span style={{fontSize:10,background:"rgba(239,68,68,0.2)",color:"#f87171",padding:"3px 10px",borderRadius:20,fontWeight:700}}>⚠️ {venc} vencido{venc>1?"s":""}</span>}
+                {por>0&&<span style={{fontSize:10,background:"rgba(251,191,36,0.2)",color:"#fbbf24",padding:"3px 10px",borderRadius:20,fontWeight:700}}>⏳ {por} por vencer</span>}
+              </>;
+            })()}
           </div>
           <div style={{position:"absolute",right:16,bottom:16,fontSize:20,color:"#7c3aed44"}}>→</div>
         </div>
 
         {/* Contratos Viveros */}
-        <div onClick={()=>setSubApp("viveros")}
+        <div onClick={()=>{if(canVerViveros)setSubApp("viveros");}}
           style={{background:"linear-gradient(135deg,#1c2333,#16a34a22)",borderRadius:16,padding:"24px 20px",
-            border:"1px solid #16a34a44",cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
-          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+            border:"1px solid #16a34a44",cursor:canVerViveros?"pointer":"not-allowed",opacity:canVerViveros?1:0.5,transition:"all 0.2s",position:"relative",overflow:"hidden"}}
+          onMouseEnter={e=>{if(canVerViveros)e.currentTarget.style.transform="translateY(-2px)";}}
           onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
           <div style={{fontSize:32,marginBottom:10}}>🌱</div>
           <div style={{fontWeight:800,fontSize:16,color:"#e6edf3",marginBottom:4}}>Contratos Viveros</div>
           <div style={{fontSize:11,color:"#8b949e",marginBottom:12}}>Viveristas autorizados, fee a Osiris y condiciones</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             <span style={{fontSize:10,background:"rgba(22,163,74,0.2)",color:"#4ade80",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{(osirisData?.viveros||[]).length} viveros</span>
+            {(()=>{
+              const arr = osirisData?.viveros||[];
+              const venc = arr.filter(v=>{const d=diasParaVencer(v.f_vencimiento);return d!==null && d<0;}).length;
+              const por = arr.filter(v=>{const d=diasParaVencer(v.f_vencimiento);return d!==null && d>=0 && d<=90;}).length;
+              return <>
+                {venc>0&&<span style={{fontSize:10,background:"rgba(239,68,68,0.2)",color:"#f87171",padding:"3px 10px",borderRadius:20,fontWeight:700}}>⚠️ {venc} vencido{venc>1?"s":""}</span>}
+                {por>0&&<span style={{fontSize:10,background:"rgba(251,191,36,0.2)",color:"#fbbf24",padding:"3px 10px",borderRadius:20,fontWeight:700}}>⏳ {por} por vencer</span>}
+              </>;
+            })()}
           </div>
           <div style={{position:"absolute",right:16,bottom:16,fontSize:20,color:"#16a34a44"}}>→</div>
         </div>
@@ -4440,20 +4586,80 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
     const setObt = (list) => setOsirisData(prev=>({...prev, obtentores: list}));
 
     const guardarObt = () => {
+      if(!canObtentores) return;
       if(!obtForm.obtentor) { alert("Nombre del obtentor es obligatorio"); return; }
+      if(obtForm.f_inicio && obtForm.f_vencimiento && new Date(obtForm.f_vencimiento) < new Date(obtForm.f_inicio)) {
+        alert("La fecha de vencimiento no puede ser anterior a la fecha de inicio."); return;
+      }
       const id = obtEditId || `obt_${Date.now()}`;
-      const item = {...obtForm, id};
+      const existing = obtEditId ? obtData.find(o=>o.id===obtEditId) : null;
+      const item = {...(existing||{}), ...obtForm, id};
+      // Asegurar arrays
+      item.especies = item.especies || [];
+      item.pbr      = item.pbr      || [];
+      item.anexos   = item.anexos   || [];
       const next = obtEditId ? obtData.map(o=>o.id===obtEditId?item:o) : [...obtData, item];
       setObt(next);
+      window.auditLog && window.auditLog(obtEditId?"editar":"crear", {modulo:"osiris", seccion:"Contratos Obtentores",
+        descripcion:`${obtEditId?"Editó":"Creó"} contrato obtentor "${item.obtentor}"${item.f_vencimiento?` · vence ${item.f_vencimiento}`:""}`});
       setObtModal(false);
       setObtEditId(null);
     };
 
     const updateContrato = (id, updates) => {
+      if(!canObtentores) return;
+      const before = obtData.find(o=>o.id===id);
       setObt(obtData.map(o=>o.id===id?{...o,...updates}:o));
+      const campo = Object.keys(updates).join(", ");
+      window.auditLog && window.auditLog("editar", {modulo:"osiris", seccion:"Contratos Obtentores",
+        descripcion:`Editó contrato obtentor "${before?.obtentor||""}": campo ${campo}`});
+    };
+
+    const eliminarObt = (id) => {
+      if(!canObtentores) return;
+      const o = obtData.find(x=>x.id===id);
+      if(!o) return;
+      if(!window.confirm(`¿Eliminar contrato del obtentor "${o.obtentor}"?\n\nIncluye ${(o.especies||[]).length} especies, ${(o.pbr||[]).length} PBR y ${(o.anexos||[]).length} anexos.`)) return;
+      setObt(obtData.filter(x=>x.id!==id));
+      window.auditLog && window.auditLog("eliminar", {modulo:"osiris", seccion:"Contratos Obtentores",
+        descripcion:`Eliminó contrato obtentor "${o.obtentor}"`});
     };
 
     const contratoActivo = obtDetalle ? obtData.find(o=>o.id===obtDetalle) : null;
+
+    // ── Sub-modales: especies, PBR, anexos ──
+    const guardarEspecie = () => {
+      if(!canObtentores) return;
+      if(!espForm.especie || !espForm.variedad) { alert("Especie y Variedad son obligatorios."); return; }
+      const c = contratoActivo;
+      const nueva = {id:`esp_${Date.now()}`, especie:espForm.especie.trim(), variedad:espForm.variedad.trim(), observaciones:espForm.observaciones||""};
+      updateContrato(c.id, {especies:[...(c.especies||[]), nueva]});
+      setEspForm({especie:"",variedad:"",observaciones:""});
+      setEspModal(false);
+    };
+
+    const guardarPBR = () => {
+      if(!canObtentores) return;
+      if(!pbrForm.especie || !pbrForm.pais) { alert("Especie y País son obligatorios."); return; }
+      if(pbrForm.f_solicitud && pbrForm.f_resolucion && new Date(pbrForm.f_resolucion) < new Date(pbrForm.f_solicitud)) {
+        alert("La fecha de resolución no puede ser anterior a la fecha de solicitud."); return;
+      }
+      const c = contratoActivo;
+      const nuevo = {id:`pbr_${Date.now()}`, ...pbrForm};
+      updateContrato(c.id, {pbr:[...(c.pbr||[]), nuevo]});
+      setPbrForm({especie:"",pais:"",estado:"Pendiente",f_solicitud:"",f_resolucion:"",doc_solicitud:"",doc_resolucion:"",observaciones:""});
+      setPbrModal(false);
+    };
+
+    const guardarAnexo = () => {
+      if(!canObtentores) return;
+      if(!anxForm.descripcion) { alert("Descripción del anexo es obligatoria."); return; }
+      const c = contratoActivo;
+      const nuevo = {id:`anx_${Date.now()}`, ...anxForm};
+      updateContrato(c.id, {anexos:[...(c.anexos||[]), nuevo]});
+      setAnxForm({descripcion:"",fecha:"",enlace:"",observaciones:""});
+      setAnxModal(false);
+    };
 
     // ── Vista detalle de un contrato ──
     if(contratoActivo) {
@@ -4462,48 +4668,37 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       const pbr = c.pbr || [];
       const anexos = c.anexos || [];
 
-      const addEspecie = () => {
-        const esp = prompt("Nombre de la especie:");
-        if(!esp) return;
-        const variedad = prompt("Variedad:");
-        updateContrato(c.id, {especies:[...especies, {id:`esp_${Date.now()}`,especie:esp,variedad:variedad||"",observaciones:""}]});
-      };
       const delEspecie = (eid) => {
+        if(!canObtentores) return;
         if(!window.confirm("¿Eliminar especie?")) return;
+        // Verificar PBR vinculados
+        const pbrVinc = pbr.filter(p=>p.especie === especies.find(e=>e.id===eid)?.especie);
+        if(pbrVinc.length>0) {
+          if(!window.confirm(`Hay ${pbrVinc.length} registro(s) PBR vinculados a esta especie. ¿Continuar igual?`)) return;
+        }
         updateContrato(c.id, {especies:especies.filter(e=>e.id!==eid)});
       };
-
-      const addPBR = () => {
-        const espIdx = prompt("Especie (copiar nombre exacto de la lista):");
-        if(!espIdx) return;
-        const pais = prompt("País de inscripción:");
-        if(!pais) return;
-        updateContrato(c.id, {pbr:[...pbr, {id:`pbr_${Date.now()}`,especie:espIdx,pais,estado:"Pendiente",f_solicitud:"",f_resolucion:"",doc_solicitud:"",doc_resolucion:"",observaciones:""}]});
-      };
       const updatePBR = (pid, updates) => {
+        if(!canObtentores) return;
         updateContrato(c.id, {pbr:pbr.map(p=>p.id===pid?{...p,...updates}:p)});
       };
       const delPBR = (pid) => {
+        if(!canObtentores) return;
         if(!window.confirm("¿Eliminar registro PBR?")) return;
         updateContrato(c.id, {pbr:pbr.filter(p=>p.id!==pid)});
       };
-
-      const addAnexo = () => {
-        const desc = prompt("Descripción del anexo:");
-        if(!desc) return;
-        updateContrato(c.id, {anexos:[...anexos, {id:`anx_${Date.now()}`,descripcion:desc,fecha:"",enlace:"",observaciones:""}]});
-      };
       const updateAnexo = (aid, updates) => {
+        if(!canObtentores) return;
         updateContrato(c.id, {anexos:anexos.map(a=>a.id===aid?{...a,...updates}:a)});
       };
       const delAnexo = (aid) => {
+        if(!canObtentores) return;
         if(!window.confirm("¿Eliminar anexo?")) return;
         updateContrato(c.id, {anexos:anexos.filter(a=>a.id!==aid)});
       };
 
       const TABS_OBT = [{id:"general",label:"📋 General"},{id:"especies",label:"🌿 Especies/Variedades"},{id:"pbr",label:"📜 PBR"},{id:"legal",label:"⚖️ Legal/Firmas"},{id:"anexos",label:"📎 Anexos"}];
-      const vencido = c.f_vencimiento && new Date(c.f_vencimiento) < new Date();
-      const diasVenc = c.f_vencimiento ? Math.ceil((new Date(c.f_vencimiento)-new Date())/(1000*60*60*24)) : null;
+      const vig = estadoVigencia(c.f_vencimiento);
 
       return (
         <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh",padding:"20px 20px 40px"}}>
@@ -4513,6 +4708,20 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
             {label:"Contratos Obtentores", onClick:()=>setObtDetalle(null)},
             {label:c.obtentor},
           ]}/>
+          {canVerObtentores&&!canObtentores&&(
+            <div style={{background:"linear-gradient(135deg,#fef3c7,#fde68a)",border:"1px solid #f59e0b",
+              borderRadius:10,padding:"10px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>👁</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:800,color:"#92400e"}}>Modo solo lectura</div>
+                <div style={{fontSize:11,color:"#78350f"}}>
+                  {esConsulta
+                    ? "Tu rol es de Consulta. Puedes visualizar y exportar los datos a Excel, pero no modificar contratos obtentores."
+                    : "Tienes permiso de \"Solo ver\" en Contratos Obtentores. Puedes visualizar y exportar pero no modificar."}
+                </div>
+              </div>
+            </div>
+          )}
           {/* Header contrato */}
           <div style={{background:"linear-gradient(135deg,#1e1b4b,#4338ca22)",borderRadius:14,padding:"20px 24px",marginBottom:16,border:"1px solid #4338ca44"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
@@ -4520,14 +4729,10 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 <div style={{fontSize:20,fontWeight:900,color:"#e6edf3"}}>🧬 {c.obtentor}</div>
                 <div style={{fontSize:11,color:"#8b949e",marginTop:4}}>
                   {c.f_inicio&&`Desde ${c.f_inicio}`} {c.f_vencimiento&&` · Hasta ${c.f_vencimiento}`}
-                  {diasVenc!==null&&(vencido
-                    ?<span style={{color:"#ef4444",marginLeft:8}}>⚠️ Vencido hace {Math.abs(diasVenc)} días</span>
-                    :diasVenc<90?<span style={{color:"#f59e0b",marginLeft:8}}>⏳ {diasVenc} días para vencer</span>
-                    :<span style={{color:"#4ade80",marginLeft:8}}>✅ Vigente ({diasVenc} días)</span>
-                  )}
+                  <span style={{color:vig.color,marginLeft:8,fontWeight:700}}>{vig.icon} {vig.label}</span>
                 </div>
               </div>
-              <div style={{display:"flex",gap:8}}>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {c.firma_obtentor&&<span style={{fontSize:10,background:"rgba(34,197,94,0.2)",color:"#4ade80",padding:"4px 10px",borderRadius:20,fontWeight:700}}>✅ Firma Obtentor</span>}
                 {c.firma_osiris&&<span style={{fontSize:10,background:"rgba(34,197,94,0.2)",color:"#4ade80",padding:"4px 10px",borderRadius:20,fontWeight:700}}>✅ Firma Osiris</span>}
                 {c.renovable&&<span style={{fontSize:10,background:"rgba(96,165,250,0.2)",color:"#93c5fd",padding:"4px 10px",borderRadius:20,fontWeight:700}}>🔄 Renovable</span>}
@@ -4538,7 +4743,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           </div>
 
           {/* Tabs */}
-          <div style={{display:"flex",gap:6,marginBottom:16}}>
+          <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
             {TABS_OBT.map(t=>(
               <button key={t.id} onClick={()=>setObtTab(t.id)}
                 style={{padding:"8px 16px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:obtTab===t.id?700:500,fontSize:12,
@@ -4555,20 +4760,20 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 {[["Obtentor","obtentor","text"],["Fecha Inicio","f_inicio","date"],["Fecha Vencimiento","f_vencimiento","date"]].map(([lbl,f,t])=>(
                   <div key={f}>
                     <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>{lbl}</label>
-                    <input type={t} value={c[f]||""} onChange={e=>updateContrato(c.id,{[f]:e.target.value})}
-                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                    <input type={t} disabled={!canObtentores} value={c[f]||""} onChange={e=>updateContrato(c.id,{[f]:e.target.value})}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canObtentores?"#fff":"#f8fafc"}}/>
                   </div>
                 ))}
                 <div>
-                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
-                    <input type="checkbox" checked={!!c.renovable} onChange={e=>updateContrato(c.id,{renovable:e.target.checked})}/>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"flex",alignItems:"center",gap:8,cursor:canObtentores?"pointer":"default"}}>
+                    <input type="checkbox" disabled={!canObtentores} checked={!!c.renovable} onChange={e=>updateContrato(c.id,{renovable:e.target.checked})}/>
                     Contrato renovable
                   </label>
                 </div>
                 <div style={{gridColumn:"1/-1"}}>
                   <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
-                  <textarea value={c.observaciones||""} onChange={e=>updateContrato(c.id,{observaciones:e.target.value})}
-                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:80,boxSizing:"border-box"}}/>
+                  <textarea disabled={!canObtentores} value={c.observaciones||""} onChange={e=>updateContrato(c.id,{observaciones:e.target.value})}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:80,boxSizing:"border-box",background:canObtentores?"#fff":"#f8fafc"}}/>
                 </div>
               </div>
             )}
@@ -4578,7 +4783,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                   <div style={{fontWeight:700,color:"#1e293b"}}>Especies y Variedades del Contrato</div>
-                  <button onClick={addEspecie} style={{padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Especie</button>
+                  {canObtentores&&<button onClick={()=>{setEspForm({especie:"",variedad:"",observaciones:""});setEspModal(true);}} style={{padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Especie</button>}
                 </div>
                 {especies.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No hay especies registradas.</div>:(
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
@@ -4591,12 +4796,12 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                           <td style={{padding:"8px 12px",fontWeight:600}}>{e.especie}</td>
                           <td style={{padding:"8px 12px"}}>{e.variedad}</td>
                           <td style={{padding:"8px 12px"}}>
-                            <input value={e.observaciones||""} onChange={ev=>{
+                            <input disabled={!canObtentores} value={e.observaciones||""} onChange={ev=>{
                               updateContrato(c.id,{especies:especies.map(x=>x.id===e.id?{...x,observaciones:ev.target.value}:x)});
-                            }} style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:12}} placeholder="Notas..."/>
+                            }} style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:12,background:canObtentores?"#fff":"#f8fafc"}} placeholder="Notas..."/>
                           </td>
                           <td style={{padding:"8px 12px"}}>
-                            <button onClick={()=>delEspecie(e.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>
+                            {canObtentores&&<button onClick={()=>delEspecie(e.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>}
                           </td>
                         </tr>
                       ))}
@@ -4611,7 +4816,11 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                   <div style={{fontWeight:700,color:"#1e293b"}}>Registro PBR — Protección de Obtenciones Vegetales</div>
-                  <button onClick={addPBR} style={{padding:"6px 14px",borderRadius:8,background:"#f59e0b",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Nuevo Registro PBR</button>
+                  {canObtentores&&<button onClick={()=>{
+                    if(especies.length===0){alert("Primero debes agregar al menos una especie en la pestaña Especies/Variedades.");return;}
+                    setPbrForm({especie:especies[0]?.especie||"",pais:"",estado:"Pendiente",f_solicitud:"",f_resolucion:"",doc_solicitud:"",doc_resolucion:"",observaciones:""});
+                    setPbrModal(true);
+                  }} style={{padding:"6px 14px",borderRadius:8,background:"#f59e0b",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Nuevo Registro PBR</button>}
                 </div>
                 {pbr.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No hay registros PBR.</div>:(
                   <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -4620,7 +4829,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                           <div style={{fontWeight:700,fontSize:13}}>🌿 {p.especie} — 🌍 {p.pais}</div>
                           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                            <select value={p.estado||"Pendiente"} onChange={e=>updatePBR(p.id,{estado:e.target.value})}
+                            <select disabled={!canObtentores} value={p.estado||"Pendiente"} onChange={e=>updatePBR(p.id,{estado:e.target.value})}
                               style={{padding:"4px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,
                                 background:p.estado==="Aprobado"?"#dcfce7":p.estado==="Rechazado"?"#fee2e2":"#fef9c3",
                                 fontWeight:700}}>
@@ -4630,33 +4839,33 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                               <option value="Aprobado">✅ Aprobado</option>
                               <option value="Rechazado">❌ Rechazado</option>
                             </select>
-                            <button onClick={()=>delPBR(p.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11}}>🗑</button>
+                            {canObtentores&&<button onClick={()=>delPBR(p.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11}}>🗑</button>}
                           </div>
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,fontSize:11}}>
                           <div>
                             <div style={{color:"#64748b",fontWeight:600,marginBottom:2}}>Fecha Solicitud</div>
-                            <input type="date" value={p.f_solicitud||""} onChange={e=>updatePBR(p.id,{f_solicitud:e.target.value})}
+                            <input type="date" disabled={!canObtentores} value={p.f_solicitud||""} onChange={e=>updatePBR(p.id,{f_solicitud:e.target.value})}
                               style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box"}}/>
                           </div>
                           <div>
                             <div style={{color:"#64748b",fontWeight:600,marginBottom:2}}>Fecha Resolución</div>
-                            <input type="date" value={p.f_resolucion||""} onChange={e=>updatePBR(p.id,{f_resolucion:e.target.value})}
+                            <input type="date" disabled={!canObtentores} value={p.f_resolucion||""} onChange={e=>updatePBR(p.id,{f_resolucion:e.target.value})}
                               style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box"}}/>
                           </div>
                           <div>
                             <div style={{color:"#64748b",fontWeight:600,marginBottom:2}}>Doc. Solicitud (link)</div>
-                            <input value={p.doc_solicitud||""} onChange={e=>updatePBR(p.id,{doc_solicitud:e.target.value})} placeholder="URL documento..."
+                            <input disabled={!canObtentores} value={p.doc_solicitud||""} onChange={e=>updatePBR(p.id,{doc_solicitud:e.target.value})} placeholder="URL documento..."
                               style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box"}}/>
                           </div>
                           <div>
                             <div style={{color:"#64748b",fontWeight:600,marginBottom:2}}>Doc. Resolución (link)</div>
-                            <input value={p.doc_resolucion||""} onChange={e=>updatePBR(p.id,{doc_resolucion:e.target.value})} placeholder="URL documento..."
+                            <input disabled={!canObtentores} value={p.doc_resolucion||""} onChange={e=>updatePBR(p.id,{doc_resolucion:e.target.value})} placeholder="URL documento..."
                               style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box"}}/>
                           </div>
                         </div>
                         <div style={{marginTop:8}}>
-                          <input value={p.observaciones||""} onChange={e=>updatePBR(p.id,{observaciones:e.target.value})} placeholder="Observaciones PBR..."
+                          <input disabled={!canObtentores} value={p.observaciones||""} onChange={e=>updatePBR(p.id,{observaciones:e.target.value})} placeholder="Observaciones PBR..."
                             style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11,boxSizing:"border-box"}}/>
                         </div>
                       </div>
@@ -4671,20 +4880,20 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
                 <div style={{border:"1px solid #e2e8f0",borderRadius:10,padding:16}}>
                   <div style={{fontWeight:700,marginBottom:12,color:"#1e293b"}}>📝 Firmas del Contrato</div>
-                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
-                    <input type="checkbox" checked={!!c.firma_obtentor} onChange={e=>updateContrato(c.id,{firma_obtentor:e.target.checked})}/>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:canObtentores?"pointer":"default",padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
+                    <input type="checkbox" disabled={!canObtentores} checked={!!c.firma_obtentor} onChange={e=>updateContrato(c.id,{firma_obtentor:e.target.checked})}/>
                     <span style={{fontWeight:600,color:c.firma_obtentor?"#16a34a":"#94a3b8"}}>{c.firma_obtentor?"✅":"⬜"} Firma Obtentor</span>
                   </label>
-                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"8px 0"}}>
-                    <input type="checkbox" checked={!!c.firma_osiris} onChange={e=>updateContrato(c.id,{firma_osiris:e.target.checked})}/>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:canObtentores?"pointer":"default",padding:"8px 0"}}>
+                    <input type="checkbox" disabled={!canObtentores} checked={!!c.firma_osiris} onChange={e=>updateContrato(c.id,{firma_osiris:e.target.checked})}/>
                     <span style={{fontWeight:600,color:c.firma_osiris?"#16a34a":"#94a3b8"}}>{c.firma_osiris?"✅":"⬜"} Firma Osiris</span>
                   </label>
                 </div>
                 <div style={{border:"1px solid #e2e8f0",borderRadius:10,padding:16}}>
                   <div style={{fontWeight:700,marginBottom:12,color:"#1e293b"}}>📄 Documentación Legal</div>
                   <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Enlace documento legal</label>
-                  <input value={c.doc_legal||""} onChange={e=>updateContrato(c.id,{doc_legal:e.target.value})} placeholder="URL del documento legal..."
-                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  <input disabled={!canObtentores} value={c.doc_legal||""} onChange={e=>updateContrato(c.id,{doc_legal:e.target.value})} placeholder="URL del documento legal..."
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canObtentores?"#fff":"#f8fafc"}}/>
                   {c.doc_legal&&<a href={c.doc_legal} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#7c3aed",marginTop:6,display:"inline-block"}}>📎 Abrir documento</a>}
                 </div>
               </div>
@@ -4695,7 +4904,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                   <div style={{fontWeight:700,color:"#1e293b"}}>📎 Anexos del Contrato</div>
-                  <button onClick={addAnexo} style={{padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Anexo</button>
+                  {canObtentores&&<button onClick={()=>{setAnxForm({descripcion:"",fecha:"",enlace:"",observaciones:""});setAnxModal(true);}} style={{padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Anexo</button>}
                 </div>
                 {anexos.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No hay anexos registrados.</div>:(
                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -4704,16 +4913,16 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                         <div style={{flex:1}}>
                           <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>{a.descripcion}</div>
                           <div style={{display:"flex",gap:10,fontSize:11}}>
-                            <input type="date" value={a.fecha||""} onChange={e=>updateAnexo(a.id,{fecha:e.target.value})}
+                            <input type="date" disabled={!canObtentores} value={a.fecha||""} onChange={e=>updateAnexo(a.id,{fecha:e.target.value})}
                               style={{padding:"3px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11}}/>
-                            <input value={a.enlace||""} onChange={e=>updateAnexo(a.id,{enlace:e.target.value})} placeholder="Enlace documento..."
+                            <input disabled={!canObtentores} value={a.enlace||""} onChange={e=>updateAnexo(a.id,{enlace:e.target.value})} placeholder="Enlace documento..."
                               style={{flex:1,padding:"3px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11}}/>
-                            <input value={a.observaciones||""} onChange={e=>updateAnexo(a.id,{observaciones:e.target.value})} placeholder="Notas..."
+                            <input disabled={!canObtentores} value={a.observaciones||""} onChange={e=>updateAnexo(a.id,{observaciones:e.target.value})} placeholder="Notas..."
                               style={{flex:1,padding:"3px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11}}/>
                           </div>
                         </div>
                         {a.enlace&&<a href={a.enlace} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#7c3aed"}}>📎</a>}
-                        <button onClick={()=>delAnexo(a.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11}}>🗑</button>
+                        {canObtentores&&<button onClick={()=>delAnexo(a.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11}}>🗑</button>}
                       </div>
                     ))}
                   </div>
@@ -4721,11 +4930,135 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               </div>
             )}
           </div>
+
+          {/* Sub-modal: Agregar Especie */}
+          {espModal&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10000}} onClick={()=>setEspModal(false)}>
+              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:480,maxHeight:"80vh",overflowY:"auto"}}>
+                <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>🌿 Nueva Especie/Variedad</h3>
+                {[["Especie","especie","text","Cerezo, Arándano, Ciruelo..."],["Variedad","variedad","text","Royal Dawn, Magenta..."]].map(([lbl,f,t,ph])=>(
+                  <div key={f} style={{marginBottom:12}}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>{lbl} <span style={{color:"#dc2626"}}>*</span></label>
+                    <input type={t} value={espForm[f]||""} placeholder={ph} onChange={e=>setEspForm(p=>({...p,[f]:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                ))}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea value={espForm.observaciones||""} onChange={e=>setEspForm(p=>({...p,observaciones:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>setEspModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
+                  <button onClick={guardarEspecie} style={{padding:"8px 16px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-modal: Agregar PBR */}
+          {pbrModal&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10000}} onClick={()=>setPbrModal(false)}>
+              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:540,maxHeight:"85vh",overflowY:"auto"}}>
+                <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>📜 Nuevo Registro PBR</h3>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Especie <span style={{color:"#dc2626"}}>*</span></label>
+                  <select value={pbrForm.especie||""} onChange={e=>setPbrForm(p=>({...p,especie:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                    <option value="">— Seleccionar especie —</option>
+                    {[...new Set(especies.map(e=>e.especie))].map(esp=><option key={esp} value={esp}>{esp}</option>)}
+                  </select>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>País de Inscripción <span style={{color:"#dc2626"}}>*</span></label>
+                  <input value={pbrForm.pais||""} placeholder="Chile, Perú, México..." onChange={e=>setPbrForm(p=>({...p,pais:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado</label>
+                  <select value={pbrForm.estado||"Pendiente"} onChange={e=>setPbrForm(p=>({...p,estado:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
+                    <option value="Pendiente">⏳ Pendiente</option>
+                    <option value="Solicitado">📨 Solicitado</option>
+                    <option value="En Revisión">🔍 En Revisión</option>
+                    <option value="Aprobado">✅ Aprobado</option>
+                    <option value="Rechazado">❌ Rechazado</option>
+                  </select>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Solicitud</label>
+                    <input type="date" value={pbrForm.f_solicitud||""} onChange={e=>setPbrForm(p=>({...p,f_solicitud:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Resolución</label>
+                    <input type="date" value={pbrForm.f_resolucion||""} onChange={e=>setPbrForm(p=>({...p,f_resolucion:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Doc. Solicitud (URL)</label>
+                  <input value={pbrForm.doc_solicitud||""} onChange={e=>setPbrForm(p=>({...p,doc_solicitud:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Doc. Resolución (URL)</label>
+                  <input value={pbrForm.doc_resolucion||""} onChange={e=>setPbrForm(p=>({...p,doc_resolucion:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea value={pbrForm.observaciones||""} onChange={e=>setPbrForm(p=>({...p,observaciones:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>setPbrModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
+                  <button onClick={guardarPBR} style={{padding:"8px 16px",borderRadius:8,background:"#f59e0b",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar PBR</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-modal: Agregar Anexo */}
+          {anxModal&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10000}} onClick={()=>setAnxModal(false)}>
+              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:480,maxHeight:"80vh",overflowY:"auto"}}>
+                <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>📎 Nuevo Anexo</h3>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Descripción <span style={{color:"#dc2626"}}>*</span></label>
+                  <input value={anxForm.descripcion||""} placeholder="Adenda 2025, Carta compromiso..." onChange={e=>setAnxForm(p=>({...p,descripcion:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha</label>
+                  <input type="date" value={anxForm.fecha||""} onChange={e=>setAnxForm(p=>({...p,fecha:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Enlace (URL)</label>
+                  <input value={anxForm.enlace||""} placeholder="https://..." onChange={e=>setAnxForm(p=>({...p,enlace:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea value={anxForm.observaciones||""} onChange={e=>setAnxForm(p=>({...p,observaciones:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>setAnxModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
+                  <button onClick={guardarAnexo} style={{padding:"8px 16px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
 
     // ── Vista lista de contratos obtentores ──
+    const totVencidos = obtData.filter(o=>{const d=diasParaVencer(o.f_vencimiento);return d!==null && d<0;}).length;
+    const totPorVencer = obtData.filter(o=>{const d=diasParaVencer(o.f_vencimiento);return d!==null && d>=0 && d<=90;}).length;
     return (
       <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh",padding:"20px 20px 40px"}}>
         <NavBar breadcrumbItems={[
@@ -4733,42 +5066,87 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           {label:"Osiris Hub", onClick:()=>setSubApp(null)},
           {label:"Contratos Obtentores"},
         ]}/>
-        <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-            <h3 style={{margin:0,fontSize:18,color:"#1e293b"}}>🧬 Contratos Obtentores</h3>
-            <button onClick={()=>{setObtForm(EMPTY_OBT);setObtEditId(null);setObtModal(true);}}
-              style={{padding:"8px 16px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
-              + Nuevo Contrato
-            </button>
+
+        {canVerObtentores&&!canObtentores&&(
+          <div style={{background:"linear-gradient(135deg,#fef3c7,#fde68a)",border:"1px solid #f59e0b",
+            borderRadius:10,padding:"10px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:20}}>👁</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:800,color:"#92400e"}}>Modo solo lectura</div>
+              <div style={{fontSize:11,color:"#78350f"}}>
+                {esConsulta
+                  ? "Tu rol es de Consulta. Puedes visualizar y exportar a Excel, pero no modificar contratos obtentores."
+                  : "Tienes permiso de \"Solo ver\" en Contratos Obtentores. Puedes visualizar y exportar pero no modificar."}
+              </div>
+            </div>
           </div>
-          {obtData.length===0?<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>No hay contratos obtentores. Haz click en "+ Nuevo Contrato" para agregar.</div>:(
+        )}
+
+        {/* KPIs */}
+        <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16}}>
+          {[
+            ["📊 Total contratos", obtData.length, "#7c3aed"],
+            ["⚠️ Vencidos",          totVencidos,    "#dc2626"],
+            ["⏳ Vencen ≤ 90 días", totPorVencer,  "#f59e0b"],
+            ["🌿 Especies totales", obtData.reduce((s,o)=>s+(o.especies||[]).length,0), "#16a34a"],
+            ["📜 PBR aprobados",    obtData.reduce((s,o)=>s+(o.pbr||[]).filter(p=>p.estado==="Aprobado").length,0), "#0f766e"],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:"#21283b",border:"1px solid #30363d",borderLeft:`4px solid ${c}`,
+              borderRadius:10,padding:"12px 16px",flex:1,minWidth:140}}>
+              <div style={{fontSize:10,color:"#8b949e",fontWeight:600,marginBottom:4}}>{l}</div>
+              <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+            <h3 style={{margin:0,fontSize:18,color:"#1e293b"}}>🧬 Contratos Obtentores</h3>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>exportarObtentores(obtData)}
+                style={{padding:"8px 16px",borderRadius:8,background:"#0f766e",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                📥 Exportar Excel
+              </button>
+              {canObtentores&&<button onClick={()=>{setObtForm(EMPTY_OBT);setObtEditId(null);setObtModal(true);}}
+                style={{padding:"8px 16px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                + Nuevo Contrato
+              </button>}
+            </div>
+          </div>
+          {obtData.length===0?<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>No hay contratos obtentores. {canObtentores?"Haz click en \"+ Nuevo Contrato\" para agregar.":""}</div>:(
             <div style={{display:"grid",gap:12}}>
               {obtData.map(o=>{
-                const venc = o.f_vencimiento && new Date(o.f_vencimiento) < new Date();
+                const vig = estadoVigencia(o.f_vencimiento);
                 const nEsp = (o.especies||[]).length;
                 const nPbr = (o.pbr||[]).length;
                 const firmado = o.firma_obtentor && o.firma_osiris;
+                const venc = diasParaVencer(o.f_vencimiento);
+                const isVencido = venc!==null && venc<0;
                 return (
                   <div key={o.id} onClick={()=>{setObtDetalle(o.id);setObtTab("general");}}
-                    style={{border:`1px solid ${venc?"#fca5a5":"#e2e8f0"}`,borderRadius:12,padding:"16px 20px",cursor:"pointer",
-                      background:venc?"#fef2f2":"#fff",transition:"all 0.15s"}}
+                    style={{border:`1px solid ${isVencido?"#fca5a5":"#e2e8f0"}`,borderRadius:12,padding:"16px 20px",cursor:"pointer",
+                      background:isVencido?"#fef2f2":"#fff",transition:"all 0.15s"}}
                     onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 12px #0002"}
                     onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                       <div>
                         <div style={{fontWeight:800,fontSize:15,color:"#1e293b"}}>🧬 {o.obtentor}</div>
                         <div style={{fontSize:11,color:"#64748b",marginTop:2}}>
                           {o.f_inicio&&`${o.f_inicio} → `}{o.f_vencimiento||"Sin vencimiento"}
-                          {venc&&<span style={{color:"#ef4444",marginLeft:8}}>⚠️ Vencido</span>}
+                          <span style={{color:vig.color,marginLeft:8,fontWeight:700,background:vig.bg,padding:"2px 8px",borderRadius:10}}>{vig.icon} {vig.label}</span>
                         </div>
                       </div>
-                      <div style={{display:"flex",gap:6}}>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                         {firmado&&<span style={{fontSize:10,background:"rgba(34,197,94,0.15)",color:"#16a34a",padding:"3px 10px",borderRadius:20,fontWeight:700}}>✅ Firmado</span>}
                         {o.renovable&&<span style={{fontSize:10,background:"rgba(96,165,250,0.15)",color:"#3b82f6",padding:"3px 10px",borderRadius:20,fontWeight:700}}>🔄</span>}
                         <span style={{fontSize:10,background:"rgba(124,58,237,0.15)",color:"#7c3aed",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{nEsp} esp.</span>
                         <span style={{fontSize:10,background:"rgba(251,191,36,0.15)",color:"#d97706",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{nPbr} PBR</span>
-                        <button onClick={e=>{e.stopPropagation();if(window.confirm("¿Eliminar contrato?"))setObt(obtData.filter(x=>x.id!==o.id));}}
-                          style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>
+                        {canObtentores&&<>
+                          <button onClick={e=>{e.stopPropagation();setObtForm({...EMPTY_OBT,...o});setObtEditId(o.id);setObtModal(true);}}
+                            style={{background:"#f0f9ff",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>✏️</button>
+                          <button onClick={e=>{e.stopPropagation();eliminarObt(o.id);}}
+                            style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>
+                        </>}
                       </div>
                     </div>
                   </div>
@@ -4777,21 +5155,48 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
             </div>
           )}
         </div>
+
+        {/* Modal: Nuevo/Editar Obtentor */}
         {obtModal&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}} onClick={()=>setObtModal(false)}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:500,maxHeight:"80vh",overflowY:"auto"}}>
-              <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>{obtEditId?"Editar":"Nuevo"} Contrato Obtentor</h3>
-              {[["Nombre del Obtentor","obtentor","text"],["Fecha Inicio","f_inicio","date"],["Fecha Vencimiento","f_vencimiento","date"]].map(([lbl,field,type])=>(
-                <div key={field} style={{marginBottom:12}}>
-                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>{lbl}</label>
-                  <input type={type} value={obtForm[field]||""} onChange={e=>setObtForm(p=>({...p,[field]:e.target.value}))}
+            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:560,maxHeight:"85vh",overflowY:"auto"}}>
+              <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>{obtEditId?"✏️ Editar":"➕ Nuevo"} Contrato Obtentor</h3>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Nombre del Obtentor <span style={{color:"#dc2626"}}>*</span></label>
+                <input value={obtForm.obtentor||""} placeholder="Ej. SunWorld, IFG, Bloom Fresh..." onChange={e=>setObtForm(p=>({...p,obtentor:e.target.value}))}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Inicio</label>
+                  <input type="date" value={obtForm.f_inicio||""} onChange={e=>setObtForm(p=>({...p,f_inicio:e.target.value}))}
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
                 </div>
-              ))}
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Vencimiento</label>
+                  <input type="date" value={obtForm.f_vencimiento||""} onChange={e=>setObtForm(p=>({...p,f_vencimiento:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+              </div>
               <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:12}}>
                 <input type="checkbox" checked={!!obtForm.renovable} onChange={e=>setObtForm(p=>({...p,renovable:e.target.checked}))}/>
                 <span style={{fontSize:12}}>Contrato renovable</span>
               </label>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                  <input type="checkbox" checked={!!obtForm.firma_obtentor} onChange={e=>setObtForm(p=>({...p,firma_obtentor:e.target.checked}))}/>
+                  <span style={{fontSize:12}}>✅ Firma Obtentor</span>
+                </label>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                  <input type="checkbox" checked={!!obtForm.firma_osiris} onChange={e=>setObtForm(p=>({...p,firma_osiris:e.target.checked}))}/>
+                  <span style={{fontSize:12}}>✅ Firma Osiris</span>
+                </label>
+              </div>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link documento legal</label>
+                <input value={obtForm.doc_legal||""} placeholder="https://..." onChange={e=>setObtForm(p=>({...p,doc_legal:e.target.value}))}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+              </div>
               <div style={{marginBottom:12}}>
                 <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
                 <textarea value={obtForm.observaciones||""} onChange={e=>setObtForm(p=>({...p,observaciones:e.target.value}))}
@@ -4799,7 +5204,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               </div>
               <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                 <button onClick={()=>setObtModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
-                <button onClick={guardarObt} style={{padding:"8px 16px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+                <button onClick={guardarObt} style={{padding:"8px 16px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>{obtEditId?"Guardar cambios":"Crear contrato"}</button>
               </div>
             </div>
           </div>
@@ -4810,19 +5215,371 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
 
   // ── CONTRATOS VIVEROS ──────────────────────────────────────
   if(subApp==="viveros") {
-    const vivData = osirisData?.viveros || [];
+    // Migración suave: si llegan datos en formato plano viejo (con especie/variedad/fee_usd a nivel raíz),
+    // los convertimos a estructura jerárquica al vuelo (sin alterar Supabase hasta que el usuario edite).
+    const vivDataRaw = osirisData?.viveros || [];
+    const vivData = vivDataRaw.map(v=>{
+      // Si ya tiene array variedades, está migrado
+      if(Array.isArray(v.variedades)) return v;
+      // Migrar formato plano antiguo
+      const variedades = (v.especie || v.variedad)
+        ? [{id:`vv_${v.id||Date.now()}`, especie:v.especie||"", variedad:v.variedad||"",
+            fee_usd:parseFloat(v.fee_usd)||0, fee_pct:parseFloat(v.fee_pct)||0, observaciones:""}]
+        : [];
+      return {
+        id:v.id, viverista:v.viverista||"", pais:v.pais||"",
+        f_contrato:v.f_contrato||"", f_vencimiento:v.f_vencimiento||"",
+        renovable:!!v.renovable, firma_viverista:!!v.firma_viverista, firma_osiris:!!v.firma_osiris,
+        doc_legal:v.doc_legal||"", observaciones:v.observaciones||"",
+        variedades, anexos:v.anexos||[],
+      };
+    });
     const setViv = (list) => setOsirisData(prev=>({...prev, viveros: list}));
-    
+
     const guardarViv = () => {
+      if(!canViveros) return;
       if(!vivForm.viverista) { alert("Viverista es obligatorio"); return; }
+      if(vivForm.f_contrato && vivForm.f_vencimiento && new Date(vivForm.f_vencimiento) < new Date(vivForm.f_contrato)) {
+        alert("La fecha de vencimiento no puede ser anterior a la fecha de contrato."); return;
+      }
       const id = vivEditId || `viv_${Date.now()}`;
-      const item = {...vivForm, id, fee_usd:parseFloat(vivForm.fee_usd)||0, fee_pct:parseFloat(vivForm.fee_pct)||0};
+      const existing = vivEditId ? vivData.find(v=>v.id===vivEditId) : null;
+      const item = {...(existing||{}), ...vivForm, id};
+      // Asegurar arrays
+      item.variedades = item.variedades || [];
+      item.anexos     = item.anexos     || [];
       const next = vivEditId ? vivData.map(v=>v.id===vivEditId?item:v) : [...vivData, item];
       setViv(next);
+      window.auditLog && window.auditLog(vivEditId?"editar":"crear", {modulo:"osiris", seccion:"Contratos Viveros",
+        descripcion:`${vivEditId?"Editó":"Creó"} contrato vivero "${item.viverista}"${item.pais?` · ${item.pais}`:""}${item.f_vencimiento?` · vence ${item.f_vencimiento}`:""}`});
       setVivModal(false);
       setVivEditId(null);
     };
-    
+
+    const updateVivero = (id, updates) => {
+      if(!canViveros) return;
+      const before = vivData.find(v=>v.id===id);
+      setViv(vivData.map(v=>v.id===id?{...v,...updates}:v));
+      const campo = Object.keys(updates).join(", ");
+      window.auditLog && window.auditLog("editar", {modulo:"osiris", seccion:"Contratos Viveros",
+        descripcion:`Editó vivero "${before?.viverista||""}": campo ${campo}`});
+    };
+
+    const eliminarViv = (id) => {
+      if(!canViveros) return;
+      const v = vivData.find(x=>x.id===id);
+      if(!v) return;
+      if(!window.confirm(`¿Eliminar vivero "${v.viverista}"?\n\nIncluye ${(v.variedades||[]).length} variedades autorizadas y ${(v.anexos||[]).length} anexos.`)) return;
+      setViv(vivData.filter(x=>x.id!==id));
+      window.auditLog && window.auditLog("eliminar", {modulo:"osiris", seccion:"Contratos Viveros",
+        descripcion:`Eliminó vivero "${v.viverista}"`});
+    };
+
+    const viveroActivo = vivDetalle ? vivData.find(v=>v.id===vivDetalle) : null;
+
+    const guardarVariedad = () => {
+      if(!canViveros) return;
+      if(!vvForm.especie || !vvForm.variedad) { alert("Especie y Variedad son obligatorias."); return; }
+      const v = viveroActivo;
+      const nueva = {id:`vv_${Date.now()}`, especie:vvForm.especie.trim(), variedad:vvForm.variedad.trim(),
+        fee_usd:parseFloat(vvForm.fee_usd)||0, fee_pct:parseFloat(vvForm.fee_pct)||0, observaciones:vvForm.observaciones||""};
+      updateVivero(v.id, {variedades:[...(v.variedades||[]), nueva]});
+      setVvForm({especie:"",variedad:"",fee_usd:"",fee_pct:"",observaciones:""});
+      setVvModal(false);
+    };
+
+    const guardarVAnexo = () => {
+      if(!canViveros) return;
+      if(!vAnxForm.descripcion) { alert("Descripción del anexo es obligatoria."); return; }
+      const v = viveroActivo;
+      const nuevo = {id:`vanx_${Date.now()}`, ...vAnxForm};
+      updateVivero(v.id, {anexos:[...(v.anexos||[]), nuevo]});
+      setVAnxForm({descripcion:"",fecha:"",enlace:"",observaciones:""});
+      setVAnxModal(false);
+    };
+
+    // ── Vista detalle de un vivero ──
+    if(viveroActivo) {
+      const v = viveroActivo;
+      const variedades = v.variedades || [];
+      const anexos = v.anexos || [];
+
+      const delVariedad = (vid) => {
+        if(!canViveros) return;
+        if(!window.confirm("¿Eliminar variedad autorizada?")) return;
+        updateVivero(v.id, {variedades:variedades.filter(x=>x.id!==vid)});
+      };
+      const updateVariedad = (vid, updates) => {
+        if(!canViveros) return;
+        updateVivero(v.id, {variedades:variedades.map(x=>x.id===vid?{...x,...updates}:x)});
+      };
+      const updateVAnexo = (aid, updates) => {
+        if(!canViveros) return;
+        updateVivero(v.id, {anexos:anexos.map(a=>a.id===aid?{...a,...updates}:a)});
+      };
+      const delVAnexo = (aid) => {
+        if(!canViveros) return;
+        if(!window.confirm("¿Eliminar anexo?")) return;
+        updateVivero(v.id, {anexos:anexos.filter(a=>a.id!==aid)});
+      };
+
+      const TABS_VIV = [{id:"general",label:"📋 General"},{id:"variedades",label:"🌱 Variedades Autorizadas"},{id:"legal",label:"⚖️ Legal/Firmas"},{id:"anexos",label:"📎 Anexos"}];
+      const vig = estadoVigencia(v.f_vencimiento);
+
+      return (
+        <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh",padding:"20px 20px 40px"}}>
+          <NavBar breadcrumbItems={[
+            {label:"Mediterra", onClick:onBack},
+            {label:"Osiris Hub", onClick:()=>{setSubApp(null);setVivDetalle(null);}},
+            {label:"Contratos Viveros", onClick:()=>setVivDetalle(null)},
+            {label:v.viverista},
+          ]}/>
+          {canVerViveros&&!canViveros&&(
+            <div style={{background:"linear-gradient(135deg,#fef3c7,#fde68a)",border:"1px solid #f59e0b",
+              borderRadius:10,padding:"10px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>👁</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:800,color:"#92400e"}}>Modo solo lectura</div>
+                <div style={{fontSize:11,color:"#78350f"}}>
+                  {esConsulta
+                    ? "Tu rol es de Consulta. Puedes visualizar y exportar pero no modificar contratos viveros."
+                    : "Tienes permiso de \"Solo ver\" en Contratos Viveros."}
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Header vivero */}
+          <div style={{background:"linear-gradient(135deg,#14532d,#16a34a22)",borderRadius:14,padding:"20px 24px",marginBottom:16,border:"1px solid #16a34a44"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+              <div>
+                <div style={{fontSize:20,fontWeight:900,color:"#e6edf3"}}>🌱 {v.viverista}</div>
+                <div style={{fontSize:11,color:"#8b949e",marginTop:4}}>
+                  {v.pais&&`🌍 ${v.pais}`} {v.f_contrato&&` · Contrato ${v.f_contrato}`} {v.f_vencimiento&&` · Vence ${v.f_vencimiento}`}
+                  <span style={{color:vig.color,marginLeft:8,fontWeight:700}}>{vig.icon} {vig.label}</span>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {v.firma_viverista&&<span style={{fontSize:10,background:"rgba(34,197,94,0.2)",color:"#4ade80",padding:"4px 10px",borderRadius:20,fontWeight:700}}>✅ Firma Viverista</span>}
+                {v.firma_osiris&&<span style={{fontSize:10,background:"rgba(34,197,94,0.2)",color:"#4ade80",padding:"4px 10px",borderRadius:20,fontWeight:700}}>✅ Firma Osiris</span>}
+                {v.renovable&&<span style={{fontSize:10,background:"rgba(96,165,250,0.2)",color:"#93c5fd",padding:"4px 10px",borderRadius:20,fontWeight:700}}>🔄 Renovable</span>}
+                <span style={{fontSize:10,background:"rgba(22,163,74,0.2)",color:"#4ade80",padding:"4px 10px",borderRadius:20,fontWeight:700}}>🌱 {variedades.length} variedades</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+            {TABS_VIV.map(t=>(
+              <button key={t.id} onClick={()=>setVivTab(t.id)}
+                style={{padding:"8px 16px",borderRadius:8,border:"none",cursor:"pointer",fontWeight:vivTab===t.id?700:500,fontSize:12,
+                  background:vivTab===t.id?"#16a34a":"#21283b",color:vivTab===t.id?"#fff":"#8b949e"}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
+            {/* TAB GENERAL */}
+            {vivTab==="general"&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+                {[["Viverista","viverista","text"],["País","pais","text"],["Fecha Contrato","f_contrato","date"],["Fecha Vencimiento","f_vencimiento","date"]].map(([lbl,f,t])=>(
+                  <div key={f}>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>{lbl}</label>
+                    <input type={t} disabled={!canViveros} value={v[f]||""} onChange={e=>updateVivero(v.id,{[f]:e.target.value})}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}/>
+                  </div>
+                ))}
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"flex",alignItems:"center",gap:8,cursor:canViveros?"pointer":"default"}}>
+                    <input type="checkbox" disabled={!canViveros} checked={!!v.renovable} onChange={e=>updateVivero(v.id,{renovable:e.target.checked})}/>
+                    Contrato renovable
+                  </label>
+                </div>
+                <div style={{gridColumn:"1/-1"}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea disabled={!canViveros} value={v.observaciones||""} onChange={e=>updateVivero(v.id,{observaciones:e.target.value})}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:80,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}/>
+                </div>
+              </div>
+            )}
+
+            {/* TAB VARIEDADES AUTORIZADAS */}
+            {vivTab==="variedades"&&(
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <div style={{fontWeight:700,color:"#1e293b"}}>🌱 Variedades Autorizadas a Producir</div>
+                  {canViveros&&<button onClick={()=>{setVvForm({especie:"",variedad:"",fee_usd:"",fee_pct:"",observaciones:""});setVvModal(true);}} style={{padding:"6px 14px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Variedad</button>}
+                </div>
+                {variedades.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No hay variedades registradas.</div>:(
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                    <thead><tr style={{background:"#f8fafc"}}>
+                      {["Especie","Variedad","Fee USD/planta","Fee % s/venta","Observaciones",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:["Fee USD/planta","Fee % s/venta"].includes(h)?"right":"left",fontWeight:700,fontSize:10,color:"#64748b",borderBottom:"2px solid #e2e8f0"}}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {variedades.map(x=>(
+                        <tr key={x.id} style={{borderBottom:"1px solid #f1f5f9"}}>
+                          <td style={{padding:"8px 12px",fontWeight:600}}>{x.especie}</td>
+                          <td style={{padding:"8px 12px"}}>{x.variedad}</td>
+                          <td style={{padding:"8px 12px",textAlign:"right"}}>
+                            <input type="number" disabled={!canViveros} value={x.fee_usd||0} onChange={ev=>updateVariedad(x.id,{fee_usd:parseFloat(ev.target.value)||0})}
+                              style={{width:90,padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:12,textAlign:"right",background:canViveros?"#fff":"#f8fafc"}}/>
+                          </td>
+                          <td style={{padding:"8px 12px",textAlign:"right"}}>
+                            <input type="number" disabled={!canViveros} value={x.fee_pct||0} onChange={ev=>updateVariedad(x.id,{fee_pct:parseFloat(ev.target.value)||0})}
+                              style={{width:70,padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:12,textAlign:"right",background:canViveros?"#fff":"#f8fafc"}}/>
+                          </td>
+                          <td style={{padding:"8px 12px"}}>
+                            <input disabled={!canViveros} value={x.observaciones||""} onChange={ev=>updateVariedad(x.id,{observaciones:ev.target.value})}
+                              style={{width:"100%",padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:12,background:canViveros?"#fff":"#f8fafc"}} placeholder="Notas..."/>
+                          </td>
+                          <td style={{padding:"8px 12px"}}>
+                            {canViveros&&<button onClick={()=>delVariedad(x.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            {/* TAB LEGAL/FIRMAS */}
+            {vivTab==="legal"&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+                <div style={{border:"1px solid #e2e8f0",borderRadius:10,padding:16}}>
+                  <div style={{fontWeight:700,marginBottom:12,color:"#1e293b"}}>📝 Firmas del Contrato</div>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:canViveros?"pointer":"default",padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
+                    <input type="checkbox" disabled={!canViveros} checked={!!v.firma_viverista} onChange={e=>updateVivero(v.id,{firma_viverista:e.target.checked})}/>
+                    <span style={{fontWeight:600,color:v.firma_viverista?"#16a34a":"#94a3b8"}}>{v.firma_viverista?"✅":"⬜"} Firma Viverista</span>
+                  </label>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:canViveros?"pointer":"default",padding:"8px 0"}}>
+                    <input type="checkbox" disabled={!canViveros} checked={!!v.firma_osiris} onChange={e=>updateVivero(v.id,{firma_osiris:e.target.checked})}/>
+                    <span style={{fontWeight:600,color:v.firma_osiris?"#16a34a":"#94a3b8"}}>{v.firma_osiris?"✅":"⬜"} Firma Osiris</span>
+                  </label>
+                </div>
+                <div style={{border:"1px solid #e2e8f0",borderRadius:10,padding:16}}>
+                  <div style={{fontWeight:700,marginBottom:12,color:"#1e293b"}}>📄 Documentación Legal</div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Enlace documento legal</label>
+                  <input disabled={!canViveros} value={v.doc_legal||""} onChange={e=>updateVivero(v.id,{doc_legal:e.target.value})} placeholder="URL del documento legal..."
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}/>
+                  {v.doc_legal&&<a href={v.doc_legal} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#16a34a",marginTop:6,display:"inline-block"}}>📎 Abrir documento</a>}
+                </div>
+              </div>
+            )}
+
+            {/* TAB ANEXOS */}
+            {vivTab==="anexos"&&(
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <div style={{fontWeight:700,color:"#1e293b"}}>📎 Anexos del Contrato</div>
+                  {canViveros&&<button onClick={()=>{setVAnxForm({descripcion:"",fecha:"",enlace:"",observaciones:""});setVAnxModal(true);}} style={{padding:"6px 14px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Anexo</button>}
+                </div>
+                {anexos.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No hay anexos registrados.</div>:(
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {anexos.map(a=>(
+                      <div key={a.id} style={{border:"1px solid #e2e8f0",borderRadius:10,padding:12,display:"flex",gap:12,alignItems:"center"}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>{a.descripcion}</div>
+                          <div style={{display:"flex",gap:10,fontSize:11}}>
+                            <input type="date" disabled={!canViveros} value={a.fecha||""} onChange={e=>updateVAnexo(a.id,{fecha:e.target.value})}
+                              style={{padding:"3px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11}}/>
+                            <input disabled={!canViveros} value={a.enlace||""} onChange={e=>updateVAnexo(a.id,{enlace:e.target.value})} placeholder="Enlace documento..."
+                              style={{flex:1,padding:"3px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11}}/>
+                            <input disabled={!canViveros} value={a.observaciones||""} onChange={e=>updateVAnexo(a.id,{observaciones:e.target.value})} placeholder="Notas..."
+                              style={{flex:1,padding:"3px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:11}}/>
+                          </div>
+                        </div>
+                        {a.enlace&&<a href={a.enlace} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#16a34a"}}>📎</a>}
+                        {canViveros&&<button onClick={()=>delVAnexo(a.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11}}>🗑</button>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Sub-modal: Agregar Variedad */}
+          {vvModal&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10000}} onClick={()=>setVvModal(false)}>
+              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:520,maxHeight:"85vh",overflowY:"auto"}}>
+                <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>🌱 Nueva Variedad Autorizada</h3>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Especie <span style={{color:"#dc2626"}}>*</span></label>
+                    <input value={vvForm.especie||""} placeholder="Cerezo, Arándano..." onChange={e=>setVvForm(p=>({...p,especie:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Variedad <span style={{color:"#dc2626"}}>*</span></label>
+                    <input value={vvForm.variedad||""} placeholder="Royal Dawn..." onChange={e=>setVvForm(p=>({...p,variedad:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fee USD por planta</label>
+                    <input type="number" step="0.01" value={vvForm.fee_usd||""} placeholder="0.85" onChange={e=>setVvForm(p=>({...p,fee_usd:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fee % sobre venta</label>
+                    <input type="number" step="0.1" value={vvForm.fee_pct||""} placeholder="3" onChange={e=>setVvForm(p=>({...p,fee_pct:e.target.value}))}
+                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea value={vvForm.observaciones||""} onChange={e=>setVvForm(p=>({...p,observaciones:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>setVvModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
+                  <button onClick={guardarVariedad} style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-modal: Agregar Anexo Vivero */}
+          {vAnxModal&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:10000}} onClick={()=>setVAnxModal(false)}>
+              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:480,maxHeight:"80vh",overflowY:"auto"}}>
+                <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>📎 Nuevo Anexo</h3>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Descripción <span style={{color:"#dc2626"}}>*</span></label>
+                  <input value={vAnxForm.descripcion||""} placeholder="Adenda 2025, Carta compromiso..." onChange={e=>setVAnxForm(p=>({...p,descripcion:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha</label>
+                  <input type="date" value={vAnxForm.fecha||""} onChange={e=>setVAnxForm(p=>({...p,fecha:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Enlace (URL)</label>
+                  <input value={vAnxForm.enlace||""} placeholder="https://..." onChange={e=>setVAnxForm(p=>({...p,enlace:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
+                  <textarea value={vAnxForm.observaciones||""} onChange={e=>setVAnxForm(p=>({...p,observaciones:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                </div>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>setVAnxModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
+                  <button onClick={guardarVAnexo} style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── Vista lista de viveros ──
+    const totVencidos = vivData.filter(v=>{const d=diasParaVencer(v.f_vencimiento);return d!==null && d<0;}).length;
+    const totPorVencer = vivData.filter(v=>{const d=diasParaVencer(v.f_vencimiento);return d!==null && d>=0 && d<=90;}).length;
     return (
       <div style={{fontFamily:"sans-serif",background:"#0d1117",minHeight:"100vh",padding:"20px 20px 40px"}}>
         <NavBar breadcrumbItems={[
@@ -4830,57 +5587,140 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
           {label:"Osiris Hub", onClick:()=>setSubApp(null)},
           {label:"Contratos Viveros"},
         ]}/>
-        <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-            <h3 style={{margin:0,fontSize:18,color:"#1e293b"}}>🌱 Contratos Viveros</h3>
-            <button onClick={()=>{setVivForm({viverista:"",pais:"",especie:"",variedad:"",fee_usd:"",fee_pct:"",f_contrato:"",f_vencimiento:"",observaciones:""});setVivEditId(null);setVivModal(true);}}
-              style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
-              + Nuevo Vivero
-            </button>
+
+        {canVerViveros&&!canViveros&&(
+          <div style={{background:"linear-gradient(135deg,#fef3c7,#fde68a)",border:"1px solid #f59e0b",
+            borderRadius:10,padding:"10px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:20}}>👁</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:800,color:"#92400e"}}>Modo solo lectura</div>
+              <div style={{fontSize:11,color:"#78350f"}}>
+                {esConsulta
+                  ? "Tu rol es de Consulta. Puedes visualizar y exportar pero no modificar contratos viveros."
+                  : "Tienes permiso de \"Solo ver\" en Contratos Viveros."}
+              </div>
+            </div>
           </div>
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead>
-                <tr style={{background:"#f8fafc"}}>
-                  {["Viverista","País","Especie","Variedad","Fee USD","Fee %","Fecha Contrato","Vencimiento","Observaciones","Acciones"].map(h=>
-                    <th key={h} style={{padding:"10px 12px",textAlign:["Fee USD","Fee %"].includes(h)?"right":"left",fontWeight:700,fontSize:10,color:"#64748b",textTransform:"uppercase",borderBottom:"2px solid #e2e8f0"}}>{h}</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {vivData.length===0&&<tr><td colSpan={10} style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No hay contratos viveros. Haz click en "+ Nuevo Vivero" para agregar.</td></tr>}
-                {vivData.map((v,i)=>(
-                  <tr key={v.id||i} style={{borderBottom:"1px solid #f1f5f9"}}>
-                    <td style={{padding:"8px 12px",fontWeight:600}}>{v.viverista}</td>
-                    <td style={{padding:"8px 12px"}}>{v.pais}</td>
-                    <td style={{padding:"8px 12px"}}>{v.especie}</td>
-                    <td style={{padding:"8px 12px"}}>{v.variedad}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:"#16a34a",fontWeight:600}}>{v.fee_usd?`$${Number(v.fee_usd).toLocaleString()}`:""}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:"#16a34a"}}>{v.fee_pct?`${v.fee_pct}%`:""}</td>
-                    <td style={{padding:"8px 12px"}}>{v.f_contrato}</td>
-                    <td style={{padding:"8px 12px",color:v.f_vencimiento&&new Date(v.f_vencimiento)<new Date()?"#ef4444":""}}>{v.f_vencimiento}{v.f_vencimiento&&new Date(v.f_vencimiento)<new Date()?" ⚠️":""}</td>
-                    <td style={{padding:"8px 12px",fontSize:11,color:"#64748b",maxWidth:200}}>{v.observaciones}</td>
-                    <td style={{padding:"8px 12px"}}>
-                      <button onClick={()=>{setVivForm(v);setVivEditId(v.id);setVivModal(true);}} style={{background:"#f0fdf4",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,marginRight:4}}>✏️</button>
-                      <button onClick={()=>{if(window.confirm("¿Eliminar?"))setViv(vivData.filter(x=>x.id!==v.id));}} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        )}
+
+        {/* KPIs */}
+        <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16}}>
+          {[
+            ["📊 Total viveros",   vivData.length, "#16a34a"],
+            ["⚠️ Vencidos",          totVencidos,    "#dc2626"],
+            ["⏳ Vencen ≤ 90 días", totPorVencer,  "#f59e0b"],
+            ["🌱 Variedades",       vivData.reduce((s,v)=>s+(v.variedades||[]).length,0), "#7c3aed"],
+            ["✅ Firmados",          vivData.filter(v=>v.firma_viverista&&v.firma_osiris).length, "#0f766e"],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:"#21283b",border:"1px solid #30363d",borderLeft:`4px solid ${c}`,
+              borderRadius:10,padding:"12px 16px",flex:1,minWidth:140}}>
+              <div style={{fontSize:10,color:"#8b949e",fontWeight:600,marginBottom:4}}>{l}</div>
+              <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
+            </div>
+          ))}
         </div>
+
+        <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+            <h3 style={{margin:0,fontSize:18,color:"#1e293b"}}>🌱 Contratos Viveros</h3>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>exportarViveros(vivData)}
+                style={{padding:"8px 16px",borderRadius:8,background:"#0f766e",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                📥 Exportar Excel
+              </button>
+              {canViveros&&<button onClick={()=>{setVivForm(EMPTY_VIV);setVivEditId(null);setVivModal(true);}}
+                style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                + Nuevo Vivero
+              </button>}
+            </div>
+          </div>
+          {vivData.length===0?<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>No hay viveros registrados. {canViveros?"Haz click en \"+ Nuevo Vivero\" para agregar.":""}</div>:(
+            <div style={{display:"grid",gap:12}}>
+              {vivData.map(v=>{
+                const vig = estadoVigencia(v.f_vencimiento);
+                const nVar = (v.variedades||[]).length;
+                const firmado = v.firma_viverista && v.firma_osiris;
+                const venc = diasParaVencer(v.f_vencimiento);
+                const isVencido = venc!==null && venc<0;
+                return (
+                  <div key={v.id} onClick={()=>{setVivDetalle(v.id);setVivTab("general");}}
+                    style={{border:`1px solid ${isVencido?"#fca5a5":"#e2e8f0"}`,borderRadius:12,padding:"16px 20px",cursor:"pointer",
+                      background:isVencido?"#fef2f2":"#fff",transition:"all 0.15s"}}
+                    onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 12px #0002"}
+                    onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                      <div>
+                        <div style={{fontWeight:800,fontSize:15,color:"#1e293b"}}>🌱 {v.viverista}{v.pais?<span style={{fontWeight:500,color:"#64748b"}}> · 🌍 {v.pais}</span>:null}</div>
+                        <div style={{fontSize:11,color:"#64748b",marginTop:2}}>
+                          {v.f_contrato&&`${v.f_contrato} → `}{v.f_vencimiento||"Sin vencimiento"}
+                          <span style={{color:vig.color,marginLeft:8,fontWeight:700,background:vig.bg,padding:"2px 8px",borderRadius:10}}>{vig.icon} {vig.label}</span>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                        {firmado&&<span style={{fontSize:10,background:"rgba(34,197,94,0.15)",color:"#16a34a",padding:"3px 10px",borderRadius:20,fontWeight:700}}>✅ Firmado</span>}
+                        {v.renovable&&<span style={{fontSize:10,background:"rgba(96,165,250,0.15)",color:"#3b82f6",padding:"3px 10px",borderRadius:20,fontWeight:700}}>🔄</span>}
+                        <span style={{fontSize:10,background:"rgba(22,163,74,0.15)",color:"#16a34a",padding:"3px 10px",borderRadius:20,fontWeight:700}}>{nVar} var.</span>
+                        {canViveros&&<>
+                          <button onClick={e=>{e.stopPropagation();setVivForm({...EMPTY_VIV,...v});setVivEditId(v.id);setVivModal(true);}}
+                            style={{background:"#f0f9ff",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>✏️</button>
+                          <button onClick={e=>{e.stopPropagation();eliminarViv(v.id);}}
+                            style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>🗑</button>
+                        </>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Modal: Nuevo/Editar Vivero */}
         {vivModal&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}} onClick={()=>setVivModal(false)}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:500,maxHeight:"80vh",overflowY:"auto"}}>
-              <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>{vivEditId?"Editar":"Nuevo"} Contrato Vivero</h3>
-              {[["Viverista","viverista","text"],["País","pais","text"],["Especie","especie","text"],["Variedad","variedad","text"],["Fee USD (por planta)","fee_usd","number"],["Fee % (sobre venta)","fee_pct","number"],["Fecha Contrato","f_contrato","date"],["Fecha Vencimiento","f_vencimiento","date"]].map(([lbl,field,type])=>(
-                <div key={field} style={{marginBottom:12}}>
-                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>{lbl}</label>
-                  <input type={type} value={vivForm[field]||""} onChange={e=>setVivForm(p=>({...p,[field]:e.target.value}))}
+            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:24,width:560,maxHeight:"85vh",overflowY:"auto"}}>
+              <h3 style={{margin:"0 0 16px",color:"#1e293b"}}>{vivEditId?"✏️ Editar":"➕ Nuevo"} Contrato Vivero</h3>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Viverista <span style={{color:"#dc2626"}}>*</span></label>
+                <input value={vivForm.viverista||""} placeholder="Ej. Vivero La Esperanza, Genética del Sur..." onChange={e=>setVivForm(p=>({...p,viverista:e.target.value}))}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+              </div>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>País</label>
+                <input value={vivForm.pais||""} placeholder="Chile, Perú, México..." onChange={e=>setVivForm(p=>({...p,pais:e.target.value}))}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Contrato</label>
+                  <input type="date" value={vivForm.f_contrato||""} onChange={e=>setVivForm(p=>({...p,f_contrato:e.target.value}))}
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
                 </div>
-              ))}
+                <div>
+                  <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha Vencimiento</label>
+                  <input type="date" value={vivForm.f_vencimiento||""} onChange={e=>setVivForm(p=>({...p,f_vencimiento:e.target.value}))}
+                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+                </div>
+              </div>
+              <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:12}}>
+                <input type="checkbox" checked={!!vivForm.renovable} onChange={e=>setVivForm(p=>({...p,renovable:e.target.checked}))}/>
+                <span style={{fontSize:12}}>Contrato renovable</span>
+              </label>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                  <input type="checkbox" checked={!!vivForm.firma_viverista} onChange={e=>setVivForm(p=>({...p,firma_viverista:e.target.checked}))}/>
+                  <span style={{fontSize:12}}>✅ Firma Viverista</span>
+                </label>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                  <input type="checkbox" checked={!!vivForm.firma_osiris} onChange={e=>setVivForm(p=>({...p,firma_osiris:e.target.checked}))}/>
+                  <span style={{fontSize:12}}>✅ Firma Osiris</span>
+                </label>
+              </div>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Link documento legal</label>
+                <input value={vivForm.doc_legal||""} placeholder="https://..." onChange={e=>setVivForm(p=>({...p,doc_legal:e.target.value}))}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
+              </div>
               <div style={{marginBottom:12}}>
                 <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
                 <textarea value={vivForm.observaciones||""} onChange={e=>setVivForm(p=>({...p,observaciones:e.target.value}))}
@@ -4888,7 +5728,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               </div>
               <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                 <button onClick={()=>setVivModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
-                <button onClick={guardarViv} style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+                <button onClick={guardarViv} style={{padding:"8px 16px",borderRadius:8,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontWeight:700}}>{vivEditId?"Guardar cambios":"Crear vivero"}</button>
               </div>
             </div>
           </div>
