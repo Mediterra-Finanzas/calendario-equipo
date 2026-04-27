@@ -3646,7 +3646,25 @@ const MONEDAS=["USD","EUR","CLP","PEN"];
 // ═══════════════════════════════════════════════════════════════════
 
 // Bloque 1: Operación Técnica
-const TIPOS_VISITA = ["Técnica","Comercial","Recepción","Vivero","Día de campo","Otra"];
+const TIPOS_VISITA = ["Técnica","Comercial","Test Block","Recepción","Día de campo","Vivero"];
+
+// Estados fenológicos y campos que aplican por estado
+const ESTADOS_FENOLOGICOS = [
+  "Dormancia","Brotación","Crecimiento vegetativo","Floración",
+  "Cuaja","Desarrollo de fruto","Envero/Pinta","Cosecha","Post-cosecha"
+];
+// Matriz: qué campos de conteo son visibles por estado fenológico
+const CAMPOS_POR_FENOLOGIA = {
+  "Dormancia":              {brotes:false, flores:false, frutos:false},
+  "Brotación":              {brotes:true,  flores:false, frutos:false},
+  "Crecimiento vegetativo": {brotes:true,  flores:false, frutos:false},
+  "Floración":              {brotes:true,  flores:true,  frutos:false},
+  "Cuaja":                  {brotes:false, flores:true,  frutos:true},
+  "Desarrollo de fruto":    {brotes:false, flores:false, frutos:true},
+  "Envero/Pinta":           {brotes:false, flores:false, frutos:true},
+  "Cosecha":                {brotes:false, flores:false, frutos:true},
+  "Post-cosecha":           {brotes:false, flores:false, frutos:false},
+};
 
 // ── Supabase Storage: fotos de informes ──
 // Reutiliza las credenciales de App.jsx (misma instancia Supabase)
@@ -4005,7 +4023,7 @@ function MaestroViveristas({viveristas,setViveristas,can}){
 // OPERACIÓN TÉCNICA — Hub transversal (visitas, informes, test blocks,
 // equipo técnico, medidas correctivas, entregables)
 // ═══════════════════════════════════════════════════════════════════
-function OperacionTecnica({data, setData, ctData=[], viverosData=[], obtentoresData=[], can, usuarioActual={}}) {
+function OperacionTecnica({data, setData, ctData=[], viverosData=[], obtentoresData=[], can, usuarioActual={}, especiesMaestro=[], variedadesMaestro=[], setEspeciesMaestro, setVariedadesMaestro}) {
   const [subTab, setSubTab] = useState("visitas");
   const [modal, setModal] = useState(null);
   const [busq, setBusq] = useState("");
@@ -4048,7 +4066,9 @@ function OperacionTecnica({data, setData, ctData=[], viverosData=[], obtentoresD
   // Forms vacíos
   const VACIO_VISITA = {tipo:"Técnica",fecha:"",cliente:"",ctId:"",viveroId:"",lugar:"",objetivo:"",resultado:"",estado:"Programada",responsable:"",fotos:"",observaciones:"",
     // Campos extra para Test Block
-    testBlockNombre:"",testBlockEspecie:"",testBlockVariedad:"",testBlockUbicacion:"",testBlockResultados:""};
+    testBlockNombre:"",testBlockEspecie:"",testBlockVariedad:"",testBlockUbicacion:"",testBlockResultados:"",
+    // Evaluaciones por variedad (estado fenológico, conteos)
+    evaluaciones:[]};
   const VACIO_TECNICO = {nombre:"",rol:"Asesor por especie",especie:"",email:"",telefono:"",modalidad:"Part time",observaciones:""};
   const VACIO_ENTREGABLE = {ctId:"",sublicenciatario:"",items:ENTREGABLES_SUBLICENCIADO.map(e=>({nombre:e,entregado:false,fecha:"",observaciones:""}))};
   const ESTADOS_INFORME = ["Borrador","En revisión","Aprobado","Rechazado","Enviado"];
@@ -4091,18 +4111,22 @@ function OperacionTecnica({data, setData, ctData=[], viverosData=[], obtentoresD
   // Crear informe desde visita (1:1)
   function crearInformeDesdeVisita(visita) {
     const ct = (ctData||[]).find(c=>c.id===visita.ctId);
+    const evals = visita.evaluaciones||[];
+    const especiesResumen = [...new Set(evals.map(e=>e.especie).filter(Boolean))].join(", ");
+    const variedadesResumen = [...new Set(evals.map(e=>e.variedad).filter(Boolean))].join(", ");
     const nuevoInforme = {
       visitaId: visita.id,
       tipo: visita.tipo,
       titulo: `Informe ${visita.tipo} — ${ct?.razonSocial||visita.lugar||""}`,
       fecha: visita.fecha,
       ctId: visita.ctId,
-      especie: visita.testBlockEspecie||"",
-      variedad: visita.testBlockVariedad||"",
+      especie: especiesResumen || visita.testBlockEspecie || "",
+      variedad: variedadesResumen || visita.testBlockVariedad || "",
       lugar: visita.lugar,
       responsable: visita.responsable,
       responsableCargo: "",
-      // 9 secciones
+      evaluaciones: evals, // heredar evaluaciones completas
+      // secciones
       objetivo: visita.objetivo||"",
       observacionesCampo: visita.resultado||"",
       recomendaciones: "",
@@ -4171,12 +4195,19 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;font-size:12px;li
 <div><div class="label">Fecha visita</div><div class="value">${visita?.fecha||inf.fecha||'—'}</div></div>
 </div>
 <div class="section"><h2>1. Objetivo</h2><div class="content">${inf.objetivo||'—'}</div></div>
-<div class="section"><h2>2. Observaciones de campo</h2><div class="content">${inf.observacionesCampo||'—'}</div></div>
-<div class="section"><h2>3. Recomendaciones</h2><div class="content">${inf.recomendaciones||'—'}</div></div>
-<div class="section"><h2>4. Medidas correctivas</h2><div class="content">${inf.medidasCorrectivas||'Sin medidas correctivas requeridas'}</div></div>
-<div class="section"><h2>5. Registro fotográfico</h2>${fotos.length>0?'<div class="fotos">'+fotos.map((u,i)=>'<img src="'+u+'" alt="Foto '+(i+1)+'"/>').join('')+'</div>':'<div class="content">Sin fotos adjuntas</div>'}</div>
-<div class="section"><h2>6. Conclusiones</h2><div class="content">${inf.conclusiones||'—'}</div></div>
-<div class="section"><h2>7. Próxima visita</h2><div class="content">${inf.proximaVisitaFecha?inf.proximaVisitaFecha+' — '+(inf.proximaVisitaObjetivo||''):'No programada'}</div></div>
+<div class="section"><h2>2. Evaluación por variedad</h2>${(()=>{
+      const evals = visita?.evaluaciones || inf.evaluaciones || [];
+      if(!evals.length) return '<div class="content">Sin evaluaciones registradas</div>';
+      return '<table style="width:100%;border-collapse:collapse;font-size:11px;margin:6px 10px"><thead><tr style="background:#f0fdfa;border-bottom:2px solid #86efac"><th style="padding:6px 8px;text-align:left">Especie</th><th style="padding:6px 8px;text-align:left">Variedad</th><th style="padding:6px 8px;text-align:right">Há</th><th style="padding:6px 8px;text-align:left">Estado Fenol.</th><th style="padding:6px 8px;text-align:right">Brotes/pl</th><th style="padding:6px 8px;text-align:right">Flores/pl</th><th style="padding:6px 8px;text-align:right">Frutos/pl</th><th style="padding:6px 8px;text-align:left">Obs.</th></tr></thead><tbody>'
+        + evals.map((ev,i)=>'<tr style="border-bottom:1px solid #e2e8f0;background:'+(i%2?'#f8fafc':'#fff')+'"><td style="padding:5px 8px;font-weight:600">'+( ev.especie||'—')+'</td><td style="padding:5px 8px">'+(ev.variedad||'—')+'</td><td style="padding:5px 8px;text-align:right">'+(ev.hectareas||0)+'</td><td style="padding:5px 8px">'+(ev.estadoFenologico||'—')+'</td><td style="padding:5px 8px;text-align:right">'+(ev.brotesPlanta||'—')+'</td><td style="padding:5px 8px;text-align:right">'+(ev.floresPlanta||'—')+'</td><td style="padding:5px 8px;text-align:right">'+(ev.frutosPlanta||'—')+'</td><td style="padding:5px 8px;font-size:10px">'+(ev.observaciones||'')+'</td></tr>').join('')
+        + '</tbody></table>';
+    })()}</div>
+<div class="section"><h2>3. Observaciones de campo</h2><div class="content">${inf.observacionesCampo||'—'}</div></div>
+<div class="section"><h2>4. Recomendaciones</h2><div class="content">${inf.recomendaciones||'—'}</div></div>
+<div class="section"><h2>5. Medidas correctivas</h2><div class="content">${inf.medidasCorrectivas||'Sin medidas correctivas requeridas'}</div></div>
+<div class="section"><h2>6. Registro fotográfico</h2>${fotos.length>0?'<div class="fotos">'+fotos.map((u,i)=>'<img src="'+u+'" alt="Foto '+(i+1)+'"/>').join('')+'</div>':'<div class="content">Sin fotos adjuntas</div>'}</div>
+<div class="section"><h2>7. Conclusiones</h2><div class="content">${inf.conclusiones||'—'}</div></div>
+<div class="section"><h2>8. Próxima visita</h2><div class="content">${inf.proximaVisitaFecha?inf.proximaVisitaFecha+' — '+(inf.proximaVisitaObjetivo||''):'No programada'}</div></div>
 <div class="firma">
 <div class="col"><div class="name">${inf.responsable||'—'}</div><div class="cargo">Elaborado por</div></div>
 <div class="col"><div class="name">${inf.revisor||'(Pendiente)'}</div><div class="cargo">Revisado por</div>${inf.fechaAprobacion?'<div style="font-size:9px;color:#16a34a;margin-top:2px">Aprobado '+inf.fechaAprobacion+'</div>':''}</div>
@@ -4551,13 +4582,159 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;font-size:12px;li
             <div style={{fontSize:12,fontWeight:700,color:"#5b21b6",marginBottom:8}}>🧪 Datos del Test Block</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               <Input label="Nombre del ensayo" value={form.testBlockNombre} onChange={v=>setForm(p=>({...p,testBlockNombre:v}))} placeholder="Test Atlas 2026"/>
-              <Input label="Especie" value={form.testBlockEspecie} onChange={v=>setForm(p=>({...p,testBlockEspecie:v}))} placeholder="Arándano"/>
-              <Input label="Variedad" value={form.testBlockVariedad} onChange={v=>setForm(p=>({...p,testBlockVariedad:v}))} placeholder="Atlas, OZBlue..."/>
               <Input label="Ubicación" value={form.testBlockUbicacion} onChange={v=>setForm(p=>({...p,testBlockUbicacion:v}))} placeholder="Parcela, cuartel..."/>
             </div>
-            <Input label="Resultados" value={form.testBlockResultados} onChange={v=>setForm(p=>({...p,testBlockResultados:v}))} rows={2} placeholder="Rendimiento, observaciones..."/>
+            <Input label="Resultados generales" value={form.testBlockResultados} onChange={v=>setForm(p=>({...p,testBlockResultados:v}))} rows={2} placeholder="Rendimiento, observaciones..."/>
           </div>
         </>)}
+
+        {/* ── Evaluación por variedad (estado fenológico + conteos) ── */}
+        <div style={{marginTop:12,padding:"12px 16px",background:"#f0fdf4",borderRadius:10,border:"1px solid #86efac"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#15803d"}}>🌿 Evaluación por variedad</div>
+            <button type="button" onClick={()=>{
+              const evals = [...(form.evaluaciones||[])];
+              evals.push({id:`ev_${Date.now()}`,especie:"",variedad:"",variedad_id:"",hectareas:0,estadoFenologico:"",brotesPlanta:0,floresPlanta:0,frutosPlanta:0,observaciones:""});
+              setForm(p=>({...p,evaluaciones:evals}));
+            }} style={{padding:"5px 12px",borderRadius:6,background:"#15803d",color:"#fff",border:"none",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Agregar variedad</button>
+          </div>
+          {(form.evaluaciones||[]).length===0?(
+            <div style={{padding:16,textAlign:"center",color:"#94a3b8",border:"1px dashed #d1d5db",borderRadius:8,fontSize:12}}>
+              Sin evaluaciones. Agrega variedades para registrar estado fenológico y conteos.
+            </div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {(form.evaluaciones||[]).map((ev,ei)=>{
+                const campos = CAMPOS_POR_FENOLOGIA[ev.estadoFenologico] || {brotes:false,flores:false,frutos:false};
+                const updEv = (campo,valor) => {
+                  const evals = [...(form.evaluaciones||[])];
+                  evals[ei] = {...evals[ei],[campo]:valor};
+                  // Si cambia fenología, limpiar campos que ya no aplican
+                  if(campo==="estadoFenologico") {
+                    const nc = CAMPOS_POR_FENOLOGIA[valor]||{brotes:false,flores:false,frutos:false};
+                    if(!nc.brotes) evals[ei].brotesPlanta = 0;
+                    if(!nc.flores) evals[ei].floresPlanta = 0;
+                    if(!nc.frutos) evals[ei].frutosPlanta = 0;
+                  }
+                  setForm(p=>({...p,evaluaciones:evals}));
+                };
+                const seleccionarVariedadEv = (vid) => {
+                  const vv = (variedadesMaestro||[]).find(x=>x.id===vid);
+                  if(vv) updEv("_multi", null); // dummy, usamos evals directamente
+                  const evals = [...(form.evaluaciones||[])];
+                  evals[ei] = {...evals[ei], variedad_id:vid, especie:vv?.especie||evals[ei].especie, variedad:vv?.variedad||evals[ei].variedad};
+                  setForm(p=>({...p,evaluaciones:evals}));
+                };
+                const varFiltradas = ev.especie
+                  ? (variedadesMaestro||[]).filter(v=>v.especie===ev.especie)
+                  : (variedadesMaestro||[]);
+                const espColor = (especiesMaestro||[]).find(e=>e.nombre===ev.especie)?.color;
+                return (
+                  <div key={ev.id||ei} style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"1px solid #d1fae5",position:"relative"}}>
+                    {/* Botón eliminar */}
+                    <button type="button" onClick={()=>{
+                      const evals = (form.evaluaciones||[]).filter((_,i)=>i!==ei);
+                      setForm(p=>({...p,evaluaciones:evals}));
+                    }} style={{position:"absolute",top:6,right:6,width:22,height:22,borderRadius:4,background:"#fee2e2",color:"#991b1b",border:"none",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 80px 1fr",gap:8,marginBottom:8}}>
+                      {/* Especie */}
+                      <div>
+                        <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:2}}>Especie</div>
+                        <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                          {espColor&&<div style={{width:12,height:12,borderRadius:3,background:espColor,flexShrink:0}}/>}
+                          <select value={ev.especie||""} onChange={e=>{
+                            if(e.target.value==="__nueva__") {
+                              const n=window.prompt("Nueva especie:");
+                              if(!n||!n.trim())return;
+                              const nombre=n.trim();
+                              const dupe=(especiesMaestro||[]).find(x=>x.nombre.toLowerCase()===nombre.toLowerCase());
+                              if(dupe){updEv("especie",dupe.nombre);return;}
+                              const id=`esp_${Date.now()}`;
+                              const color=COLORES_ESPECIES[(especiesMaestro||[]).length%COLORES_ESPECIES.length].hex;
+                              setEspeciesMaestro&&setEspeciesMaestro(prev=>[...(prev||[]),{id,nombre,color,observaciones:""}]);
+                              updEv("especie",nombre);
+                            } else {
+                              const evals=[...(form.evaluaciones||[])];
+                              evals[ei]={...evals[ei],especie:e.target.value,variedad_id:"",variedad:""};
+                              setForm(p=>({...p,evaluaciones:evals}));
+                            }
+                          }} style={{flex:1,padding:"5px 8px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                            <option value="">— Seleccionar —</option>
+                            {(especiesMaestro||[]).map(e=><option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+                            <option value="__nueva__">＋ Crear nueva...</option>
+                          </select>
+                        </div>
+                      </div>
+                      {/* Variedad */}
+                      <div>
+                        <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:2}}>Variedad</div>
+                        <select value={ev.variedad_id||""} disabled={!ev.especie} onChange={e=>{
+                          if(e.target.value==="__nueva__") {
+                            if(!ev.especie){alert("Selecciona especie primero.");return;}
+                            const n=window.prompt(`Nueva variedad (${ev.especie}):`);
+                            if(!n||!n.trim())return;
+                            const nombre=n.trim();
+                            const dupe=(variedadesMaestro||[]).find(v=>v.especie===ev.especie&&v.variedad.toLowerCase()===nombre.toLowerCase());
+                            if(dupe){seleccionarVariedadEv(dupe.id);return;}
+                            const id=`var_${Date.now()}`;
+                            setVariedadesMaestro&&setVariedadesMaestro(prev=>[...(prev||[]),{id,especie:ev.especie,variedad:nombre,obtentor:"",observaciones:""}]);
+                            const evals=[...(form.evaluaciones||[])];
+                            evals[ei]={...evals[ei],variedad_id:id,variedad:nombre};
+                            setForm(p=>({...p,evaluaciones:evals}));
+                          } else { seleccionarVariedadEv(e.target.value); }
+                        }} style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:ev.especie?"#fff":"#f1f5f9"}}>
+                          <option value="">{ev.especie?"— Seleccionar —":"(especie primero)"}</option>
+                          {varFiltradas.map(v=><option key={v.id} value={v.id}>{v.variedad}</option>)}
+                          {ev.especie&&<option value="__nueva__">＋ Crear nueva...</option>}
+                        </select>
+                      </div>
+                      {/* Hectáreas */}
+                      <div>
+                        <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:2}}>Há</div>
+                        <input type="number" step="0.01" value={ev.hectareas||0} onChange={e=>updEv("hectareas",parseFloat(e.target.value)||0)}
+                          style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,textAlign:"right",boxSizing:"border-box"}}/>
+                      </div>
+                      {/* Estado fenológico */}
+                      <div>
+                        <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:2}}>Estado fenológico</div>
+                        <select value={ev.estadoFenologico||""} onChange={e=>updEv("estadoFenologico",e.target.value)}
+                          style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
+                          <option value="">— Seleccionar —</option>
+                          {ESTADOS_FENOLOGICOS.map(ef=><option key={ef} value={ef}>{ef}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    {/* Conteos condicionales */}
+                    {ev.estadoFenologico&&(campos.brotes||campos.flores||campos.frutos)&&(
+                      <div style={{display:"flex",gap:10,marginBottom:6}}>
+                        {campos.brotes&&<div style={{flex:1}}>
+                          <div style={{fontSize:10,color:"#15803d",fontWeight:600,marginBottom:2}}>🌱 Brotes/planta</div>
+                          <input type="number" value={ev.brotesPlanta||0} onChange={e=>updEv("brotesPlanta",parseInt(e.target.value)||0)}
+                            style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid #86efac",fontSize:12,textAlign:"center",fontWeight:700,boxSizing:"border-box"}}/>
+                        </div>}
+                        {campos.flores&&<div style={{flex:1}}>
+                          <div style={{fontSize:10,color:"#db2777",fontWeight:600,marginBottom:2}}>🌸 Flores/planta</div>
+                          <input type="number" value={ev.floresPlanta||0} onChange={e=>updEv("floresPlanta",parseInt(e.target.value)||0)}
+                            style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid #f9a8d4",fontSize:12,textAlign:"center",fontWeight:700,boxSizing:"border-box"}}/>
+                        </div>}
+                        {campos.frutos&&<div style={{flex:1}}>
+                          <div style={{fontSize:10,color:"#dc2626",fontWeight:600,marginBottom:2}}>🍇 Frutos/planta</div>
+                          <input type="number" value={ev.frutosPlanta||0} onChange={e=>updEv("frutosPlanta",parseInt(e.target.value)||0)}
+                            style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid #fca5a5",fontSize:12,textAlign:"center",fontWeight:700,boxSizing:"border-box"}}/>
+                        </div>}
+                      </div>
+                    )}
+                    {ev.estadoFenologico&&!campos.brotes&&!campos.flores&&!campos.frutos&&(
+                      <div style={{fontSize:10,color:"#94a3b8",fontStyle:"italic",marginBottom:4}}>Estado "{ev.estadoFenologico}" — sin conteos aplicables</div>
+                    )}
+                    <input value={ev.observaciones||""} onChange={e=>updEv("observaciones",e.target.value)} placeholder="Observaciones de esta variedad..."
+                      style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </ModalForm>}
 
       {modal==="tecnico"&&<ModalForm titulo={form._editId?"Editar técnico":"Nuevo técnico"} onSave={()=>guardarForm("equipoTecnico",VACIO_TECNICO)}>
@@ -8530,6 +8707,10 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
             obtentoresData={obtentoresData}
             can={canOp}
             usuarioActual={usuarioActual}
+            especiesMaestro={especiesMaestro}
+            variedadesMaestro={variedadesMaestro}
+            setEspeciesMaestro={setEspeciesMaestro}
+            setVariedadesMaestro={setVariedadesMaestro}
           />
         </div>
       </div>
