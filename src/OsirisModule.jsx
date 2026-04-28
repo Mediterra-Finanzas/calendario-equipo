@@ -4811,7 +4811,7 @@ function MaestroEspecies({especies,setEspecies,can,obtentores=[],contratos=[],va
 // Catálogo central de variedades, linkable con contratos de obtentor
 function MaestroVariedades({variedades,setVariedades,can,obtentores=[],especies=[],setEspecies}){
   const [editId,setEditId]=useState(null);
-  const VACIO={especie:"",variedad:"",obtentor:"",observaciones:""};
+  const VACIO={especie:"",variedad:"",obtentor:"",nRegistro:"",observaciones:""};
   const [form,setForm]=useState(VACIO);
   const [showForm,setShowForm]=useState(false);
   const [busq,setBusq]=useState("");
@@ -4886,7 +4886,7 @@ function MaestroVariedades({variedades,setVariedades,can,obtentores=[],especies=
       descripcion:`Importó ${nuevas.length} variedades desde contratos obtentores`});
   }
   function iniciarEdicion(v){
-    setForm({especie:v.especie||"",variedad:v.variedad||"",obtentor:v.obtentor||"",observaciones:v.observaciones||""});
+    setForm({especie:v.especie||"",variedad:v.variedad||"",obtentor:v.obtentor||"",nRegistro:v.nRegistro||"",observaciones:v.observaciones||""});
     setEditId(v.id);setShowForm(true);
   }
 
@@ -4968,6 +4968,11 @@ function MaestroVariedades({variedades,setVariedades,can,obtentores=[],especies=
               </datalist>
             </div>
             <div>
+              <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>N° Registro</div>
+              <input value={form.nRegistro||""} placeholder="Ej: 2024-001234" onChange={e=>setForm(p=>({...p,nRegistro:e.target.value}))}
+                style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <div>
               <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Observaciones</div>
               <input value={form.observaciones} onChange={e=>setForm(p=>({...p,observaciones:e.target.value}))}
                 style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
@@ -4983,7 +4988,7 @@ function MaestroVariedades({variedades,setVariedades,can,obtentores=[],especies=
       <div style={{overflowX:"auto"}}>
         <table style={{borderCollapse:"collapse",width:"100%",background:"#fff",borderRadius:8,overflow:"hidden",fontSize:12}}>
           <thead><tr style={{background:"#d97706",color:"#fff"}}>
-            {["Especie","Variedad","Obtentor","Observaciones",""].map(h=>(
+            {["Especie","Variedad","Obtentor","N° Registro","Observaciones",""].map(h=>(
               <th key={h} style={{padding:"7px 10px",textAlign:"left",fontWeight:600,fontSize:11,whiteSpace:"nowrap"}}>{h}</th>
             ))}
           </tr></thead>
@@ -4993,6 +4998,7 @@ function MaestroVariedades({variedades,setVariedades,can,obtentores=[],especies=
                 <td style={{padding:"6px 10px",fontWeight:600,color:"#78350f"}}>{v.especie}</td>
                 <td style={{padding:"6px 10px",fontWeight:600,color:"#1e293b"}}>{v.variedad}</td>
                 <td style={{padding:"6px 10px",color:"#64748b"}}>{v.obtentor||"—"}</td>
+                <td style={{padding:"6px 10px",color:"#64748b"}}>{v.nRegistro||"—"}</td>
                 <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{v.observaciones||"—"}</td>
                 <td style={{padding:"6px 8px",textAlign:"center"}}>
                   {can&&<div style={{display:"flex",gap:4}}>
@@ -5009,7 +5015,7 @@ function MaestroVariedades({variedades,setVariedades,can,obtentores=[],especies=
                 </td>
               </tr>
             ))}
-            {filtrado.length===0&&<tr><td colSpan={5} style={{textAlign:"center",padding:20,color:"#94a3b8"}}>Sin variedades. {can?(sugerencias.length>0?`Hay ${sugerencias.length} sugerencias desde obtentores.`:"Agrega una con \"+ Nueva variedad\"."):""}</td></tr>}
+            {filtrado.length===0&&<tr><td colSpan={6} style={{textAlign:"center",padding:20,color:"#94a3b8"}}>Sin variedades. {can?(sugerencias.length>0?`Hay ${sugerencias.length} sugerencias desde obtentores.`:"Agrega una con \"+ Nueva variedad\"."):""}</td></tr>}
           </tbody>
         </table>
       </div>
