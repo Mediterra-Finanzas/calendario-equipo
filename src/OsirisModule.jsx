@@ -2947,8 +2947,8 @@ function DashboardAnalitico({ctData,feData,rpData,rcData,tpData,especiesMaestro=
   const cantContratos = new Set(tpFilt.map(p=>p.ctId)).size;
 
   const cfFact = sumNum(feFilt, r=>r.montoUSD);
-  const cfNeto = sumNum(feFilt, r=>(parseFloat(r.montoUSD)||0)*pct(r.pais));
-  const cfPagado = sumNum(feFilt.filter(r=>r.pagado), r=>(parseFloat(r.montoUSD)||0)*pct(r.pais));
+  const cfNeto = sumNum(feFilt, r=>parseFloat(r.montoUSD)||0); // Contract Fee NO lleva WHT
+  const cfPagado = sumNum(feFilt.filter(r=>r.pagado), r=>parseFloat(r.montoUSD)||0); // Sin WHT
 
   const rpFact = sumNum(rpFilt, r=>r.montoFact);
   const rpNeto = sumNum(rpFilt, r=>r.montoCobro);
@@ -3603,7 +3603,7 @@ const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto"
 const FORMAS_PAGO = ["Anual","Semestral","Trimestral","Mensual","A demanda","Contra entrega","Otro"];
 const ESTADOS_DHE = ["No iniciado","En proceso","Aprobado","Rechazado","No aplica"];
 const ESTADOS_CONTRATO_OBT = ["Borrador","En revisión","Firmado","Vigente","Vencido","Terminado"];
-const ESTADOS_OC = ["Borrador","Confirmada","En producción","Entregada","Pagada parcial","Pagada total","Anulada"];
+const ESTADOS_OC = ["Borrador","Enviada","Negociando","Confirmada","En producción","Lista","Despachada","Recibida","Pagada parcial","Pagada total","Anulada"];
 
 // ── Royalty Comercial: mes de cobro por defecto según país ──
 const RC_MES_DEFAULT_POR_PAIS = {
@@ -3716,7 +3716,7 @@ const TIPOS_INFORME = ["Visita Técnica","Visita Comercial","Recepción","Medida
 const ENTREGABLES_SUBLICENCIADO = ["Brochure","Presentaciones","Manual técnico","Informes","Días de campo","Otros"];
 
 // Bloque 2: Estado de pedido enriquecido (Productores)
-const ESTADOS_PEDIDO = ["Cotizado","OC enviada","Negociando","Confirmado","En producción","Despachado","Recibido","Anulado"];
+const ESTADOS_PEDIDO = ["Cotizado","OC enviada","Negociando","Confirmado","En producción","Despachado parcial","Despachado","Recibido","Anulado"];
 const ESTADOS_DESPACHO = ["Programado","En tránsito","Entregado","Con observaciones"];
 
 // Bloque 3: Estado OC Vivero enriquecido
@@ -4064,7 +4064,7 @@ function OperacionTecnica({data, setData, ctData=[], viverosData=[], obtentoresD
   }
 
   // Forms vacíos
-  const VACIO_VISITA = {tipo:"Técnica",fecha:"",cliente:"",ctId:"",viveroId:"",lugar:"",objetivo:"",resultado:"",estado:"Programada",responsable:"",fotos:"",observaciones:"",
+  const VACIO_VISITA = {tipo:"Técnica",fecha:"",cliente:"",ctId:"",viveroId:"",lugar:"",cuartel:"",objetivo:"",resultado:"",estado:"Programada",responsable:"",fotos:"",observaciones:"",
     // Campos extra para Test Block
     testBlockNombre:"",testBlockEspecie:"",testBlockVariedad:"",testBlockUbicacion:"",testBlockResultados:"",
     // Evaluaciones por variedad (estado fenológico, conteos)
@@ -4123,6 +4123,7 @@ function OperacionTecnica({data, setData, ctData=[], viverosData=[], obtentoresD
       especie: especiesResumen || visita.testBlockEspecie || "",
       variedad: variedadesResumen || visita.testBlockVariedad || "",
       lugar: visita.lugar,
+      cuartel: visita.cuartel||"",
       responsable: visita.responsable,
       responsableCargo: "",
       evaluaciones: evals, // heredar evaluaciones completas
@@ -4188,7 +4189,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;font-size:12px;li
 </div>
 <div class="grid">
 <div><div class="label">Cliente</div><div class="value">${ct?.razonSocial||'—'} · ${ct?.pais||''}</div></div>
-<div><div class="label">Predio / Ubicación</div><div class="value">${inf.lugar||'—'}</div></div>
+<div><div class="label">Predio / Ubicación</div><div class="value">${inf.lugar||'—'}${inf.cuartel?' · Cuartel: '+inf.cuartel:''}</div></div>
 <div><div class="label">Tipo</div><div class="value">${inf.tipo||'—'}</div></div>
 <div><div class="label">Responsable</div><div class="value">${inf.responsable||'—'}</div></div>
 <div><div class="label">Especie / Variedad</div><div class="value">${inf.especie||'—'}${inf.variedad?' · '+inf.variedad:''}</div></div>
@@ -4369,6 +4370,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;font-size:12px;li
           {label:"Tipo",render:r=><BadgeEstado estado={r.tipo}/>,w:110},
           {label:"Cliente / Vivero",render:r=>r.ctId?nombreCliente(r.ctId):(r.viveroId?(viverosData||[]).find(v=>v.id===r.viveroId)?.viverista||"—":"—")},
           {label:"Lugar",field:"lugar"},
+          {label:"Cuartel",field:"cuartel",w:100},
           {label:"Responsable",field:"responsable"},
           {label:"Estado",render:r=><BadgeEstado estado={r.estado}/>,w:110},
           {label:"Informe",render:r=>{
@@ -4380,7 +4382,21 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;font-size:12px;li
         ]}
         rows={filtrar(visitas)}
         onEdit={r=>abrirEditar("visita",r)}
-        onDel={r=>delItem("visitas",r.id,`Visita ${r.tipo} ${r.fecha}`)}
+        onDel={r=>{
+          const infVinculado = informes.find(i=>i.visitaId===r.id);
+          const msg = infVinculado
+            ? `¿Eliminar la visita "${r.tipo} ${r.fecha}"?\n\n⚠️ También se eliminará el informe vinculado: "${infVinculado.titulo||'Sin título'}" (estado: ${infVinculado.estado})`
+            : `¿Eliminar la visita "${r.tipo} ${r.fecha}"?`;
+          if(!window.confirm(msg)) return;
+          // Eliminar informe vinculado si existe
+          if(infVinculado) {
+            upd("informes", (data?.informes||[]).filter(x=>x.id!==infVinculado.id));
+            window.auditLog&&window.auditLog("eliminar",{modulo:"osiris",seccion:"Op. Técnica · informes",descripcion:`Eliminó informe "${infVinculado.titulo}" (vinculado a visita eliminada)`,registroId:infVinculado.id});
+          }
+          // Eliminar visita
+          upd("visitas", (data?.visitas||[]).filter(x=>x.id!==r.id));
+          window.auditLog&&window.auditLog("eliminar",{modulo:"osiris",seccion:"Op. Técnica · visitas",descripcion:`Eliminó visita ${r.tipo} ${r.fecha}`,registroId:r.id});
+        }}
         emptyMsg="Sin visitas. Programa la primera visita técnica, comercial o test block."
       />}
 
@@ -4437,6 +4453,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;font-size:12px;li
                 <Input label="Especie" value={inf.especie} onChange={v=>updInf("especie",v)} disabled={!puedeEditar}/>
                 <Input label="Variedad" value={inf.variedad} onChange={v=>updInf("variedad",v)} disabled={!puedeEditar}/>
                 <Input label="Predio / Ubicación" value={inf.lugar} onChange={v=>updInf("lugar",v)} disabled={!puedeEditar}/>
+                <Input label="Cuartel" value={inf.cuartel} onChange={v=>updInf("cuartel",v)} disabled={!puedeEditar} placeholder="Cuartel, sector..."/>
                 <Input label="Responsable" value={inf.responsable} onChange={v=>updInf("responsable",v)} disabled={!puedeEditar}/>
               </div>
               <Input label="1. Objetivo" value={inf.objetivo} onChange={v=>updInf("objetivo",v)} rows={3} disabled={!puedeEditar}/>
@@ -4572,7 +4589,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;font-size:12px;li
           <Input label="Fecha *" value={form.fecha} onChange={v=>setForm(p=>({...p,fecha:v}))} type="date"/>
           <div><div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Cliente</div><ClienteSelect value={form.ctId} onChange={v=>setForm(p=>({...p,ctId:v}))}/></div>
           <Select label="Estado" value={form.estado} onChange={v=>setForm(p=>({...p,estado:v}))} opts={ESTADOS_VISITA}/>
-          <Input label="Lugar" value={form.lugar} onChange={v=>setForm(p=>({...p,lugar:v}))} placeholder="Fundo, ciudad..."/>
+          <Input label="Lugar / Predio" value={form.lugar} onChange={v=>setForm(p=>({...p,lugar:v}))} placeholder="Fundo, ciudad..."/>
+          <Input label="Cuartel" value={form.cuartel} onChange={v=>setForm(p=>({...p,cuartel:v}))} placeholder="Cuartel 1, Sector norte..."/>
           <Input label="Responsable" value={form.responsable} onChange={v=>setForm(p=>({...p,responsable:v}))}/>
         </div>
         <Input label="Objetivo" value={form.objetivo} onChange={v=>setForm(p=>({...p,objetivo:v}))} rows={2}/>
@@ -5205,8 +5223,8 @@ function derivarContractFeeDesdeContratos(ctData) {
       cliente: ct.razonSocial,
       pais: ct.pais,
       montoUSD: Number(ct.montoContractFee)||0,
-      montoNeto: (Number(ct.montoContractFee)||0) * pct(ct.pais),
-      whtPct: pct(ct.pais)===1 ? 0 : 15,
+      montoNeto: Number(ct.montoContractFee)||0, // Contract Fee NO lleva WHT
+      whtPct: 0, // Sin WHT
       detalle: ct.tipoContractFee,
       fechaContrato: ct.fechaContrato || "",
       pagado: !!ct.contractFeePagado,
@@ -5389,6 +5407,9 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
   const [showClientes,setShowClientes]=useState(false);
   const [showVariedades,setShowVariedades]=useState(false);
   const [showEspecies,setShowEspecies]=useState(false);
+  // Modal edición de tanda de despacho
+  const [tandaModal, setTandaModal] = useState(null); // {ctId, pltId, tandaIdx, tanda}
+  const ESTADOS_TANDA = ["Programado","En tránsito","Entregado","Con observaciones"];
   const [nuevoTipo,setNuevoTipo]=useState("");
   const [nuevoAnexo,setNuevoAnexo]=useState("");
   const [clienteSelId,setClienteSelId]=useState("");
@@ -5849,10 +5870,34 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                   </label>
                 </div>
               </div>
+              {/* Declaración Royalties IQ */}
+              <div style={{marginTop:16,padding:"12px 16px",background:"#ede9fe",borderRadius:10,border:"1px solid #c4b5fd"}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#5b21b6",marginBottom:10}}>📋 Declaración Royalties IQ</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                  <div>
+                    <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Fecha declaración</div>
+                    <Cell val={r.iqFechaDeclaracion||""} onChange={v=>upd(r.id,"iqFechaDeclaracion",v)} type="date" can={can}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Monto declarado (USD)</div>
+                    <Cell val={r.iqMontoDeclarado||""} onChange={v=>upd(r.id,"iqMontoDeclarado",parseFloat(v)||0)} type="number" can={can}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Estado</div>
+                    <Cell val={r.iqEstado||""} onChange={v=>upd(r.id,"iqEstado",v)} opts={["—","Pendiente","Presentada","Aprobada","Observada"]} can={can}/>
+                  </div>
+                  <div style={{gridColumn:"span 2"}}>
+                    <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>📎 Doc. declaración (URL)</div>
+                    <Cell val={r.iqDocumento||""} onChange={v=>upd(r.id,"iqDocumento",v)} can={can}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Observaciones</div>
+                    <Cell val={r.iqObservaciones||""} onChange={v=>upd(r.id,"iqObservaciones",v)} can={can}/>
+                  </div>
+                </div>
+              </div>
             </>
           )}
-
-          {/* ── SECCIÓN: PLANTACIONES (variedades plantadas) ── */}
           {sec==="plantaciones"&&(<>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
               <div style={{fontSize:13,color:"#475569"}}>
@@ -5887,7 +5932,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #e2e8f0"}}>
                   <thead><tr style={{background:"#15803d",color:"#fff"}}>
-                    {["Especie","Variedad","Plantas","Hectáreas","Fecha plantación","Sublicenciatario","Vivero","Fee USD/planta","Estado",""].map(h=>(
+                    {["Especie","Variedad","Plantas","Hectáreas","Fecha plant.","Sublicenciatario","Vivero","Fee USD/pl","Estado","Tandas despacho",""].map(h=>(
                       <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr></thead>
@@ -6077,10 +6122,67 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                             )}
                           </td>
                           <td style={{padding:"6px 8px"}}>
-                            <select disabled={!can} value={p.estado||"Confirmado"} onChange={e=>updPl("estado",e.target.value)}
-                              style={{padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>
-                              <option>Confirmado</option><option>Plantado</option><option>Productivo</option><option>Anulado</option>
-                            </select>
+                            {(()=>{
+                              // Estado auto-derivado de tandas
+                              const tandas = p.tandas || [];
+                              const totalPedido = parseFloat(p.nPlantas)||0;
+                              const totalDespachado = tandas.reduce((s,t)=>s+(parseFloat(t.plantas)||0),0);
+                              const totalEntregado = tandas.filter(t=>t.estado==="Entregado").reduce((s,t)=>s+(parseFloat(t.plantas)||0),0);
+                              const pctDesp = totalPedido>0 ? Math.min((totalDespachado/totalPedido)*100, 100) : 0;
+                              // Auto-estado
+                              let autoEstado = p.estado||"Cotizado";
+                              if(tandas.length>0) {
+                                if(totalEntregado>=totalPedido) autoEstado = "Recibido";
+                                else if(totalDespachado>=totalPedido) autoEstado = "Despachado";
+                                else if(totalDespachado>0) autoEstado = "Despachado parcial";
+                              }
+                              const colEstado = {"Cotizado":"#94a3b8","OC enviada":"#3b82f6","Negociando":"#d97706","Confirmado":"#0284c7","En producción":"#7c3aed","Despachado parcial":"#0f766e","Despachado":"#0f766e","Recibido":"#16a34a","Anulado":"#dc2626"};
+                              const c = colEstado[autoEstado]||"#64748b";
+                              return (
+                                <div>
+                                  <div style={{padding:"3px 8px",borderRadius:10,background:`${c}18`,color:c,fontWeight:700,fontSize:10,textAlign:"center",border:`1px solid ${c}33`,marginBottom:4}}>{autoEstado}</div>
+                                  {totalPedido>0&&<div>
+                                    <div style={{height:6,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:2}}>
+                                      <div style={{height:"100%",background:c,borderRadius:3,width:`${pctDesp}%`,transition:"width 0.3s"}}/>
+                                    </div>
+                                    <div style={{fontSize:9,color:"#64748b",textAlign:"center"}}>{N(totalDespachado)}/{N(totalPedido)} ({Math.round(pctDesp)}%)</div>
+                                  </div>}
+                                </div>
+                              );
+                            })()}
+                          </td>
+                          {/* Tandas */}
+                          <td style={{padding:"6px 8px"}} colSpan={2}>
+                            {(()=>{
+                              const tandas = p.tandas || [];
+                              return (
+                                <div>
+                                  {tandas.length>0&&<div style={{fontSize:10,marginBottom:4}}>
+                                    {tandas.map((t,ti)=>{
+                                      const colT = {"Programado":"#94a3b8","En tránsito":"#3b82f6","Entregado":"#16a34a","Con observaciones":"#d97706"};
+                                      const ct = colT[t.estado]||"#64748b";
+                                      return <div key={t.id||ti} onClick={()=>setTandaModal({ctId:r.id,pltId:p.id,tandaIdx:ti,tanda:{...t}})}
+                                        style={{display:"flex",gap:4,alignItems:"center",marginBottom:3,padding:"3px 6px",background:`${ct}08`,borderRadius:4,border:`1px solid ${ct}22`,cursor:"pointer"}}
+                                        title="Click para editar esta tanda">
+                                        <span style={{fontSize:9,color:"#64748b",minWidth:65}}>{t.fecha||"s/f"}</span>
+                                        <span style={{fontSize:9,fontWeight:600,color:"#1e293b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:90}}>{t.especie?`${t.especie}`:""}{t.variedad?` · ${t.variedad}`:""}</span>
+                                        <span style={{fontSize:9,fontWeight:700,color:ct}}>{N(t.plantas||0)} pl.</span>
+                                        <span style={{fontSize:8,padding:"1px 6px",borderRadius:8,background:`${ct}18`,color:ct,fontWeight:600}}>{t.estado||"Programado"}</span>
+                                        {t.guia&&<span style={{fontSize:8,color:"#94a3b8"}}>#{t.guia}</span>}
+                                        {can&&<button onClick={e=>{e.stopPropagation();
+                                          const nt = tandas.filter((_,i)=>i!==ti);
+                                          updPl("tandas",nt);
+                                        }} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",fontSize:10,color:"#dc2626",padding:0}}>×</button>}
+                                      </div>;
+                                    })}
+                                  </div>}
+                                  {can&&<button onClick={()=>{
+                                    const nt = [...tandas, {id:`tnd_${Date.now()}`,fecha:"",guia:"",especie:p.especie||"",variedad:p.variedad||"",variedad_id:p.variedad_id||"",plantas:0,estado:"Programado",observaciones:""}];
+                                    updPl("tandas",nt);
+                                  }} style={{padding:"2px 8px",borderRadius:4,background:"#0f766e",color:"#fff",border:"none",cursor:"pointer",fontSize:9,fontWeight:700}}>+ Tanda</button>}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td style={{padding:"6px 8px",textAlign:"center"}}>
                             {can&&<button onClick={()=>{
@@ -6104,7 +6206,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                       <td style={{padding:"7px 10px",color:"#15803d",textAlign:"right"}}>{N((r.plantaciones||[]).reduce((s,p)=>s+(parseFloat(p.hectareas)||0),0).toFixed(2))}</td>
                       <td colSpan={3}></td>
                       <td style={{padding:"7px 10px",color:"#dc2626",textAlign:"right"}} title="Total egreso por viveros">${N((r.plantaciones||[]).reduce((s,p)=>s+((parseFloat(p.nPlantas)||0)*(parseFloat(p.vivero_fee_usd)||0)),0).toFixed(0))}</td>
-                      <td colSpan={2}></td>
+                      <td colSpan={4}></td>
                     </tr>
                   </tbody>
                 </table>
@@ -6212,6 +6314,34 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                           <input disabled={!can} value={s.observaciones||""} onChange={e=>updSub("observaciones",e.target.value)}
                             style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
                         </div>
+                        {/* Entregables checklist */}
+                        <div style={{gridColumn:"1 / -1",marginTop:8}}>
+                          <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:6}}>📦 Entregables</div>
+                          {(()=>{
+                            const items = s.entregables || ENTREGABLES_SUBLICENCIADO.map(e=>({nombre:e,entregado:false,fecha:""}));
+                            if(!s.entregables) updSub("entregables", items); // inicializar
+                            const completados = items.filter(i=>i.entregado).length;
+                            return (<>
+                              <div style={{height:6,background:"#f1f5f9",borderRadius:3,overflow:"hidden",marginBottom:6}}>
+                                <div style={{height:"100%",background:"#16a34a",borderRadius:3,width:`${(completados/Math.max(items.length,1))*100}%`,transition:"width 0.3s"}}/>
+                              </div>
+                              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                                {items.map((item,ii)=>(
+                                  <label key={ii} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 8px",borderRadius:6,
+                                    background:item.entregado?"#f0fdf4":"#fff",border:`1px solid ${item.entregado?"#86efac":"#e2e8f0"}`,
+                                    cursor:can?"pointer":"default",fontSize:11}}>
+                                    <input type="checkbox" disabled={!can} checked={item.entregado} onChange={()=>{
+                                      const ni = [...items];
+                                      ni[ii] = {...ni[ii], entregado:!ni[ii].entregado, fecha:!ni[ii].entregado?new Date().toISOString().slice(0,10):""};
+                                      updSub("entregables", ni);
+                                    }} style={{accentColor:"#16a34a",width:14,height:14}}/>
+                                    <span style={{textDecoration:item.entregado?"line-through":"none",color:item.entregado?"#16a34a":"#1e293b"}}>{item.nombre}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </>);
+                          })()}
+                        </div>
                       </div>
                     </div>
                   );
@@ -6223,12 +6353,12 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
           {/* ── SECCIÓN: COBROS DERIVADOS ── */}
           {sec==="cobros"&&(<>
             <div style={{fontSize:13,color:"#475569",marginBottom:12}}>
-              💵 Configuración de cobros derivada de plantaciones. Cuando facture: <strong>100%</strong> del monto. Cuando cobre: <strong>{pct(r.pais)===1?"100%":"85%"}</strong> ({pct(r.pais)===1?"sin WHT":"WHT 15%"} en {r.pais}).
+              💵 Configuración de cobros derivada de plantaciones. Contract Fee: <strong>sin WHT (100%)</strong>. Royalties: <strong>{pct(r.pais)===1?"sin WHT (100%)":"con WHT 15% → cobro 85%"}</strong> ({r.pais}).
             </div>
 
             {/* Sub-sección 1: Contract Fee */}
             <div style={{background:"#fff",border:"1px solid #fde68a",borderRadius:10,padding:14,marginBottom:14}}>
-              <div style={{fontSize:13,fontWeight:800,color:"#92400e",marginBottom:10}}>💰 Contract Fee</div>
+              <div style={{fontSize:13,fontWeight:800,color:"#92400e",marginBottom:10}}>💰 Contract Fee <span style={{fontSize:10,fontWeight:600,color:"#16a34a",marginLeft:8}}>Sin WHT</span></div>
               {r.tipoContractFee==="Sin Contract Fee"?(
                 <div style={{padding:14,background:"#fef3c7",borderRadius:8,fontSize:12,color:"#78350f"}}>Este contrato no contempla Contract Fee. Configurable en la sección Facturación.</div>
               ):(
@@ -6239,7 +6369,8 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                   </div>
                   <div>
                     <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Neto cobro (USD)</div>
-                    <div style={{padding:"7px 10px",background:"#dcfce7",borderRadius:6,fontSize:13,fontWeight:700,color:"#15803d"}}>${N(((r.montoContractFee||0)*pct(r.pais)).toFixed(2))}</div>
+                    <div style={{padding:"7px 10px",background:"#dcfce7",borderRadius:6,fontSize:13,fontWeight:700,color:"#15803d"}}>${N(r.montoContractFee||0)}</div>
+                    <div style={{fontSize:9,color:"#16a34a",marginTop:2}}>100% — sin retención</div>
                   </div>
                   <div>
                     <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>N° Factura</div>
@@ -6940,6 +7071,80 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
           </tbody>
         </table>
       </div>
+      {/* Modal edición de tanda */}
+      {tandaModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+          onClick={()=>setTandaModal(null)}>
+          <div style={{background:"#fff",borderRadius:16,padding:"24px 28px",maxWidth:520,width:"100%",boxShadow:"0 24px 64px #0004"}}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:800,color:"#1e293b",marginBottom:16}}>📦 Editar tanda de despacho</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Fecha despacho</div>
+                <input type="date" value={tandaModal.tanda.fecha||""} onChange={e=>setTandaModal(p=>({...p,tanda:{...p.tanda,fecha:e.target.value}}))}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>N° guía despacho</div>
+                <input value={tandaModal.tanda.guia||""} onChange={e=>setTandaModal(p=>({...p,tanda:{...p.tanda,guia:e.target.value}}))} placeholder="GD-001"
+                  style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Especie</div>
+                <select value={tandaModal.tanda.especie||""} onChange={e=>{
+                  setTandaModal(p=>({...p,tanda:{...p.tanda,especie:e.target.value,variedad:"",variedad_id:""}}));
+                }} style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,background:"#fff",boxSizing:"border-box"}}>
+                  <option value="">— Seleccionar —</option>
+                  {(especiesMaestro||[]).map(e=><option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Variedad</div>
+                <select value={tandaModal.tanda.variedad_id||""} disabled={!tandaModal.tanda.especie} onChange={e=>{
+                  const vv = (variedadesMaestro||[]).find(v=>v.id===e.target.value);
+                  setTandaModal(p=>({...p,tanda:{...p.tanda,variedad_id:e.target.value,variedad:vv?.variedad||""}}));
+                }} style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,background:tandaModal.tanda.especie?"#fff":"#f1f5f9",boxSizing:"border-box"}}>
+                  <option value="">— Seleccionar —</option>
+                  {(variedadesMaestro||[]).filter(v=>v.especie===tandaModal.tanda.especie).map(v=><option key={v.id} value={v.id}>{v.variedad}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Cantidad plantas</div>
+                <input type="number" value={tandaModal.tanda.plantas||0} onChange={e=>setTandaModal(p=>({...p,tanda:{...p.tanda,plantas:parseInt(e.target.value)||0}}))}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Estado</div>
+                <select value={tandaModal.tanda.estado||"Programado"} onChange={e=>setTandaModal(p=>({...p,tanda:{...p.tanda,estado:e.target.value}}))}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,background:"#fff",boxSizing:"border-box"}}>
+                  {ESTADOS_TANDA.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{marginTop:10}}>
+              <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>Observaciones</div>
+              <input value={tandaModal.tanda.observaciones||""} onChange={e=>setTandaModal(p=>({...p,tanda:{...p.tanda,observaciones:e.target.value}}))} placeholder="Estado de las plantas, condiciones..."
+                style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>setTandaModal(null)} style={{padding:"8px 20px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12}}>Cancelar</button>
+              <button onClick={()=>{
+                // Guardar tanda editada
+                const ct = data.find(c=>c.id===tandaModal.ctId);
+                if(!ct) { setTandaModal(null); return; }
+                const newPl = (ct.plantaciones||[]).map(p=>{
+                  if(p.id!==tandaModal.pltId) return p;
+                  const nt = [...(p.tandas||[])];
+                  nt[tandaModal.tandaIdx] = tandaModal.tanda;
+                  return {...p, tandas:nt};
+                });
+                setData(prev=>prev.map(c=>c.id===tandaModal.ctId?{...c,plantaciones:newPl}:c));
+                setTandaModal(null);
+              }} style={{padding:"8px 20px",borderRadius:8,background:"#1e293b",color:"#fff",border:"none",cursor:"pointer",fontSize:12,fontWeight:700}}>💾 Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -7196,7 +7401,9 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
     variedad_id:"",especie:"",variedad:"",
     cantidad_plantas:"",hectareas:"",
     fee_usd_planta:"",fee_total_usd:0,
-    estado_oc:"Borrador",observaciones:""};
+    estado_oc:"Borrador",observaciones:"",
+    // Despacho y recepción
+    fechaDespacho:"",guiaDespacho:"",fechaRecepcion:"",observacionesRecepcion:""};
   const EMPTY_CUOTA_INLINE = {fecha:"",monto_usd:"",pagado:false,fecha_pago:"",n_factura:"",observaciones:""};
   const [vivWizVvForm, setVivWizVvForm] = useState(EMPTY_VV_INLINE);
   const [vivWizAnxForm, setVivWizAnxForm] = useState(EMPTY_VANX_INLINE);
@@ -9200,7 +9407,11 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                                 <td style={{padding:"6px 10px",textAlign:"right"}}>{$$(oc.fee_usd_planta)}</td>
                                 <td style={{padding:"6px 10px",textAlign:"right",fontWeight:700,color:"#7c3aed"}}>{$$(oc.fee_total_usd)}</td>
                                 <td style={{padding:"6px 10px",fontSize:10}}>
-                                  <span style={{padding:"2px 8px",borderRadius:10,background:oc.estado_oc==="Pagada total"?"#dcfce7":oc.estado_oc==="Anulada"?"#fee2e2":"#fef3c7",color:oc.estado_oc==="Pagada total"?"#16a34a":oc.estado_oc==="Anulada"?"#dc2626":"#d97706",fontWeight:700}}>{oc.estado_oc||"—"}</span>
+                                  {(()=>{
+                                    const colOC = {"Borrador":"#94a3b8","Enviada":"#3b82f6","Negociando":"#d97706","Confirmada":"#0284c7","En producción":"#7c3aed","Lista":"#0f766e","Despachada":"#0d9488","Recibida":"#16a34a","Pagada parcial":"#ca8a04","Pagada total":"#16a34a","Anulada":"#dc2626"};
+                                    const c = colOC[oc.estado_oc]||"#64748b";
+                                    return <span style={{padding:"2px 8px",borderRadius:10,background:`${c}18`,color:c,fontWeight:700,border:`1px solid ${c}33`}}>{oc.estado_oc||"—"}</span>;
+                                  })()}
                                 </td>
                                 <td style={{padding:"6px 10px",textAlign:"right",fontSize:11}}>
                                   <span style={{color:cuotasOk===cuotasArr.length&&cuotasArr.length>0?"#16a34a":"#64748b"}}>{cuotasOk}/{cuotasArr.length}</span>
@@ -9530,6 +9741,33 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                   <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
                   <textarea value={ocForm.observaciones||""} onChange={e=>setOcForm(p=>({...p,observaciones:e.target.value}))}
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:60,boxSizing:"border-box"}}/>
+                </div>
+
+                {/* Despacho y Recepción */}
+                <div style={{padding:"10px 14px",background:"#f0f9ff",borderRadius:8,border:"1px solid #bae6fd",marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#0369a1",marginBottom:8}}>📦 Despacho y Recepción</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fecha despacho</label>
+                      <input type="date" value={ocForm.fechaDespacho||""} onChange={e=>setOcForm(p=>({...p,fechaDespacho:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>N° guía despacho</label>
+                      <input value={ocForm.guiaDespacho||""} onChange={e=>setOcForm(p=>({...p,guiaDespacho:e.target.value}))} placeholder="Guía N°..."
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fecha recepción</label>
+                      <input type="date" value={ocForm.fechaRecepcion||""} onChange={e=>setOcForm(p=>({...p,fechaRecepcion:e.target.value}))}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Observaciones recepción</label>
+                      <input value={ocForm.observacionesRecepcion||""} onChange={e=>setOcForm(p=>({...p,observacionesRecepcion:e.target.value}))} placeholder="Estado de las plantas al recibir..."
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Info: las cuotas se gestionan tras crear la OC */}
