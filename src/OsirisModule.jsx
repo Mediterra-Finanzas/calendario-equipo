@@ -2947,8 +2947,8 @@ function DashboardAnalitico({ctData,feData,rpData,rcData,tpData,especiesMaestro=
   const cantContratos = new Set(tpFilt.map(p=>p.ctId)).size;
 
   const cfFact = sumNum(feFilt, r=>r.montoUSD);
-  const cfNeto = sumNum(feFilt, r=>(parseFloat(r.montoUSD)||0)*pct(r.pais));
-  const cfPagado = sumNum(feFilt.filter(r=>r.pagado), r=>(parseFloat(r.montoUSD)||0)*pct(r.pais));
+  const cfNeto = sumNum(feFilt, r=>parseFloat(r.montoUSD)||0); // Contract Fee: 100% sin WHT
+  const cfPagado = sumNum(feFilt.filter(r=>r.pagado), r=>parseFloat(r.montoUSD)||0); // Contract Fee: 100% sin WHT
 
   const rpFact = sumNum(rpFilt, r=>r.montoFact);
   const rpNeto = sumNum(rpFilt, r=>r.montoCobro);
@@ -6055,12 +6055,12 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
           {/* ── SECCIÓN: COBROS DERIVADOS ── */}
           {sec==="cobros"&&(<>
             <div style={{fontSize:13,color:"#475569",marginBottom:12}}>
-              💵 Configuración de cobros derivada de plantaciones. Cuando facture: <strong>100%</strong> del monto. Cuando cobre: <strong>{pct(r.pais)===1?"100%":"85%"}</strong> ({pct(r.pais)===1?"sin WHT":"WHT 15%"} en {r.pais}).
+              💵 Configuración de cobros derivada de plantaciones. Contract Fee: <strong>100% sin WHT</strong>. Royalty Planta/Comercial: <strong>{pct(r.pais)===1?"100% sin WHT":"85% (WHT 15%)"}</strong> en {r.pais}.
             </div>
 
-            {/* Sub-sección 1: Contract Fee */}
+            {/* Sub-sección 1: Contract Fee — SIN WHT */}
             <div style={{background:"#fff",border:"1px solid #fde68a",borderRadius:10,padding:14,marginBottom:14}}>
-              <div style={{fontSize:13,fontWeight:800,color:"#92400e",marginBottom:10}}>💰 Contract Fee</div>
+              <div style={{fontSize:13,fontWeight:800,color:"#92400e",marginBottom:10}}>💰 Contract Fee <span style={{fontSize:10,fontWeight:500,color:"#78350f"}}>(100% — sin retención)</span></div>
               {r.tipoContractFee==="Sin Contract Fee"?(
                 <div style={{padding:14,background:"#fef3c7",borderRadius:8,fontSize:12,color:"#78350f"}}>Este contrato no contempla Contract Fee. Configurable en la sección Facturación.</div>
               ):(
@@ -6071,7 +6071,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                   </div>
                   <div>
                     <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Neto cobro (USD)</div>
-                    <div style={{padding:"7px 10px",background:"#dcfce7",borderRadius:6,fontSize:13,fontWeight:700,color:"#15803d"}}>${N(((r.montoContractFee||0)*pct(r.pais)).toFixed(2))}</div>
+                    <div style={{padding:"7px 10px",background:"#dcfce7",borderRadius:6,fontSize:13,fontWeight:700,color:"#15803d"}}>${N(r.montoContractFee||0)}</div>
                   </div>
                   <div>
                     <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>N° Factura</div>
@@ -6177,9 +6177,11 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginBottom:12}}>
                 <div>
                   <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Temporada inicio</div>
-                  <input disabled={!can} value={r.rcInicioTemporada||""} placeholder="2026/2027" onChange={e=>upd(r.id,"rcInicioTemporada",e.target.value)}
-                    style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
-                  <div style={{fontSize:9,color:"#94a3b8",marginTop:2}}>Formato: AAAA/AAAA</div>
+                  <select disabled={!can} value={r.rcInicioTemporada||""} onChange={e=>upd(r.id,"rcInicioTemporada",e.target.value)}
+                    style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box",background:"#fff"}}>
+                    <option value="">— Seleccionar —</option>
+                    {Array.from({length:12},(_,i)=>{const a=2024+i;return`${a}/${a+1}`;}).map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
                 </div>
                 <div>
                   <div style={{fontSize:10,color:"#64748b",fontWeight:600,marginBottom:3}}>Mes de cobro</div>
