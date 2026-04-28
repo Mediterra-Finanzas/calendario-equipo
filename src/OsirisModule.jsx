@@ -7318,20 +7318,24 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
         };
         const HUB_DEFAULT=["ingresos","contratos","obtentores","viveros","opTecnica","tareas"];
         const order=(Array.isArray(osirisData?.hubCardsOrder)&&osirisData.hubCardsOrder.length===HUB_DEFAULT.length)?osirisData.hubCardsOrder:HUB_DEFAULT;
-        const handleDragStart=(e,id)=>{window._dragCard=id;e.dataTransfer.effectAllowed="move";};
+        const handleDragStart=(e,id)=>{window._dragCard=id;window._didDrag=true;e.dataTransfer.effectAllowed="move";};
         const handleDrop=(e,targetId)=>{
-          e.preventDefault();const from=window._dragCard;if(!from||from===targetId)return;
+          e.preventDefault();e.stopPropagation();const from=window._dragCard;if(!from||from===targetId){window._dragCard=null;return;}
           const nw=[...order];const fi=nw.indexOf(from),ti=nw.indexOf(targetId);
           if(fi===-1||ti===-1)return;nw.splice(fi,1);nw.splice(ti,0,from);
           setOsirisData(prev=>({...(prev||{}),hubCardsOrder:nw}));window._dragCard=null;
         };
+        const handleCardClick=(fn)=>{
+          if(window._didDrag){window._didDrag=false;return;}
+          fn();
+        };
         return(
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16,maxWidth:700,margin:"0 auto 30px"}}>
             {order.map(cid=>{const d=CARD_DEFS[cid];if(!d)return null;return(
-              <div key={cid} draggable onDragStart={e=>handleDragStart(e,cid)} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={e=>handleDrop(e,cid)} onDragEnd={()=>{window._dragCard=null;}} onClick={d.onClick}
-                style={{background:`linear-gradient(135deg,#1c2333,${d.grad})`,borderRadius:16,padding:"24px 20px",border:`1px solid ${d.border}`,cursor:"grab",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
+              <div key={cid} draggable onDragStart={e=>handleDragStart(e,cid)} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={e=>handleDrop(e,cid)} onDragEnd={()=>{setTimeout(()=>{window._didDrag=false;},100);window._dragCard=null;}} onClick={()=>handleCardClick(d.onClick)}
+                style={{background:`linear-gradient(135deg,#1c2333,${d.grad})`,borderRadius:16,padding:"24px 20px",border:`1px solid ${d.border}`,cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
                 onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
-                <div style={{position:"absolute",top:8,right:10,fontSize:10,color:"#475569"}} title="Arrastra para reordenar">⋮⋮</div>
+                <div style={{position:"absolute",top:8,right:10,fontSize:10,color:"#475569",cursor:"grab"}} title="Arrastra para reordenar">⋮⋮</div>
                 <div style={{fontSize:32,marginBottom:10}}>{d.emoji}</div>
                 <div style={{fontWeight:800,fontSize:16,color:"#e6edf3",marginBottom:4}}>{d.label}</div>
                 <div style={{fontSize:11,color:"#8b949e",marginBottom:12}}>{d.desc}</div>
