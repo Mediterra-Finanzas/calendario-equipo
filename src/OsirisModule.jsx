@@ -6995,13 +6995,13 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
   // Wizard: paso actual (1=cabecera, 2=especies/DHE, 3=PBR)
   const [obtWizStep, setObtWizStep] = useState(1);
   // Forms inline del wizard (paso 2 y 3) — para agregar especies/PBR sin abrir submodales
-  const EMPTY_ESP_INLINE = {especie:"",variedad:"",codigoVariedad:"",nombreComercial:"",vigenciaDesde:"",vigenciaHasta:"",observaciones:"",dhe_estado:"No iniciado",dhe_fecha_solicitud:"",dhe_fecha_aprob:"",dhe_nRegistro:"",dhe_doc:"",dhe_observaciones:""};
+  const EMPTY_ESP_INLINE = {especie:"",variedad:"",codigoVariedad:"",nombreComercial:"",vigenciaDesde:"",vigenciaHasta:"",observaciones:"",dhe:[]};
   const EMPTY_PBR_INLINE = {especie:"",variedad:"",pais:"",estado:"Pendiente",nRegistro:"",f_solicitud:"",f_resolucion:"",f_vencimiento:"",doc_solicitud:"",doc_resolucion:"",observaciones:""};
   const [obtWizEspForm, setObtWizEspForm] = useState(EMPTY_ESP_INLINE);
   const [obtWizPbrForm, setObtWizPbrForm] = useState(EMPTY_PBR_INLINE);
   // Sub-modales Obtentores
   const [espModal, setEspModal] = useState(false);
-  const [espForm, setEspForm] = useState({especie:"",variedad:"",observaciones:"",dhe_estado:"No iniciado",dhe_fecha_aprob:"",dhe_doc:"",dhe_observaciones:""});
+  const [espForm, setEspForm] = useState({especie:"",variedad:"",observaciones:"",dhe:[]});
   const [pbrModal, setPbrModal] = useState(false);
   const [pbrForm, setPbrForm] = useState({especie:"",pais:"",estado:"Pendiente",f_solicitud:"",f_resolucion:"",doc_solicitud:"",doc_resolucion:"",observaciones:""});
   const [anxModal, setAnxModal] = useState(false);
@@ -7462,13 +7462,10 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
         especie:espForm.especie.trim(),
         variedad:espForm.variedad.trim(),
         observaciones:espForm.observaciones||"",
-        dhe_estado:espForm.dhe_estado||"No iniciado",
-        dhe_fecha_aprob:espForm.dhe_fecha_aprob||"",
-        dhe_doc:espForm.dhe_doc||"",
-        dhe_observaciones:espForm.dhe_observaciones||"",
+        dhe:Array.isArray(espForm.dhe)?espForm.dhe:[],
       };
       updateContrato(c.id, {especies:[...(c.especies||[]), nueva]});
-      setEspForm({especie:"",variedad:"",observaciones:"",dhe_estado:"No iniciado",dhe_fecha_aprob:"",dhe_doc:"",dhe_observaciones:""});
+      setEspForm({especie:"",variedad:"",observaciones:"",dhe:[]});
       setEspModal(false);
     };
 
@@ -7645,7 +7642,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                   <div style={{fontWeight:700,color:"#1e293b"}}>Especies, Variedades y DHE del Contrato</div>
-                  {canObtentores&&<button onClick={()=>{setEspForm({especie:"",variedad:"",observaciones:"",dhe_estado:"No iniciado",dhe_fecha_aprob:"",dhe_doc:"",dhe_observaciones:""});setEspModal(true);}} style={{padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Especie/Variedad</button>}
+                  {canObtentores&&<button onClick={()=>{setEspForm({especie:"",variedad:"",observaciones:"",dhe:[]});setEspModal(true);}} style={{padding:"6px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar Especie/Variedad</button>}
                 </div>
                 <div style={{background:"#fef3c7",border:"1px solid #fbbf24",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#78350f"}}>
                   💡 Cada variedad puede tener su propio estado de DHE (Distinción, Homogeneidad y Estabilidad). Al obtener la aprobación del DHE, adjunta el documento.
@@ -7960,33 +7957,73 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                   <textarea value={espForm.observaciones||""} onChange={e=>setEspForm(p=>({...p,observaciones:e.target.value}))}
                     style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,minHeight:50,boxSizing:"border-box"}}/>
                 </div>
-                {/* Sección DHE */}
+                {/* Sección DHE multi-país */}
                 <div style={{padding:12,background:"#fef3c7",borderRadius:8,border:"1px solid #fbbf24",marginBottom:12}}>
-                  <div style={{fontSize:12,fontWeight:800,color:"#78350f",marginBottom:8}}>📋 DHE (Distinción, Homogeneidad y Estabilidad)</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
-                    <div>
-                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado DHE</label>
-                      <select value={espForm.dhe_estado||"No iniciado"} onChange={e=>setEspForm(p=>({...p,dhe_estado:e.target.value}))}
-                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:"#fff"}}>
-                        {ESTADOS_DHE.map(s=><option key={s} value={s}>{s}</option>)}
-                      </select>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#78350f"}}>📋 DHE (Distinción, Homogeneidad y Estabilidad)</div>
+                    <button onClick={()=>{
+                      const nd={id:`dhe_${Date.now()}`,pais:"",estado:"No iniciado",fecha_solicitud:"",fecha_aprob:"",nRegistro:"",doc:"",observaciones:""};
+                      setEspForm(p=>({...p,dhe:[...(p.dhe||[]),nd]}));
+                    }} type="button" style={{padding:"4px 12px",borderRadius:6,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>+ País DHE</button>
+                  </div>
+                  <div style={{fontSize:11,color:"#78350f",marginBottom:8}}>Agrega un registro DHE por cada país donde aplique.</div>
+                  {(espForm.dhe||[]).length===0?(
+                    <div style={{padding:12,textAlign:"center",color:"#92400e",fontSize:11,border:"1px dashed #fbbf24",borderRadius:6}}>Sin registros DHE. Click en "+ País DHE" para agregar.</div>
+                  ):(
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {(espForm.dhe||[]).map((d,idx)=>{
+                        const updD=(f,v)=>setEspForm(p=>({...p,dhe:(p.dhe||[]).map(x=>x.id===d.id?{...x,[f]:v}:x)}));
+                        return(
+                          <div key={d.id} style={{border:"1px solid #fde68a",borderRadius:8,padding:10,background:"#fffbeb"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                              <div style={{fontSize:11,fontWeight:700,color:"#78350f"}}>País DHE #{idx+1}</div>
+                              <button onClick={()=>setEspForm(p=>({...p,dhe:(p.dhe||[]).filter(x=>x.id!==d.id)}))} type="button"
+                                style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>🗑</button>
+                            </div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:6}}>
+                              <div>
+                                <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>País *</label>
+                                <select value={d.pais||""} onChange={e=>updD("pais",e.target.value)}
+                                  style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box",background:"#fff"}}>
+                                  <option value="">— Seleccionar —</option>
+                                  {PAISES_DHE.map(p=><option key={p} value={p}>{p}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>Estado</label>
+                                <select value={d.estado||"No iniciado"} onChange={e=>updD("estado",e.target.value)}
+                                  style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box",background:"#fff"}}>
+                                  {ESTADOS_DHE.map(s=><option key={s} value={s}>{s}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>N° Registro</label>
+                                <input value={d.nRegistro||""} placeholder="Ej: 2024-001" onChange={e=>updD("nRegistro",e.target.value)}
+                                  style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                              </div>
+                            </div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                              <div>
+                                <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>F. Solicitud</label>
+                                <input type="date" value={d.fecha_solicitud||""} onChange={e=>updD("fecha_solicitud",e.target.value)}
+                                  style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                              </div>
+                              <div>
+                                <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>F. Aprobación</label>
+                                <input type="date" value={d.fecha_aprob||""} onChange={e=>updD("fecha_aprob",e.target.value)}
+                                  style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                              </div>
+                              <div>
+                                <label style={{fontSize:10,fontWeight:600,color:"#475569",display:"block",marginBottom:2}}>📎 Doc DHE</label>
+                                <input value={d.doc||""} placeholder="https://..." onChange={e=>updD("doc",e.target.value)}
+                                  style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div>
-                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Fecha aprobación</label>
-                      <input type="date" value={espForm.dhe_fecha_aprob||""} onChange={e=>setEspForm(p=>({...p,dhe_fecha_aprob:e.target.value}))}
-                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
-                    </div>
-                  </div>
-                  <div style={{marginBottom:8}}>
-                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>📎 Doc. DHE (URL)</label>
-                    <input value={espForm.dhe_doc||""} placeholder="https://..." onChange={e=>setEspForm(p=>({...p,dhe_doc:e.target.value}))}
-                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
-                  </div>
-                  <div>
-                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Obs. DHE</label>
-                    <input value={espForm.dhe_observaciones||""} onChange={e=>setEspForm(p=>({...p,dhe_observaciones:e.target.value}))}
-                      style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box"}}/>
-                  </div>
+                  )}
                 </div>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                   <button onClick={()=>setEspModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer"}}>Cancelar</button>
@@ -8212,10 +8249,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               especie:obtWizEspForm.especie.trim(),
               variedad:obtWizEspForm.variedad.trim(),
               observaciones:obtWizEspForm.observaciones||"",
-              dhe_estado:obtWizEspForm.dhe_estado||"No iniciado",
-              dhe_fecha_aprob:obtWizEspForm.dhe_fecha_aprob||"",
-              dhe_doc:obtWizEspForm.dhe_doc||"",
-              dhe_observaciones:obtWizEspForm.dhe_observaciones||"",
+              dhe:Array.isArray(obtWizEspForm.dhe)?obtWizEspForm.dhe:[],
             };
             setObtForm(p=>({...p, especies:[...(p.especies||[]), nueva]}));
             setObtWizEspForm(EMPTY_ESP_INLINE);
@@ -8369,15 +8403,16 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                       Variedades agregadas ({wizEspecies.length})
                     </div>
                     {wizEspecies.map(e=>{
-                      const dheCol = e.dhe_estado==="Aprobado"?"#16a34a":e.dhe_estado==="Rechazado"?"#dc2626":e.dhe_estado==="En proceso"?"#d97706":"#64748b";
+                      const dheArr = Array.isArray(e.dhe)?e.dhe:[];
+                      const nDhe = dheArr.length;
+                      const nAprob = dheArr.filter(d=>d.estado==="Aprobado").length;
                       return (
                         <div key={e.id} style={{padding:"10px 12px",borderTop:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>🌿 {e.especie} — {e.variedad}</div>
                             <div style={{fontSize:10,color:"#64748b",marginTop:2}}>
-                              <span style={{color:dheCol,fontWeight:700}}>DHE: {e.dhe_estado||"No iniciado"}</span>
-                              {e.dhe_fecha_aprob&&` · Aprob. ${e.dhe_fecha_aprob}`}
-                              {e.dhe_doc&&" · 📎 Doc"}
+                              {nDhe>0?<><span style={{color:nAprob>0?"#16a34a":"#d97706",fontWeight:700}}>DHE: {nDhe} país{nDhe!==1?"es":""}{nAprob>0?` (${nAprob} aprobado${nAprob>1?"s":""})`:""}
+                              </span> · {dheArr.map(d=>d.pais||"?").join(", ")}</>:<span style={{color:"#94a3b8"}}>Sin DHE</span>}
                             </div>
                           </div>
                           <button onClick={()=>quitarEspWiz(e.id)} style={{background:"#fef2f2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#991b1b"}}>🗑</button>
@@ -8402,29 +8437,38 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                         style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
                     </div>
                   </div>
-                  <div style={{padding:10,background:"#fef3c7",borderRadius:6,marginBottom:8,fontSize:11,fontWeight:700,color:"#78350f"}}>📋 DHE (Distinción, Homogeneidad y Estabilidad)</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
-                    <div>
-                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Estado DHE</label>
-                      <select value={obtWizEspForm.dhe_estado||"No iniciado"} onChange={e=>setObtWizEspForm(p=>({...p,dhe_estado:e.target.value}))}
-                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",background:"#fff"}}>
-                        {ESTADOS_DHE.map(s=><option key={s} value={s}>{s}</option>)}
-                      </select>
+                  <div style={{padding:10,background:"#fef3c7",borderRadius:6,marginBottom:8}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"#78350f"}}>📋 DHE por país</div>
+                      <button onClick={()=>{
+                        const nd={id:`dhe_${Date.now()}`,pais:"",estado:"No iniciado",fecha_solicitud:"",fecha_aprob:"",nRegistro:"",doc:"",observaciones:""};
+                        setObtWizEspForm(p=>({...p,dhe:[...(p.dhe||[]),nd]}));
+                      }} type="button" style={{padding:"3px 10px",borderRadius:6,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:10,fontWeight:700}}>+ País</button>
                     </div>
-                    <div>
-                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Fecha aprobación DHE</label>
-                      <input type="date" value={obtWizEspForm.dhe_fecha_aprob||""} onChange={e=>setObtWizEspForm(p=>({...p,dhe_fecha_aprob:e.target.value}))}
-                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
-                    </div>
+                    {(obtWizEspForm.dhe||[]).length===0&&<div style={{fontSize:10,color:"#92400e",marginTop:4}}>Opcional. Click "+ País" para agregar DHE.</div>}
+                    {(obtWizEspForm.dhe||[]).map((d,idx)=>{
+                      const updWD=(f,v)=>setObtWizEspForm(p=>({...p,dhe:(p.dhe||[]).map(x=>x.id===d.id?{...x,[f]:v}:x)}));
+                      return(
+                        <div key={d.id} style={{border:"1px solid #fde68a",borderRadius:6,padding:8,marginTop:6,background:"#fffbeb"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"#78350f"}}>DHE #{idx+1}</span>
+                            <button onClick={()=>setObtWizEspForm(p=>({...p,dhe:(p.dhe||[]).filter(x=>x.id!==d.id)}))} type="button" style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"1px 6px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>🗑</button>
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,fontSize:11}}>
+                            <div><label style={{fontSize:10,color:"#475569",fontWeight:600}}>País</label>
+                              <select value={d.pais||""} onChange={e=>updWD("pais",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}><option value="">— País —</option>{PAISES_DHE.map(p=><option key={p}>{p}</option>)}</select></div>
+                            <div><label style={{fontSize:10,color:"#475569",fontWeight:600}}>Estado</label>
+                              <select value={d.estado||"No iniciado"} onChange={e=>updWD("estado",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11,background:"#fff"}}>{ESTADOS_DHE.map(s=><option key={s}>{s}</option>)}</select></div>
+                            <div><label style={{fontSize:10,color:"#475569",fontWeight:600}}>N° Registro</label>
+                              <input value={d.nRegistro||""} onChange={e=>updWD("nRegistro",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11,boxSizing:"border-box"}}/></div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   <div style={{marginBottom:8}}>
-                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>📎 Doc. DHE (URL)</label>
-                    <input value={obtWizEspForm.dhe_doc||""} placeholder="https://..." onChange={e=>setObtWizEspForm(p=>({...p,dhe_doc:e.target.value}))}
-                      style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
-                  </div>
-                  <div style={{marginBottom:8}}>
-                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Obs. DHE / Variedad</label>
-                    <input value={obtWizEspForm.dhe_observaciones||""} onChange={e=>setObtWizEspForm(p=>({...p,dhe_observaciones:e.target.value,observaciones:e.target.value}))}
+                    <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Obs. variedad</label>
+                    <input value={obtWizEspForm.observaciones||""} onChange={e=>setObtWizEspForm(p=>({...p,observaciones:e.target.value}))}
                       style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>
                   </div>
                   <button onClick={agregarEspWiz} style={{width:"100%",padding:"8px 14px",borderRadius:8,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Agregar variedad a la lista</button>
