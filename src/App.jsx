@@ -192,7 +192,6 @@ const FRECUENCIAS = ["Diaria","Semanal","Quincenal","Mensual","Anual","Puntual"]
 // Roles del sistema
 const ROLES = [
   {v:"admin",    l:"Administrador – acceso total"},
-  {v:"gerente_tecnico", l:"Gerente Técnico – aprueba informes Osiris"},
   {v:"editor",   l:"Editor – gestiona sus tareas"},
   {v:"consulta", l:"Consulta – solo visualiza"},
 ];
@@ -288,7 +287,6 @@ const WORKERS_BASE=[
   {nombre:"Michelle Garcia", cargo:"Contadora General",       email:"mgarcia@grupomediterra.cl", pin:"7413",rol:"editor", modulos:["tareas"],                    esCFO:false},
   {nombre:"Pablo Duran",     cargo:"Asistente Contable",      email:"pduran@grupomediterra.cl",  pin:"2986",rol:"editor", modulos:["tareas"],                    esCFO:false},
   {nombre:"Angelo Huerta",   cargo:"Gerencia Adm. y Finanzas",email:"ahuerta@grupomediterra.cl", pin:"6054",rol:"admin",  modulos:["tareas","osiris","finanzas"], esCFO:true},
-  {nombre:"Nicolas Fuenzalida",cargo:"Gerente Técnico Osiris", email:"nfuenzalida@osirisplant.com",pin:"8271",rol:"gerente_tecnico", modulos:["osiris"], esCFO:false},
 ];
 
 const CATEGORIAS={
@@ -426,7 +424,6 @@ const NIVEL_BG     = {editar:"#dcfce7", ver:"#dbeafe",  sin_acceso:"#fee2e2"};
 function getTabPerm(usuario, modulo, tabId) {
   if(!usuario) return "sin_acceso";
   if(usuario.rol === "admin") return "editar";
-  if(usuario.rol === "gerente_tecnico" && modulo === "osiris") return "editar";
   // config es solo para admin — no-admins no tienen acceso por defecto
   if(tabId === "config") return usuario.tab_permisos?.[modulo]?.[tabId] ?? "sin_acceso";
   return usuario.tab_permisos?.[modulo]?.[tabId] ?? "editar";
@@ -543,8 +540,8 @@ function PanelPermisos({ usuarios, setUsuarios, onClose }) {
                     <div style={{flex:1,minWidth:160}}>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
                         <span style={{fontWeight:700,fontSize:14,color:"#1e293b"}}>{u.nombre}</span>
-                        <span style={{fontSize:10,background:u.rol==="admin"?"#fef3c7":u.rol==="gerente_tecnico"?"#e0f2fe":u.rol==="consulta"?"#ede9fe":"#dcfce7",color:u.rol==="admin"?"#92400e":u.rol==="gerente_tecnico"?"#0369a1":u.rol==="consulta"?"#6d28d9":"#166534",borderRadius:20,padding:"1px 8px",fontWeight:700}}>
-                          {u.rol==="admin"?"Admin":u.rol==="gerente_tecnico"?"Gte. Técnico":u.rol==="consulta"?"Consulta":"Editor"}
+                        <span style={{fontSize:10,background:u.rol==="admin"?"#fef3c7":u.rol==="consulta"?"#ede9fe":"#dcfce7",color:u.rol==="admin"?"#92400e":u.rol==="consulta"?"#6d28d9":"#166534",borderRadius:20,padding:"1px 8px",fontWeight:700}}>
+                          {u.rol==="admin"?"Admin":u.rol==="consulta"?"Consulta":"Editor"}
                         </span>
                       </div>
                       <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{u.cargo}</div>
@@ -1406,16 +1403,8 @@ export default function App(){
                 royaltyComercial: mergeEdits(prev.royaltyComercial||[], extractUserEdits(saved.royaltyComercial)),
                 feeViveros:       mergeEdits(prev.feeViveros||[],       extractUserEdits(saved.feeViveros)),
                 totalPedidos:     mergeEdits(prev.totalPedidos||[],     extractUserEdits(saved.totalPedidos)),
-                contratos:   Array.isArray(saved.contratos)   ? saved.contratos   : (prev.contratos   || []),
-                clientes:    Array.isArray(saved.clientes)    ? saved.clientes    : (prev.clientes    || []),
-                // Maestros de catálogo: restaurar tal cual desde Supabase (validar que sean arrays)
-                especies:    Array.isArray(saved.especies)    ? saved.especies    : (prev.especies    || []),
-                variedades:  Array.isArray(saved.variedades)  ? saved.variedades  : (prev.variedades  || []),
-                obtentores:  Array.isArray(saved.obtentores)  ? saved.obtentores  : (prev.obtentores  || []),
-                viveros:     Array.isArray(saved.viveros)     ? saved.viveros     : (prev.viveros     || []),
-                viveristas:  Array.isArray(saved.viveristas)  ? saved.viveristas  : (prev.viveristas  || []),
-                opTecnica:   (saved.opTecnica && typeof saved.opTecnica === "object" && !Array.isArray(saved.opTecnica))
-                             ? saved.opTecnica : (prev.opTecnica || {}),
+                contratos: saved.contratos||prev.contratos||[],
+                clientes: saved.clientes||prev.clientes||[],
               };
             });
           }
@@ -1521,18 +1510,13 @@ export default function App(){
           headers:{apikey:SUPA_KEY,Authorization:`Bearer ${SUPA_KEY}`}
         });
         const allData = await res.json();
-        // Defensive: Supabase puede devolver objeto de error en lugar de array si la query falla
-        if(!Array.isArray(allData)) {
-          console.warn("[backup] Respuesta no esperada de Supabase, omitiendo respaldo:", allData);
-          return;
-        }
         const backup = {
           fecha: new Date().toISOString(),
           usuario: usuarioActual.nombre,
           version: "Mediterra Hub Backup Automático v1",
           tablas: {}
         };
-        allData.forEach(row=>{
+        (allData||[]).forEach(row=>{
           try { backup.tablas[row.id] = {data:JSON.parse(row.value), updated_at:row.updated_at}; }
           catch { backup.tablas[row.id] = {data:row.value, updated_at:row.updated_at}; }
         });
