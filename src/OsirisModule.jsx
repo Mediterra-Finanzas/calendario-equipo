@@ -27,16 +27,11 @@ async function dbSaveOsiris(value) {
     // Protección anti-pérdida
     if(value) {
       const protectedKeys = ["contratos","obtentores","viveros","clientes","especies","variedades"];
-      const hasAnyData = protectedKeys.some(k => Array.isArray(value[k]) && value[k].length > 0);
-      const prevHadData = window._lastSavedOsiris && Object.values(window._lastSavedOsiris).some(v => v > 0);
-      if(!hasAnyData && prevHadData) {
-        console.warn("[dbSaveOsiris] ⚠️ BLOQUEADO: osirisData vacío pero antes tenía datos.");
-        return;
-      }
       for(const k of protectedKeys) {
         const nc = Array.isArray(value[k]) ? value[k].length : -1;
         const pc = window._lastSavedOsiris?.[k] || 0;
-        if(nc >= 0 && nc < pc) {
+        // Solo bloquear si ANTES había datos y ahora hay MENOS (no si ambos son 0)
+        if(nc >= 0 && pc > 0 && nc < pc) {
           console.warn(`[dbSaveOsiris] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a ${nc}.`);
           return;
         }
@@ -50,8 +45,8 @@ async function dbSaveOsiris(value) {
         "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
       body: JSON.stringify({ id: "osiris", value, updated_at: new Date().toISOString() })
     });
-    const keys = value ? Object.keys(value).filter(k=>Array.isArray(value[k])&&value[k].length>0).map(k=>`${k}:${value[k].length}`).join(", ") : "VACÍO";
-    console.log(`[Osiris] ✅ Guardado: ${keys}`);
+    const keys = value ? Object.keys(value).filter(k=>(Array.isArray(value[k])&&value[k].length>0)||k==="hubCardsOrder").map(k=>Array.isArray(value[k])?`${k}:${value[k].length}`:k).join(", ") : "VACÍO";
+    console.log(`[Osiris] ✅ Guardado: ${keys||"sin arrays"}`);
   } catch(e) { console.error("[Osiris] Error guardando:", e); }
 }
 
