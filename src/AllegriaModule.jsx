@@ -375,60 +375,347 @@ function ClientesModule({data, setData, can}) {
 function ProductoresModule({data, setData, can}) {
   const [busq, setBusq] = useState("");
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({nombre:"",rut:"",pais:"Chile",zona:"",contacto:"",email:"",telefono:"",frutas:[],hectareas:"",notas:""});
+  const [detalle, setDetalle] = useState(null);
+  const [tab, setTab] = useState("ficha");
+  const EMPTY = {nombre:"",rut:"",pais:"Chile",zona:"",contacto:"",email:"",telefono:"",frutas:[],hectareas:"",notas:"",
+    contrato:{estado:"Sin contrato",tipoContrato:"",fechaInicio:"",fechaTermino:"",condiciones:"",kgPactados:[],fechaPagoLiq:"",comisionPct:"",linkContrato:"",garantias:[],observaciones:""},
+    anticipos:[],visitas:[]};
+  const [form, setForm] = useState(EMPTY);
   const [editId, setEditId] = useState(null);
 
   const filtrado = data.filter(p=>!busq||p.nombre?.toLowerCase().includes(busq.toLowerCase()));
+  const prod = detalle ? data.find(p=>p.id===detalle) : null;
+  const upd = (campo, valor) => setData(prev=>prev.map(p=>p.id===detalle?{...p,[campo]:valor}:p));
+  const updContrato = (campo, valor) => setData(prev=>prev.map(p=>p.id===detalle?{...p,contrato:{...(p.contrato||{}),[campo]:valor}}:p));
+
+  const ESTADOS_CONTRATO = ["Sin contrato","Borrador","En negociación","Firmado","Vigente","Vencido","Cancelado"];
+  const TIPOS_CONTRATO = ["Consignación","Precio mínimo garantizado","Precio fijo","Pool","Otro"];
+  const TIPOS_GARANTIA = ["Pagaré","Prenda","Hipoteca","Boleta de garantía","Carta fianza","Otro"];
+  const TIPOS_VISITA = ["Pre-temporada","En cosecha","Post-cosecha","Seguimiento","Emergencia"];
+  const ESTADOS_VISITA = ["Programada","Realizada","Cancelada"];
 
   function guardar() {
     if(!form.nombre.trim()){alert("Nombre es obligatorio.");return;}
-    if(editId) {
-      setData(prev=>prev.map(p=>p.id===editId?{...p,...form}:p));
-      window.auditLog&&window.auditLog("editar",{modulo:"allegria",seccion:"Productores",descripcion:`Editó productor "${form.nombre}"`,registroId:editId});
-    } else {
-      const id=`aprod_${Date.now()}`;
-      setData(prev=>[...prev,{...form,id}]);
-      window.auditLog&&window.auditLog("crear",{modulo:"allegria",seccion:"Productores",descripcion:`Creó productor "${form.nombre}" · ${form.pais}`,registroId:id});
-    }
-    setForm({nombre:"",rut:"",pais:"Chile",zona:"",contacto:"",email:"",telefono:"",frutas:[],hectareas:"",notas:""});
-    setModal(false);setEditId(null);
+    if(editId) { setData(prev=>prev.map(p=>p.id===editId?{...p,...form}:p)); }
+    else { setData(prev=>[...prev,{...form,id:`aprod_${Date.now()}`}]); }
+    setForm(EMPTY);setModal(false);setEditId(null);
   }
 
+  // ── Vista detalle ──
+  if(prod) {
+    const contrato = prod.contrato || {};
+    const anticipos = Array.isArray(prod.anticipos) ? prod.anticipos : [];
+    const visitas = Array.isArray(prod.visitas) ? prod.visitas : [];
+    const kgPactados = Array.isArray(contrato.kgPactados) ? contrato.kgPactados : [];
+    const garantias = Array.isArray(contrato.garantias) ? contrato.garantias : [];
+    const TABS = [{id:"ficha",label:"📋 Ficha"},{id:"contrato",label:"📄 Contrato"},{id:"anticipos",label:"💵 Anticipos"},{id:"visitas",label:"🌿 Visitas"}];
+    const estColor = contrato.estado==="Firmado"||contrato.estado==="Vigente"?"#16a34a":contrato.estado==="Vencido"||contrato.estado==="Cancelado"?"#dc2626":"#d97706";
+
+    return (
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <button onClick={()=>{setDetalle(null);setTab("ficha");}} style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",color:C.muted,fontSize:12}}>← Volver</button>
+            <h3 style={{margin:0,color:C.text,fontSize:18}}>{prod.nombre}</h3>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <span style={{fontSize:10,padding:"4px 12px",borderRadius:20,background:`${estColor}22`,color:estColor,fontWeight:700}}>{contrato.estado||"Sin contrato"}</span>
+            {prod.pais&&<span style={{fontSize:10,padding:"4px 12px",borderRadius:20,background:`${C.blue}22`,color:C.blue,fontWeight:700}}>{prod.pais}</span>}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+          {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)}
+            style={{padding:"8px 16px",borderRadius:8,border:tab===t.id?`2px solid ${C.teal}`:`1px solid ${C.border}`,
+              background:tab===t.id?C.teal:"transparent",color:tab===t.id?"#fff":C.muted,cursor:"pointer",fontSize:12,fontWeight:700}}>{t.label}</button>)}
+        </div>
+
+        {/* TAB FICHA */}
+        {tab==="ficha"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+            {[["Nombre","nombre"],["RUT","rut"],["País","pais"],["Zona/Región","zona"],["Contacto","contacto"],["Email","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
+              <div key={f}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>{l}</div>
+                <input disabled={!can} value={prod[f]||""} onChange={e=>upd(f,e.target.value)}
+                  style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}/></div>
+            ))}
+            <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Frutas</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{FRUTAS.map(f=>(
+                <button key={f} disabled={!can} onClick={()=>{const cur=prod.frutas||[];upd("frutas",cur.includes(f)?cur.filter(x=>x!==f):[...cur,f]);}}
+                  style={{padding:"4px 12px",borderRadius:20,border:`1px solid ${(prod.frutas||[]).includes(f)?C.teal:C.border}`,background:(prod.frutas||[]).includes(f)?`${C.teal}22`:"transparent",color:(prod.frutas||[]).includes(f)?C.teal:C.muted,cursor:can?"pointer":"default",fontSize:11,fontWeight:600}}>{f}</button>
+              ))}</div></div>
+            <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Notas</div>
+              <textarea disabled={!can} value={prod.notas||""} onChange={e=>upd("notas",e.target.value)}
+                style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,minHeight:60,boxSizing:"border-box"}}/></div>
+          </div>
+        )}
+
+        {/* TAB CONTRATO */}
+        {tab==="contrato"&&(
+          <div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
+              <div><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Estado</div>
+                <select disabled={!can} value={contrato.estado||"Sin contrato"} onChange={e=>updContrato("estado",e.target.value)}
+                  style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}>
+                  {ESTADOS_CONTRATO.map(s=><option key={s}>{s}</option>)}</select></div>
+              <div><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Tipo</div>
+                <select disabled={!can} value={contrato.tipoContrato||""} onChange={e=>updContrato("tipoContrato",e.target.value)}
+                  style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}>
+                  <option value="">— Seleccionar —</option>{TIPOS_CONTRATO.map(t=><option key={t}>{t}</option>)}</select></div>
+              {[["Fecha inicio","fechaInicio","date"],["Fecha término","fechaTermino","date"],["Comisión %","comisionPct","number"],["Plazo pago liquidación","fechaPagoLiq","text"]].map(([l,f,t])=>(
+                <div key={f}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>{l}</div>
+                  <input type={t} step={t==="number"?"0.1":undefined} disabled={!can} value={contrato[f]||""} placeholder={f==="fechaPagoLiq"?"Ej: 60 días post-embarque":""} onChange={e=>updContrato(f,e.target.value)}
+                    style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}/></div>
+              ))}
+            </div>
+            {/* Link contrato */}
+            <div style={{marginBottom:16}}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>📎 Link al contrato (OneDrive/Drive)</div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input disabled={!can} value={contrato.linkContrato||""} placeholder="https://..." onChange={e=>updContrato("linkContrato",e.target.value)}
+                  style={{flex:1,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}/>
+                {contrato.linkContrato&&<a href={contrato.linkContrato} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:C.teal,fontWeight:700}}>📄 Abrir</a>}
+              </div></div>
+            <div style={{marginBottom:16}}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Condiciones generales</div>
+              <textarea disabled={!can} value={contrato.condiciones||""} placeholder="Condiciones del contrato, cláusulas especiales..." onChange={e=>updContrato("condiciones",e.target.value)}
+                style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,minHeight:60,boxSizing:"border-box"}}/></div>
+
+            {/* Garantías / Documentos */}
+            <div style={{border:`1px solid ${C.border}`,borderRadius:10,padding:14,marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontWeight:700,color:C.text,fontSize:13}}>🔒 Documentos de garantía</div>
+                {can&&<button onClick={()=>updContrato("garantias",[...garantias,{id:`gar_${Date.now()}`,tipo:"Pagaré",descripcion:"",monto:0,moneda:"USD",fechaEmision:"",fechaVencimiento:"",link:"",estado:"Vigente"}])}
+                  style={{padding:"5px 12px",borderRadius:6,background:"#7c3aed",border:"none",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Agregar garantía</button>}
+              </div>
+              {garantias.length===0?(
+                <div style={{padding:16,textAlign:"center",color:C.muted2,fontSize:11,border:`1px dashed ${C.border}`,borderRadius:8}}>Sin garantías registradas (pagaré, prenda, boleta, etc.)</div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {garantias.map((g,i)=>{
+                    const updG=(f,v)=>updContrato("garantias",garantias.map(x=>x.id===g.id?{...x,[f]:v}:x));
+                    const gColor=g.estado==="Vigente"?"#16a34a":g.estado==="Vencida"?"#dc2626":"#64748b";
+                    return(
+                      <div key={g.id} style={{border:`1px solid ${C.border}`,borderRadius:8,padding:12,background:C.card2}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                          <span style={{fontSize:11,fontWeight:700,color:C.text}}>Garantía #{i+1} — <span style={{color:gColor}}>{g.estado}</span></span>
+                          {can&&<button onClick={()=>{if(!window.confirm("¿Eliminar garantía?"))return;updContrato("garantias",garantias.filter(x=>x.id!==g.id));}} style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>🗑</button>}
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,fontSize:11}}>
+                          <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Tipo</div>
+                            <select disabled={!can} value={g.tipo||""} onChange={e=>updG("tipo",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}>
+                              {TIPOS_GARANTIA.map(t=><option key={t}>{t}</option>)}</select></div>
+                          <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Monto</div>
+                            <div style={{display:"flex",gap:4}}>
+                              <input type="number" disabled={!can} value={g.monto||""} onChange={e=>updG("monto",parseFloat(e.target.value)||0)} style={{flex:1,padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,textAlign:"right",background:C.card2,color:C.text,boxSizing:"border-box"}}/>
+                              <select disabled={!can} value={g.moneda||"USD"} onChange={e=>updG("moneda",e.target.value)} style={{width:55,padding:"5px 4px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text}}>
+                                <option>USD</option><option>CLP</option><option>PEN</option></select></div></div>
+                          <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Estado</div>
+                            <select disabled={!can} value={g.estado||"Vigente"} onChange={e=>updG("estado",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}>
+                              <option>Vigente</option><option>Vencida</option><option>Ejecutada</option><option>Devuelta</option></select></div>
+                          <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>F. Emisión</div>
+                            <input type="date" disabled={!can} value={g.fechaEmision||""} onChange={e=>updG("fechaEmision",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                          <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>F. Vencimiento</div>
+                            <input type="date" disabled={!can} value={g.fechaVencimiento||""} onChange={e=>updG("fechaVencimiento",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                          <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>📎 Link</div>
+                            <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                              <input disabled={!can} value={g.link||""} placeholder="https://..." onChange={e=>updG("link",e.target.value)} style={{flex:1,padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/>
+                              {g.link&&<a href={g.link} target="_blank" rel="noopener noreferrer" style={{fontSize:12}}>📎</a>}
+                            </div></div>
+                        </div>
+                        <div style={{marginTop:6}}><div style={{color:C.muted,fontWeight:600,marginBottom:2,fontSize:11}}>Descripción</div>
+                          <input disabled={!can} value={g.descripcion||""} onChange={e=>updG("descripcion",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                      </div>);
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Kg pactados */}
+            <div style={{border:`1px solid ${C.border}`,borderRadius:10,padding:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontWeight:700,color:C.text,fontSize:13}}>📦 Kg pactados por variedad / semana</div>
+                {can&&<button onClick={()=>updContrato("kgPactados",[...kgPactados,{id:`kp_${Date.now()}`,fruta:"",variedad:"",semana:"",kgEstimado:0}])}
+                  style={{padding:"5px 12px",borderRadius:6,background:C.teal,border:"none",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Agregar</button>}
+              </div>
+              {kgPactados.length===0?(
+                <div style={{padding:16,textAlign:"center",color:C.muted2,fontSize:11}}>Sin kg pactados.</div>
+              ):(
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                    <thead><tr style={{background:C.bg2}}>{["Fruta","Variedad","Semana","Kg estimado",""].map(h=><th key={h} style={{padding:"6px 10px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
+                    <tbody>{kgPactados.map(kp=>{
+                      const updKp=(f,v)=>updContrato("kgPactados",kgPactados.map(x=>x.id===kp.id?{...x,[f]:v}:x));
+                      return(<tr key={kp.id} style={{borderBottom:`1px solid ${C.border}22`}}>
+                        <td style={{padding:"5px 8px"}}><select disabled={!can} value={kp.fruta||""} onChange={e=>updKp("fruta",e.target.value)} style={{padding:"4px 6px",borderRadius:4,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text}}><option value="">—</option>{FRUTAS.map(f=><option key={f}>{f}</option>)}</select></td>
+                        <td style={{padding:"5px 8px"}}><input disabled={!can} value={kp.variedad||""} onChange={e=>updKp("variedad",e.target.value)} placeholder="Variedad" style={{width:90,padding:"4px 6px",borderRadius:4,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text}}/></td>
+                        <td style={{padding:"5px 8px"}}><input disabled={!can} value={kp.semana||""} onChange={e=>updKp("semana",e.target.value)} placeholder="S1,S2..." style={{width:55,padding:"4px 6px",borderRadius:4,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text}}/></td>
+                        <td style={{padding:"5px 8px"}}><input type="number" disabled={!can} value={kp.kgEstimado||""} onChange={e=>updKp("kgEstimado",parseFloat(e.target.value)||0)} style={{width:80,padding:"4px 6px",borderRadius:4,border:`1px solid ${C.border}`,fontSize:11,textAlign:"right",background:C.card2,color:C.text}}/></td>
+                        <td style={{padding:"5px 8px"}}>{can&&<button onClick={()=>updContrato("kgPactados",kgPactados.filter(x=>x.id!==kp.id))} style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"3px 6px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>🗑</button>}</td>
+                      </tr>);
+                    })}</tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div style={{marginTop:12}}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Observaciones contrato</div>
+              <textarea disabled={!can} value={contrato.observaciones||""} onChange={e=>updContrato("observaciones",e.target.value)}
+                style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,minHeight:50,boxSizing:"border-box"}}/></div>
+          </div>
+        )}
+
+        {/* TAB ANTICIPOS */}
+        {tab==="anticipos"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{fontWeight:700,color:C.text,fontSize:13}}>💵 Anticipos al productor</div>
+              {can&&<button onClick={()=>upd("anticipos",[...anticipos,{id:`ant_${Date.now()}`,concepto:"Anticipo por kg",monto:0,moneda:"USD",kgBase:0,valorPorKg:0,fechaPactada:"",fechaPago:"",estado:"Pactado",garantiaId:"",nDocumento:"",observaciones:""}])}
+                style={{padding:"5px 12px",borderRadius:6,background:C.yellow,border:"none",color:"#000",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Agregar anticipo</button>}
+            </div>
+            {anticipos.length===0?(
+              <div style={{padding:30,textAlign:"center",color:C.muted2,fontSize:11,border:`1px dashed ${C.border}`,borderRadius:10}}>Sin anticipos pactados.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {anticipos.map((a,i)=>{
+                  const updA=(f,v)=>upd("anticipos",anticipos.map(x=>x.id===a.id?{...x,[f]:v}:x));
+                  const aColor=a.estado==="Pagado"?"#16a34a":a.estado==="Pactado"?"#d97706":"#64748b";
+                  const garVinculada = garantias.find(g=>g.id===a.garantiaId);
+                  return(
+                    <div key={a.id} style={{border:`1px solid ${C.border}`,borderRadius:10,padding:14,background:C.card2}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <span style={{fontSize:12,fontWeight:700,color:C.text}}>Anticipo #{i+1} — <span style={{color:aColor}}>{a.estado}</span></span>
+                        {can&&<button onClick={()=>{if(!window.confirm("¿Eliminar?"))return;upd("anticipos",anticipos.filter(x=>x.id!==a.id));}} style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>🗑</button>}
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,fontSize:11,marginBottom:8}}>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Concepto</div>
+                          <input disabled={!can} value={a.concepto||""} onChange={e=>updA("concepto",e.target.value)} placeholder="Anticipo por kg, pre-season..." style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Monto</div>
+                          <div style={{display:"flex",gap:4}}>
+                            <input type="number" disabled={!can} value={a.monto||""} onChange={e=>updA("monto",parseFloat(e.target.value)||0)} style={{flex:1,padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,textAlign:"right",background:C.card2,color:C.text,boxSizing:"border-box"}}/>
+                            <select disabled={!can} value={a.moneda||"USD"} onChange={e=>updA("moneda",e.target.value)} style={{width:55,padding:"5px 4px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text}}>
+                              <option>USD</option><option>CLP</option><option>PEN</option></select></div></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Estado</div>
+                          <select disabled={!can} value={a.estado||"Pactado"} onChange={e=>updA("estado",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}>
+                            <option>Pactado</option><option>Pagado</option><option>Parcial</option><option>Cancelado</option></select></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>$/kg</div>
+                          <input type="number" step="0.01" disabled={!can} value={a.valorPorKg||""} onChange={e=>updA("valorPorKg",parseFloat(e.target.value)||0)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,textAlign:"right",background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>F. pactada</div>
+                          <input type="date" disabled={!can} value={a.fechaPactada||""} onChange={e=>updA("fechaPactada",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>F. pago real</div>
+                          <input type="date" disabled={!can} value={a.fechaPago||""} onChange={e=>updA("fechaPago",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11}}>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>🔒 Garantía vinculada</div>
+                          <select disabled={!can} value={a.garantiaId||""} onChange={e=>updA("garantiaId",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}>
+                            <option value="">— Sin garantía —</option>
+                            {garantias.map(g=><option key={g.id} value={g.id}>{g.tipo} — {g.monto} {g.moneda} ({g.estado})</option>)}
+                          </select>
+                          {garVinculada&&garVinculada.link&&<a href={garVinculada.link} target="_blank" rel="noopener noreferrer" style={{fontSize:10,color:C.teal,marginTop:2,display:"inline-block"}}>📎 Ver documento garantía</a>}
+                        </div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>N° documento</div>
+                          <input disabled={!can} value={a.nDocumento||""} onChange={e=>updA("nDocumento",e.target.value)} placeholder="N° pagaré, factura..." style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                      </div>
+                    </div>);
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB VISITAS */}
+        {tab==="visitas"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div style={{fontWeight:700,color:C.text,fontSize:13}}>🌿 Visitas agronómicas</div>
+              {can&&<button onClick={()=>upd("visitas",[...visitas,{id:`vis_${Date.now()}`,tipo:"Pre-temporada",fecha:"",agronomo:"",estado:"Programada",cuartel:"",observaciones:"",recomendaciones:"",fotos:""}])}
+                style={{padding:"5px 12px",borderRadius:6,background:"#16a34a",border:"none",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Nueva visita</button>}
+            </div>
+            {visitas.length===0?(
+              <div style={{padding:30,textAlign:"center",color:C.muted2,fontSize:11,border:`1px dashed ${C.border}`,borderRadius:10}}>Sin visitas registradas.</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {visitas.sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||"")).map((v,i)=>{
+                  const updV=(f,val)=>upd("visitas",visitas.map(x=>x.id===v.id?{...x,[f]:val}:x));
+                  const vColor=v.estado==="Realizada"?"#16a34a":v.estado==="Cancelada"?"#dc2626":"#d97706";
+                  return(
+                    <div key={v.id} style={{border:`1px solid ${C.border}`,borderRadius:10,padding:14,background:v.estado==="Realizada"?`${C.green}08`:C.card2}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <span style={{fontSize:10,padding:"3px 10px",borderRadius:12,background:`${vColor}22`,color:vColor,fontWeight:700}}>{v.estado}</span>
+                          <span style={{fontSize:12,fontWeight:700,color:C.text}}>{v.tipo}</span>
+                          {v.fecha&&<span style={{fontSize:10,color:C.muted}}>{v.fecha}</span>}
+                        </div>
+                        {can&&<button onClick={()=>{if(!window.confirm("¿Eliminar visita?"))return;upd("visitas",visitas.filter(x=>x.id!==v.id));}} style={{background:"#fef2f2",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>🗑</button>}
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,fontSize:11}}>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Tipo</div>
+                          <select disabled={!can} value={v.tipo||""} onChange={e=>updV("tipo",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}>
+                            {TIPOS_VISITA.map(t=><option key={t}>{t}</option>)}</select></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Fecha</div>
+                          <input type="date" disabled={!can} value={v.fecha||""} onChange={e=>updV("fecha",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Agrónomo</div>
+                          <input disabled={!can} value={v.agronomo||""} onChange={e=>updV("agronomo",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Estado</div>
+                          <select disabled={!can} value={v.estado||"Programada"} onChange={e=>updV("estado",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}>
+                            {ESTADOS_VISITA.map(s=><option key={s}>{s}</option>)}</select></div>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11,marginTop:6}}>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Cuartel/Sector</div>
+                          <input disabled={!can} value={v.cuartel||""} onChange={e=>updV("cuartel",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>📎 Fotos/Link</div>
+                          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                            <input disabled={!can} value={v.fotos||""} placeholder="https://..." onChange={e=>updV("fotos",e.target.value)} style={{flex:1,padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/>
+                            {v.fotos&&<a href={v.fotos} target="_blank" rel="noopener noreferrer" style={{fontSize:12}}>📎</a>}
+                          </div></div>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11,marginTop:6}}>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Observaciones</div>
+                          <textarea disabled={!can} value={v.observaciones||""} onChange={e=>updV("observaciones",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,minHeight:40,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                        <div><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>Recomendaciones</div>
+                          <textarea disabled={!can} value={v.recomendaciones||""} onChange={e=>updV("recomendaciones",e.target.value)} style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,minHeight:40,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
+                      </div>
+                    </div>);
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Lista de productores ──
   return (
     <div>
       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
         <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="🔍 Buscar productor..." style={{padding:"8px 14px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",flex:1,minWidth:200}}/>
-        {can&&<button onClick={()=>{setModal(true);setEditId(null);setForm({nombre:"",rut:"",pais:"Chile",zona:"",contacto:"",email:"",telefono:"",frutas:[],hectareas:"",notas:""});}} style={{background:C.teal,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Nuevo Productor</button>}
+        {can&&<button onClick={()=>{setModal(true);setEditId(null);setForm(EMPTY);}} style={{background:C.teal,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Nuevo Productor</button>}
       </div>
-
       <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${C.border}`}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead><tr style={{background:C.bg2}}>
-            {["Productor","RUT","País","Zona","Contacto","Frutas","Há",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}
+            {["Productor","País","Zona","Frutas","Há","Contrato",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {filtrado.map((p,i)=>(
-              <tr key={p.id} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}08`}}>
-                <td style={{padding:"8px 12px",fontWeight:600,color:C.text}}>{p.nombre}</td>
-                <td style={{padding:"8px 12px",color:C.muted}}>{p.rut||"—"}</td>
-                <td style={{padding:"8px 12px",color:C.muted}}>{p.pais||"—"}</td>
-                <td style={{padding:"8px 12px",color:C.muted}}>{p.zona||"—"}</td>
-                <td style={{padding:"8px 12px",color:C.muted}}>{p.contacto||"—"}</td>
-                <td style={{padding:"8px 12px"}}>{(p.frutas||[]).map(f=><span key={f} style={{fontSize:9,background:`${C.teal}22`,color:C.teal,padding:"1px 6px",borderRadius:10,marginRight:4,fontWeight:600}}>{f}</span>)}</td>
-                <td style={{padding:"8px 12px",color:C.muted,textAlign:"right"}}>{p.hectareas||"—"}</td>
-                <td style={{padding:"8px 12px"}}>
-                  {can&&<button onClick={()=>{setEditId(p.id);setForm({nombre:p.nombre||"",rut:p.rut||"",pais:p.pais||"Chile",zona:p.zona||"",contacto:p.contacto||"",email:p.email||"",telefono:p.telefono||"",frutas:p.frutas||[],hectareas:p.hectareas||"",notas:p.notas||""});setModal(true);}} style={{background:C.card2,border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:10}}>✏️</button>}
-                </td>
-              </tr>
-            ))}
-            {filtrado.length===0&&<tr><td colSpan={8} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin productores</td></tr>}
+            {filtrado.map((p,i)=>{
+              const est=(p.contrato||{}).estado||"Sin contrato";
+              const estCol=est==="Firmado"||est==="Vigente"?"#16a34a":est==="Vencido"?"#dc2626":"#d97706";
+              return(
+                <tr key={p.id} onClick={()=>setDetalle(p.id)} style={{borderBottom:`1px solid ${C.border}22`,background:i%2===0?"transparent":`${C.border}08`,cursor:"pointer"}}
+                  onMouseEnter={e=>e.currentTarget.style.background=`${C.teal}11`} onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"transparent":`${C.border}08`}>
+                  <td style={{padding:"8px 12px",fontWeight:600,color:C.text}}>{p.nombre}</td>
+                  <td style={{padding:"8px 12px",color:C.muted}}>{p.pais||"—"}</td>
+                  <td style={{padding:"8px 12px",color:C.muted}}>{p.zona||"—"}</td>
+                  <td style={{padding:"8px 12px"}}>{(p.frutas||[]).map(f=><span key={f} style={{fontSize:9,background:`${C.teal}22`,color:C.teal,padding:"1px 6px",borderRadius:10,marginRight:4,fontWeight:600}}>{f}</span>)}</td>
+                  <td style={{padding:"8px 12px",color:C.muted,textAlign:"right"}}>{p.hectareas||"—"}</td>
+                  <td style={{padding:"8px 12px"}}><span style={{fontSize:9,padding:"2px 8px",borderRadius:10,background:`${estCol}22`,color:estCol,fontWeight:700}}>{est}</span></td>
+                  <td style={{padding:"8px 12px",color:C.teal,fontWeight:700,fontSize:11}}>Ver →</td>
+                </tr>);
+            })}
+            {filtrado.length===0&&<tr><td colSpan={7} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin productores</td></tr>}
           </tbody>
         </table>
       </div>
-
+      {/* Modal nuevo/editar (para creación rápida desde la lista) */}
       {modal&&(
         <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(false)}>
-          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:520,width:"100%",border:`1px solid ${C.border}`}} onClick={e=>e.stopPropagation()}>
+          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:520,width:"100%",border:`1px solid ${C.border}`,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
             <h3 style={{margin:"0 0 16px",color:C.text}}>{editId?"Editar Productor":"Nuevo Productor"}</h3>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               {[["Nombre *","nombre"],["RUT","rut"],["País","pais"],["Zona/Región","zona"],["Contacto","contacto"],["Email","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
@@ -436,13 +723,11 @@ function ProductoresModule({data, setData, can}) {
                   <input value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
               ))}
             </div>
-            <div style={{marginTop:12}}>
-              <div style={{fontSize:10,color:C.muted,marginBottom:4}}>Frutas</div>
-              <div style={{display:"flex",gap:6}}>{FRUTAS.map(f=>(
+            <div style={{marginTop:12}}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Frutas</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{FRUTAS.map(f=>(
                 <button key={f} onClick={()=>setForm(p=>({...p,frutas:p.frutas?.includes(f)?p.frutas.filter(x=>x!==f):[...(p.frutas||[]),f]}))}
                   style={{padding:"4px 12px",borderRadius:20,border:`1px solid ${form.frutas?.includes(f)?C.teal:C.border}`,background:form.frutas?.includes(f)?`${C.teal}22`:"transparent",color:form.frutas?.includes(f)?C.teal:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>{f}</button>
-              ))}</div>
-            </div>
+              ))}</div></div>
             <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
               <button onClick={()=>{setModal(false);setEditId(null);}} style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer"}}>Cancelar</button>
               <button onClick={guardar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.teal,color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
@@ -453,6 +738,7 @@ function ProductoresModule({data, setData, can}) {
     </div>
   );
 }
+
 
 // ═══════════════════════════════════════════════════════════════════
 // EMBARQUES Y CONTENEDORES
