@@ -2324,6 +2324,67 @@ Equipo Mediterra`);
     </tr></thead>
   );
 
+  // ── RESPONSIVE: CSS global + hook ──────────────────────────────────
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024);
+  useEffect(()=>{
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  },[]);
+  // Exponer para módulos hijos
+  const responsive = { isMobile, isTablet, isDesktop: !isMobile && !isTablet };
+
+  // CSS responsive inyectado una vez
+  useEffect(()=>{
+    if(document.getElementById("mediterra-responsive-css")) return;
+    const style = document.createElement("style");
+    style.id = "mediterra-responsive-css";
+    style.textContent = `
+      /* ── Responsive Base ── */
+      @media (max-width: 767px) {
+        /* Grids → 1 columna */
+        [style*="gridTemplateColumns"] { grid-template-columns: 1fr !important; }
+        /* Tablas: scroll horizontal */
+        table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        /* Modales: full width */
+        [style*="maxWidth"][style*="position: fixed"],
+        [style*="maxWidth"][style*="position:fixed"] { 
+          max-width: 100% !important; width: 100% !important; 
+          margin: 0 !important; border-radius: 12px 12px 0 0 !important;
+          max-height: 90vh !important; overflow-y: auto !important;
+        }
+        /* Padding reducido */
+        [style*="padding: 20px"], [style*="padding:20px"] { padding: 12px !important; }
+        [style*="padding: 24px"], [style*="padding:24px"] { padding: 14px !important; }
+        [style*="padding: 36px"], [style*="padding:36px"] { padding: 16px !important; }
+        /* Flex wraps */
+        [style*="display: flex"][style*="gap"], [style*="display:flex"][style*="gap"] { flex-wrap: wrap !important; }
+        /* Font sizes mínimos */
+        input, select, textarea { font-size: 16px !important; } /* evita zoom iOS */
+        /* Botones touch-friendly */
+        button { min-height: 36px; }
+      }
+      @media (min-width: 768px) and (max-width: 1023px) {
+        /* Tablet: grids 2 columnas max */
+        [style*="repeat(auto-fill"] { grid-template-columns: repeat(2, 1fr) !important; }
+      }
+      /* Scrollbar elegante para tablas mobile */
+      @media (max-width: 767px) {
+        table::-webkit-scrollbar { height: 4px; }
+        table::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+      }
+      /* Touch: hover effects solo en desktop */
+      @media (hover: none) {
+        [style*="translateY"] { transform: none !important; }
+      }
+    `;
+    document.head.appendChild(style);
+  },[]);
+
   // ── RENDER PRINCIPAL ──────────────────────────────────────────────
   if(cargando) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"sans-serif",color:"#64748b",fontSize:15}}>
