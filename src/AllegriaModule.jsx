@@ -21,6 +21,26 @@ const C = {
 
 const FRUTAS = ["Cerezas", "Ciruelas d'Agen", "Arándanos", "Uvas", "Zarzaparrilla"];
 
+const REGIONES_COMUNAS = {
+  "Arica y Parinacota":["Arica","Camarones","General Lagos","Putre"],
+  "Tarapacá":["Alto Hospicio","Camiña","Colchane","Huara","Iquique","Pica","Pozo Almonte"],
+  "Antofagasta":["Antofagasta","Calama","María Elena","Mejillones","Ollagüe","San Pedro de Atacama","Sierra Gorda","Taltal","Tocopilla"],
+  "Atacama":["Alto del Carmen","Caldera","Chañaral","Copiapó","Diego de Almagro","Freirina","Huasco","Tierra Amarilla","Vallenar"],
+  "Coquimbo":["Andacollo","Canela","Combarbalá","Coquimbo","Illapel","La Higuera","La Serena","Los Vilos","Monte Patria","Ovalle","Paihuano","Punitaqui","Río Hurtado","Salamanca","Vicuña"],
+  "Valparaíso":["Algarrobo","Cabildo","Calera","Cartagena","Casablanca","Catemu","Concón","El Quisco","El Tabo","Hijuelas","Isla de Pascua","Juan Fernández","La Cruz","La Ligua","Limache","Llaillay","Los Andes","Nogales","Olmué","Panquehue","Papudo","Petorca","Puchuncaví","Putaendo","Quillota","Quilpué","Quintero","Rinconada","San Antonio","San Esteban","San Felipe","Santa María","Santo Domingo","Valparaíso","Villa Alemana","Viña del Mar","Zapallar"],
+  "Metropolitana":["Alhué","Buin","Calera de Tango","Cerrillos","Cerro Navia","Colina","Conchalí","Curacaví","El Bosque","El Monte","Estación Central","Huechuraba","Independencia","Isla de Maipo","La Cisterna","La Florida","La Granja","La Pintana","La Reina","Lampa","Las Condes","Lo Barnechea","Lo Espejo","Lo Prado","Macul","Maipú","María Pinto","Melipilla","Ñuñoa","Padre Hurtado","Paine","Pedro Aguirre Cerda","Peñaflor","Peñalolén","Pirque","Providencia","Pudahuel","Puente Alto","Quilicura","Quinta Normal","Recoleta","Renca","San Bernardo","San Joaquín","San José de Maipo","San Miguel","San Pedro","San Ramón","Santiago","Talagante","Tiltil","Vitacura"],
+  "O'Higgins":["Chimbarongo","Chépica","Codegua","Coinco","Coltauco","Doñihue","Graneros","La Estrella","Las Cabras","Litueche","Lolol","Machalí","Malloa","Marchigüe","Mostazal","Nancagua","Navidad","Olivar","Palmilla","Paredones","Peralillo","Peumo","Pichidegua","Pichilemu","Placilla","Pumanque","Quinta de Tilcoco","Rancagua","Rengo","Requínoa","San Fernando","San Vicente","Santa Cruz"],
+  "Maule":["Cauquenes","Chanco","Colbún","Constitución","Curepto","Curicó","Empedrado","Hualañé","Licantén","Linares","Longaví","Maule","Molina","Parral","Pelarco","Pelluhue","Pencahue","Rauco","Retiro","Río Claro","Romeral","Sagrada Familia","San Clemente","San Javier","San Rafael","Talca","Teno","Vichuquén","Villa Alegre","Yerbas Buenas"],
+  "Ñuble":["Bulnes","Chillán","Chillán Viejo","Cobquecura","Coelemu","Coihueco","El Carmen","Ninhue","Ñiquén","Pemuco","Pinto","Portezuelo","Quillón","Quirihue","Ránquil","San Carlos","San Fabián","San Ignacio","San Nicolás","Treguaco","Yungay"],
+  "Biobío":["Alto Biobío","Antuco","Arauco","Cabrero","Cañete","Chiguayante","Concepción","Contulmo","Coronel","Curanilahue","Florida","Hualpén","Hualqui","Laja","Lebu","Los Álamos","Los Ángeles","Lota","Mulchén","Nacimiento","Negrete","Penco","Quilaco","Quilleco","San Pedro de la Paz","San Rosendo","Santa Bárbara","Santa Juana","Talcahuano","Tirúa","Tomé","Tucapel","Yumbel"],
+  "Araucanía":["Angol","Carahue","Cholchol","Collipulli","Cunco","Curacautín","Curarrehue","Ercilla","Freire","Galvarino","Gorbea","Lautaro","Loncoche","Lonquimay","Los Sauces","Lumaco","Melipeuco","Nueva Imperial","Padre Las Casas","Perquenco","Pitrufquén","Pucón","Purén","Renaico","Saavedra","Temuco","Teodoro Schmidt","Toltén","Traiguén","Victoria","Vilcún","Villarrica"],
+  "Los Ríos":["Corral","Futrono","La Unión","Lago Ranco","Lanco","Los Lagos","Máfil","Mariquina","Paillaco","Panguipulli","Río Bueno","San José de la Mariquina","Valdivia"],
+  "Los Lagos":["Ancud","Calbuco","Castro","Chaitén","Chonchi","Cochamó","Curaco de Vélez","Dalcahue","Fresia","Frutillar","Futaleufú","Hualaihué","Llanquihue","Los Muermos","Maullín","Osorno","Palena","Puerto Montt","Puerto Octay","Puerto Varas","Puqueldón","Purranque","Puyehue","Queilén","Quellón","Quemchi","Quinchao","Río Negro","San Juan de la Costa","San Pablo"],
+  "Aysén":["Aysén","Chile Chico","Cisnes","Cochrane","Coyhaique","Guaitecas","Lago Verde","O'Higgins","Río Ibáñez","Tortel"],
+  "Magallanes":["Antártica","Cabo de Hornos","Laguna Blanca","Natales","Porvenir","Primavera","Punta Arenas","Río Verde","San Gregorio","Timaukel","Torres del Paine"],
+};
+const REGIONES = Object.keys(REGIONES_COMUNAS);
+
 // Formato RUT chileno: xx.xxx.xxx-x
 function formatRUT(value) {
   let v = (value||"").replace(/[^0-9kK]/g,"");
@@ -548,11 +568,23 @@ function ProductoresModule({data, setData, can}) {
             {/* Datos empresa */}
             <div style={{fontSize:12,fontWeight:700,color:C.teal,borderBottom:`1px solid ${C.border}`,paddingBottom:6,marginBottom:12}}>🏢 Datos de la empresa</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
-              {[["Razón social","nombre"],["RUT empresa","rut"],["País","pais"],["Zona/Región","zona"],["Contacto operativo","contacto"],["Email contacto","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
+              {[["Razón social","nombre"],["RUT empresa","rut"],["País","pais"],["Contacto operativo","contacto"],["Email contacto","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
                 <div key={f}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>{l}</div>
                   <input disabled={!can} value={prod[f]||""} onChange={e=>upd(f,f.toLowerCase().includes("rut")?formatRUT(e.target.value):e.target.value)}
                     style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}/></div>
               ))}
+              <div><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Región</div>
+                <select disabled={!can} value={prod.region||""} onChange={e=>{upd("region",e.target.value);upd("comuna","");}}
+                  style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}>
+                  <option value="">— Seleccionar región —</option>
+                  {REGIONES.map(r=><option key={r} value={r}>{r}</option>)}
+                </select></div>
+              <div><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Comuna</div>
+                <select disabled={!can||!prod.region} value={prod.comuna||""} onChange={e=>upd("comuna",e.target.value)}
+                  style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}>
+                  <option value="">— Seleccionar comuna —</option>
+                  {(REGIONES_COMUNAS[prod.region]||[]).map(c=><option key={c} value={c}>{c}</option>)}
+                </select></div>
               <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Frutas</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{FRUTAS.map(f=>(
                   <button key={f} disabled={!can} onClick={()=>{const cur=prod.frutas||[];upd("frutas",cur.includes(f)?cur.filter(x=>x!==f):[...cur,f]);}}
@@ -959,7 +991,7 @@ function ProductoresModule({data, setData, can}) {
       <div style={{overflowX:"auto",borderRadius:10,border:`1px solid ${C.border}`}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead><tr style={{background:C.bg2}}>
-            {["Productor","País","Zona","Frutas","Há","Contrato",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}
+            {["Productor","País","Región","Comuna","Frutas","Há","Contrato",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}
           </tr></thead>
           <tbody>
             {filtrado.map((p,i)=>{
@@ -970,14 +1002,15 @@ function ProductoresModule({data, setData, can}) {
                   onMouseEnter={e=>e.currentTarget.style.background=`${C.teal}11`} onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"transparent":`${C.border}08`}>
                   <td style={{padding:"8px 12px",fontWeight:600,color:C.text}}>{p.nombre}</td>
                   <td style={{padding:"8px 12px",color:C.muted}}>{p.pais||"—"}</td>
-                  <td style={{padding:"8px 12px",color:C.muted}}>{p.zona||"—"}</td>
+                  <td style={{padding:"8px 12px",color:C.muted,fontSize:11}}>{p.region||"—"}</td>
+                  <td style={{padding:"8px 12px",color:C.muted,fontSize:11}}>{p.comuna||"—"}</td>
                   <td style={{padding:"8px 12px"}}>{(p.frutas||[]).map(f=><span key={f} style={{fontSize:9,background:`${C.teal}22`,color:C.teal,padding:"1px 6px",borderRadius:10,marginRight:4,fontWeight:600}}>{f}</span>)}</td>
                   <td style={{padding:"8px 12px",color:C.muted,textAlign:"right"}}>{p.hectareas||"—"}</td>
                   <td style={{padding:"8px 12px"}}><span style={{fontSize:9,padding:"2px 8px",borderRadius:10,background:`${estCol}22`,color:estCol,fontWeight:700}}>{est}</span></td>
                   <td style={{padding:"8px 12px",color:C.teal,fontWeight:700,fontSize:11}}>Ver →</td>
                 </tr>);
             })}
-            {filtrado.length===0&&<tr><td colSpan={7} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin productores</td></tr>}
+            {filtrado.length===0&&<tr><td colSpan={8} style={{padding:32,textAlign:"center",color:C.muted2}}>Sin productores</td></tr>}
           </tbody>
         </table>
       </div>
@@ -989,10 +1022,22 @@ function ProductoresModule({data, setData, can}) {
             {/* Datos empresa */}
             <div style={{fontSize:11,fontWeight:700,color:C.teal,marginBottom:8}}>🏢 Datos empresa</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-              {[["Razón social *","nombre"],["RUT empresa","rut"],["País","pais"],["Zona/Región","zona"],["Contacto operativo","contacto"],["Email contacto","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
+              {[["Razón social *","nombre"],["RUT empresa","rut"],["País","pais"],["Contacto operativo","contacto"],["Email contacto","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
                 <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
                   <input value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:f.toLowerCase().includes("rut")?formatRUT(e.target.value):e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
               ))}
+              <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Región</div>
+                <select value={form.region||""} onChange={e=>setForm(p=>({...p,region:e.target.value,comuna:""}))}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}>
+                  <option value="">— Seleccionar región —</option>
+                  {REGIONES.map(r=><option key={r} value={r}>{r}</option>)}
+                </select></div>
+              <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Comuna</div>
+                <select disabled={!form.region} value={form.comuna||""} onChange={e=>setForm(p=>({...p,comuna:e.target.value}))}
+                  style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}>
+                  <option value="">— Seleccionar comuna —</option>
+                  {(REGIONES_COMUNAS[form.region]||[]).map(c=><option key={c} value={c}>{c}</option>)}
+                </select></div>
             </div>
             <div style={{marginBottom:14}}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Frutas</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{FRUTAS.map(f=>(
