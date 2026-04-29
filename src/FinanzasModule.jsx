@@ -7618,7 +7618,7 @@ function BadgeEstado({estado}) {
 // ─────────────────────────────────────────────────────────────────
 // TABLA ITEMS (por sección)
 // ─────────────────────────────────────────────────────────────────
-function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", semanaNomina}) {
+function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", semanaNomina, tiposDocExtra=[], onAddTipoDoc}) {
   const rows = items.filter(it=>it.seccion===seccion);
   const soloUSD = moneda==="usd";
   const soloCLP = moneda==="clp";
@@ -7703,9 +7703,7 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
                             if(nuevo&&nuevo.trim()){
                               const n=nuevo.trim();
                               if(!TIPOS_DOCUMENTO.includes(n)) TIPOS_DOCUMENTO.push(n);
-                              // Persistir tipos extra en la nómina
-                              const extras = nom.tiposDocExtra || [];
-                              if(!extras.includes(n)) upd("tiposDocExtra",[...extras,n]);
+                              if(onAddTipoDoc) onAddTipoDoc(n);
                               updItem(it.id,"tipoDoc",n);
                             }
                           } else {
@@ -7715,9 +7713,8 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
                           style={{...inputSt,flex:1,cursor:"pointer"}}>
                           <option value="">— Tipo —</option>
                           {(()=>{
-                            // Restaurar tipos doc extra de esta nómina
-                            const extras = nom.tiposDocExtra || [];
-                            extras.forEach(t=>{ if(!TIPOS_DOCUMENTO.includes(t)) TIPOS_DOCUMENTO.push(t); });
+                            // Restaurar tipos doc extra
+                            (tiposDocExtra||[]).forEach(t=>{ if(!TIPOS_DOCUMENTO.includes(t)) TIPOS_DOCUMENTO.push(t); });
                             return TIPOS_DOCUMENTO.map(t=><option key={t} value={t}>{t}</option>);
                           })()}
                           <option value="__nuevo__">+ Agregar nuevo...</option>
@@ -8728,6 +8725,8 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                 tc={nom.tc}
                 moneda={monedaSec}
                 semanaNomina={nom.semana}
+                tiposDocExtra={nom.tiposDocExtra||[]}
+                onAddTipoDoc={n=>{const extras=nom.tiposDocExtra||[];if(!extras.includes(n))upd("tiposDocExtra",[...extras,n]);}}
               />
             </div>
           );
