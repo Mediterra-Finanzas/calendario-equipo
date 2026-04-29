@@ -19,7 +19,116 @@ const C = {
   azulBg: "#dbeafe", azul: "#3b82f6", grisBg: "#f1f5f9",
 };
 
-const FRUTAS = ["Cerezas", "Ciruelas", "Arándanos"];
+const FRUTAS = ["Cerezas", "Ciruelas d'Agen", "Arándanos", "Uvas", "Zarzaparrilla"];
+
+// Formato RUT chileno: xx.xxx.xxx-x
+function formatRUT(value) {
+  let v = (value||"").replace(/[^0-9kK]/g,"");
+  if(v.length < 2) return v;
+  const dv = v.slice(-1);
+  let body = v.slice(0,-1);
+  body = body.replace(/\B(?=(\d{3})+(?!\d))/g,".");
+  return `${body}-${dv}`;
+}
+
+// Maestro de especies y variedades para Allegria Foods
+const ESPECIES_ALLEGRIA_INIT = [
+  {id:"ea_cerezas",   nombre:"Cerezas",         color:"#dc2626"},
+  {id:"ea_ciruelas",  nombre:"Ciruelas d'Agen", color:"#7c3aed"},
+  {id:"ea_arandanos", nombre:"Arándanos",        color:"#2563eb"},
+  {id:"ea_uvas",      nombre:"Uvas",             color:"#16a34a"},
+  {id:"ea_zarzaparr", nombre:"Zarzaparrilla",    color:"#ea580c"},
+];
+
+function MaestroAllegria({especies, setEspecies, variedades, setVariedades, can}) {
+  const [tab, setTab] = useState("especies");
+  const [modal, setModal] = useState(null); // "especie" | "variedad"
+  const [form, setForm] = useState({});
+  const [editId, setEditId] = useState(null);
+
+  function guardarEspecie() {
+    if(!form.nombre){alert("Nombre obligatorio.");return;}
+    if(editId) setEspecies(prev=>prev.map(e=>e.id===editId?{...e,...form}:e));
+    else setEspecies(prev=>[...prev,{...form,id:`ea_${Date.now()}`}]);
+    setForm({});setModal(null);setEditId(null);
+  }
+  function guardarVariedad() {
+    if(!form.especie||!form.variedad){alert("Especie y variedad obligatorios.");return;}
+    if(editId) setVariedades(prev=>prev.map(v=>v.id===editId?{...v,...form}:v));
+    else setVariedades(prev=>[...prev,{...form,id:`va_${Date.now()}`}]);
+    setForm({});setModal(null);setEditId(null);
+  }
+
+  return(
+    <div style={{marginBottom:20,border:`1px solid ${C.border}`,borderRadius:12,padding:16,background:C.card2}}>
+      <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{fontWeight:700,color:C.text,fontSize:14}}>🌳 Maestro Especies & Variedades</div>
+        <button onClick={()=>setTab("especies")} style={{padding:"5px 14px",borderRadius:8,border:tab==="especies"?`2px solid ${C.teal}`:`1px solid ${C.border}`,background:tab==="especies"?C.teal:"transparent",color:tab==="especies"?"#fff":C.muted,cursor:"pointer",fontSize:11,fontWeight:700}}>Especies</button>
+        <button onClick={()=>setTab("variedades")} style={{padding:"5px 14px",borderRadius:8,border:tab==="variedades"?`2px solid ${C.teal}`:`1px solid ${C.border}`,background:tab==="variedades"?C.teal:"transparent",color:tab==="variedades"?"#fff":C.muted,cursor:"pointer",fontSize:11,fontWeight:700}}>Variedades</button>
+      </div>
+      {tab==="especies"&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+            {can&&<button onClick={()=>{setModal("especie");setEditId(null);setForm({nombre:"",color:"#6366f1"});}} style={{background:C.teal,color:"#fff",border:"none",borderRadius:6,padding:"5px 14px",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Especie</button>}
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {especies.map(e=>(
+              <div key={e.id} style={{padding:"6px 14px",borderRadius:20,background:`${e.color||"#6366f1"}22`,color:e.color||"#6366f1",fontWeight:700,fontSize:12,cursor:can?"pointer":"default",border:`1px solid ${e.color||"#6366f1"}44`}}
+                onClick={()=>{if(!can)return;setEditId(e.id);setForm({nombre:e.nombre,color:e.color});setModal("especie");}}>
+                {e.nombre}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {tab==="variedades"&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+            {can&&<button onClick={()=>{setModal("variedad");setEditId(null);setForm({especie:"",variedad:"",obtentor:"",observaciones:""});}} style={{background:C.teal,color:"#fff",border:"none",borderRadius:6,padding:"5px 14px",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Variedad</button>}
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+              <thead><tr style={{background:C.bg2}}>{["Especie","Variedad","Obtentor","Obs.",""].map(h=><th key={h} style={{padding:"6px 10px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
+              <tbody>{variedades.map((v,i)=>(
+                <tr key={v.id} style={{borderBottom:`1px solid ${C.border}22`}}>
+                  <td style={{padding:"6px 10px"}}><span style={{fontSize:9,padding:"2px 8px",borderRadius:10,fontWeight:700,background:`${(especies.find(e=>e.nombre===v.especie)||{}).color||"#6366f1"}22`,color:(especies.find(e=>e.nombre===v.especie)||{}).color||"#6366f1"}}>{v.especie}</span></td>
+                  <td style={{padding:"6px 10px",fontWeight:600,color:C.text}}>{v.variedad}</td>
+                  <td style={{padding:"6px 10px",color:C.muted}}>{v.obtentor||"—"}</td>
+                  <td style={{padding:"6px 10px",color:C.muted,fontSize:10}}>{v.observaciones||"—"}</td>
+                  <td style={{padding:"6px 10px"}}>{can&&<button onClick={()=>{setEditId(v.id);setForm({...v});setModal("variedad");}} style={{background:C.card2,border:`1px solid ${C.border}`,color:C.muted,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:10}}>✏️</button>}</td>
+                </tr>))}
+                {variedades.length===0&&<tr><td colSpan={5} style={{padding:20,textAlign:"center",color:C.muted2}}>Sin variedades</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(null)}>
+          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:400,width:"100%",border:`1px solid ${C.border}`}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:"0 0 16px",color:C.text}}>{editId?"Editar":"Nueva"} {modal==="especie"?"Especie":"Variedad"}</h3>
+            {modal==="especie"?(
+              <div style={{display:"grid",gap:12}}>
+                <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Nombre *</div><input value={form.nombre||""} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}/></div>
+                <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Color</div><input type="color" value={form.color||"#6366f1"} onChange={e=>setForm(p=>({...p,color:e.target.value}))} style={{width:60,height:32,border:"none",cursor:"pointer"}}/></div>
+              </div>
+            ):(
+              <div style={{display:"grid",gap:12}}>
+                <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Especie *</div><select value={form.especie||""} onChange={e=>setForm(p=>({...p,especie:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}><option value="">—</option>{especies.map(e=><option key={e.id} value={e.nombre}>{e.nombre}</option>)}</select></div>
+                <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Variedad *</div><input value={form.variedad||""} onChange={e=>setForm(p=>({...p,variedad:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}/></div>
+                <div><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Obtentor</div><input value={form.obtentor||""} onChange={e=>setForm(p=>({...p,obtentor:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}/></div>
+              </div>
+            )}
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>setModal(null)} style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer"}}>Cancelar</button>
+              <button onClick={modal==="especie"?guardarEspecie:guardarVariedad} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.teal,color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 const ORIGENES = ["Chile", "Perú"];
 const DESTINOS = ["China", "Hong Kong", "Taiwán", "Tailandia", "Corea del Sur", "EE.UU.", "Europa", "Medio Oriente", "India", "Otro"];
 const MONEDAS = ["USD", "EUR", "CLP"];
@@ -441,7 +550,7 @@ function ProductoresModule({data, setData, can}) {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
               {[["Razón social","nombre"],["RUT empresa","rut"],["País","pais"],["Zona/Región","zona"],["Contacto operativo","contacto"],["Email contacto","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
                 <div key={f}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>{l}</div>
-                  <input disabled={!can} value={prod[f]||""} onChange={e=>upd(f,e.target.value)}
+                  <input disabled={!can} value={prod[f]||""} onChange={e=>upd(f,f.toLowerCase().includes("rut")?formatRUT(e.target.value):e.target.value)}
                     style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}/></div>
               ))}
               <div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>Frutas</div>
@@ -456,7 +565,7 @@ function ProductoresModule({data, setData, can}) {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
               {[["Nombre completo","repLegalNombre"],["RUT","repLegalRut"],["Email","repLegalEmail"],["Teléfono","repLegalTelefono"]].map(([l,f])=>(
                 <div key={f}><div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:3}}>{l}</div>
-                  <input disabled={!can} value={prod[f]||""} onChange={e=>upd(f,e.target.value)}
+                  <input disabled={!can} value={prod[f]||""} onChange={e=>upd(f,f.toLowerCase().includes("rut")?formatRUT(e.target.value):e.target.value)}
                     style={{width:"100%",padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,boxSizing:"border-box"}}/></div>
               ))}
             </div>
@@ -482,7 +591,7 @@ function ProductoresModule({data, setData, can}) {
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:8,fontSize:11}}>
                         {[["Nombre","nombre"],["RUT","rut"],["Email","email"],["Teléfono","telefono"],["% Participación","participacion"]].map(([l,f])=>(
                           <div key={f}><div style={{color:C.muted,fontWeight:600,marginBottom:2}}>{l}</div>
-                            <input disabled={!can} value={s[f]||""} onChange={e=>updS(f,e.target.value)}
+                            <input disabled={!can} value={s[f]||""} onChange={e=>updS(f,f.toLowerCase().includes("rut")?formatRUT(e.target.value):e.target.value)}
                               style={{width:"100%",padding:"5px 6px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,background:C.card2,color:C.text,boxSizing:"border-box"}}/></div>
                         ))}
                       </div>
@@ -820,17 +929,13 @@ function ProductoresModule({data, setData, can}) {
                             <option value="Vencido">🔴 Vencido</option>
                             <option value="No aplica">➖ No aplica</option>
                           </select>
-                          <input type="date" disabled={!can} value={item.fechaRecepcion||""} onChange={e=>updCheck(it.key,"fechaRecepcion",e.target.value)}
-                            title="Fecha recepción" style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:110}}/>
-                          <input type="date" disabled={!can} value={item.fechaVencimiento||""} onChange={e=>updCheck(it.key,"fechaVencimiento",e.target.value)}
-                            title="Fecha vencimiento" style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:110}}/>
                           <div style={{display:"flex",gap:4,alignItems:"center"}}>
                             <input disabled={!can} value={item.link||""} placeholder="📎 Link" onChange={e=>updCheck(it.key,"link",e.target.value)}
-                              style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:100}}/>
+                              style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:140}}/>
                             {item.link&&<a href={item.link} target="_blank" rel="noopener noreferrer" style={{fontSize:12}}>📎</a>}
                           </div>
                           <input disabled={!can} value={item.observaciones||""} placeholder="Obs..." onChange={e=>updCheck(it.key,"observaciones",e.target.value)}
-                            style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:120}}/>
+                            style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:160}}/>
                         </div>
                       );
                     })}
@@ -879,19 +984,29 @@ function ProductoresModule({data, setData, can}) {
       {/* Modal nuevo/editar (para creación rápida desde la lista) */}
       {modal&&(
         <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(false)}>
-          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:520,width:"100%",border:`1px solid ${C.border}`,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+          <div style={{background:C.card,borderRadius:14,padding:24,maxWidth:600,width:"100%",border:`1px solid ${C.border}`,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
             <h3 style={{margin:"0 0 16px",color:C.text}}>{editId?"Editar Productor":"Nuevo Productor"}</h3>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              {[["Nombre *","nombre"],["RUT","rut"],["País","pais"],["Zona/Región","zona"],["Contacto","contacto"],["Email","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
+            {/* Datos empresa */}
+            <div style={{fontSize:11,fontWeight:700,color:C.teal,marginBottom:8}}>🏢 Datos empresa</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+              {[["Razón social *","nombre"],["RUT empresa","rut"],["País","pais"],["Zona/Región","zona"],["Contacto operativo","contacto"],["Email contacto","email"],["Teléfono","telefono"],["Hectáreas","hectareas"]].map(([l,f])=>(
                 <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
-                  <input value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+                  <input value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:f.toLowerCase().includes("rut")?formatRUT(e.target.value):e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
               ))}
             </div>
-            <div style={{marginTop:12}}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Frutas</div>
+            <div style={{marginBottom:14}}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>Frutas</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{FRUTAS.map(f=>(
                 <button key={f} onClick={()=>setForm(p=>({...p,frutas:p.frutas?.includes(f)?p.frutas.filter(x=>x!==f):[...(p.frutas||[]),f]}))}
                   style={{padding:"4px 12px",borderRadius:20,border:`1px solid ${form.frutas?.includes(f)?C.teal:C.border}`,background:form.frutas?.includes(f)?`${C.teal}22`:"transparent",color:form.frutas?.includes(f)?C.teal:C.muted,cursor:"pointer",fontSize:11,fontWeight:600}}>{f}</button>
               ))}</div></div>
+            {/* Representante legal */}
+            <div style={{fontSize:11,fontWeight:700,color:C.teal,marginBottom:8}}>👤 Representante legal</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+              {[["Nombre completo","repLegalNombre"],["RUT","repLegalRut"],["Email","repLegalEmail"],["Teléfono","repLegalTelefono"]].map(([l,f])=>(
+                <div key={f}><div style={{fontSize:10,color:C.muted,marginBottom:4}}>{l}</div>
+                  <input value={form[f]||""} onChange={e=>setForm(p=>({...p,[f]:f.toLowerCase().includes("rut")?formatRUT(e.target.value):e.target.value}))} style={{width:"100%",padding:"7px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+              ))}
+            </div>
             <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
               <button onClick={()=>{setModal(false);setEditId(null);}} style={{padding:"8px 18px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer"}}>Cancelar</button>
               <button onClick={guardar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:C.teal,color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
@@ -1949,7 +2064,8 @@ function PlaceholderModule({icon,title,desc}) {
 export default function AllegriaModule({usuarioActual, esAdmin, esSoloConsulta, tabPermisos={}, onBack, onLogout}) {
   const [subApp, setSubApp] = useState(null);
   const [liqTab, setLiqTab] = useState("cliente");
-  const [data, setData] = useState({clientes:[],productores:[],programaComercial:[],recepciones:[],stockPT:[],materiales:[],recetas:[],embarques:[],liquidaciones:[],liqCliente:[],anticipos:[],cobranza:[],hubCardsOrder:null});
+  const [showMaestro, setShowMaestro] = useState(false);
+  const [data, setData] = useState({clientes:[],productores:[],programaComercial:[],recepciones:[],stockPT:[],materiales:[],recetas:[],embarques:[],liquidaciones:[],liqCliente:[],anticipos:[],cobranza:[],especiesAllegria:ESPECIES_ALLEGRIA_INIT,variedadesAllegria:[],hubCardsOrder:null});
   const [cargando, setCargando] = useState(true);
   const [tempSeleccionada, setTempSeleccionada] = useState(temporadaActual());
 
@@ -1995,6 +2111,8 @@ export default function AllegriaModule({usuarioActual, esAdmin, esSoloConsulta, 
   const setLiqCliente = fn => setData(p=>({...p, liqCliente: typeof fn==="function"?fn(p.liqCliente||[]):fn}));
   const setAnticipos = fn => setData(p=>({...p, anticipos: typeof fn==="function"?fn(p.anticipos||[]):fn}));
   const setCobranza = fn => setData(p=>({...p, cobranza: typeof fn==="function"?fn(p.cobranza||[]):fn}));
+  const setEspeciesAllegria = fn => setData(p=>({...p, especiesAllegria: typeof fn==="function"?fn(p.especiesAllegria||ESPECIES_ALLEGRIA_INIT):fn}));
+  const setVariedadesAllegria = fn => setData(p=>({...p, variedadesAllegria: typeof fn==="function"?fn(p.variedadesAllegria||[]):fn}));
 
   if(cargando) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:C.muted,fontFamily:"sans-serif"}}>Cargando Allegria Foods...</div>;
 
@@ -2082,7 +2200,15 @@ export default function AllegriaModule({usuarioActual, esAdmin, esSoloConsulta, 
           <AllegriaLogo height={60}/>
         </div>
         <div style={{color:C.muted,fontSize:13}}>Exportación de Fruta Fresca · Arándanos · Cerezas · Uvas · Ciruelas d'Agen · Zarzaparrilla</div>
+        <div style={{marginTop:8}}>
+          <button onClick={()=>setShowMaestro(p=>!p)}
+            style={{background:showMaestro?C.teal:"transparent",color:showMaestro?"#fff":C.muted,border:`1px solid ${showMaestro?C.teal:C.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,fontWeight:700}}>
+            🌳 Maestro Especies/Variedades
+          </button>
+        </div>
       </div>
+
+      {showMaestro&&<MaestroAllegria especies={data.especiesAllegria||ESPECIES_ALLEGRIA_INIT} setEspecies={setEspeciesAllegria} variedades={data.variedadesAllegria||[]} setVariedades={setVariedadesAllegria} can={can}/>}
 
       {/* Sub-apps — drag-and-drop (solo admin) */}
       {(()=>{
