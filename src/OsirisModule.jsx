@@ -24,15 +24,21 @@ async function dbLoadOsiris() {
 
 async function dbSaveOsiris(value) {
   try {
-    // Protección anti-pérdida
+    // Protección anti-pérdida: solo bloquea si se pierde MÁS DEL 50% de los datos
+    // Permite eliminaciones individuales (1 o 2 registros) pero bloquea crasheos (todo a 0)
     if(value) {
       const protectedKeys = ["contratos","obtentores","viveros","clientes","especies","variedades"];
       for(const k of protectedKeys) {
         const nc = Array.isArray(value[k]) ? value[k].length : -1;
         const pc = window._lastSavedOsiris?.[k] || 0;
-        // Solo bloquear si ANTES había datos y ahora hay MENOS (no si ambos son 0)
-        if(nc >= 0 && pc > 0 && nc < pc) {
-          console.warn(`[dbSaveOsiris] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a ${nc}.`);
+        // Solo bloquear si: antes había 3+ registros Y se perdió más del 50%
+        if(pc >= 3 && nc >= 0 && nc < pc * 0.5) {
+          console.warn(`[dbSaveOsiris] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a ${nc} (caída >50%).`);
+          return;
+        }
+        // Bloquear si todo se fue a 0 cuando antes había datos
+        if(pc > 0 && nc === 0) {
+          console.warn(`[dbSaveOsiris] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a 0.`);
           return;
         }
       }
