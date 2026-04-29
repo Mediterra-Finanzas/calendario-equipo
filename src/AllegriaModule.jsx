@@ -412,7 +412,7 @@ function ProductoresModule({data, setData, can}) {
     const visitas = Array.isArray(prod.visitas) ? prod.visitas : [];
     const kgPactados = Array.isArray(contrato.kgPactados) ? contrato.kgPactados : [];
     const garantias = Array.isArray(contrato.garantias) ? contrato.garantias : [];
-    const TABS = [{id:"ficha",label:"📋 Ficha"},{id:"contrato",label:"📄 Contrato"},{id:"anticipos",label:"💵 Anticipos"},{id:"visitas",label:"🌿 Visitas"}];
+    const TABS = [{id:"ficha",label:"📋 Ficha"},{id:"contrato",label:"📄 Contrato"},{id:"anticipos",label:"💵 Anticipos"},{id:"visitas",label:"🌿 Visitas"},{id:"checklist",label:"✅ Checklist"}];
     const estColor = contrato.estado==="Firmado"||contrato.estado==="Vigente"?"#16a34a":contrato.estado==="Vencido"||contrato.estado==="Cancelado"?"#dc2626":"#d97706";
 
     return (
@@ -680,6 +680,120 @@ function ProductoresModule({data, setData, can}) {
             )}
           </div>
         )}
+
+        {/* TAB CHECKLIST */}
+        {tab==="checklist"&&(()=>{
+          const CHECKLIST_TEMPLATE = [
+            {cat:"Legal — Productor",items:[
+              {key:"ci_rut",label:"Cédula de identidad / RUT representante"},
+              {key:"cert_vigencia",label:"Certificado de vigencia de la sociedad"},
+              {key:"escritura",label:"Escritura de constitución"},
+              {key:"poderes",label:"Poderes del representante legal"},
+              {key:"resol_sag",label:"Resolución sanitaria SAG"},
+              {key:"reg_exportador",label:"Inscripción registro de exportadores"},
+              {key:"cert_globalgap",label:"Certificación GlobalGAP"},
+              {key:"cert_brc",label:"Certificación BRC (si aplica)"},
+              {key:"cert_organico",label:"Certificación orgánica (si aplica)"},
+              {key:"declaracion_jurada",label:"Declaración jurada de beneficiario final"},
+            ]},
+            {cat:"Financiera — Productor",items:[
+              {key:"dicom_empresa",label:"Informe comercial (Dicom/Equifax) — Razón social"},
+              {key:"dicom_representante",label:"Informe comercial (Dicom/Equifax) — Representante legal / Socio"},
+            ]},
+            {cat:"Predio / Campo",items:[
+              {key:"cert_dominio",label:"Certificado de dominio del predio"},
+              {key:"contrato_arriendo",label:"Contrato de arriendo (si no es dueño)"},
+              {key:"plano_predio",label:"Plano del predio / croquis de ubicación"},
+              {key:"cert_riego",label:"Certificado de derechos de agua / riego"},
+              {key:"permiso_municipal",label:"Permiso municipal de funcionamiento"},
+            ]},
+            {cat:"Dueño del campo (si es distinto al productor)",items:[
+              {key:"dc_ci_rut",label:"Cédula de identidad / RUT del dueño"},
+              {key:"dc_vigencia",label:"Certificado de vigencia sociedad dueño"},
+              {key:"dc_escritura",label:"Escritura de constitución dueño"},
+              {key:"dc_dominio",label:"Certificado de dominio a nombre del dueño"},
+              {key:"dc_autorizacion",label:"Autorización del dueño para operar"},
+              {key:"dc_dicom",label:"Informe comercial del dueño"},
+            ]},
+          ];
+          const checklist = prod.checklist || {};
+          const updCheck = (key, campo, valor) => {
+            const newCL = {...checklist, [key]:{...(checklist[key]||{}),[campo]:valor}};
+            upd("checklist", newCL);
+          };
+          const totalItems = CHECKLIST_TEMPLATE.reduce((s,cat)=>s+cat.items.length,0);
+          const recibidos = CHECKLIST_TEMPLATE.reduce((s,cat)=>s+cat.items.filter(it=>(checklist[it.key]||{}).estado==="Recibido").length,0);
+          const noAplica = CHECKLIST_TEMPLATE.reduce((s,cat)=>s+cat.items.filter(it=>(checklist[it.key]||{}).estado==="No aplica").length,0);
+          const pendientes = totalItems - recibidos - noAplica;
+          const pctComplete = totalItems>0?Math.round((recibidos/(totalItems-noAplica||1))*100):0;
+
+          return(
+            <div>
+              {/* Barra progreso */}
+              <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
+                <div style={{flex:1,minWidth:200}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:4}}>
+                    <span>Progreso checklist</span>
+                    <span style={{fontWeight:700,color:pctComplete===100?C.green:pctComplete>50?C.yellow:C.accent}}>{pctComplete}%</span>
+                  </div>
+                  <div style={{height:8,background:C.bg2,borderRadius:10,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${pctComplete}%`,background:pctComplete===100?C.green:pctComplete>50?C.yellow:C.accent,borderRadius:10,transition:"width 0.3s"}}/>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:12,fontSize:11}}>
+                  <span style={{color:C.green,fontWeight:700}}>✅ {recibidos} recibidos</span>
+                  <span style={{color:C.yellow,fontWeight:700}}>⏳ {pendientes} pendientes</span>
+                  <span style={{color:C.muted}}>N/A: {noAplica}</span>
+                </div>
+              </div>
+
+              {/* Categorías */}
+              {CHECKLIST_TEMPLATE.map(cat=>{
+                const catRecibidos = cat.items.filter(it=>(checklist[it.key]||{}).estado==="Recibido").length;
+                const catTotal = cat.items.length;
+                return(
+                  <div key={cat.cat} style={{marginBottom:16,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+                    <div style={{background:C.bg2,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontWeight:700,fontSize:12,color:C.text}}>{cat.cat}</span>
+                      <span style={{fontSize:10,color:C.muted}}>{catRecibidos}/{catTotal}</span>
+                    </div>
+                    {cat.items.map(it=>{
+                      const item = checklist[it.key] || {};
+                      const est = item.estado || "Pendiente";
+                      const estCol = est==="Recibido"?C.green:est==="Vencido"?"#dc2626":est==="No aplica"?"#64748b":C.yellow;
+                      return(
+                        <div key={it.key} style={{padding:"10px 14px",borderTop:`1px solid ${C.border}22`,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",background:est==="Recibido"?`${C.green}05`:"transparent"}}>
+                          <div style={{flex:1,minWidth:200}}>
+                            <div style={{fontSize:12,color:C.text,fontWeight:est==="Recibido"?400:600}}>{it.label}</div>
+                            {item.observaciones&&<div style={{fontSize:10,color:C.muted,marginTop:2}}>{item.observaciones}</div>}
+                          </div>
+                          <select disabled={!can} value={est} onChange={e=>updCheck(it.key,"estado",e.target.value)}
+                            style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${estCol}44`,background:`${estCol}11`,color:estCol,fontSize:10,fontWeight:700,minWidth:90}}>
+                            <option value="Pendiente">⏳ Pendiente</option>
+                            <option value="Recibido">✅ Recibido</option>
+                            <option value="Vencido">🔴 Vencido</option>
+                            <option value="No aplica">➖ No aplica</option>
+                          </select>
+                          <input type="date" disabled={!can} value={item.fechaRecepcion||""} onChange={e=>updCheck(it.key,"fechaRecepcion",e.target.value)}
+                            title="Fecha recepción" style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:110}}/>
+                          <input type="date" disabled={!can} value={item.fechaVencimiento||""} onChange={e=>updCheck(it.key,"fechaVencimiento",e.target.value)}
+                            title="Fecha vencimiento" style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:110}}/>
+                          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                            <input disabled={!can} value={item.link||""} placeholder="📎 Link" onChange={e=>updCheck(it.key,"link",e.target.value)}
+                              style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:100}}/>
+                            {item.link&&<a href={item.link} target="_blank" rel="noopener noreferrer" style={{fontSize:12}}>📎</a>}
+                          </div>
+                          <input disabled={!can} value={item.observaciones||""} placeholder="Obs..." onChange={e=>updCheck(it.key,"observaciones",e.target.value)}
+                            style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`,fontSize:10,background:C.card2,color:C.text,width:120}}/>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
     );
   }
