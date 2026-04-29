@@ -24,26 +24,22 @@ async function dbLoadOsiris() {
 
 async function dbSaveOsiris(value) {
   try {
-    // Protección anti-pérdida: solo bloquea si se pierde MÁS DEL 50% de los datos
-    // Permite eliminaciones individuales (1 o 2 registros) pero bloquea crasheos (todo a 0)
+    // Protección anti-pérdida: solo bloquea si MÚLTIPLES arrays caen simultáneamente (crash)
+    // Permite eliminaciones normales (incluso ir a 0) si es 1-2 arrays los que cambiaron
     if(value) {
       const protectedKeys = ["contratos","obtentores","viveros","clientes","especies","variedades"];
+      let arraysQueCayeron = 0;
       for(const k of protectedKeys) {
         const nc = Array.isArray(value[k]) ? value[k].length : -1;
         const pc = window._lastSavedOsiris?.[k] || 0;
-        // Solo bloquear si: antes había 3+ registros Y se perdió más del 50%
-        if(pc >= 3 && nc >= 0 && nc < pc * 0.5) {
-          console.warn(`[dbSaveOsiris] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a ${nc} (caída >50%).`);
-          return;
-        }
-        // Bloquear si todo se fue a 0 cuando antes había datos
-        if(pc > 0 && nc === 0) {
-          console.warn(`[dbSaveOsiris] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a 0.`);
-          return;
-        }
+        if(nc >= 0 && pc > 0 && nc < pc) arraysQueCayeron++;
+      }
+      if(arraysQueCayeron >= 3) {
+        console.warn(`[dbSaveOsiris] ⚠️ BLOQUEADO: ${arraysQueCayeron} arrays cayeron simultáneamente.`);
+        return;
       }
       if(!window._lastSavedOsiris) window._lastSavedOsiris = {};
-      for(const k of protectedKeys) { if(Array.isArray(value[k]) && value[k].length > 0) window._lastSavedOsiris[k] = value[k].length; }
+      for(const k of protectedKeys) { if(Array.isArray(value[k])) window._lastSavedOsiris[k] = value[k].length; }
     }
     await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
       method: "POST",
