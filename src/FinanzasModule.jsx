@@ -7703,6 +7703,9 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
                             if(nuevo&&nuevo.trim()){
                               const n=nuevo.trim();
                               if(!TIPOS_DOCUMENTO.includes(n)) TIPOS_DOCUMENTO.push(n);
+                              // Persistir tipos extra en la nómina
+                              const extras = nom.tiposDocExtra || [];
+                              if(!extras.includes(n)) upd("tiposDocExtra",[...extras,n]);
                               updItem(it.id,"tipoDoc",n);
                             }
                           } else {
@@ -7711,7 +7714,12 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
                         }}
                           style={{...inputSt,flex:1,cursor:"pointer"}}>
                           <option value="">— Tipo —</option>
-                          {TIPOS_DOCUMENTO.map(t=><option key={t} value={t}>{t}</option>)}
+                          {(()=>{
+                            // Restaurar tipos doc extra de esta nómina
+                            const extras = nom.tiposDocExtra || [];
+                            extras.forEach(t=>{ if(!TIPOS_DOCUMENTO.includes(t)) TIPOS_DOCUMENTO.push(t); });
+                            return TIPOS_DOCUMENTO.map(t=><option key={t} value={t}>{t}</option>);
+                          })()}
                           <option value="__nuevo__">+ Agregar nuevo...</option>
                         </select>
                       </div>
@@ -8352,6 +8360,17 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
   const itemsValidos = nom.items.filter(it=>seccionesValidas.has(it.seccion));
   const totCLP = itemsValidos.reduce((s,it)=>s+(Number(it.montoCLP)||0),0);
   const totUSD = itemsValidos.reduce((s,it)=>s+(Number(it.montoUSD)||0),0);
+  // Descontar anticipos para mostrar el neto real a pagar
+  const totAnticipoCLP = itemsValidos.reduce((s,it)=>{
+    if(Number(it.montoCLP) && !Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+    return s;
+  },0);
+  const totAnticipoUSD = itemsValidos.reduce((s,it)=>{
+    if(Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
+    return s;
+  },0);
+  const netoCLP = totCLP - totAnticipoCLP;
+  const netoUSD = totUSD - totAnticipoUSD;
 
   // Saldo bancos: tomar de saldosBancos reales (pestaña Saldos Bancos) para esta empresa
   const {totBancosCLP, totBancosUSD} = React.useMemo(()=>{
@@ -8599,14 +8618,20 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
           {/* Totales — visible en impresión */}
           <div style={{background:C.card2,borderRadius:10,padding:"12px 16px",border:`1px solid ${C.border}`}}>
             <div className="info-label" style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:8}}>TOTALES NÓMINA</div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
               <span style={{color:C.muted,fontSize:12}}>Total CLP</span>
-              <span className="info-value" style={{fontWeight:800,fontSize:14,color:C.yellow}}>{totCLP?$$clp(totCLP):"—"}</span>
+              <span className="info-value" style={{fontWeight:800,fontSize:14,color:C.yellow}}>{netoCLP?$$clp(netoCLP):"—"}</span>
             </div>
+            {totAnticipoCLP>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{color:C.muted,fontSize:10}}>  (Bruto: {$$clp(totCLP)} - Anticipo: {$$clp(totAnticipoCLP)})</span>
+            </div>}
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
               <span style={{color:C.muted,fontSize:12}}>Total USD</span>
-              <span className="info-value" style={{fontWeight:800,fontSize:14,color:C.blue}}>{totUSD?$$usd(totUSD):"—"}</span>
+              <span className="info-value" style={{fontWeight:800,fontSize:14,color:C.blue}}>{netoUSD?$$usd(netoUSD):"—"}</span>
             </div>
+            {totAnticipoUSD>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{color:C.muted,fontSize:10}}>  (Bruto: {$$usd(totUSD)} - Anticipo: {$$usd(totAnticipoUSD)})</span>
+            </div>}
             {/* Saldo bancos: solo pantalla, no impresión */}
             <div className="nomina-kpis-header" style={{borderTop:`1px solid ${C.border}`,paddingTop:8,marginTop:4}}>
               <div style={{fontSize:10,color:C.muted,fontWeight:600,marginBottom:4}}>SALDO BANCOS</div>
