@@ -28,20 +28,15 @@ async function dbSaveFrisku(value) {
     // Protección anti-pérdida
     if(value) {
       const protectedKeys = ["clientes","exportadoras","contratos","embarques","liquidaciones"];
+      let caidas = 0;
       for(const k of protectedKeys) {
         const nc = Array.isArray(value[k]) ? value[k].length : -1;
         const pc = window._lastSavedFrisku?.[k] || 0;
-        if(pc >= 3 && nc >= 0 && nc < pc * 0.5) {
-          console.warn(`[dbSaveFrisku] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a ${nc} (caída >50%).`);
-          return;
-        }
-        if(pc > 0 && nc === 0) {
-          console.warn(`[dbSaveFrisku] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a 0.`);
-          return;
-        }
+        if(nc >= 0 && pc > 0 && nc < pc) caidas++;
       }
+      if(caidas >= 3) { console.warn(`[dbSaveFrisku] ⚠️ BLOQUEADO: ${caidas} arrays cayeron.`); return; }
       if(!window._lastSavedFrisku) window._lastSavedFrisku = {};
-      for(const k of protectedKeys) { if(Array.isArray(value[k]) && value[k].length > 0) window._lastSavedFrisku[k] = value[k].length; }
+      for(const k of protectedKeys) { if(Array.isArray(value[k])) window._lastSavedFrisku[k] = value[k].length; }
     }
     await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
       method: "POST",
