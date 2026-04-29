@@ -82,14 +82,18 @@ async function dbLoadAllegria() {
 
 async function dbSaveAllegria(value) {
   try {
-    // Protección anti-pérdida
+    // Protección anti-pérdida: solo bloquea caídas masivas (>50%) o todo a 0
     if(value) {
       const keys = ["clientes","productores","embarques","liquidaciones","liqCliente","anticipos","cobranza","recepciones","stockPT","materiales","recetas","programaComercial"];
       for(const k of keys) {
         const nc = Array.isArray(value[k]) ? value[k].length : -1;
         const pc = window._lastSavedAllegria?.[k] || 0;
-        if(nc >= 0 && nc < pc) {
-          console.warn(`[dbSaveAllegria] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a ${nc}. Posible pérdida.`);
+        if(pc >= 3 && nc >= 0 && nc < pc * 0.5) {
+          console.warn(`[dbSaveAllegria] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a ${nc} (caída >50%).`);
+          return;
+        }
+        if(pc > 0 && nc === 0) {
+          console.warn(`[dbSaveAllegria] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a 0.`);
           return;
         }
       }
