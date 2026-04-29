@@ -26,21 +26,7 @@ async function dbLoad() {
 
 async function dbSave(value) {
   try {
-    // ── Protección anti-pérdida: osirisData ──
-    const od = value?.osirisData;
-    if(od) {
-      const keys = ["contratos","obtentores","viveros","clientes"];
-      for(const k of keys) {
-        const nc = Array.isArray(od[k]) ? od[k].length : -1;
-        const pc = window._lastSavedCounts?.[k] || 0;
-        if(nc >= 0 && nc < pc) {
-          console.warn(`[dbSave] ⚠️ BLOQUEADO: ${k} pasó de ${pc} a ${nc}. Posible pérdida.`);
-          return;
-        }
-      }
-      if(!window._lastSavedCounts) window._lastSavedCounts = {};
-      for(const k of keys) { if(Array.isArray(od[k]) && od[k].length > 0) window._lastSavedCounts[k] = od[k].length; }
-    }
+    // osirisData ya no se guarda en main — tiene su propia fila 'osiris'
     // ── Protección anti-pérdida: usuarios y permisos ──
     const usrs = value?.usuarios;
     if(Array.isArray(usrs)) {
@@ -1354,7 +1340,8 @@ export default function App(){
   const [editandoTarea,setEditandoTarea]=useState(null);
   const [formEditTarea,setFormEditTarea]=useState({});
 
-  const [osirisData,setOsirisData]=useState({});
+  // osirisData ya NO vive en App.jsx — tiene su propia fila "osiris" en Supabase
+  // OsirisModule maneja su propia carga/guardado independiente
 
   function recKey(id){return `${id}_${mes}_${anio}`;}
 
@@ -1419,70 +1406,29 @@ export default function App(){
           if(d.recsDone)setRecsDone(d.recsDone);
           if(d.recsComentarios)setRecsComentarios(d.recsComentarios);
           if(d.osirisData){
-            const saved=d.osirisData;
-            setOsirisData(prev=>{
-              // Solo restaurar registros con ediciones del usuario:
-              // agregados manualmente (id no empieza con _xl_) o con campos editados
-              function extractUserEdits(savedArr){
-                if(!savedArr||savedArr.length===0) return [];
-                return savedArr.filter(r=>{
-                  const id = String(r.id||'');
-                  // Registro agregado manualmente (no viene del Excel)
-                  if(!id.includes('_xl_')) return true;
-                  // Registro del Excel con ediciones del usuario
-                  // pagado puede ser true O false (si el usuario cambió el estado)
-                  if(r.pagado===true || r.pagado===false) return true;
-                  if(r.nFact && String(r.nFact).trim()!=='') return true;
-                  if(r.nOC && String(r.nOC).trim()!=='') return true;
-                  if(r.fechaPago && String(r.fechaPago).trim()!=='') return true;
-                  if(r.ha && Number(r.ha)>0) return true;
-                  return false;
-                });
-              }
-              // Merge: base = _INIT de OsirisModule (que viene en prev via useState)
-              // Encima: aplicar ediciones del usuario guardadas en Supabase
-              function mergeEdits(base, edits, idField="id"){
-                if(!edits||edits.length===0) return base;
-                const edited = {};
-                edits.forEach(r=>{ edited[r[idField]] = r; });
-                // Actualizar registros base con ediciones
-                const merged = base.map(r => edited[r[idField]] ? {...r,...edited[r[idField]]} : r);
-                // Agregar registros nuevos (agregados manualmente, no están en base)
-                const baseIds = new Set(base.map(r=>r[idField]));
-                const nuevos = edits.filter(r=>!baseIds.has(r[idField]));
-                return [...merged, ...nuevos];
-              }
-              return{
-                ...prev,
-                royaltyPlanta:    mergeEdits(prev.royaltyPlanta||[],    extractUserEdits(saved.royaltyPlanta)),
-                feeEntrada:       mergeEdits(prev.feeEntrada||[],       extractUserEdits(saved.feeEntrada)),
-                royaltyComercial: mergeEdits(prev.royaltyComercial||[], extractUserEdits(saved.royaltyComercial)),
-                feeViveros:       mergeEdits(prev.feeViveros||[],       extractUserEdits(saved.feeViveros)),
-                totalPedidos:     mergeEdits(prev.totalPedidos||[],     extractUserEdits(saved.totalPedidos)),
-                contratos: saved.contratos||prev.contratos||[],
-                clientes: saved.clientes||prev.clientes||[],
-                // Datos adicionales de Osiris
-                especies:    Array.isArray(saved.especies)    ? saved.especies    : (prev.especies    || []),
-                variedades:  Array.isArray(saved.variedades)  ? saved.variedades  : (prev.variedades  || []),
-                obtentores:  Array.isArray(saved.obtentores)  ? saved.obtentores  : (prev.obtentores  || []),
-                viveros:     Array.isArray(saved.viveros)     ? saved.viveros     : (prev.viveros     || []),
-                viveristas:  Array.isArray(saved.viveristas)  ? saved.viveristas  : (prev.viveristas  || []),
-                opTecnica:   (saved.opTecnica && typeof saved.opTecnica === "object" && !Array.isArray(saved.opTecnica))
-                             ? saved.opTecnica : (prev.opTecnica || {}),
-                hubCardsOrder: Array.isArray(saved.hubCardsOrder) ? saved.hubCardsOrder : (prev.hubCardsOrder || null),
-              };
-            });
+            // MIGRACIÓN: mover osirisData de main a fila "osiris"
+            console.log("[Migración] Detectado osirisData en main. Migrando a fila 'osiris'...");
+            try {
+              await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
+                method:"POST",
+                headers:{apikey:SUPA_KEY,Authorization:`Bearer ${SUPA_KEY}`,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates"},
+                body:JSON.stringify({id:"osiris",value:d.osirisData,updated_at:new Date().toISOString()})
+              });
+              console.log("[Migración] ✅ osirisData migrado a fila 'osiris'");
+              // Limpiar osirisData de main
+              const cleanMain = {...d};
+              delete cleanMain.osirisData;
+              await fetch(`${SUPA_URL}/rest/v1/calendario_data`, {
+                method:"POST",
+                headers:{apikey:SUPA_KEY,Authorization:`Bearer ${SUPA_KEY}`,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates"},
+                body:JSON.stringify({id:"main",value:cleanMain,updated_at:new Date().toISOString()})
+              });
+              console.log("[Migración] ✅ osirisData eliminado de main");
+            } catch(e) { console.warn("[Migración] Error:", e); }
           }
           if(d.mes!==undefined)setMes(d.mes);
           if(d.anio!==undefined)setAnio(d.anio);
-          // Inicializar protección anti-pérdida
-          if(d.osirisData) {
-            window._lastSavedCounts = {};
-            ["contratos","obtentores","viveros","clientes"].forEach(k=>{
-              if(Array.isArray(d.osirisData[k])) window._lastSavedCounts[k] = d.osirisData[k].length;
-            });
-            console.log("[cargar] Protección anti-pérdida:", JSON.stringify(window._lastSavedCounts));
-          }
+          // osirisData protección ahora vive en OsirisModule
         }
       }catch(e){console.error("Error cargando:",e);}
       setCargando(false);
@@ -1498,7 +1444,7 @@ export default function App(){
         const exists = await chk.json();
         if(!exists || exists.length===0) {
           // Leer todos los datos actuales
-          const allRes = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=in.(main,allegria,finanzas,nominas)&select=id,value`,{
+          const allRes = await fetch(`${SUPA_URL}/rest/v1/calendario_data?id=in.(main,allegria,finanzas,nominas,osiris)&select=id,value`,{
             headers:{apikey:SUPA_KEY,Authorization:`Bearer ${SUPA_KEY}`}
           });
           const allData = await allRes.json();
@@ -1557,7 +1503,7 @@ export default function App(){
               if(d.pinsPersonalizados) setPinsPersonalizados(d.pinsPersonalizados);
               if(d.recsDone)      setRecsDone(d.recsDone);
               if(d.recsComentarios) setRecsComentarios(d.recsComentarios);
-              if(d.osirisData)    setOsirisData(prev=>({...prev,...d.osirisData}));
+              // osirisData se restaura desde su propia fila "osiris"
             } catch(err) {}
           }
         }
@@ -1822,7 +1768,7 @@ export default function App(){
   const usuariosRef      = useRef(usuarios);
   const mesRef           = useRef(mes);
   const anioRef          = useRef(anio);
-  const osirisDataRef    = useRef(osirisData);
+
   useEffect(()=>{ estadosRef.current      = estados;        },[estados]);
   useEffect(()=>{ comentariosRef.current  = comentarios;    },[comentarios]);
   useEffect(()=>{ tareasConfigRef.current = tareasConfig;   },[tareasConfig]);
@@ -1834,7 +1780,6 @@ export default function App(){
   useEffect(()=>{ usuariosRef.current     = usuarios;       },[usuarios]);
   useEffect(()=>{ mesRef.current          = mes;            },[mes]);
   useEffect(()=>{ anioRef.current         = anio;           },[anio]);
-  useEffect(()=>{ osirisDataRef.current   = osirisData;     },[osirisData]);
 
   // Guardar siempre con los valores más recientes (sin stale closure)
   const guardarAhora = useCallback(()=>{
@@ -1852,26 +1797,26 @@ export default function App(){
       usuarios:     usuariosRef.current,
       mes:          mesRef.current,
       anio:         anioRef.current,
-      osirisData:   osirisDataRef.current,
+
     })
     .then(()=>{setGuardado("ok");setTimeout(()=>setGuardado("idle"),2000);})
     .catch(()=>{setGuardado("error");setTimeout(()=>setGuardado("idle"),3000);});
   },[]); // eslint-disable-line
 
-  const guardar=useCallback((est,com,tc,sup,te,pins,rd,rc,usrs,m,a,od)=>{
+  const guardar=useCallback((est,com,tc,sup,te,pins,rd,rc,usrs,m,a)=>{
     setGuardado("guardando");
     dbSave({estados:est,comentarios:com,tareasConfig:tc,supervisores:sup,tareasExtra:te,
-      pinsPersonalizados:pins,recsDone:rd,recsComentarios:rc,usuarios:usrs,mes:m,anio:a,osirisData:od})
+      pinsPersonalizados:pins,recsDone:rd,recsComentarios:rc,usuarios:usrs,mes:m,anio:a})
       .then(()=>{setGuardado("ok");setTimeout(()=>setGuardado("idle"),2000);})
       .catch(()=>{setGuardado("error");setTimeout(()=>setGuardado("idle"),3000);});
   },[]);
 
-  // Auto-guardado general (debounce 800ms)
+  // Auto-guardado general (debounce 2000ms) — ya NO incluye osirisData
   useEffect(()=>{
     if(cargando)return;
-    const t=setTimeout(()=>guardar(estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,osirisData),800);
+    const t=setTimeout(()=>guardar(estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio),2000);
     return()=>clearTimeout(t);
-  },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,osirisData,cargando,guardar]);
+  },[estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados,recsDone,recsComentarios,usuarios,mes,anio,cargando,guardar]);
 
   // Guardado inmediato al cambiar usuarios (permisos, roles, activar/desactivar)
   useEffect(()=>{
@@ -1944,7 +1889,7 @@ export default function App(){
     const temporal=String(Math.floor(1000+Math.random()*9000));
     const nuevosPins={...pinsPersonalizados,[w.nombre+"_temp"]:temporal};
     setPinsPersonalizados(nuevosPins);
-    await dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio,osirisData});
+    await dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio});
     try{
       await enviarEmail(w.email,w.nombre,"PIN temporal - Mediterra",`Tu PIN temporal es: ${temporal}\nIngresa con este PIN y cambialo inmediatamente.\n\nhttps://gestion-grupo-mediterra.vercel.app`);
       setResetMsg("PIN enviado a "+w.email);
@@ -1973,7 +1918,7 @@ export default function App(){
     // Esperar confirmación de guardado antes de continuar
     try {
       await dbSave({estados,comentarios,tareasConfig,supervisores,tareasExtra,
-        pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio,osirisData});
+        pinsPersonalizados:nuevosPins,recsDone,recsComentarios,usuarios,mes,anio});
       setPinActual("");setPinNuevo("");setPinConfirm("");setModalPin(null);
       // Si venía de login con temporal, ahora sí entrar a la app
       if(workerPendiente){
@@ -2500,8 +2445,6 @@ Equipo Mediterra`);
         tabPermisos={getTabPermisosModulo(usuarioFresco,"osiris")}
         onBack={()=>setModuloActivo(null)}
         onLogout={doLogout}
-        osirisData={osirisData}
-        setOsirisData={setOsirisData}
       />
     </div>
   );
