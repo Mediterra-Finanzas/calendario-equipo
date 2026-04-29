@@ -4268,15 +4268,25 @@ body{font-family:'Segoe UI',system-ui,sans-serif;color:#1e293b;font-size:12px;li
       {(ctData||[]).map(c=><option key={c.id} value={c.id}>{c.razonSocial} · {c.pais}</option>)}
     </select>
   );
-  const Input = ({label,value,onChange,type="text",placeholder="",disabled=false,rows=0}) => (
-    <div>
-      <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>{label}</div>
-      {rows>0?<textarea disabled={disabled} value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows}
-        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,resize:"vertical",boxSizing:"border-box"}}/>
-      :<input type={type} disabled={disabled} value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
-        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>}
-    </div>
-  );
+  const Input = ({label,value,onChange,type="text",placeholder="",disabled=false,rows=0}) => {
+    const [localVal, setLocalVal] = React.useState(value||"");
+    React.useEffect(()=>{ setLocalVal(value||""); },[value]);
+    const handleChange = (e) => {
+      setLocalVal(e.target.value);
+      // Para date y text: guardar en onBlur. Para number: guardar inmediato
+      if(type==="number") onChange(e.target.value);
+    };
+    const handleBlur = () => { if(type!=="number") onChange(localVal); };
+    return(
+      <div>
+        <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>{label}</div>
+        {rows>0?<textarea disabled={disabled} value={localVal} onChange={handleChange} onBlur={handleBlur} placeholder={placeholder} rows={rows}
+          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,resize:"vertical",boxSizing:"border-box"}}/>
+        :<input type={type} disabled={disabled} value={localVal} onChange={handleChange} onBlur={handleBlur} placeholder={placeholder}
+          style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}/>}
+      </div>
+    );
+  };
   const Select = ({label,value,onChange,opts=[],disabled=false}) => (
     <div>
       <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:3}}>{label}</div>
