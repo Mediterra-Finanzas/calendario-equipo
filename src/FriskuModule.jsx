@@ -206,26 +206,26 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
   if(cargando) return <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted,fontFamily:"sans-serif"}}>Cargando Frisku Foods...</div>;
 
   // Render sub-módulo
-  if(subApp) return (
-    <div style={{fontFamily:"sans-serif",background:C.bg,minHeight:"100vh",color:C.text}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 24px",background:C.card,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <span style={{fontSize:12,color:C.muted}}>Mediterra › Frisku Foods ›</span>
-          <span style={{fontWeight:700,color:C.text}}>{SUBAPPS.find(s=>s.id===subApp)?.label}</span>
-          <FriskuLogo height={28}/>
-        </div>
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>setSubApp(null)} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontWeight:700,fontSize:12}}>🏠 Frisku Hub</button>
-          <button onClick={onBack} style={{background:C.card2,color:C.muted,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>← Mediterra</button>
-          <select value={tempSeleccionada} onChange={e=>setTempSeleccionada(e.target.value)}
-            style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:11}}>
-            {generarTemporadas().map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
-          <button onClick={onLogout} style={{background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>Salir</button>
-        </div>
+  if(subApp) {
+    const sa = SUBAPPS.find(s=>s.id===subApp);
+    return (
+    <div style={{fontFamily:"sans-serif",background:C.bg,minHeight:"100vh",color:C.text,padding:"20px 20px 40px"}}>
+      {/* NavBar breadcrumbs — superior izquierda */}
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+        <button onClick={onBack} style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,color:C.muted}}>Mediterra</button>
+        <span style={{color:C.muted2}}>›</span>
+        <button onClick={()=>setSubApp(null)} style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,color:C.muted}}>Frisku Foods</button>
+        <span style={{color:C.muted2}}>›</span>
+        <span style={{fontSize:12,fontWeight:700,color:C.text,padding:"7px 14px",background:`${sa?.color||C.blue}22`,borderRadius:8}}>{sa?.label||subApp}</span>
+        <div style={{flex:1}}/>
+        <FriskuLogo height={28}/>
+        <select value={tempSeleccionada} onChange={e=>setTempSeleccionada(e.target.value)}
+          style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:11}}>
+          {generarTemporadas().map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        <button onClick={onLogout} style={{background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>Salir</button>
       </div>
-      <div style={{padding:"20px 24px",maxWidth:1200,margin:"0 auto"}}>
-        <Card>
+      <Card>
           {subApp==="clientes"&&<PlaceholderModule icon="👥" title="Clientes" desc="Importadores que Frisku representa. Ficha del cliente, país, contacto, procedimientos, requisitos específicos."/>}
           {subApp==="exportadoras"&&<PlaceholderModule icon="🏭" title="Exportadoras" desc="Proveedores de fruta. Ficha, contacto, variedades, homologación productores, historial."/>}
           {subApp==="contratos"&&<PlaceholderModule icon="📋" title="Business Closure" desc="Contratos cliente ↔ exportadora. Especie, variedad, programa, presupuesto temporada, condiciones."/>}
@@ -235,10 +235,10 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
           {subApp==="liquidaciones"&&<PlaceholderModule icon="💰" title="Liquidaciones & Cobros" desc="Liquidación cliente/exportadora, cobro de comisión (% sobre venta en destino), facturación y pagos, advance request. Alerta de retrasos."/>}
           {subApp==="informes"&&<PlaceholderModule icon="📈" title="Informes & Reportes" desc="Reporte de mercado, shipping summary, informe carga semanal, real vs proyectado."/>}
           {subApp==="maestros"&&<PlaceholderModule icon="⚙️" title="Maestros & Alarmas" desc="Contactos exportadoras, fichas, listado no contactar, correos para reportes, control productores. Alarmas: docs pendientes, pagos, QC."/>}
-        </Card>
-      </div>
+      </Card>
     </div>
-  );
+    );
+  }
 
   // Hub principal
   return (
