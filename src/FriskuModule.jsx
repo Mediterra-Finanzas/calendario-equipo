@@ -693,7 +693,7 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
   const dataRef = useRef(data);
   useEffect(()=>{ dataRef.current = data; },[data]);
 
-  const can = !esSoloConsulta;
+  const can = typeof esSoloConsulta === "function" ? !esSoloConsulta(usuarioActual?.nombre) : !esSoloConsulta;
 
   // Setters
   const setClientes = fn => setData(p=>({...p, clientes: typeof fn==="function"?fn(p.clientes||[]):fn}));
