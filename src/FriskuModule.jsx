@@ -215,7 +215,7 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
           <FriskuLogo height={28}/>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>setSubApp(null)} style={{background:C.teal,color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontWeight:700,fontSize:12}}>🏠 Frisku Hub</button>
+          <button onClick={()=>setSubApp(null)} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontWeight:700,fontSize:12}}>🏠 Frisku Hub</button>
           <button onClick={onBack} style={{background:C.card2,color:C.muted,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>← Mediterra</button>
           <select value={tempSeleccionada} onChange={e=>setTempSeleccionada(e.target.value)}
             style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.text,fontSize:11}}>
@@ -245,7 +245,9 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
     <div style={{fontFamily:"sans-serif",background:C.bg,minHeight:"100vh",color:C.text}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 24px",background:C.card,borderBottom:`1px solid ${C.border}`,flexWrap:"wrap",gap:8}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:12,color:C.muted}}>Mediterra ›</span>
           <span style={{fontSize:14,fontWeight:700,color:C.text}}>Frisku Foods Hub</span>
+          <FriskuLogo height={28}/>
         </div>
         <div style={{display:"flex",gap:8}}>
           <select value={tempSeleccionada} onChange={e=>setTempSeleccionada(e.target.value)}
