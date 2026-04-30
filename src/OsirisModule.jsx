@@ -3713,15 +3713,7 @@ const STORAGE_BUCKET = "osiris-fotos";
 // Intenta crear el bucket si no existe (silencioso si ya existe)
 let _bucketChecked = false;
 async function ensureBucket() {
-  if(_bucketChecked) return;
-  try {
-    await fetch(`${SUPA_URL_OSIRIS}/storage/v1/bucket`, {
-      method:"POST",
-      headers:{apikey:SUPA_KEY_OSIRIS, Authorization:`Bearer ${SUPA_KEY_OSIRIS}`, "Content-Type":"application/json"},
-      body:JSON.stringify({id:STORAGE_BUCKET, name:STORAGE_BUCKET, public:true})
-    });
-  } catch(e) { /* bucket ya existe o sin permisos — no importa */ }
-  _bucketChecked = true;
+  _bucketChecked = true; // Bucket ya creado manualmente en Supabase
 }
 
 // Subir archivo a Supabase Storage, devuelve URL pública
@@ -4387,8 +4379,7 @@ ${linkInforme}
     try {
       const linkInforme = await emailPromise;
       if(linkInforme) {
-        const updInformes = data.map(i=>i.id===inf.id?{...i,linkInforme,fechaEnvio:new Date().toISOString().slice(0,10)}:i);
-        setData(updInformes);
+        setData(prev=>({...prev, informes:(prev.informes||[]).map(i=>i.id===inf.id?{...i,linkInforme,fechaEnvio:new Date().toISOString().slice(0,10)}:i)}));
       }
       return true;
     } catch(e) { console.error("Error email:", e); alert("Error al enviar: "+e.message); return false; }
