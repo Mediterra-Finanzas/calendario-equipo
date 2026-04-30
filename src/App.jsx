@@ -190,20 +190,38 @@ if(typeof window !== "undefined" && !window._auditBeforeUnload) {
 
 
 async function enviarEmail(toEmail, nombre, asunto, cuerpo) {
-  await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({service_id:EMAILJS_SERVICE,template_id:EMAILJS_TEMPLATE,user_id:EMAILJS_KEY,
-      template_params:{name:"Grupo Mediterra",nombre,pin_temporal:cuerpo,to_email:toEmail,subject:asunto}})
-  });
+  try {
+    const res = await fetch("/api/send-email", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({to:toEmail, subject:asunto, message:`${nombre}\n\n${cuerpo}`, modulo:"mediterra"})
+    });
+    if(!res.ok) throw new Error(await res.text());
+  } catch(e) {
+    console.warn("[Email] SMTP falló, intentando EmailJS:", e.message);
+    await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({service_id:EMAILJS_SERVICE,template_id:EMAILJS_TEMPLATE,user_id:EMAILJS_KEY,
+        template_params:{name:"Grupo Mediterra",nombre,pin_temporal:cuerpo,to_email:toEmail,subject:asunto}})
+    });
+  }
 }
 
 // Template separado para notificaciones de tareas (sin texto de PIN)
 async function enviarNotificacion(toEmail, nombre, asunto, mensaje) {
-  await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({service_id:EMAILJS_SERVICE,template_id:EMAILJS_TEMPLATE_NOTIF,user_id:EMAILJS_KEY,
-      template_params:{name:"Grupo Mediterra",nombre, message:mensaje, to_email:toEmail, subject:asunto}})
-  });
+  try {
+    const res = await fetch("/api/send-email", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({to:toEmail, subject:asunto, message:mensaje, modulo:"mediterra"})
+    });
+    if(!res.ok) throw new Error(await res.text());
+  } catch(e) {
+    console.warn("[Email] SMTP falló, intentando EmailJS:", e.message);
+    await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({service_id:EMAILJS_SERVICE,template_id:EMAILJS_TEMPLATE_NOTIF,user_id:EMAILJS_KEY,
+        template_params:{name:"Grupo Mediterra",nombre, message:mensaje, to_email:toEmail, subject:asunto}})
+    });
+  }
 }
 // Exponer globalmente para uso desde otros módulos (ej: nóminas)
 window._enviarNotificacion = enviarNotificacion;
@@ -1601,20 +1619,18 @@ export default function App(){
           + `ingresa al Hub → botón 💾 Respaldo.\n\n`
           + `— Mediterra Hub`;
 
-        await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-          method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({
-            service_id:EMAILJS_SERVICE,
-            template_id:EMAILJS_TEMPLATE_NOTIF,
-            user_id:EMAILJS_KEY,
-            template_params:{name:"Grupo Mediterra",
-              to_email:"ahuerta@grupomediterra.cl",
-              to_name:"Angelo",
-              subject:`📦 Backup Mediterra Hub — ${new Date().toISOString().slice(0,10)}`,
-              message:mensaje,
-            }
-          })
-        });
+        try {
+          await fetch("/api/send-email", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({to:"ahuerta@grupomediterra.cl", subject:`📦 Backup Mediterra Hub — ${new Date().toISOString().slice(0,10)}`, message:mensaje, modulo:"mediterra"})
+          });
+        } catch(e) {
+          await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({service_id:EMAILJS_SERVICE,template_id:EMAILJS_TEMPLATE_NOTIF,user_id:EMAILJS_KEY,
+              template_params:{name:"Grupo Mediterra",to_email:"ahuerta@grupomediterra.cl",to_name:"Angelo",subject:`📦 Backup Mediterra Hub — ${new Date().toISOString().slice(0,10)}`,message:mensaje}})
+          });
+        }
 
         // También guardar el backup en Supabase como registro adicional
         await fetch(`${SUPA_URL}/rest/v1/calendario_data`,{
@@ -2099,22 +2115,25 @@ Equipo Mediterra`);
   async function enviarEmailBienvenida(nombre, email, pin, rol) {
     try {
       const appUrl = window.location.origin;
-      await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      const mensaje = `Hola ${nombre},\n\nSe ha creado tu cuenta en la plataforma Gestión Grupo Mediterra.\n\n📧 Tu email de acceso: ${email}\n🔑 Tu PIN temporal: ${pin}\n👤 Rol asignado: ${rol==="admin"?"Administrador":rol==="gerente_tecnico"?"Gte. Técnico":rol==="consulta"?"Consulta":"Editor"}\n\n🔗 Ingresa aquí: ${appUrl}\n\n⚠️ Por seguridad, cambia tu PIN después del primer ingreso desde Configuración.\n\nSaludos,\nGrupo Mediterra`;
+      const res = await fetch("/api/send-email", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          service_id:"service_ahuerta",
-          template_id:"template_notif_tarea",
-          user_id:"bwCBq7JXlEwCTzWNe",
-          template_params:{name:"Grupo Mediterra",
-            to_email: email,
-            to_name: nombre,
-            subject: "🔑 Bienvenido a Gestión Grupo Mediterra",
-            message: `Hola ${nombre},\n\nSe ha creado tu cuenta en la plataforma Gestión Grupo Mediterra.\n\n📧 Tu email de acceso: ${email}\n🔑 Tu PIN temporal: ${pin}\n👤 Rol asignado: ${rol==="admin"?"Administrador":rol==="gerente_tecnico"?"Gte. Técnico":rol==="consulta"?"Consulta":"Editor"}\n\n🔗 Ingresa aquí: ${appUrl}\n\n⚠️ Por seguridad, cambia tu PIN después del primer ingreso desde Configuración.\n\nSaludos,\nGrupo Mediterra`
-          }
-        })
+        body:JSON.stringify({to:email, subject:"🔑 Bienvenido a Gestión Grupo Mediterra", message:mensaje, modulo:"mediterra"})
       });
+      if(!res.ok) throw new Error(await res.text());
       console.log(`[Email] ✅ Bienvenida enviada a ${email}`);
-    } catch(e) { console.warn("[Email] Error enviando bienvenida:", e); }
+    } catch(e) {
+      console.warn("[Email] SMTP falló, intentando EmailJS:", e.message);
+      try {
+        const appUrl = window.location.origin;
+        await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({service_id:"service_ahuerta",template_id:"template_notif_tarea",user_id:"bwCBq7JXlEwCTzWNe",
+            template_params:{name:"Grupo Mediterra",to_email:email,to_name:nombre,subject:"🔑 Bienvenido a Gestión Grupo Mediterra",
+              message:`Hola ${nombre},\n\nSe ha creado tu cuenta.\n📧 Email: ${email}\n🔑 PIN: ${pin}\n👤 Rol: ${rol}\n🔗 ${appUrl}`}})
+        });
+      } catch(e2) { console.warn("[Email] EmailJS también falló:", e2); }
+    }
   }
 
   function agregarUsuario(){
@@ -2149,21 +2168,18 @@ Equipo Mediterra`);
     setPinsPersonalizados(prev=>({...prev,[nombre]:pin}));
     const u = usuarios.find(x=>x.nombre===nombre);
     if(u?.email) {
-      fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      const mensaje = `Hola ${nombre},\n\nTu PIN de acceso ha sido reseteado.\n\n🔑 Tu nuevo PIN temporal: ${pin}\n\n⚠️ Por seguridad, cambia tu PIN después de ingresar desde Configuración.\n\nSaludos,\nGrupo Mediterra`;
+      fetch("/api/send-email", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          service_id:"service_ahuerta",
-          template_id:"template_notif_tarea",
-          user_id:"bwCBq7JXlEwCTzWNe",
-          template_params:{name:"Grupo Mediterra",
-            to_email: u.email,
-            to_name: nombre,
-            subject: "🔑 PIN reseteado — Gestión Grupo Mediterra",
-            message: `Hola ${nombre},\n\nTu PIN de acceso ha sido reseteado.\n\n🔑 Tu nuevo PIN temporal: ${pin}\n\n⚠️ Por seguridad, cambia tu PIN después de ingresar desde Configuración.\n\nSaludos,\nGrupo Mediterra`
-          }
-        })
-      }).then(()=>console.log(`[Email] ✅ Reset PIN enviado a ${u.email}`))
-        .catch(e=>console.warn("[Email] Error:", e));
+        body:JSON.stringify({to:u.email, subject:"🔑 PIN reseteado — Gestión Grupo Mediterra", message:mensaje, modulo:"mediterra"})
+      }).then(r=>{if(!r.ok)throw new Error();console.log(`[Email] ✅ Reset PIN enviado a ${u.email}`);})
+        .catch(()=>{
+          fetch("https://api.emailjs.com/api/v1.0/email/send", {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({service_id:"service_ahuerta",template_id:"template_notif_tarea",user_id:"bwCBq7JXlEwCTzWNe",
+              template_params:{name:"Grupo Mediterra",to_email:u.email,to_name:nombre,subject:"🔑 PIN reseteado — Gestión Grupo Mediterra",message:mensaje}})
+          }).catch(e=>console.warn("[Email] Fallback también falló:", e));
+        });
     }
     alert(`PIN reseteado para ${nombre}.\nNuevo PIN: ${pin}\n📧 Se envió email al usuario con el nuevo PIN.`);
   }
