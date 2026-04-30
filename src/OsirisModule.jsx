@@ -4297,33 +4297,36 @@ ${inf.proximaVisitaFecha?`<div class="section"><h2>Próxima Visita</h2><div clas
     w.document.write(generarHTMLInforme(inf)); w.document.close();
     setTimeout(()=>w.print(), 500);
   }
-  // Subir HTML del informe a Supabase Storage y obtener URL pública
+  // Subir HTML del informe a Supabase Storage
   async function uploadInformeHTML(inf) {
-    await ensureBucket();
     const html = generarHTMLInforme(inf);
     const htmlFinal = html.replace(
       'src="/osiris-logo.jpg"',
       'src="https://bywovqayuzodbzwsriet.supabase.co/storage/v1/object/public/osiris-fotos/osiris-logo.jpg"'
     );
     const fecha = (inf.fecha||new Date().toISOString().slice(0,10)).replace(/-/g,"");
-    const path = `informes-html/INF_${fecha}_${String(inf.id||"").slice(-6)}.html`;
-    // Intentar subir
-    const res = await fetch(`${SUPA_URL_OSIRIS}/storage/v1/object/${STORAGE_BUCKET}/${path}`, {
-      method:"POST",
-      headers:{
-        apikey:SUPA_KEY_OSIRIS,
-        Authorization:`Bearer ${SUPA_KEY_OSIRIS}`,
-        "Content-Type":"text/html; charset=utf-8",
-        "x-upsert":"true",
-      },
-      body:htmlFinal,
-    });
-    if(!res.ok) {
-      const err = await res.text();
-      console.error("[Upload] Error:", res.status, err);
-      throw new Error("Upload falló: "+res.status);
-    }
-    return `${SUPA_URL_OSIRIS}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
+    const fileId = `INF_${fecha}_${String(inf.id||"").slice(-6)}`;
+    
+    // Subir a Supabase Storage
+    try {
+      const path = `informes-html/${fileId}.html`;
+      await fetch(`${SUPA_URL_OSIRIS}/storage/v1/object/${STORAGE_BUCKET}/${path}`, {
+        method:"POST",
+        headers:{
+          apikey:SUPA_KEY_OSIRIS,
+          Authorization:`Bearer ${SUPA_KEY_OSIRIS}`,
+          "Content-Type":"text/html; charset=utf-8",
+          "x-upsert":"true",
+        },
+        body:htmlFinal,
+      });
+    } catch(e) { console.warn("[Upload] Storage falló:", e.message); }
+
+    // Guardar HTML en el informe para que la Vercel Function lo sirva
+    setData(prev=>({...prev, informes:(prev.informes||[]).map(i=>i.id===inf.id?{...i,_htmlCache:htmlFinal}:i)}));
+
+    // URL pública via Vercel Function (siempre funciona con Content-Type correcto)
+    return `${window.location.origin}/api/informe?id=${fileId}`;
   }
 
   async function enviarPorEmail(inf, emails) {
