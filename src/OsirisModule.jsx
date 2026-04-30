@@ -4082,7 +4082,7 @@ function MaestroViveristas({viveristas,setViveristas,can}){
 // OPERACIÓN TÉCNICA — Hub transversal (visitas, informes, test blocks,
 // equipo técnico, medidas correctivas, entregables)
 // ═══════════════════════════════════════════════════════════════════
-function OperacionTecnica({data, setData, ctData=[], viverosData=[], obtentoresData=[], can, usuarioActual={}}) {
+function OperacionTecnica({data, setData, ctData=[], clientes=[], viverosData=[], obtentoresData=[], can, usuarioActual={}}) {
   const [subTab, setSubTab] = useState("visitas");
   const [modal, setModal] = useState(null);
   const [busq, setBusq] = useState("");
@@ -4371,8 +4371,8 @@ ${inf.proximaVisitaFecha||'No programada'} — ${inf.proximaVisitaObjetivo||''}
       {clientes.length>0&&<optgroup label="👥 Maestro Clientes">
         {clientes.filter(c=>!(ctData||[]).some(ct=>ct.razonSocial===c.razonSocial)).map(c=><option key={`mc_${c.id}`} value={`mc_${c.id}`}>{c.razonSocial} · {c.pais}</option>)}
       </optgroup>}
-      {(Array.isArray(osirisData?.viveros)?osirisData.viveros:[]).length>0&&<optgroup label="🌱 Viveros">
-        {(Array.isArray(osirisData?.viveros)?osirisData.viveros:[]).map(v=><option key={`viv_${v.id}`} value={`viv_${v.id}`}>{v.nombre} · {v.pais||""}</option>)}
+      {viverosData.length>0&&<optgroup label="🌱 Viveros">
+        {viverosData.map(v=><option key={`viv_${v.id}`} value={`viv_${v.id}`}>{v.nombre} · {v.pais||""}</option>)}
       </optgroup>}
     </select>
   );
@@ -9153,6 +9153,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
               else setOpTecnica(val);
             }}
             ctData={ctData}
+            clientes={clientes}
             viverosData={Array.isArray(osirisData?.viveros)?osirisData.viveros:[]}
             obtentoresData={obtentoresData}
             can={canOp}
