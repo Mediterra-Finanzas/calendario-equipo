@@ -4340,8 +4340,8 @@ ${inf.proximaVisitaFecha||'No programada'} — ${inf.proximaVisitaObjetivo||''}
       for(const email of emailList) {
         const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({service_id:"service_7uisg69",template_id:"template_0m92glq",user_id:"vJgNsLqJpkCi17Ucd",
-            template_params:{to_email:email,to_name:ct?.razonSocial||"Cliente",subject:`📄 Informe Técnico: ${inf.titulo||'Visita'} — Osiris`,message:mensaje}})
+          body:JSON.stringify({service_id:"service_ahuerta",template_id:"template_notif_tarea",user_id:"bwCBq7JXlEwCTzWNe",
+            template_params:{to_email:email,to_name:ct?.razonSocial||"Cliente",name:"Osiris Plant Management",subject:`📄 Informe Técnico: ${inf.titulo||'Visita'} — Osiris`,message:mensaje}})
         });
         if(!res.ok) { const err=await res.text(); console.error("EmailJS error:",res.status,err); }
       }
