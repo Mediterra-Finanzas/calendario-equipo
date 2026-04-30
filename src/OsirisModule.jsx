@@ -3815,7 +3815,7 @@ function CampoNuevo({label,campo,tipo="text",opts=null,fullWidth=false,form,setF
 
 function MaestroClientes({clientes,setClientes,can}){
   const [editId,setEditId]=useState(null);
-  const [form,setForm]=useState({razonSocial:"",nombreComercial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:""});
+  const [form,setForm]=useState({razonSocial:"",nombreComercial:"",taxID:"",pais:"Peru",direccion:"",ciudad:"",repLegal:"",rucRep:"",contactoCobranza:"",ubicaciones:[]});
   const [showForm,setShowForm]=useState(false);
   const [busq,setBusq]=useState("");
 
@@ -5798,6 +5798,8 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
     if(!cli)return;
     setForm(prev=>({
       ...prev,
+      clienteId:cli.id,
+      cliente:cli.razonSocial||"",
       razonSocial:cli.razonSocial||prev.razonSocial,
       nombreComercial:cli.nombreComercial||"",
       taxID:cli.taxID||"",
@@ -6947,9 +6949,9 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                           {/* Predio */}
                           <td style={{padding:"5px 8px",minWidth:110}}>
                             {(()=>{
-                              const cli = clientes.find(c=>c.id===form.clienteId||
+                              const cli = clientes.find(c=>c.id===form.clienteId||c.id===clienteSelId||
                                 (c.razonSocial||"").toLowerCase().trim()===(form.cliente||"").toLowerCase().trim()||
-                                (c.razonSocial||"").toLowerCase().trim()===(form.empresa||"").toLowerCase().trim());
+                                (c.razonSocial||"").toLowerCase().trim()===(form.razonSocial||"").toLowerCase().trim());
                               const ubics = cli?.ubicaciones || [];
                               return ubics.length > 0 ? (
                                 <select value={p.ubicacionId||""} onChange={e=>{
