@@ -3653,7 +3653,7 @@ const COLORES_ESPECIES = [
   {nombre:"Gris",          hex:"#475569"},
 ];
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const FORMAS_PAGO = ["Anual","Semestral","Trimestral","Mensual","A demanda","Contra entrega","Otro"];
+const FORMAS_PAGO = ["Anual","Semestral","Trimestral","Mensual","A demanda","Contra entrega","Contra pago del cliente","Otro"];
 const ESTADOS_DHE = ["No iniciado","Solicitado","En proceso","Aprobado","Rechazado","Vencido","No aplica"];
 const PAISES_DHE = ["Chile","Perú","México","Colombia","Argentina","Brasil","Ecuador","Uruguay","España","Estados Unidos","Sudáfrica","China","Australia","Nueva Zelanda","Corea del Sur","Japón","India","Turquía","Marruecos","Egipto","Italia","Francia","Portugal","Países Bajos","Reino Unido","Alemania","Otro"];
 const ESTADOS_PBR = ["Pendiente","Solicitado","En Revisión","Otorgado","Vigente","Vencido","Denegado","Retirado"];
@@ -3887,13 +3887,15 @@ function MaestroClientes({clientes,setClientes,can}){
                 style={{padding:"3px 10px",borderRadius:6,background:"#0f766e",color:"#fff",border:"none",cursor:"pointer",fontSize:10,fontWeight:700}}>+ Ubicación</button>
             </div>
             {(form.ubicaciones||[]).map((ub,i)=>(
-              <div key={ub.id} style={{display:"flex",gap:6,marginBottom:4,alignItems:"center"}}>
+              <div key={ub.id} style={{display:"flex",gap:6,marginBottom:4,alignItems:"center",flexWrap:"wrap"}}>
                 <input value={ub.nombre||""} placeholder="Nombre del campo" onChange={e=>setForm(p=>({...p,ubicaciones:(p.ubicaciones||[]).map(u=>u.id===ub.id?{...u,nombre:e.target.value}:u)}))}
-                  style={{flex:1,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
+                  style={{flex:1,minWidth:120,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
                 <input value={ub.region||""} placeholder="Región" onChange={e=>setForm(p=>({...p,ubicaciones:(p.ubicaciones||[]).map(u=>u.id===ub.id?{...u,region:e.target.value}:u)}))}
-                  style={{flex:1,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
+                  style={{flex:1,minWidth:100,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
                 <input value={ub.direccion||""} placeholder="Dirección" onChange={e=>setForm(p=>({...p,ubicaciones:(p.ubicaciones||[]).map(u=>u.id===ub.id?{...u,direccion:e.target.value}:u)}))}
-                  style={{flex:1,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
+                  style={{flex:1,minWidth:120,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
+                <input value={ub.coordenadas||""} placeholder="Coordenadas GPS" onChange={e=>setForm(p=>({...p,ubicaciones:(p.ubicaciones||[]).map(u=>u.id===ub.id?{...u,coordenadas:e.target.value}:u)}))}
+                  style={{flex:1,minWidth:120,padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11}}/>
                 <button onClick={()=>setForm(p=>({...p,ubicaciones:(p.ubicaciones||[]).filter(u=>u.id!==ub.id)}))}
                   style={{background:"#fee2e2",border:"none",borderRadius:4,padding:"3px 6px",cursor:"pointer",fontSize:10,color:"#991b1b"}}>×</button>
               </div>
@@ -4663,7 +4665,7 @@ ${linkInforme}
                         <select disabled={!puedeEditar} value={inf.variedad||""} onChange={e=>updInf("variedad",e.target.value)}
                           style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}>
                           <option value="">— Seleccionar —</option>
-                          {variedadesMaestro.filter(v=>!inf.especie||v.especie===inf.especie).map(v=><option key={v.id} value={v.variedad}>{v.variedad}{v.nRegistro?` (${v.nRegistro})`:""}</option>)}
+                          {variedadesMaestro.filter(v=>!inf.especie||v.especie===inf.especie).map(v=><option key={v.id} value={v.variedad}>{v.nRegistro?`${v.nRegistro} · ${v.variedad}`:v.variedad}</option>)}
                         </select></div>
                       <Input label="Mes/Año plantación" value={inf.mesAnioPlantacion} onChange={v=>updInf("mesAnioPlantacion",v)} disabled={!puedeEditar} placeholder="Ej: Marzo 2024"/>
                       <Input label="Superficie evaluada (há)" value={inf.superficie} onChange={v=>updInf("superficie",v)} disabled={!puedeEditar}/>
@@ -6342,7 +6344,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                                 }} style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,background:p.especie?"#fff":"#f1f5f9"}}>
                                   <option value="">{p.especie?"— Seleccionar —":"(Selecciona especie primero)"}</option>
                                   {variedadesFiltradas.map(v=>(
-                                    <option key={v.id} value={v.id}>{v.variedad}{v.obtentor?` · ${v.obtentor}`:""}</option>
+                                    <option key={v.id} value={v.id}>{v.nRegistro?`${v.nRegistro} · `:""}{v.variedad}{v.obtentor?` · ${v.obtentor}`:""}</option>
                                   ))}
                                   {can&&p.especie&&<option value="__nueva__">＋ Crear nueva variedad...</option>}
                                 </select>
@@ -7091,7 +7093,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                                   }
                                 }} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11,background:p.especie?"#fff":"#f1f5f9",width:"100%"}}>
                                   <option value="">{p.especie?"— Seleccionar —":"(Selecciona especie primero)"}</option>
-                                  {variedadesFiltradas.map(v=>(<option key={v.id} value={v.id}>{v.variedad}</option>))}
+                                  {variedadesFiltradas.map(v=>(<option key={v.id} value={v.id}>{v.nRegistro?`${v.nRegistro} · `:""}{v.variedad}</option>))}
                                   {p.especie&&<option value="__nueva__">＋ Crear nueva variedad...</option>}
                                 </select>
                               );
@@ -9016,7 +9018,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                       <select value={obtWizEspForm.variedad||""} onChange={e=>setObtWizEspForm(p=>({...p,variedad:e.target.value}))}
                         style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}>
                         <option value="">— Seleccionar —</option>
-                        {variedadesMaestro.filter(v=>!obtWizEspForm.especie||v.especie===obtWizEspForm.especie).map(v=><option key={v.id} value={v.variedad}>{v.variedad}{v.nRegistro?` (${v.nRegistro})`:""}</option>)}
+                        {variedadesMaestro.filter(v=>!obtWizEspForm.especie||v.especie===obtWizEspForm.especie).map(v=><option key={v.id} value={v.variedad}>{v.nRegistro?`${v.nRegistro} · ${v.variedad}`:v.variedad}</option>)}
                       </select>
                     </div>
                   </div>
@@ -9113,7 +9115,7 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                         <select value={obtWizPbrForm.variedad||""} onChange={e=>setObtWizPbrForm(p=>({...p,variedad:e.target.value}))}
                           style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box",background:"#fff"}}>
                           <option value="">— Seleccionar —</option>
-                          {variedadesMaestro.filter(v=>!obtWizPbrForm.especie||v.especie===obtWizPbrForm.especie).map(v=><option key={v.id} value={v.variedad}>{v.variedad}{v.nRegistro?` (${v.nRegistro})`:""}</option>)}
+                          {variedadesMaestro.filter(v=>!obtWizPbrForm.especie||v.especie===obtWizPbrForm.especie).map(v=><option key={v.id} value={v.variedad}>{v.nRegistro?`${v.nRegistro} · ${v.variedad}`:v.variedad}</option>)}
                         </select>
                       </div>
                     </div>
@@ -9567,11 +9569,14 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                 </div>
                 <div>
                   <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Mes estimado de pago</label>
-                  <select disabled={!canViveros} value={v.mes_pago_estimado||""} onChange={e=>updateVivero(v.id,{mes_pago_estimado:e.target.value})}
-                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}>
-                    <option value="">— Seleccionar —</option>
-                    {MESES.map(m=><option key={m} value={m}>{m}</option>)}
-                  </select>
+                  {v.forma_pago==="Contra pago del cliente"
+                    ? <div style={{padding:"8px 12px",borderRadius:8,background:"#f1f5f9",fontSize:12,color:"#94a3b8"}}>No aplica (contra pago del cliente)</div>
+                    : <select disabled={!canViveros} value={v.mes_pago_estimado||""} onChange={e=>updateVivero(v.id,{mes_pago_estimado:e.target.value})}
+                        style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",fontSize:13,boxSizing:"border-box",background:canViveros?"#fff":"#f8fafc"}}>
+                        <option value="">— Seleccionar —</option>
+                        {MESES.map(m=><option key={m} value={m}>{m}</option>)}
+                      </select>
+                  }
                 </div>
                 <div>
                   <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Estado del Contrato</label>
@@ -9591,6 +9596,17 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
                     <input type="checkbox" disabled={!canViveros} checked={!!v.renovable} onChange={e=>updateVivero(v.id,{renovable:e.target.checked})}/>
                     Contrato renovable
                   </label>
+                  {v.renovable&&(
+                    <div style={{marginTop:8}}>
+                      <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:3}}>Período de renovación</label>
+                      <select disabled={!canViveros} value={v.periodoRenovacion||""} onChange={e=>updateVivero(v.id,{periodoRenovacion:e.target.value})}
+                        style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,boxSizing:"border-box"}}>
+                        <option value="">— Seleccionar —</option>
+                        <option value="1 año">1 año</option><option value="2 años">2 años</option><option value="3 años">3 años</option>
+                        <option value="5 años">5 años</option><option value="10 años">10 años</option><option value="Automático">Automático (mismo período original)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div style={{gridColumn:"1/-1"}}>
                   <label style={{fontSize:11,fontWeight:600,color:"#475569",display:"block",marginBottom:4}}>Observaciones</label>
