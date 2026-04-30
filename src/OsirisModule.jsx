@@ -6805,12 +6805,26 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                   ⚠️ Lleva multa por incumplimiento
                 </label>
                 {form.llevaMulta&&(
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:12,color:"#9f1239"}}>Mínimo Há:</span>
-                    <input type="number" min="0" value={form.haMinContrato||0}
-                      onChange={e=>setF("haMinContrato",parseFloat(e.target.value)||0)}
-                      style={{width:90,padding:"5px 8px",borderRadius:6,border:"1px solid #fecdd3",fontSize:13,textAlign:"right"}}/>
-                    <span style={{fontSize:12,color:"#9f1239"}}>Há</span>
+                  <div style={{display:"flex",flexDirection:"column",gap:8,flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      <span style={{fontSize:12,color:"#9f1239"}}>Mínimo Há:</span>
+                      <input type="number" min="0" value={form.haMinContrato||0}
+                        onChange={e=>setF("haMinContrato",parseFloat(e.target.value)||0)}
+                        style={{width:90,padding:"5px 8px",borderRadius:6,border:"1px solid #fecdd3",fontSize:13,textAlign:"right"}}/>
+                      <span style={{fontSize:12,color:"#9f1239"}}>Há</span>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      <span style={{fontSize:12,color:"#9f1239"}}>Monto multa ({form.moneda||"USD"}):</span>
+                      <input type="number" min="0" value={form.montoMulta||0}
+                        onChange={e=>setF("montoMulta",parseFloat(e.target.value)||0)}
+                        style={{width:120,padding:"5px 8px",borderRadius:6,border:"1px solid #fecdd3",fontSize:13,textAlign:"right"}}/>
+                    </div>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                      <span style={{fontSize:12,color:"#9f1239",whiteSpace:"nowrap",marginTop:4}}>Descripción:</span>
+                      <textarea value={form.descMulta||""} onChange={e=>setF("descMulta",e.target.value)}
+                        rows={2} placeholder="Ej: USD 5,000 por cada hectárea no plantada bajo el mínimo contractual..."
+                        style={{flex:1,padding:"5px 8px",borderRadius:6,border:"1px solid #fecdd3",fontSize:12,resize:"vertical",minWidth:250}}/>
+                    </div>
                   </div>
                 )}
               </div>
@@ -6868,6 +6882,24 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
             </div>
             <div style={{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 6px #0001"}}>
               <div style={{fontSize:13,fontWeight:700,color:C.verde,marginBottom:14}}>🌱 Ubicación Plantas</div>
+              {/* Selector de ubicación del cliente */}
+              {(()=>{
+                const cli = clientes.find(c=>c.id===form.clienteId||c.razonSocial===form.empresa);
+                const ubics = cli?.ubicaciones || [];
+                return ubics.length > 0 ? (
+                  <div style={{marginBottom:12}}>
+                    <div style={{fontSize:11,color:"#64748b",fontWeight:600,marginBottom:4}}>📍 Seleccionar ubicación del cliente</div>
+                    <select value={form.ubicacionClienteId||""} onChange={e=>{
+                      const ub = ubics.find(u=>u.id===e.target.value);
+                      if(ub) { setF("ubicacionClienteId",ub.id); setF("nombrePredio",ub.nombre); setF("region",ub.region); }
+                      else { setF("ubicacionClienteId",""); }
+                    }} style={{width:"100%",maxWidth:400,padding:"7px 10px",borderRadius:6,border:"1px solid #16a34a",fontSize:12,background:"#f0fdf4"}}>
+                      <option value="">— Seleccionar o ingresar manualmente —</option>
+                      {ubics.map(u=><option key={u.id} value={u.id}>{u.nombre} — {u.region} {u.direccion?`(${u.direccion})`:""}</option>)}
+                    </select>
+                  </div>
+                ) : null;
+              })()}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                 {[["Nombre Predio","nombrePredio"],["Cuartel","cuartel"],["Región","region"],["Coordenadas","coordenadas"]].map(([l,c])=>(
                   <div key={c}><CampoNuevo label={l} campo={c} form={form} setF={setF}/></div>
@@ -6921,7 +6953,7 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                   <thead><tr style={{background:"#dcfce7"}}>
-                    {["Especie","Variedad","Plantas","Há","Fecha plant.","Sublicenciatario","Vivero","Fee USD/planta",""].map(h=>(<th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:11,fontWeight:700,color:"#14532d"}}>{h}</th>))}
+                    {["Predio","Especie","Denominación","Plantas","Há","Fecha plant.","N° Cot. Vivero","Sublicenciatario","Vivero","Fee USD/planta",""].map(h=>(<th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:11,fontWeight:700,color:"#14532d"}}>{h}</th>))}
                   </tr></thead>
                   <tbody>
                     {(form.plantaciones||[]).map(p=>{
@@ -6951,6 +6983,26 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                       const colorEsp = espMaestro?.color;
                       return (
                         <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9"}}>
+                          {/* Predio */}
+                          <td style={{padding:"5px 8px",minWidth:110}}>
+                            {(()=>{
+                              const cli = clientes.find(c=>c.id===form.clienteId||c.razonSocial===form.empresa);
+                              const ubics = cli?.ubicaciones || [];
+                              return ubics.length > 0 ? (
+                                <select value={p.ubicacionId||""} onChange={e=>{
+                                  const ub = ubics.find(u=>u.id===e.target.value);
+                                  if(ub) updPlMulti({ubicacionId:ub.id, nombrePredio:ub.nombre});
+                                  else updPlMulti({ubicacionId:"", nombrePredio:""});
+                                }} style={{width:"100%",padding:"4px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11,background:"#f0fdf4"}}>
+                                  <option value="">— Predio —</option>
+                                  {ubics.map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
+                                </select>
+                              ) : (
+                                <input value={p.nombrePredio||""} placeholder="Predio" onChange={e=>updPl("nombrePredio",e.target.value)}
+                                  style={{width:"100%",padding:"4px 6px",borderRadius:4,border:"1px solid #d1d5db",fontSize:11}}/>
+                              );
+                            })()}
+                          </td>
                           {/* Especie: dropdown puro + Crear nueva */}
                           <td style={{padding:"5px 8px",minWidth:130}}>
                             <div style={{display:"flex",gap:4,alignItems:"center"}}>
@@ -7020,6 +7072,10 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                           </td>
                           <td style={{padding:"5px 8px"}}>
                             <input type="date" value={p.fechaPlantacion||""} onChange={e=>updPl("fechaPlantacion",e.target.value)} style={{padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11}}/>
+                          </td>
+                          <td style={{padding:"5px 8px"}}>
+                            <input value={p.nCotizacionVivero||""} placeholder="N° Cot." onChange={e=>updPl("nCotizacionVivero",e.target.value)}
+                              style={{width:80,padding:"5px 7px",borderRadius:5,border:"1px solid #d1d5db",fontSize:11}}/>
                           </td>
                           <td style={{padding:"5px 8px"}}>
                             <select value={p.sublicenciatario_id||""} onChange={e=>seleccionarSub(e.target.value)}
