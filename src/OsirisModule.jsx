@@ -4288,7 +4288,7 @@ ${inf.nutricionPrograma||getArr("nutricionAplicaciones").length>0?`<div class="s
 ${getArr("fitoAplicaciones").length>0?`<div class="section"><h2>F. Aplicaciones Fitosanitarias</h2>${tableHTML(["Fecha","Producto","Dosis","Objetivo","Resultado","Rec."],getArr("fitoAplicaciones").map(a=>[a.fecha,a.producto,a.dosis,a.objetivo,a.resultado,a.rec]))}</div>`:""}
 ${laboresHTML?`<div class="section"><h2>G. Labores Culturales</h2><table><thead><tr><th>Labor</th><th>Estado</th><th>Calidad</th><th>Observación</th><th>Recomendación</th></tr></thead><tbody>${laboresHTML}</tbody></table></div>`:""}
 ${getArr("sanidadProblemas").length>0?`<div class="section"><h2>H. Sanidad Vegetal</h2>${tableHTML(["Problema","Tipo","Incidencia","Severidad","Sector","Acción"],getArr("sanidadProblemas").map(p=>[p.problema,p.tipo,p.incidencia,p.severidad,p.sector,p.accion]))}</div>`:""}
-${inf.sueloHumedad||inf.sueloPH?`<div class="section"><h2>I. Suelo / Sustrato</h2><div class="content">Sustrato: <strong>${inf.sueloTipo||"—"}</strong> · Humedad: <strong>${inf.sueloHumedad||"—"}</strong> · Drenaje: <strong>${inf.sueloDrenaje||"—"}</strong> · Compactación: <strong>${inf.sueloCompactacion||"—"}</strong>\npH: ${inf.sueloPH||"—"} · CE: ${inf.sueloCE||"—"} dS/m · Raíces: ${inf.sueloRaices||"—"}${inf.sueloObs?"\nObs: "+inf.sueloObs:""}</div></div>`:""}
+${inf.sueloHumedad||inf.sueloPH?`<div class="section"><h2>I. Suelo / Sustrato</h2><div class="content">Tipo de suelo: <strong>${inf.sueloTipo||"—"}</strong> · Humedad: <strong>${inf.sueloHumedad||"—"}</strong> · Drenaje: <strong>${inf.sueloDrenaje||"—"}</strong> · Compactación: <strong>${inf.sueloCompactacion||"—"}</strong>\npH: ${inf.sueloPH||"—"} · CE: ${inf.sueloCE||"—"} dS/m · Raíces: ${inf.sueloRaices||"—"}${inf.sueloObs?"\nObs: "+inf.sueloObs:""}</div></div>`:""}
 ${inf.desarrolloVigor||inf.desarrolloEstimacion?`<div class="section"><h2>J. Desarrollo Vegetativo y Productivo</h2><div class="content">Vigor: <strong>${inf.desarrolloVigor||"—"}</strong> · Uniformidad: <strong>${inf.desarrolloUniformidad||"—"}</strong> · Carga frutal: ${inf.desarrolloCarga||"—"}\nEstimación: ${inf.desarrolloEstimacion||"—"} kg/há · Calidad: ${inf.desarrolloCalidad||"—"} · Calibre: ${inf.desarrolloCalibre||"—"}\nCondición fruta: ${inf.desarrolloCondicion||"—"} · F. cosecha est.: ${inf.desarrolloFechaCosecha||"—"}</div></div>`:""}
 ${getArr("recInmediatas").length+getArr("recCortoPlazo").length+getArr("recTemporada").length>0?`<div class="section"><h2>K. Recomendaciones Técnicas</h2>${recHTML(getArr("recInmediatas"),"⚡ Inmediatas (próximos días)")}${recHTML(getArr("recCortoPlazo"),"📅 Corto plazo (próximas semanas)")}${recHTML(getArr("recTemporada"),"🌿 De temporada (resto del ciclo)")}</div>`:""}
 ${fotosArr.length>0?`<div class="section"><h2>L. Registro Fotográfico</h2><div class="fotos">${fotosArr.map(f=>`<div class="foto">${f.url?`<img src="${f.url}"/>`:"📷"}<div class="desc">${f.descripcion||""}${f.categoria?" · "+f.categoria:""}</div></div>`).join("")}</div></div>`:""}
@@ -4365,7 +4365,15 @@ ${inf.proximaVisitaFecha||'No programada'} — ${inf.proximaVisitaObjetivo||''}
     <select disabled={disabled} value={value||""} onChange={e=>onChange(e.target.value)}
       style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:12,background:"#fff",boxSizing:"border-box"}}>
       <option value="">— Seleccionar cliente —</option>
-      {(ctData||[]).map(c=><option key={c.id} value={c.id}>{c.razonSocial} · {c.pais}</option>)}
+      {(ctData||[]).length>0&&<optgroup label="📜 Contratos">
+        {(ctData||[]).map(c=><option key={c.id} value={c.id}>{c.razonSocial} · {c.pais}</option>)}
+      </optgroup>}
+      {clientes.length>0&&<optgroup label="👥 Maestro Clientes">
+        {clientes.filter(c=>!(ctData||[]).some(ct=>ct.razonSocial===c.razonSocial)).map(c=><option key={`mc_${c.id}`} value={`mc_${c.id}`}>{c.razonSocial} · {c.pais}</option>)}
+      </optgroup>}
+      {(Array.isArray(osirisData?.viveros)?osirisData.viveros:[]).length>0&&<optgroup label="🌱 Viveros">
+        {(Array.isArray(osirisData?.viveros)?osirisData.viveros:[]).map(v=><option key={`viv_${v.id}`} value={`viv_${v.id}`}>{v.nombre} · {v.pais||""}</option>)}
+      </optgroup>}
     </select>
   );
   const Input = ({label,value,onChange,type="text",placeholder="",disabled=false,rows=0}) => {
@@ -4787,7 +4795,7 @@ ${inf.proximaVisitaFecha||'No programada'} — ${inf.proximaVisitaObjetivo||''}
                   {/* I. SUELO */}
                   {secTab==="suelo"&&(
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                      <Select label="Tipo sustrato" value={inf.sueloTipo} onChange={v=>updInf("sueloTipo",v)} opts={["Suelo Directo","Maceta","Bolsa"]} disabled={!puedeEditar}/>
+                      <Select label="Tipo de suelo" value={inf.sueloTipo} onChange={v=>updInf("sueloTipo",v)} opts={["Suelo Directo","Maceta","Bolsa"]} disabled={!puedeEditar}/>
                       <Select label="Condición humedad" value={inf.sueloHumedad} onChange={v=>updInf("sueloHumedad",v)} opts={HUMEDAD} disabled={!puedeEditar}/>
                       <Select label="Drenaje" value={inf.sueloDrenaje} onChange={v=>updInf("sueloDrenaje",v)} opts={CALIDAD_EJEC} disabled={!puedeEditar}/>
                       <Select label="Compactación" value={inf.sueloCompactacion} onChange={v=>updInf("sueloCompactacion",v)} opts={NIVELES} disabled={!puedeEditar}/>
@@ -4862,12 +4870,30 @@ ${inf.proximaVisitaFecha||'No programada'} — ${inf.proximaVisitaObjetivo||''}
                                 ))}
                               </div>
                             )}
-                            {puedeEditar&&<div style={{display:"flex",gap:8}}>
+                            {puedeEditar&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                              <label style={{padding:"6px 14px",borderRadius:8,background:"#16a34a",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}>
+                                📷 Subir foto
+                                <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={async(e)=>{
+                                  const files=Array.from(e.target.files||[]);if(!files.length)return;
+                                  for(const file of files){
+                                    try{
+                                      const url=await uploadFoto(file,inf.id||"temp");
+                                      addToArr("fotosInforme",{url,descripcion:file.name.replace(/\.[^.]+$/,""),categoria:"",sector:""});
+                                    }catch(err){
+                                      console.error("Error subiendo:",err);
+                                      // Fallback: convertir a base64 para no perder la foto
+                                      const reader=new FileReader();
+                                      reader.onload=()=>addToArr("fotosInforme",{url:reader.result,descripcion:file.name.replace(/\.[^.]+$/,""),categoria:"",sector:""});
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }
+                                  e.target.value="";
+                                }}/>
+                              </label>
                               <button onClick={()=>{
                                 const url=window.prompt("Pega la URL de la foto:");
                                 if(url&&url.trim()) addToArr("fotosInforme",{url:url.trim(),descripcion:"",categoria:"",sector:""});
-                              }} style={{padding:"6px 14px",borderRadius:8,background:"#16a34a",color:"#fff",border:"none",cursor:"pointer",fontSize:11,fontWeight:700}}>📷 Agregar foto (URL)</button>
-                              <button onClick={()=>addToArr("fotosInforme",{url:"",descripcion:"",categoria:"",sector:""})} style={{padding:"6px 14px",borderRadius:8,background:"#f1f5f9",border:"1px solid #d1d5db",cursor:"pointer",fontSize:11,fontWeight:600}}>+ Foto sin URL</button>
+                              }} style={{padding:"6px 14px",borderRadius:8,background:"#f1f5f9",border:"1px solid #d1d5db",cursor:"pointer",fontSize:11,fontWeight:600}}>🔗 URL</button>
                             </div>}
                             {fotos.length===0&&<div style={{padding:20,textAlign:"center",color:"#94a3b8",fontSize:11}}>Sin fotos. Agrega URLs de imágenes.</div>}
                           </div>
