@@ -4120,8 +4120,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     const HOY = new Date();
     const anio = HOY.getFullYear();
     const mes = HOY.getMonth();
-    const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-    const label = `${nombresMes[mes]} ${anio}`;
+    const MN_LOCAL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const label = `${MN_LOCAL[mes]}-${String(anio).slice(2)}`;
     const idx = MESES_65.indexOf(label);
     return idx >= 0 ? idx : 0;
   },[]);
