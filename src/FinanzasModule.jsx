@@ -6163,6 +6163,17 @@ function SaldosBancos({saldos,onSave,canEdit}) {
     return Object.values(totalesEmpresa).reduce((a,b)=>a+b,0);
   },[totalesEmpresa]);
 
+  // Totales separados Chile y Perú (en USD)
+  const {totalChileUSD, totalPeruUSD} = useMemo(()=>{
+    let chile=0, peru=0;
+    EMPRESAS_LIST.forEach(emp=>{
+      const usd = totalesEmpresa[emp]||0;
+      if(emp.includes("Perú")) peru += usd;
+      else chile += usd;
+    });
+    return {totalChileUSD:chile, totalPeruUSD:peru};
+  },[totalesEmpresa]);
+
   const hasDirty=Object.keys(dirty).length>0;
   const sym=(id)=>MONEDAS.find(m=>m.id===id)?.symbol||"$";
 
@@ -6187,6 +6198,18 @@ function SaldosBancos({saldos,onSave,canEdit}) {
           </div>
           <div style={{fontSize:22,fontWeight:900,color:totalUSD!=null?cf(totalUSD):C.muted}}>
             {totalUSD!=null?`$${totalUSD.toLocaleString("es-CL",{maximumFractionDigits:0})} USD`:"—"}
+          </div>
+        </div>
+        <div style={{background:C.card,border:`1px solid #3b82f6`,borderRadius:10,padding:"12px 16px"}}>
+          <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:4}}>🇨🇱 Total Chile</div>
+          <div style={{fontSize:18,fontWeight:900,color:"#3b82f6"}}>
+            ${totalChileUSD.toLocaleString("es-CL",{maximumFractionDigits:0})} <span style={{fontSize:11,color:C.muted}}>USD</span>
+          </div>
+        </div>
+        <div style={{background:C.card,border:`1px solid #ef4444`,borderRadius:10,padding:"12px 16px"}}>
+          <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",marginBottom:4}}>🇵🇪 Total Perú</div>
+          <div style={{fontSize:18,fontWeight:900,color:"#ef4444"}}>
+            ${totalPeruUSD.toLocaleString("es-CL",{maximumFractionDigits:0})} <span style={{fontSize:11,color:C.muted}}>USD</span>
           </div>
         </div>
         {[
