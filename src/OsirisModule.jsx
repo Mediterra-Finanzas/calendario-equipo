@@ -5485,7 +5485,7 @@ function MaestroVariedades({variedades,setVariedades,can,obtentores=[],especies=
           </div>
           {/* Royalty por obtentor */}
           <div style={{marginTop:10,padding:12,background:"#fffbeb",borderRadius:8,border:"1px solid #fde68a"}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#92400e",marginBottom:8}}>💰 Royalty al Obtentor</div>
+            <div style={{fontSize:11,fontWeight:700,color:"#92400e",marginBottom:8}}>💰 Royalty al Obtentor (todos en %)</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
               <div>
                 <div style={{fontSize:10,color:"#78350f",fontWeight:600,marginBottom:3}}>% sobre venta</div>
@@ -5496,19 +5496,28 @@ function MaestroVariedades({variedades,setVariedades,can,obtentores=[],especies=
                 </div>
               </div>
               <div>
-                <div style={{fontSize:10,color:"#78350f",fontWeight:600,marginBottom:3}}>Por planta (USD)</div>
-                <input type="number" step="0.01" value={form.royaltyPlanta||""} placeholder="0.00" onChange={e=>setForm(p=>({...p,royaltyPlanta:e.target.value}))}
-                  style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #fde68a",fontSize:12,textAlign:"right"}}/>
+                <div style={{fontSize:10,color:"#78350f",fontWeight:600,marginBottom:3}}>% por planta</div>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  <input type="number" step="0.1" value={form.royaltyPlanta||""} placeholder="0" onChange={e=>setForm(p=>({...p,royaltyPlanta:e.target.value}))}
+                    style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #fde68a",fontSize:12,textAlign:"right"}}/>
+                  <span style={{fontSize:11,color:"#92400e"}}>%</span>
+                </div>
               </div>
               <div>
-                <div style={{fontSize:10,color:"#78350f",fontWeight:600,marginBottom:3}}>Por Há plantada (USD)</div>
-                <input type="number" step="0.1" value={form.royaltyHa||""} placeholder="0.00" onChange={e=>setForm(p=>({...p,royaltyHa:e.target.value}))}
-                  style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #fde68a",fontSize:12,textAlign:"right"}}/>
+                <div style={{fontSize:10,color:"#78350f",fontWeight:600,marginBottom:3}}>% por Há plantada</div>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  <input type="number" step="0.1" value={form.royaltyHa||""} placeholder="0" onChange={e=>setForm(p=>({...p,royaltyHa:e.target.value}))}
+                    style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #fde68a",fontSize:12,textAlign:"right"}}/>
+                  <span style={{fontSize:11,color:"#92400e"}}>%</span>
+                </div>
               </div>
               <div>
-                <div style={{fontSize:10,color:"#78350f",fontWeight:600,marginBottom:3}}>Contract Fee (USD)</div>
-                <input type="number" step="1" value={form.royaltyContractFee||""} placeholder="0" onChange={e=>setForm(p=>({...p,royaltyContractFee:e.target.value}))}
-                  style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #fde68a",fontSize:12,textAlign:"right"}}/>
+                <div style={{fontSize:10,color:"#78350f",fontWeight:600,marginBottom:3}}>% Contract Fee</div>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  <input type="number" step="0.1" value={form.royaltyContractFee||""} placeholder="0" onChange={e=>setForm(p=>({...p,royaltyContractFee:e.target.value}))}
+                    style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #fde68a",fontSize:12,textAlign:"right"}}/>
+                  <span style={{fontSize:11,color:"#92400e"}}>%</span>
+                </div>
               </div>
             </div>
           </div>
@@ -5534,10 +5543,10 @@ function MaestroVariedades({variedades,setVariedades,can,obtentores=[],especies=
                 <td style={{padding:"6px 10px",color:"#64748b"}}>{v.obtentor||"—"}</td>
                 <td style={{padding:"6px 10px",color:"#64748b"}}>{v.nRegistro||"—"}</td>
                 <td style={{padding:"6px 10px",fontSize:10,color:"#92400e"}}>
-                  {v.royaltyPct?`${v.royaltyPct}% `:""}
-                  {v.royaltyPlanta?`$${v.royaltyPlanta}/pl `:""}
-                  {v.royaltyHa?`$${v.royaltyHa}/há `:""}
-                  {v.royaltyContractFee?`CF:$${v.royaltyContractFee}`:""}
+                  {v.royaltyPct?`${v.royaltyPct}% venta · `:""}
+                  {v.royaltyPlanta?`${v.royaltyPlanta}%/pl · `:""}
+                  {v.royaltyHa?`${v.royaltyHa}%/há · `:""}
+                  {v.royaltyContractFee?`${v.royaltyContractFee}% CF`:""}
                   {!v.royaltyPct&&!v.royaltyPlanta&&!v.royaltyHa&&!v.royaltyContractFee?"—":""}
                 </td>
                 <td style={{padding:"6px 10px",color:"#64748b",fontSize:11}}>{v.observaciones||"—"}</td>
