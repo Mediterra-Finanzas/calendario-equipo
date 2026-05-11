@@ -8165,9 +8165,123 @@ function BadgeEstado({estado}) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// SELECT CUSTOM PARA TIPO DOC (con iconos editar/eliminar inline)
+// ─────────────────────────────────────────────────────────────────
+function TipoDocSelect({value, tiposBase, tiposExtra, inputSt, onChange, onAdd, onRename, onDelete}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // Cerrar al hacer click fuera
+  useEffect(()=>{
+    if(!open) return;
+    function handler(e){
+      if(ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return ()=>document.removeEventListener("mousedown", handler);
+  },[open]);
+
+  // Lista combinada
+  const todos = [...tiposBase];
+  (tiposExtra||[]).forEach(t=>{ if(t && !todos.includes(t)) todos.push(t); });
+  if(value && !todos.includes(value)) todos.push(value);
+
+  function esExtra(tipo){ return (tiposExtra||[]).includes(tipo) && !tiposBase.includes(tipo); }
+
+  function handleRename(e, tipo){
+    e.stopPropagation();
+    const nuevo = prompt(`Renombrar "${tipo}" a:`, tipo);
+    if(!nuevo || !nuevo.trim() || nuevo.trim()===tipo) return;
+    const limpio = nuevo.trim();
+    if(tiposBase.includes(limpio) || (tiposExtra||[]).includes(limpio)){
+      alert(`El tipo "${limpio}" ya existe.`);
+      return;
+    }
+    if(onRename) onRename(tipo, limpio);
+  }
+
+  function handleDelete(e, tipo){
+    e.stopPropagation();
+    if(onDelete) onDelete(tipo);
+  }
+
+  return (
+    <div ref={ref} style={{position:"relative",display:"flex",gap:2,alignItems:"center"}}>
+      <button type="button" onClick={()=>setOpen(o=>!o)}
+        style={{...inputSt,flex:1,cursor:"pointer",textAlign:"left",
+          display:"flex",justifyContent:"space-between",alignItems:"center",
+          padding:"4px 8px"}}>
+        <span style={{color:value?C.text:C.muted,fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+          {value || "— Tipo —"}
+        </span>
+        <span style={{color:C.muted,fontSize:8,marginLeft:4}}>▼</span>
+      </button>
+      {open && (
+        <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,zIndex:1000,
+          minWidth:200,maxHeight:280,overflowY:"auto",
+          background:C.card,border:`1px solid ${C.border2}`,borderRadius:6,
+          boxShadow:"0 4px 16px rgba(0,0,0,0.4)"}}>
+          <div onClick={()=>{onChange(""); setOpen(false);}}
+            style={{padding:"6px 10px",cursor:"pointer",fontSize:10,color:C.muted,
+              borderBottom:`1px solid ${C.border}33`}}>
+            — Tipo —
+          </div>
+          {todos.map(t=>{
+            const extra = esExtra(t);
+            const seleccionado = t===value;
+            return (
+              <div key={t}
+                onClick={()=>{onChange(t); setOpen(false);}}
+                style={{padding:"6px 10px",cursor:"pointer",fontSize:11,
+                  color:seleccionado?C.accent:C.text,
+                  background:seleccionado?`${C.accent}11`:"transparent",
+                  display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}
+                onMouseEnter={e=>{if(!seleccionado)e.currentTarget.style.background=`${C.border}22`;}}
+                onMouseLeave={e=>{if(!seleccionado)e.currentTarget.style.background="transparent";}}>
+                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{t}</span>
+                {extra && (
+                  <span style={{display:"flex",gap:4,alignItems:"center",flexShrink:0}}>
+                    <span title="Renombrar" onClick={e=>handleRename(e,t)}
+                      style={{cursor:"pointer",fontSize:11,opacity:0.7,padding:"0 2px"}}
+                      onMouseEnter={e=>e.currentTarget.style.opacity=1}
+                      onMouseLeave={e=>e.currentTarget.style.opacity=0.7}>✏️</span>
+                    <span title="Eliminar" onClick={e=>handleDelete(e,t)}
+                      style={{cursor:"pointer",fontSize:13,color:C.red,opacity:0.7,padding:"0 2px",fontWeight:700,lineHeight:1}}
+                      onMouseEnter={e=>e.currentTarget.style.opacity=1}
+                      onMouseLeave={e=>e.currentTarget.style.opacity=0.7}>×</span>
+                  </span>
+                )}
+              </div>
+            );
+          })}
+          <div onClick={()=>{
+              const nuevo = prompt("Ingrese el nuevo tipo de documento:");
+              if(nuevo && nuevo.trim()){
+                const n = nuevo.trim();
+                if(todos.includes(n)){
+                  alert(`El tipo "${n}" ya existe.`);
+                  return;
+                }
+                if(onAdd) onAdd(n);
+                setOpen(false);
+              }
+            }}
+            style={{padding:"6px 10px",cursor:"pointer",fontSize:10,
+              color:C.green,fontWeight:600,
+              borderTop:`1px solid ${C.border}33`,
+              background:`${C.green}08`}}>
+            + Agregar nuevo...
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
 // TABLA ITEMS (por sección)
 // ─────────────────────────────────────────────────────────────────
-function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", semanaNomina, tiposDocExtra=[], onAddTipoDoc}) {
+function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", semanaNomina, tiposDocExtra=[], onAddTipoDoc, onRenameTipoDoc, onDeleteTipoDoc}) {
   const rows = items.filter(it=>it.seccion===seccion);
   const soloUSD = moneda==="usd";
   const soloCLP = moneda==="clp";
@@ -8245,33 +8359,16 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
                 opacity:it.pagado?0.6:1}}>
                 <td style={{padding:"3px 6px",minWidth:130}}>
                   {canEdit
-                    ? <div style={{display:"flex",gap:2,alignItems:"center"}}>
-                        <select value={it.tipoDoc||""} onChange={e=>{
-                          if(e.target.value==="__nuevo__"){
-                            const nuevo=prompt("Ingrese el nuevo tipo de documento:");
-                            if(nuevo&&nuevo.trim()){
-                              const n=nuevo.trim();
-                              // NO mutar TIPOS_DOCUMENTO global; el guardado lo maneja onAddTipoDoc
-                              if(onAddTipoDoc) onAddTipoDoc(n);
-                              updItem(it.id,"tipoDoc",n);
-                            }
-                          } else {
-                            updItem(it.id,"tipoDoc",e.target.value);
-                          }
-                        }}
-                          style={{...inputSt,flex:1,cursor:"pointer"}}>
-                          <option value="">— Tipo —</option>
-                          {(()=>{
-                            // Combinar tipos base + extras (sin mutar el array global)
-                            const todos = [...TIPOS_DOCUMENTO];
-                            (tiposDocExtra||[]).forEach(t=>{ if(t && !todos.includes(t)) todos.push(t); });
-                            // Si el item ya tiene un tipoDoc no estándar, incluirlo también
-                            if(it.tipoDoc && !todos.includes(it.tipoDoc)) todos.push(it.tipoDoc);
-                            return todos.map(t=><option key={t} value={t}>{t}</option>);
-                          })()}
-                          <option value="__nuevo__">+ Agregar nuevo...</option>
-                        </select>
-                      </div>
+                    ? <TipoDocSelect
+                        value={it.tipoDoc||""}
+                        tiposBase={TIPOS_DOCUMENTO}
+                        tiposExtra={tiposDocExtra||[]}
+                        inputSt={inputSt}
+                        onChange={v=>updItem(it.id,"tipoDoc",v)}
+                        onAdd={n=>{ if(onAddTipoDoc) onAddTipoDoc(n); updItem(it.id,"tipoDoc",n); }}
+                        onRename={onRenameTipoDoc}
+                        onDelete={onDeleteTipoDoc}
+                      />
                     : <span style={{color:C.muted,fontSize:10}}>{it.tipoDoc||"—"}</span>}
                 </td>
                 <td style={{padding:"3px 6px",minWidth:140}}>
@@ -8542,7 +8639,7 @@ function PanelBancosNomina({empresa, saldosBancos}) {
 // ─────────────────────────────────────────────────────────────────
 // VISTA NÓMINA DETALLE
 // ─────────────────────────────────────────────────────────────────
-function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos, nominasHermanas=[], onSwitchNomina, onCrearYAbrir, onCrearNueva, tiposDocExtraGlobal=[], onAddTipoDocGlobal}) {
+function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos, nominasHermanas=[], onSwitchNomina, onCrearYAbrir, onCrearNueva, tiposDocExtraGlobal=[], onAddTipoDocGlobal, onRenameTipoDocGlobal, onDeleteTipoDocGlobal}) {
   const nom = nomina;
   const esCFO = usuario?.rol==="admin" || usuario?.esCFO;
   const [soloVer, setSoloVer] = useState(false);
@@ -9282,6 +9379,8 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                   // Guardar globalmente (visible en todas las nóminas)
                   if(onAddTipoDocGlobal) onAddTipoDocGlobal(n);
                 }}
+                onRenameTipoDoc={onRenameTipoDocGlobal}
+                onDeleteTipoDoc={onDeleteTipoDocGlobal}
               />
             </div>
           );
@@ -9557,6 +9656,67 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
     });
   }
 
+  // Renombrar tipo doc extra: actualiza el array global Y todos los items que lo usan (cascada)
+  function renombrarTipoDocExtra(viejo, nuevo) {
+    if(!viejo || !nuevo || viejo===nuevo) return;
+    // Validar que el viejo es realmente un extra (no un tipo base inmutable)
+    if(TIPOS_DOCUMENTO.includes(viejo)){
+      alert(`"${viejo}" es un tipo del sistema y no se puede renombrar.`);
+      return;
+    }
+    // Validar que el nuevo no choque
+    if(TIPOS_DOCUMENTO.includes(nuevo) || tiposDocExtraGlobal.includes(nuevo)){
+      alert(`El tipo "${nuevo}" ya existe.`);
+      return;
+    }
+    // Actualizar array global
+    const nuevosTipos = tiposDocExtraGlobal.map(t=>t===viejo?nuevo:t);
+    setTiposDocExtraGlobal(nuevosTipos);
+    // Cascada: actualizar items en todas las nóminas
+    const nominasActualizadas = nominasRef.current.map(n=>{
+      const itemsActualizados = (n.items||[]).map(it=>
+        it.tipoDoc===viejo ? {...it, tipoDoc:nuevo} : it
+      );
+      return {...n, items: itemsActualizados};
+    });
+    setNominas(nominasActualizadas);
+    saveNominas(nominasActualizadas, nuevosTipos);
+    // Auditoría
+    window.auditLog&&window.auditLog("editar", {modulo:"finanzas", seccion:"nóminas",
+      descripcion:`Renombró tipo de documento "${viejo}" → "${nuevo}"`,
+      campo:"tipoDoc", valorAnterior:viejo, valorNuevo:nuevo});
+  }
+
+  // Eliminar tipo doc extra: bloquea si está en uso, sino lo quita
+  function eliminarTipoDocExtra(tipo) {
+    if(!tipo) return;
+    if(TIPOS_DOCUMENTO.includes(tipo)){
+      alert(`"${tipo}" es un tipo del sistema y no se puede eliminar.`);
+      return;
+    }
+    // Contar items que lo usan
+    let usos = 0;
+    const detalleNominas = [];
+    nominasRef.current.forEach(n=>{
+      const cnt = (n.items||[]).filter(it=>it.tipoDoc===tipo).length;
+      if(cnt>0){
+        usos += cnt;
+        detalleNominas.push(`• ${n.empresa} S${n.semana}/${n.año} (${cnt} ítem${cnt>1?"s":""})`);
+      }
+    });
+    if(usos > 0){
+      alert(`No se puede eliminar "${tipo}".\n\nEstá en uso en ${usos} ítem${usos>1?"s":""}:\n\n${detalleNominas.slice(0,10).join("\n")}${detalleNominas.length>10?`\n... y ${detalleNominas.length-10} más`:""}\n\nReasigne o elimine esos ítems primero.`);
+      return;
+    }
+    if(!window.confirm(`¿Eliminar el tipo de documento "${tipo}"?\n\nNo hay ítems usándolo, así que es seguro eliminar.`)) return;
+    const nuevosTipos = tiposDocExtraGlobal.filter(t=>t!==tipo);
+    setTiposDocExtraGlobal(nuevosTipos);
+    saveNominas(nominasRef.current, nuevosTipos);
+    window.auditLog&&window.auditLog("eliminar", {modulo:"finanzas", seccion:"nóminas",
+      descripcion:`Eliminó tipo de documento "${tipo}"`,
+      campo:"tipoDoc", valorAnterior:tipo});
+  }
+
   function updNomina(nom) {
     setNominas(prev=>{
       const anterior = prev.find(n=>n.id===nom.id);
@@ -9716,6 +9876,8 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
       onSwitchNomina={id=>setSelNomina(id)}
       tiposDocExtraGlobal={tiposDocExtraGlobal}
       onAddTipoDocGlobal={actualizarTiposDocExtra}
+      onRenameTipoDocGlobal={renombrarTipoDocExtra}
+      onDeleteTipoDocGlobal={eliminarTipoDocExtra}
       onCrearYAbrir={(empresa, semDest, añoDest, itemAplazado)=>{
         if(semDest && añoDest) {
           // Aplazamiento: buscar o crear nómina en semana destino
