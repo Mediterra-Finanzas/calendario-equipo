@@ -27,7 +27,7 @@ async function dbSaveFrisku(value) {
   try {
     // Protección anti-pérdida
     if(value) {
-      const protectedKeys = ["clientes","exportadoras","contratos","embarques","liquidaciones"];
+      const protectedKeys = ["clientes","exportadoras","contratos","programasComerciales","embarques","liquidaciones"];
       let caidas = 0;
       for(const k of protectedKeys) {
         const nc = Array.isArray(value[k]) ? value[k].length : -1;
@@ -90,12 +90,21 @@ function KPI({label,value,color}) {
 const inputSt={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid #30363d",background:"#21283b",color:"#e6edf3",fontSize:12,boxSizing:"border-box"};
 const lblSt={fontSize:10,color:"#8b949e",fontWeight:600,marginBottom:3};
 const PAISES_IMPORT=["China","USA","UK","Países Bajos","Alemania","India","Canadá","Corea del Sur","Japón","Taiwán","Hong Kong","Singapur","Malasia","Tailandia","Vietnam","Emiratos Árabes","Arabia Saudita","Brasil","Colombia","México","Otro"];
-const ESPECIES_FRISKU=["Arándanos","Cerezas","Uvas","Ciruelas","Kiwi","Paltas","Manzanas","Peras","Cítricos","Otro"];
+const ESPECIES_BASE=["Arándanos","Cerezas","Uvas","Ciruelas","Kiwi","Paltas","Manzanas","Peras","Cítricos"];
+// Combina especies base + custom + "Otro" al final. Elimina duplicados y ordena base primero, luego custom alfabéticas.
+function getEspecies(customList){
+  const custom=(customList||[]).map(s=>String(s).trim()).filter(Boolean);
+  const base=[...ESPECIES_BASE];
+  const extra=custom.filter(s=>!base.includes(s)).sort((a,b)=>a.localeCompare(b));
+  return [...base, ...extra, "Otro"];
+}
+// Compatibilidad con código que usaba ESPECIES_FRISKU (lista base + Otro)
+const ESPECIES_FRISKU=[...ESPECIES_BASE,"Otro"];
 
 // ═══════════════════════════════════════════════════════════════════
 // CLIENTES (Importadores)
 // ═══════════════════════════════════════════════════════════════════
-function ClientesModule({data, setData, can}) {
+function ClientesModule({data, setData, can, especies=ESPECIES_FRISKU}) {
   const [busq, setBusq] = useState("");
   const [modal, setModal] = useState(false);
   const [detalle, setDetalle] = useState(null);
@@ -132,7 +141,7 @@ function ClientesModule({data, setData, can}) {
             {[["Nombre empresa","nombre"],["País","pais"],["Ciudad","ciudad"],["Contacto principal","contacto"],["Email","email"],["Teléfono","telefono"]].map(([l,f])=>(
               <div key={f}><div style={lblSt}>{l}</div><input disabled={!can} value={cl[f]||""} onChange={e=>upd(f,e.target.value)} style={inputSt}/></div>))}
             <div style={{gridColumn:"1/-1"}}><div style={lblSt}>Especies</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{ESPECIES_FRISKU.map(e=>(
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{especies.map(e=>(
                 <button key={e} disabled={!can} onClick={()=>{const cur=cl.especies||[];upd("especies",cur.includes(e)?cur.filter(x=>x!==e):[...cur,e]);}}
                   style={{padding:"4px 12px",borderRadius:20,border:`1px solid ${(cl.especies||[]).includes(e)?"#0ea5e9":"#30363d"}`,background:(cl.especies||[]).includes(e)?"#0ea5e922":"transparent",color:(cl.especies||[]).includes(e)?"#0ea5e9":"#8b949e",cursor:can?"pointer":"default",fontSize:11,fontWeight:600}}>{e}</button>
               ))}</div></div>
@@ -210,7 +219,7 @@ function ClientesModule({data, setData, can}) {
 // ═══════════════════════════════════════════════════════════════════
 // EXPORTADORAS (Proveedores de fruta)
 // ═══════════════════════════════════════════════════════════════════
-function ExportadorasModule({data, setData, can}) {
+function ExportadorasModule({data, setData, can, especies=ESPECIES_FRISKU}) {
   const [busq, setBusq] = useState("");
   const [modal, setModal] = useState(false);
   const [detalle, setDetalle] = useState(null);
@@ -245,7 +254,7 @@ function ExportadorasModule({data, setData, can}) {
             {[["Nombre empresa","nombre"],["País","pais"],["Región","region"],["Contacto","contacto"],["Email","email"],["Teléfono","telefono"],["Packing House","packingHouse"]].map(([l,f])=>(
               <div key={f}><div style={lblSt}>{l}</div><input disabled={!can} value={exp[f]||""} onChange={e=>upd(f,e.target.value)} style={inputSt}/></div>))}
             <div style={{gridColumn:"1/-1"}}><div style={lblSt}>Especies</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{ESPECIES_FRISKU.map(e=>(
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{especies.map(e=>(
                 <button key={e} disabled={!can} onClick={()=>{const cur=exp.especies||[];upd("especies",cur.includes(e)?cur.filter(x=>x!==e):[...cur,e]);}}
                   style={{padding:"4px 12px",borderRadius:20,border:`1px solid ${(exp.especies||[]).includes(e)?"#0f766e":"#30363d"}`,background:(exp.especies||[]).includes(e)?"#0f766e22":"transparent",color:(exp.especies||[]).includes(e)?"#0f766e":"#8b949e",cursor:can?"pointer":"default",fontSize:11,fontWeight:600}}>{e}</button>
               ))}</div></div>
@@ -318,10 +327,10 @@ function ExportadorasModule({data, setData, can}) {
 // ═══════════════════════════════════════════════════════════════════
 // BUSINESS CLOSURE (Contratos cliente ↔ exportadora)
 // ═══════════════════════════════════════════════════════════════════
-function BusinessClosureModule({data, setData, clientes, exportadoras, can, temporada}) {
+function BusinessClosureModule({data, setData, clientes, exportadoras, can, temporada, especies=ESPECIES_FRISKU}) {
   const [modal, setModal] = useState(false);
   const [detalle, setDetalle] = useState(null);
-  const EMPTY={clienteId:"",clienteNombre:"",exportadoraId:"",exportadoraNombre:"",especie:"",variedad:"",programa:"",presupuesto:0,comisionPct:0,condiciones:"",linkContrato:"",estado:"Negociación",temporada:temporada||""};
+  const EMPTY={clienteId:"",clienteNombre:"",exportadoraId:"",exportadoraNombre:"",especie:"",variedad:"",presupuesto:0,comisionPct:0,condiciones:"",linkContrato:"",estado:"Negociación",temporada:temporada||""};
   const [form, setForm] = useState(EMPTY);
   const ESTADOS_BC=["Negociación","Propuesta enviada","Firmado","Vigente","Cerrado","Cancelado"];
 
@@ -346,10 +355,19 @@ function BusinessClosureModule({data, setData, clientes, exportadoras, can, temp
           <h3 style={{margin:0,color:"#e6edf3",fontSize:16}}>📋 {ct.clienteNombre} ↔ {ct.exportadoraNombre}</h3>
           <span style={{fontSize:10,padding:"4px 12px",borderRadius:20,background:`${estCol}22`,color:estCol,fontWeight:700}}>{ct.estado}</span>
         </div>
+        <div style={{padding:"10px 14px",background:"#1c2333",borderRadius:8,marginBottom:14,fontSize:11,color:"#8b949e",fontStyle:"italic"}}>
+          📝 Acuerdo marco Cliente ↔ Exportadora. El programa comercial específico se define en el módulo <strong style={{color:"#2563eb"}}>Programas Comerciales</strong>.
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
           <div><div style={lblSt}>Cliente</div><div style={{fontSize:14,fontWeight:700,color:"#e6edf3"}}>{ct.clienteNombre}</div></div>
           <div><div style={lblSt}>Exportadora</div><div style={{fontSize:14,fontWeight:700,color:"#e6edf3"}}>{ct.exportadoraNombre}</div></div>
-          <div><div style={lblSt}>Especie</div><input disabled={!can} value={ct.especie||""} onChange={e=>upd("especie",e.target.value)} style={inputSt}/></div>
+          <div>
+            <div style={lblSt}>Especie</div>
+            <select disabled={!can} value={ct.especie||""} onChange={e=>upd("especie",e.target.value)} style={inputSt}>
+              <option value="">—</option>
+              {especies.map(e=><option key={e}>{e}</option>)}
+            </select>
+          </div>
           <div><div style={lblSt}>Variedad</div><input disabled={!can} value={ct.variedad||""} onChange={e=>upd("variedad",e.target.value)} style={inputSt}/></div>
           <div><div style={lblSt}>Estado</div><select disabled={!can} value={ct.estado||""} onChange={e=>upd("estado",e.target.value)} style={inputSt}>{ESTADOS_BC.map(s=><option key={s}>{s}</option>)}</select></div>
           <div><div style={lblSt}>Comisión Frisku %</div><input type="number" step="0.1" disabled={!can} value={ct.comisionPct||""} onChange={e=>upd("comisionPct",parseFloat(e.target.value)||0)} style={inputSt}/></div>
@@ -357,8 +375,7 @@ function BusinessClosureModule({data, setData, clientes, exportadoras, can, temp
           <div><div style={lblSt}>📎 Link contrato</div>
             <div style={{display:"flex",gap:6}}><input disabled={!can} value={ct.linkContrato||""} onChange={e=>upd("linkContrato",e.target.value)} placeholder="https://..." style={{...inputSt,flex:1}}/>
             {ct.linkContrato&&<a href={ct.linkContrato} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:"#0ea5e9"}}>📄</a>}</div></div>
-          <div style={{gridColumn:"1/-1"}}><div style={lblSt}>Programa acordado</div><textarea disabled={!can} value={ct.programa||""} onChange={e=>upd("programa",e.target.value)} placeholder="Semanas, volúmenes, variedades..." style={{...inputSt,minHeight:60}}/></div>
-          <div style={{gridColumn:"1/-1"}}><div style={lblSt}>Condiciones</div><textarea disabled={!can} value={ct.condiciones||""} onChange={e=>upd("condiciones",e.target.value)} style={{...inputSt,minHeight:50}}/></div>
+          <div style={{gridColumn:"1/-1"}}><div style={lblSt}>Condiciones generales del acuerdo</div><textarea disabled={!can} value={ct.condiciones||""} onChange={e=>upd("condiciones",e.target.value)} placeholder="Términos, condiciones de pago, exclusividad, plazos, etc..." style={{...inputSt,minHeight:60}}/></div>
         </div>
       </div>
     );
@@ -395,7 +412,7 @@ function BusinessClosureModule({data, setData, clientes, exportadoras, can, temp
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div><div style={lblSt}>Cliente *</div><select value={form.clienteId} onChange={e=>setForm(p=>({...p,clienteId:e.target.value}))} style={inputSt}><option value="">—</option>{(clientes||[]).map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
               <div><div style={lblSt}>Exportadora *</div><select value={form.exportadoraId} onChange={e=>setForm(p=>({...p,exportadoraId:e.target.value}))} style={inputSt}><option value="">—</option>{(exportadoras||[]).map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}</select></div>
-              <div><div style={lblSt}>Especie</div><select value={form.especie} onChange={e=>setForm(p=>({...p,especie:e.target.value}))} style={inputSt}><option value="">—</option>{ESPECIES_FRISKU.map(e=><option key={e}>{e}</option>)}</select></div>
+              <div><div style={lblSt}>Especie</div><select value={form.especie} onChange={e=>setForm(p=>({...p,especie:e.target.value}))} style={inputSt}><option value="">—</option>{especies.map(e=><option key={e}>{e}</option>)}</select></div>
               <div><div style={lblSt}>Variedad</div><input value={form.variedad||""} onChange={e=>setForm(p=>({...p,variedad:e.target.value}))} style={inputSt}/></div>
               <div><div style={lblSt}>Comisión %</div><input type="number" step="0.1" value={form.comisionPct||""} onChange={e=>setForm(p=>({...p,comisionPct:parseFloat(e.target.value)||0}))} style={inputSt}/></div>
               <div><div style={lblSt}>Estado</div><select value={form.estado} onChange={e=>setForm(p=>({...p,estado:e.target.value}))} style={inputSt}>{ESTADOS_BC.map(s=><option key={s}>{s}</option>)}</select></div>
@@ -414,18 +431,50 @@ function BusinessClosureModule({data, setData, clientes, exportadoras, can, temp
 // ═══════════════════════════════════════════════════════════════════
 // EMBARQUES & COMEX (Orden + Docs + Despacho + Alertas)
 // ═══════════════════════════════════════════════════════════════════
-function EmbarquesCOMEXModule({data, setData, clientes, exportadoras, contratos, can, temporada}) {
+function EmbarquesCOMEXModule({data, setData, clientes, exportadoras, contratos, programasComerciales=[], can, temporada, especies=ESPECIES_FRISKU}) {
   const [busq, setBusq] = useState("");
   const [modal, setModal] = useState(false);
   const [detalle, setDetalle] = useState(null);
   const [tab, setTab] = useState("orden");
-  const EMPTY={contenedor:"",exportadoraId:"",exportadora:"",clienteId:"",cliente:"",contratoOrigenId:"",especie:"",destino:"",via:"Marítimo",etd:"",eta:"",estado:"Programado",temporada:temporada||"",notas:""};
+  const EMPTY={contenedor:"",exportadoraId:"",exportadora:"",clienteId:"",cliente:"",contratoOrigenId:"",programaComercialId:"",especie:"",destino:"",via:"Marítimo",etd:"",eta:"",estado:"Programado",temporada:temporada||"",notas:""};
   const [form, setForm] = useState(EMPTY);
   const ESTADOS_EMB=["Programado","Orden enviada","En carga","Despachado","En tránsito","Llegado","QC Destino","Liquidado","Cerrado"];
   const DOCS_KEYS=[{key:"bl",label:"BL (Bill of Lading)"},{key:"factura",label:"Factura"},{key:"fitosanitario",label:"Fitosanitario"},{key:"certOrigen",label:"Certificado de Origen"},{key:"packingList",label:"Packing List"},{key:"certGrower",label:"Cert. Grower"},{key:"certPackHouse",label:"Cert. Pack House"},{key:"clientApproval",label:"Client Approval"},{key:"analisisResiduos",label:"Análisis de Residuos"},{key:"ppul",label:"PPUL"},{key:"sprayRecords",label:"Spray Records"}];
 
   // Filtrar contratos vigentes para el dropdown de selección
   const contratosVigentes = (contratos||[]).filter(c=>c.temporada===temporada && (c.estado==="Firmado"||c.estado==="Vigente"));
+
+  // Programas activos para la temporada (Solicitado, En asignación, Activo)
+  const programasActivos = (programasComerciales||[]).filter(p =>
+    p.temporada===temporada && p.estado!=="Cerrado" && p.estado!=="Cancelado"
+  );
+
+  // BCs filtrados para el select del modal:
+  // - Si hay programa elegido: solo BCs cuyo exportadoraId esté asignado a ese programa
+  // - Si no: todos los BCs vigentes
+  const programaElegido = (programasComerciales||[]).find(p=>p.id===form.programaComercialId);
+  const bcsParaSelect = programaElegido
+    ? contratosVigentes.filter(c =>
+        c.clienteId===programaElegido.clienteId &&
+        (programaElegido.asignaciones||[]).some(a=>a.exportadoraId===c.exportadoraId)
+      )
+    : contratosVigentes;
+
+  // Cuando elige programa, pre-llena cliente/especie y limpia BC/exportadora (porque depende del programa)
+  function setProgramaElegido(progId){
+    const pg = (programasComerciales||[]).find(p=>p.id===progId);
+    if(!pg){
+      setForm(p=>({...p,programaComercialId:"",contratoOrigenId:"",exportadoraId:"",exportadora:""}));
+      return;
+    }
+    setForm(p=>({...p,
+      programaComercialId: progId,
+      clienteId: pg.clienteId, cliente: pg.clienteNombre||"",
+      especie: pg.especie||p.especie,
+      contratoOrigenId: "",  // resetea para que elija un BC dentro del programa
+      exportadoraId: "", exportadora: "",
+    }));
+  }
 
   // Cuando elige contrato, pre-llena cliente/exportadora/especie
   function setContratoElegido(contId){
@@ -505,7 +554,7 @@ function EmbarquesCOMEXModule({data, setData, clientes, exportadoras, contratos,
               <div style={lblSt}>Especie</div>
               <select disabled={!can} value={emb.especie||""} onChange={e=>upd("especie",e.target.value)} style={inputSt}>
                 <option value="">—</option>
-                {ESPECIES_FRISKU.map(e=><option key={e}>{e}</option>)}
+                {especies.map(e=><option key={e}>{e}</option>)}
               </select>
             </div>
             <div><div style={lblSt}>Destino</div><input disabled={!can} value={emb.destino||""} onChange={e=>upd("destino",e.target.value)} style={inputSt}/></div>
@@ -515,6 +564,11 @@ function EmbarquesCOMEXModule({data, setData, clientes, exportadoras, contratos,
             <div><div style={lblSt}>Estado</div><select disabled={!can} value={emb.estado} onChange={e=>upd("estado",e.target.value)} style={inputSt}>{ESTADOS_EMB.map(s=><option key={s}>{s}</option>)}</select></div>
             <div><div style={lblSt}>ETD</div><DateInput disabled={!can} value={emb.etd||""} onChange={v=>upd("etd",v)} style={inputSt}/></div>
             <div><div style={lblSt}>ETA</div><DateInput disabled={!can} value={emb.eta||""} onChange={v=>upd("eta",v)} style={inputSt}/></div>
+            {emb.programaComercialId&&(()=>{
+              const pg=(programasComerciales||[]).find(p=>p.id===emb.programaComercialId);
+              if(!pg) return null;
+              return <div style={{gridColumn:"1/-1",padding:"8px 12px",background:"#2563eb11",border:"1px solid #2563eb44",borderRadius:8,fontSize:11,color:"#60a5fa"}}>📊 Programa: {pg.clienteNombre} · {pg.especie}{pg.variedad?` (${pg.variedad})`:""} · W{pg.semanaIni}-W{pg.semanaFin}</div>;
+            })()}
             {emb.contratoOrigenId&&(()=>{
               const ct=(contratos||[]).find(c=>c.id===emb.contratoOrigenId);
               if(!ct) return null;
@@ -594,11 +648,24 @@ function EmbarquesCOMEXModule({data, setData, clientes, exportadoras, contratos,
             <h3 style={{margin:"0 0 16px",color:"#e6edf3"}}>Nuevo Embarque</h3>
             <div style={{display:"grid",gap:12}}>
               <div>
+                <div style={lblSt}>Programa Comercial (opcional)</div>
+                <select value={form.programaComercialId||""} onChange={e=>setProgramaElegido(e.target.value)} style={inputSt}>
+                  <option value="">— Sin programa (carga libre)</option>
+                  {programasActivos.map(p=>(
+                    <option key={p.id} value={p.id}>
+                      {p.clienteNombre} · {p.especie}{p.variedad?` (${p.variedad})`:""} · W{p.semanaIni}-W{p.semanaFin}
+                    </option>
+                  ))}
+                </select>
+                {programasActivos.length===0&&<div style={{fontSize:10,color:"#8b949e",marginTop:4,fontStyle:"italic"}}>Sin programas comerciales activos. Puedes crear el embarque sin programa.</div>}
+              </div>
+              <div>
                 <div style={lblSt}>Contrato origen (Business Closure)</div>
                 <select value={form.contratoOrigenId||""} onChange={e=>setContratoElegido(e.target.value)} style={inputSt}>
                   <option value="">— Sin contrato (manual)</option>
-                  {contratosVigentes.map(c=><option key={c.id} value={c.id}>{c.clienteNombre} ↔ {c.exportadoraNombre} · {c.especie} · {c.comisionPct}%</option>)}
+                  {bcsParaSelect.map(c=><option key={c.id} value={c.id}>{c.clienteNombre} ↔ {c.exportadoraNombre} · {c.especie} · {c.comisionPct}%</option>)}
                 </select>
+                {form.programaComercialId&&bcsParaSelect.length>0&&<div style={{fontSize:10,color:"#2563eb",marginTop:4,fontStyle:"italic"}}>Mostrando solo BCs de exportadoras asignadas al programa</div>}
                 {contratosVigentes.length===0&&<div style={{fontSize:10,color:"#d97706",marginTop:4,fontStyle:"italic"}}>⚠️ Sin contratos vigentes en temporada {temporada}</div>}
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -612,7 +679,7 @@ function EmbarquesCOMEXModule({data, setData, clientes, exportadoras, contratos,
                 </div>
                 <div>
                   <div style={lblSt}>Cliente</div>
-                  <select disabled={!!form.contratoOrigenId} value={form.clienteId||""} onChange={e=>{
+                  <select disabled={!!form.contratoOrigenId||!!form.programaComercialId} value={form.clienteId||""} onChange={e=>{
                     const cl=(clientes||[]).find(c=>c.id===e.target.value);
                     setForm(p=>({...p,clienteId:e.target.value,cliente:cl?.nombre||""}));
                   }} style={inputSt}>
@@ -632,9 +699,9 @@ function EmbarquesCOMEXModule({data, setData, clientes, exportadoras, contratos,
                 </div>
                 <div>
                   <div style={lblSt}>Especie</div>
-                  <select disabled={!!form.contratoOrigenId} value={form.especie||""} onChange={e=>setForm(p=>({...p,especie:e.target.value}))} style={inputSt}>
+                  <select disabled={!!form.contratoOrigenId||!!form.programaComercialId} value={form.especie||""} onChange={e=>setForm(p=>({...p,especie:e.target.value}))} style={inputSt}>
                     <option value="">—</option>
-                    {ESPECIES_FRISKU.map(e=><option key={e}>{e}</option>)}
+                    {especies.map(e=><option key={e}>{e}</option>)}
                   </select>
                 </div>
                 <div>
@@ -642,6 +709,7 @@ function EmbarquesCOMEXModule({data, setData, clientes, exportadoras, contratos,
                   <input value={form.destino||""} onChange={e=>setForm(p=>({...p,destino:e.target.value}))} style={inputSt}/>
                 </div>
               </div>
+              {form.programaComercialId&&<div style={{fontSize:10,color:"#2563eb",fontStyle:"italic"}}>✓ Vinculado a programa comercial · cliente y especie pre-cargados</div>}
               {form.contratoOrigenId&&<div style={{fontSize:10,color:"#16a34a",fontStyle:"italic"}}>✓ Cliente, exportadora y especie pre-cargados del contrato</div>}
             </div>
             <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
@@ -1046,25 +1114,107 @@ function LiquidacionesCobrosModule({data, setData, cobros, setCobros, embarques,
 
 
 // ═══════════════════════════════════════════════════════════════════
-// PROGRAMA & LOADING (Programa semanal por temporada)
+// PROGRAMA & LOADING (Real vs Programa Comercial)
 // ═══════════════════════════════════════════════════════════════════
-function ProgramaModule({data, setData, embarques, contratos, clientes, exportadoras, can, temporada}) {
-  // Vista agregada de embarques agrupados por semana ISO
-  const semanas = useMemo(()=>{
+function ProgramaModule({data, setData, embarques, contratos, programasComerciales=[], clientes, exportadoras, can, temporada, especies}) {
+  const [vista, setVista] = useState("comparativo"); // "comparativo" | "semanal" | "exportadora"
+
+  // Helper: número ISO de semana de una fecha
+  function semanaISO(dateStr){
+    if(!dateStr) return null;
+    const d=new Date(dateStr);
+    const o=new Date(d.getFullYear(),0,1);
+    return Math.ceil((((d-o)/86400000)+o.getDay()+1)/7);
+  }
+
+  // Semana ISO actual
+  function semanaActual(){
+    const hoy=new Date();
+    const o=new Date(hoy.getFullYear(),0,1);
+    return Math.ceil((((hoy-o)/86400000)+o.getDay()+1)/7);
+  }
+
+  // ─── Vista 1: COMPARATIVO POR PROGRAMA COMERCIAL ───
+  const comparativo = useMemo(()=>{
+    const programasT = (programasComerciales||[]).filter(p=>p.temporada===temporada);
+    const embT = (embarques||[]).filter(e=>e.temporada===temporada);
+    const semHoy = semanaActual();
+
+    return programasT.map(pg=>{
+      const semIni = parseInt(pg.semanaIni)||0;
+      const semFin = parseInt(pg.semanaFin)||0;
+      const objetivo = parseFloat(pg.volumenObjetivo)||0;
+      // Sumar asignaciones
+      const asignaciones = pg.asignaciones||[];
+      const totalAsignado = asignaciones.reduce((s,a)=>s+(parseFloat(a.contenedoresTotal)||0),0);
+      const contenedoresPorSemanaTotal = asignaciones.reduce((s,a)=>s+(parseFloat(a.contenedoresSemana)||0),0);
+
+      // Embarques reales vinculados a este programa
+      const embsDelProg = embT.filter(e=>e.programaComercialId===pg.id);
+      const totalReal = embsDelProg.length;
+
+      // Programado a la fecha (suma de cont/sem × semanas corridas)
+      let programadoAFecha = 0;
+      if(semIni && semFin && contenedoresPorSemanaTotal>0){
+        if(semHoy>=semIni){
+          const semCorridas = Math.min(semHoy, semFin) - semIni + 1;
+          programadoAFecha = semCorridas * contenedoresPorSemanaTotal;
+        }
+      }
+
+      const cumplimiento = programadoAFecha>0 ? (totalReal/programadoAFecha)*100 : 0;
+      let estado = "—";
+      let estadoColor = "#8b949e";
+      if(programadoAFecha>0){
+        if(cumplimiento>=95 && cumplimiento<=105) {estado="En línea"; estadoColor="#16a34a";}
+        else if(cumplimiento>105) {estado="Adelantado"; estadoColor="#0ea5e9";}
+        else if(cumplimiento<95 && cumplimiento>=70) {estado="Levemente atrasado"; estadoColor="#d97706";}
+        else if(cumplimiento<70) {estado="Atrasado"; estadoColor="#dc2626";}
+      } else if(objetivo>0 && semHoy<semIni){
+        estado="Por iniciar"; estadoColor="#8b949e";
+      }
+
+      return {
+        programa: pg,
+        totalAsignado,
+        totalReal,
+        programadoAFecha: Math.round(programadoAFecha*10)/10,
+        cumplimiento: Math.round(cumplimiento),
+        estado, estadoColor,
+        semIni, semFin, contenedoresPorSemanaTotal,
+        nExportadoras: asignaciones.filter(a=>a.exportadoraId).length,
+      };
+    });
+  },[programasComerciales, embarques, temporada]);
+
+  // ─── Vista 2: POR SEMANA (consolidado) ───
+  const porSemana = useMemo(()=>{
     const map={};
+    // Real: contar embarques por semana de ETD
     (embarques||[]).filter(e=>e.temporada===temporada).forEach(e=>{
       if(!e.etd) return;
-      const d=new Date(e.etd);
-      const o=new Date(d.getFullYear(),0,1);
-      const w=Math.ceil((((d-o)/86400000)+o.getDay()+1)/7);
-      const key=`${d.getFullYear()}-W${String(w).padStart(2,"0")}`;
-      if(!map[key]) map[key]={semana:key,embarques:[],totalCajas:0};
-      map[key].embarques.push(e);
+      const w=semanaISO(e.etd);
+      const key=`W${String(w).padStart(2,"0")}`;
+      if(!map[key]) map[key]={semana:key,wNum:w,real:0,programado:0};
+      map[key].real++;
     });
-    return Object.values(map).sort((a,b)=>a.semana.localeCompare(b.semana));
-  },[embarques,temporada]);
+    // Programado: sumar cont/sem de todas las asignaciones activas que cubren cada semana
+    (programasComerciales||[]).filter(p=>p.temporada===temporada && p.estado!=="Cancelado").forEach(p=>{
+      const ini=parseInt(p.semanaIni)||0;
+      const fin=parseInt(p.semanaFin)||0;
+      if(!ini||!fin) return;
+      const csTotal = (p.asignaciones||[]).reduce((s,a)=>s+(parseFloat(a.contenedoresSemana)||0),0);
+      if(csTotal<=0) return;
+      for(let w=ini; w<=fin; w++){
+        const key=`W${String(w).padStart(2,"0")}`;
+        if(!map[key]) map[key]={semana:key,wNum:w,real:0,programado:0};
+        map[key].programado += csTotal;
+      }
+    });
+    return Object.values(map).sort((a,b)=>a.wNum-b.wNum);
+  },[embarques, programasComerciales, temporada]);
 
-  // Stats por exportadora y por cliente
+  // ─── Vista 3: POR EXPORTADORA ───
   const porExportadora = useMemo(()=>{
     const map={};
     (embarques||[]).filter(e=>e.temporada===temporada).forEach(e=>{
@@ -1078,46 +1228,125 @@ function ProgramaModule({data, setData, embarques, contratos, clientes, exportad
     return Object.values(map).sort((a,b)=>b.n-a.n);
   },[embarques,exportadoras,temporada]);
 
+  const VISTAS=[
+    {id:"comparativo",label:"📊 Real vs Programado"},
+    {id:"semanal",label:"📅 Por semana"},
+    {id:"exportadora",label:"🏭 Por exportadora"},
+  ];
+
   return (
     <div>
-      <div style={{fontSize:13,fontWeight:700,color:"#e6edf3",marginBottom:14}}>📊 Vista programática · Temporada {temporada}</div>
-
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:18}}>
-        <div style={{background:"#1c2333",padding:14,borderRadius:10,border:"1px solid #30363d"}}>
-          <div style={{fontSize:11,color:"#8b949e",marginBottom:8,textTransform:"uppercase",letterSpacing:1}}>Embarques por semana ETD</div>
-          <div style={{maxHeight:220,overflowY:"auto"}}>
-            {semanas.length===0?<div style={{color:"#484f58",fontSize:11,padding:14,textAlign:"center"}}>Sin embarques con ETD definido</div>:
-            semanas.map(s=>(
-              <div key={s.semana} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #30363d22"}}>
-                <span style={{fontSize:11,color:"#e6edf3",fontFamily:"monospace"}}>{s.semana}</span>
-                <span style={{fontSize:10,padding:"2px 10px",background:"#0ea5e922",color:"#0ea5e9",borderRadius:10,fontWeight:700}}>{s.embarques.length} emb.</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{background:"#1c2333",padding:14,borderRadius:10,border:"1px solid #30363d"}}>
-          <div style={{fontSize:11,color:"#8b949e",marginBottom:8,textTransform:"uppercase",letterSpacing:1}}>Por exportadora</div>
-          <div style={{maxHeight:220,overflowY:"auto"}}>
-            {porExportadora.length===0?<div style={{color:"#484f58",fontSize:11,padding:14,textAlign:"center"}}>Sin datos</div>:
-            porExportadora.map(x=>(
-              <div key={x.nombre} style={{padding:"6px 0",borderBottom:"1px solid #30363d22"}}>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#e6edf3",fontWeight:600}}>
-                  <span>{x.nombre}</span><span>{x.n} emb.</span>
-                </div>
-                <div style={{display:"flex",gap:4,marginTop:3}}>
-                  {x.llegados>0&&<span style={{fontSize:9,padding:"1px 6px",background:"#16a34a22",color:"#16a34a",borderRadius:6}}>{x.llegados} llegados</span>}
-                  {x.enTransito>0&&<span style={{fontSize:9,padding:"1px 6px",background:"#0ea5e922",color:"#0ea5e9",borderRadius:6}}>{x.enTransito} en tránsito</span>}
-                  {x.programados>0&&<span style={{fontSize:9,padding:"1px 6px",background:"#d9770622",color:"#d97706",borderRadius:6}}>{x.programados} programados</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#e6edf3"}}>📊 Programa & Loading · Temporada {temporada}</div>
       </div>
 
-      <div style={{fontSize:13,fontWeight:700,color:"#e6edf3",marginBottom:10}}>📝 Loading Update — notas semanales para clientes</div>
-      <div style={{fontSize:11,color:"#8b949e",marginBottom:10,fontStyle:"italic"}}>Las actualizaciones de carga se guardan en cada embarque individual (tab Tracking). En la sesión 3 generaremos un reporte semanal consolidado automático para clientes.</div>
+      <div style={{padding:"10px 14px",background:"#1c2333",borderRadius:8,marginBottom:14,fontSize:11,color:"#8b949e",fontStyle:"italic"}}>
+        💡 Esta vista compara los embarques reales contra los programas comerciales definidos. Para que aparezca un programa aquí, debe estar creado en <strong style={{color:"#2563eb"}}>Programas Comerciales</strong> con exportadoras asignadas.
+      </div>
+
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        {VISTAS.map(v=><button key={v.id} onClick={()=>setVista(v.id)} style={{padding:"6px 14px",borderRadius:8,border:vista===v.id?"2px solid #2563eb":"1px solid #30363d",background:vista===v.id?"#2563eb":"transparent",color:vista===v.id?"#fff":"#8b949e",cursor:"pointer",fontSize:11,fontWeight:700}}>{v.label}</button>)}
+      </div>
+
+      {/* ─── VISTA COMPARATIVO ─── */}
+      {vista==="comparativo"&&(
+        <div>
+          {comparativo.length===0?
+            <div style={{padding:30,textAlign:"center",color:"#484f58",border:"1px solid #30363d",borderRadius:10,fontSize:11}}>Sin programas comerciales en esta temporada. Crea uno en el módulo Programas Comerciales.</div>
+            :<div style={{overflowX:"auto",borderRadius:10,border:"1px solid #30363d"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead><tr style={{background:"#161b22"}}>{["Programa","Especie","Ventana","Exp.","Real / Esperado","Cumplim.","Estado"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8b949e",fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
+                <tbody>{comparativo.map(c=>(
+                  <tr key={c.programa.id} style={{borderBottom:"1px solid #30363d22"}}>
+                    <td style={{padding:"6px 10px",color:"#e6edf3",fontWeight:600}}>{c.programa.clienteNombre}</td>
+                    <td style={{padding:"6px 10px"}}>
+                      <span style={{fontSize:9,background:"#0ea5e922",color:"#0ea5e9",padding:"1px 6px",borderRadius:10,fontWeight:600}}>{c.programa.especie||"—"}</span>
+                      {c.programa.variedad&&<span style={{fontSize:10,color:"#8b949e",marginLeft:6}}>{c.programa.variedad}</span>}
+                    </td>
+                    <td style={{padding:"6px 10px",color:"#8b949e",fontSize:10}}>
+                      {c.semIni&&c.semFin?
+                        <span>W{c.semIni}-W{c.semFin} · {c.contenedoresPorSemanaTotal}/sem · <strong style={{color:"#e6edf3"}}>{c.totalAsignado} asignados</strong></span>
+                        :<span style={{fontStyle:"italic",color:"#484f58"}}>Sin ventana definida</span>
+                      }
+                    </td>
+                    <td style={{padding:"6px 10px"}}>
+                      <span style={{fontSize:10,padding:"2px 8px",background:"#0f766e22",color:"#0f766e",borderRadius:10,fontWeight:700}}>{c.nExportadoras}</span>
+                    </td>
+                    <td style={{padding:"6px 10px",fontSize:11}}>
+                      <span style={{fontWeight:700,color:"#e6edf3"}}>{c.totalReal}</span>
+                      {c.programadoAFecha>0&&<span style={{color:"#8b949e"}}> / {c.programadoAFecha}</span>}
+                    </td>
+                    <td style={{padding:"6px 10px"}}>
+                      {c.programadoAFecha>0?
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <div style={{flex:1,height:6,background:"#21283b",borderRadius:3,overflow:"hidden",minWidth:60}}>
+                            <div style={{height:"100%",width:`${Math.min(c.cumplimiento,150)*0.66}%`,background:c.estadoColor,transition:"all 0.3s"}}/>
+                          </div>
+                          <span style={{fontSize:10,fontWeight:700,color:c.estadoColor}}>{c.cumplimiento}%</span>
+                        </div>
+                        :<span style={{color:"#484f58"}}>—</span>
+                      }
+                    </td>
+                    <td style={{padding:"6px 10px"}}>
+                      <span style={{fontSize:9,padding:"2px 8px",borderRadius:10,fontWeight:700,background:`${c.estadoColor}22`,color:c.estadoColor}}>{c.estado}</span>
+                    </td>
+                  </tr>))}
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      )}
+
+      {/* ─── VISTA SEMANAL ─── */}
+      {vista==="semanal"&&(
+        <div>
+          {porSemana.length===0?
+            <div style={{padding:30,textAlign:"center",color:"#484f58",border:"1px solid #30363d",borderRadius:10,fontSize:11}}>Sin datos para mostrar (revisar ETDs de embarques y programas comerciales)</div>
+            :<div style={{overflowX:"auto",borderRadius:10,border:"1px solid #30363d"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead><tr style={{background:"#161b22"}}>{["Semana","Programado","Real","Desviación","Cumplim."].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8b949e",fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
+                <tbody>{porSemana.map(s=>{
+                  const desv = s.real - s.programado;
+                  const cumpl = s.programado>0 ? Math.round((s.real/s.programado)*100) : null;
+                  const desvColor = desv===0?"#8b949e":desv>0?"#0ea5e9":"#d97706";
+                  return(
+                  <tr key={s.semana} style={{borderBottom:"1px solid #30363d22"}}>
+                    <td style={{padding:"6px 10px",fontFamily:"monospace",fontWeight:700,color:"#e6edf3"}}>{s.semana}</td>
+                    <td style={{padding:"6px 10px"}}><span style={{color:"#8b949e"}}>{s.programado||"—"}</span></td>
+                    <td style={{padding:"6px 10px"}}><span style={{fontWeight:700,color:"#e6edf3"}}>{s.real}</span></td>
+                    <td style={{padding:"6px 10px"}}>{s.programado>0?<span style={{fontWeight:700,color:desvColor}}>{desv>0?"+":""}{desv}</span>:<span style={{color:"#484f58"}}>—</span>}</td>
+                    <td style={{padding:"6px 10px"}}>{cumpl!==null?<span style={{fontWeight:700,color:cumpl>=95&&cumpl<=105?"#16a34a":cumpl>105?"#0ea5e9":"#d97706"}}>{cumpl}%</span>:<span style={{color:"#484f58"}}>—</span>}</td>
+                  </tr>);})}
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      )}
+
+      {/* ─── VISTA EXPORTADORA ─── */}
+      {vista==="exportadora"&&(
+        <div>
+          {porExportadora.length===0?
+            <div style={{padding:30,textAlign:"center",color:"#484f58",border:"1px solid #30363d",borderRadius:10,fontSize:11}}>Sin embarques en esta temporada</div>
+            :<div style={{overflowX:"auto",borderRadius:10,border:"1px solid #30363d"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead><tr style={{background:"#161b22"}}>{["Exportadora","Total","Llegados","En tránsito","Programados"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",color:"#8b949e",fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
+                <tbody>{porExportadora.map(x=>(
+                  <tr key={x.nombre} style={{borderBottom:"1px solid #30363d22"}}>
+                    <td style={{padding:"6px 10px",fontWeight:600,color:"#e6edf3"}}>{x.nombre}</td>
+                    <td style={{padding:"6px 10px",fontWeight:700,color:"#e6edf3"}}>{x.n}</td>
+                    <td style={{padding:"6px 10px"}}>{x.llegados>0&&<span style={{fontSize:10,padding:"2px 8px",background:"#16a34a22",color:"#16a34a",borderRadius:10,fontWeight:700}}>{x.llegados}</span>}</td>
+                    <td style={{padding:"6px 10px"}}>{x.enTransito>0&&<span style={{fontSize:10,padding:"2px 8px",background:"#0ea5e922",color:"#0ea5e9",borderRadius:10,fontWeight:700}}>{x.enTransito}</span>}</td>
+                    <td style={{padding:"6px 10px"}}>{x.programados>0&&<span style={{fontSize:10,padding:"2px 8px",background:"#d9770622",color:"#d97706",borderRadius:10,fontWeight:700}}>{x.programados}</span>}</td>
+                  </tr>))}
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      )}
     </div>
   );
 }
@@ -1264,6 +1493,344 @@ function MaestrosModule({data, setData, embarques, contratos, clientes, exportad
             </div>
           ))}
         </div>}
+
+      <div style={{marginTop:24,fontSize:12,fontWeight:700,color:"#e6edf3",marginBottom:10}}>🍇 Especies del catálogo</div>
+      <EspeciesEditor data={data} setData={setData} can={can}/>
+    </div>
+  );
+}
+
+// ── Editor de especies custom ──
+function EspeciesEditor({data, setData, can}) {
+  const [nueva, setNueva] = useState("");
+  const custom = Array.isArray(data?.especiesCustom) ? data.especiesCustom : [];
+
+  function agregar(){
+    const v = (nueva||"").trim();
+    if(!v) return;
+    if(ESPECIES_BASE.map(s=>s.toLowerCase()).includes(v.toLowerCase())) {
+      alert(`"${v}" ya está en el catálogo base.`);
+      return;
+    }
+    if(custom.map(s=>s.toLowerCase()).includes(v.toLowerCase())) {
+      alert(`"${v}" ya está agregada.`);
+      return;
+    }
+    setData(p=>({...p, especiesCustom:[...custom, v]}));
+    setNueva("");
+  }
+  function eliminar(esp){
+    if(!window.confirm(`¿Quitar "${esp}" del catálogo? (los registros existentes con esa especie seguirán mostrándola)`)) return;
+    setData(p=>({...p, especiesCustom: custom.filter(x=>x!==esp)}));
+  }
+
+  return (
+    <div style={{padding:14,background:"#161b22",borderRadius:10,border:"1px solid #30363d"}}>
+      <div style={{fontSize:10,color:"#8b949e",marginBottom:10,fontStyle:"italic"}}>El catálogo base incluye: {ESPECIES_BASE.join(", ")}. Aquí puedes agregar especies adicionales que aparecerán en todos los selectores del módulo.</div>
+      {custom.length>0&&(
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+          {custom.map(e=>(
+            <span key={e} style={{fontSize:11,padding:"4px 10px 4px 12px",background:"#7c3aed22",color:"#a78bfa",borderRadius:20,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+              {e}
+              {can&&<button onClick={()=>eliminar(e)} style={{background:"transparent",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>}
+            </span>
+          ))}
+        </div>
+      )}
+      {custom.length===0&&<div style={{fontSize:11,color:"#484f58",marginBottom:12,fontStyle:"italic"}}>Sin especies adicionales por ahora.</div>}
+      {can&&(
+        <div style={{display:"flex",gap:6}}>
+          <input value={nueva} onChange={e=>setNueva(e.target.value)} placeholder="Ej: Frutillas, Granadas, Mangos..." onKeyDown={e=>{if(e.key==="Enter")agregar();}} style={{...inputSt,flex:1}}/>
+          <button onClick={agregar} style={{background:"#7c3aed",color:"#fff",border:"none",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontWeight:700,fontSize:11}}>+ Agregar</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROGRAMAS COMERCIALES (Solicitud cliente → asignación a exportadoras)
+// ═══════════════════════════════════════════════════════════════════
+const ESTADOS_PC = ["Solicitado","En asignación","Activo","Cerrado","Cancelado"];
+function colorEstadoPC(est){
+  if(est==="Activo") return "#16a34a";
+  if(est==="Cerrado") return "#0ea5e9";
+  if(est==="Cancelado") return "#dc2626";
+  if(est==="En asignación") return "#d97706";
+  return "#8b949e";
+}
+
+function ProgramasComercialesModule({data, setData, contratos, clientes, exportadoras, can, temporada, especies=ESPECIES_FRISKU}) {
+  const [modal, setModal] = useState(false);
+  const [detalle, setDetalle] = useState(null);
+  const EMPTY_PROG = {
+    clienteId:"", clienteNombre:"",
+    especie:"", variedad:"", calibre:"",
+    semanaIni:0, semanaFin:0,
+    volumenObjetivo:0,
+    estado:"Solicitado",
+    asignaciones:[],
+    notas:"",
+    temporada: temporada||"",
+  };
+  const [form, setForm] = useState(EMPTY_PROG);
+
+  const filtrado = (data||[]).filter(p=>p.temporada===temporada);
+  const prog = detalle ? (data||[]).find(p=>p.id===detalle) : null;
+
+  function updProg(f, v){
+    setData(prev=>prev.map(p=>p.id===detalle?{...p,[f]:v}:p));
+  }
+
+  function guardar(){
+    if(!form.clienteId){alert("Cliente solicitante obligatorio.");return;}
+    if(!form.especie){alert("Especie obligatoria.");return;}
+    const cl = (clientes||[]).find(c=>c.id===form.clienteId);
+    const nuevo = {
+      ...form,
+      id:`fpc_${Date.now()}`,
+      clienteNombre: cl?.nombre || "",
+      fechaCreacion: new Date().toISOString().slice(0,10),
+      temporada,
+    };
+    setData(prev=>[...prev, nuevo]);
+    setForm(EMPTY_PROG);
+    setModal(false);
+  }
+
+  // Calcular totales asignados
+  function totalAsignado(p){
+    return (p.asignaciones||[]).reduce((s,a)=>s+(parseFloat(a.contenedoresTotal)||0),0);
+  }
+
+  // ─── DETALLE de un programa ───
+  if(prog){
+    const semIni = parseInt(prog.semanaIni)||0;
+    const semFin = parseInt(prog.semanaFin)||0;
+    const nSemanas = (semIni&&semFin&&semFin>=semIni) ? (semFin-semIni+1) : 0;
+    const asignaciones = prog.asignaciones||[];
+    const asignado = totalAsignado(prog);
+    const objetivo = parseFloat(prog.volumenObjetivo)||0;
+    const saldo = objetivo - asignado;
+    const estCol = colorEstadoPC(prog.estado);
+
+    // BCs vigentes del cliente (para elegir exportadora con BC)
+    const bcsVigentesDelCliente = (contratos||[]).filter(c =>
+      c.temporada===temporada &&
+      c.clienteId===prog.clienteId &&
+      (c.estado==="Firmado" || c.estado==="Vigente")
+    );
+
+    function addAsignacion(){
+      const nueva = {
+        id:`asg_${Date.now()}`,
+        exportadoraId:"", exportadoraNombre:"",
+        contratoBCId:"",
+        contenedoresSemana:0,
+        contenedoresTotal:0,
+      };
+      updProg("asignaciones",[...asignaciones, nueva]);
+    }
+    function updAsignacion(idx, campo, valor){
+      const nuevas = [...asignaciones];
+      nuevas[idx] = {...nuevas[idx], [campo]: valor};
+      // Si asignan exportadora, buscar BC vigente y pre-llenar
+      if(campo==="exportadoraId"){
+        const ex = (exportadoras||[]).find(x=>x.id===valor);
+        nuevas[idx].exportadoraNombre = ex?.nombre || "";
+        const bc = bcsVigentesDelCliente.find(c=>c.exportadoraId===valor);
+        if(bc) nuevas[idx].contratoBCId = bc.id;
+      }
+      // Si cambian contenedoresSemana o las semanas, recalcular total
+      if(campo==="contenedoresSemana"){
+        const cs = parseFloat(valor)||0;
+        nuevas[idx].contenedoresTotal = nSemanas>0 ? cs*nSemanas : nuevas[idx].contenedoresTotal;
+      }
+      updProg("asignaciones", nuevas);
+    }
+    function delAsignacion(idx){
+      if(!window.confirm("¿Eliminar esta asignación?")) return;
+      const nuevas = [...asignaciones]; nuevas.splice(idx,1);
+      updProg("asignaciones", nuevas);
+    }
+
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+          <button onClick={()=>setDetalle(null)} style={{background:"#21283b",border:"1px solid #30363d",borderRadius:8,padding:"6px 14px",cursor:"pointer",color:"#8b949e",fontSize:12}}>← Volver</button>
+          <h3 style={{margin:0,color:"#e6edf3",fontSize:16}}>📊 Programa: {prog.clienteNombre} · {prog.especie}{prog.variedad?` (${prog.variedad})`:""}</h3>
+          <select disabled={!can} value={prog.estado||"Solicitado"} onChange={e=>updProg("estado",e.target.value)} style={{fontSize:11,padding:"4px 10px",borderRadius:14,border:`2px solid ${estCol}`,background:`${estCol}22`,color:estCol,fontWeight:700,cursor:"pointer"}}>
+            {ESTADOS_PC.map(s=><option key={s}>{s}</option>)}
+          </select>
+        </div>
+
+        {/* Datos del programa */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:18}}>
+          <div><div style={lblSt}>Cliente solicitante</div><div style={{fontSize:13,fontWeight:700,color:"#e6edf3"}}>{prog.clienteNombre}</div></div>
+          <div>
+            <div style={lblSt}>Especie</div>
+            <select disabled={!can} value={prog.especie||""} onChange={e=>updProg("especie",e.target.value)} style={inputSt}>
+              {especies.map(e=><option key={e}>{e}</option>)}
+            </select>
+          </div>
+          <div><div style={lblSt}>Variedad</div><input disabled={!can} value={prog.variedad||""} onChange={e=>updProg("variedad",e.target.value)} style={inputSt}/></div>
+          <div><div style={lblSt}>Calibre / spec</div><input disabled={!can} value={prog.calibre||""} onChange={e=>updProg("calibre",e.target.value)} placeholder="L+, M, etc." style={inputSt}/></div>
+          <div><div style={lblSt}>Semana inicio (ISO)</div><input type="number" min="1" max="53" disabled={!can} value={prog.semanaIni||""} onChange={e=>updProg("semanaIni",parseInt(e.target.value)||0)} style={inputSt}/></div>
+          <div><div style={lblSt}>Semana fin (ISO)</div><input type="number" min="1" max="53" disabled={!can} value={prog.semanaFin||""} onChange={e=>updProg("semanaFin",parseInt(e.target.value)||0)} style={inputSt}/></div>
+          <div><div style={lblSt}>Volumen objetivo (contenedores)</div><input type="number" disabled={!can} value={prog.volumenObjetivo||""} onChange={e=>updProg("volumenObjetivo",parseFloat(e.target.value)||0)} style={inputSt}/></div>
+          <div><div style={lblSt}>Fecha creación</div><div style={{fontSize:12,color:"#8b949e",padding:"7px 0"}}>{prog.fechaCreacion}</div></div>
+          <div><div style={lblSt}>N° semanas</div><div style={{fontSize:13,fontWeight:700,color:"#2563eb",padding:"7px 0"}}>{nSemanas||"—"}</div></div>
+        </div>
+
+        {/* Resumen objetivo vs asignado */}
+        <div style={{padding:14,background:"#161b22",borderRadius:10,border:"1px solid #30363d",marginBottom:18}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,textAlign:"center"}}>
+            <div>
+              <div style={{fontSize:10,color:"#8b949e",textTransform:"uppercase",letterSpacing:1}}>Objetivo</div>
+              <div style={{fontSize:20,fontWeight:800,color:"#e6edf3"}}>{objetivo||"—"}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#8b949e",textTransform:"uppercase",letterSpacing:1}}>Asignado</div>
+              <div style={{fontSize:20,fontWeight:800,color:asignado<=objetivo?"#16a34a":"#dc2626"}}>{asignado}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#8b949e",textTransform:"uppercase",letterSpacing:1}}>Saldo</div>
+              <div style={{fontSize:20,fontWeight:800,color:saldo===0?"#0ea5e9":saldo>0?"#d97706":"#dc2626"}}>{saldo>0?"+":""}{saldo}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Asignaciones a exportadoras */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#e6edf3"}}>🏭 Asignaciones a exportadoras Frisku</div>
+          {can&&<button onClick={addAsignacion} style={{background:"#2563eb",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontWeight:700,fontSize:11}}>+ Agregar exportadora</button>}
+        </div>
+
+        {asignaciones.length===0?
+          <div style={{padding:24,textAlign:"center",color:"#484f58",border:"1px dashed #30363d",borderRadius:10,fontSize:11}}>Sin asignaciones. Agrega una o varias exportadoras Frisku que cumplan este programa.</div>
+          :<div style={{overflowX:"auto",borderRadius:10,border:"1px solid #30363d"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+              <thead><tr style={{background:"#161b22"}}>{["Exportadora","Business Closure","Cont./sem","Total cont.","Comisión",""].map(h=><th key={h} style={{padding:"6px 10px",textAlign:"left",color:"#8b949e",fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
+              <tbody>{asignaciones.map((a,idx)=>{
+                const bc = (contratos||[]).find(c=>c.id===a.contratoBCId);
+                const bcsParaEsta = bcsVigentesDelCliente.filter(c=>!asignaciones.some((x,i)=>i!==idx&&x.exportadoraId===c.exportadoraId) || c.exportadoraId===a.exportadoraId);
+                return (
+                <tr key={a.id} style={{borderBottom:"1px solid #30363d22"}}>
+                  <td style={{padding:"6px 10px",minWidth:180}}>
+                    <select disabled={!can} value={a.exportadoraId||""} onChange={e=>updAsignacion(idx,"exportadoraId",e.target.value)} style={{...inputSt,padding:"4px 8px"}}>
+                      <option value="">— elegir exportadora —</option>
+                      {(exportadoras||[]).map(x=>(<option key={x.id} value={x.id}>{x.nombre}</option>))}
+                    </select>
+                  </td>
+                  <td style={{padding:"6px 10px",fontSize:10}}>
+                    {bc?
+                      <span style={{color:"#16a34a",fontWeight:600}}>✓ BC vigente · {bc.comisionPct||0}%</span>
+                      :a.exportadoraId?
+                        <span style={{color:"#d97706",fontWeight:600}}>⚠ Sin BC vigente</span>
+                        :<span style={{color:"#484f58"}}>—</span>
+                    }
+                  </td>
+                  <td style={{padding:"6px 10px",maxWidth:90}}>
+                    <input type="number" step="0.5" disabled={!can} value={a.contenedoresSemana||""} onChange={e=>updAsignacion(idx,"contenedoresSemana",parseFloat(e.target.value)||0)} style={{...inputSt,padding:"4px 6px"}}/>
+                  </td>
+                  <td style={{padding:"6px 10px",maxWidth:90}}>
+                    <input type="number" disabled={!can} value={a.contenedoresTotal||""} onChange={e=>updAsignacion(idx,"contenedoresTotal",parseFloat(e.target.value)||0)} style={{...inputSt,padding:"4px 6px"}}/>
+                  </td>
+                  <td style={{padding:"6px 10px",fontSize:10,color:"#d97706",fontWeight:700}}>{bc?`${bc.comisionPct||0}%`:"—"}</td>
+                  <td style={{padding:"6px 10px"}}>
+                    {can&&<button onClick={()=>delAsignacion(idx)} style={{background:"transparent",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14}}>🗑</button>}
+                  </td>
+                </tr>);
+              })}</tbody>
+            </table>
+          </div>}
+
+        <div style={{marginTop:18}}>
+          <div style={lblSt}>Notas del programa</div>
+          <textarea disabled={!can} value={prog.notas||""} onChange={e=>updProg("notas",e.target.value)} placeholder="Origen de la solicitud, condiciones especiales, plazos..." style={{...inputSt,minHeight:60}}/>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── LISTADO ───
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#e6edf3"}}>📊 Programas Comerciales · Temporada {temporada}</div>
+        {can&&<button onClick={()=>{setForm({...EMPTY_PROG,temporada});setModal(true);}} style={{background:"#2563eb",color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Nuevo Programa</button>}
+      </div>
+
+      <div style={{padding:"10px 14px",background:"#1c2333",borderRadius:8,marginBottom:14,fontSize:11,color:"#8b949e",fontStyle:"italic"}}>
+        💡 Un programa comercial parte de la solicitud de un cliente y puede asignarse a varias exportadoras Frisku que tengan un Business Closure vigente con ese cliente.
+      </div>
+
+      <div style={{overflowX:"auto",borderRadius:10,border:"1px solid #30363d"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead><tr style={{background:"#161b22"}}>{["Cliente","Especie / Var.","Ventana","Objetivo","Asignado","Exportadoras","Estado",""].map(h=><th key={h} style={{padding:"6px 10px",textAlign:"left",color:"#8b949e",fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
+          <tbody>{filtrado.map(p=>{
+            const asignado = totalAsignado(p);
+            const objetivo = parseFloat(p.volumenObjetivo)||0;
+            const nExp = (p.asignaciones||[]).filter(a=>a.exportadoraId).length;
+            const estCol = colorEstadoPC(p.estado);
+            return (
+              <tr key={p.id} onClick={()=>setDetalle(p.id)} style={{borderBottom:"1px solid #30363d22",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#2563eb11"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <td style={{padding:"6px 10px",fontWeight:600,color:"#e6edf3"}}>{p.clienteNombre}</td>
+                <td style={{padding:"6px 10px"}}>
+                  <span style={{fontSize:9,background:"#0ea5e922",color:"#0ea5e9",padding:"1px 6px",borderRadius:10,fontWeight:600}}>{p.especie||"—"}</span>
+                  {p.variedad&&<span style={{fontSize:10,color:"#8b949e",marginLeft:6}}>{p.variedad}</span>}
+                </td>
+                <td style={{padding:"6px 10px",fontFamily:"monospace",color:"#8b949e",fontSize:10}}>{p.semanaIni&&p.semanaFin?`W${p.semanaIni}-W${p.semanaFin}`:"—"}</td>
+                <td style={{padding:"6px 10px",fontWeight:700,color:"#e6edf3"}}>{objetivo||"—"}</td>
+                <td style={{padding:"6px 10px",fontWeight:700,color:asignado===objetivo?"#16a34a":asignado>objetivo?"#dc2626":"#d97706"}}>{asignado}</td>
+                <td style={{padding:"6px 10px"}}>
+                  <span style={{fontSize:10,padding:"2px 8px",background:"#0f766e22",color:"#0f766e",borderRadius:10,fontWeight:700}}>{nExp}</span>
+                </td>
+                <td style={{padding:"6px 10px"}}>
+                  <span style={{fontSize:9,padding:"2px 8px",borderRadius:10,fontWeight:700,background:`${estCol}22`,color:estCol}}>{p.estado||"Solicitado"}</span>
+                </td>
+                <td style={{padding:"6px 10px",color:"#2563eb",fontWeight:700}}>Ver →</td>
+              </tr>);
+          })}
+          {filtrado.length===0&&<tr><td colSpan={8} style={{padding:30,textAlign:"center",color:"#484f58"}}>Sin programas comerciales en esta temporada</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal nuevo programa */}
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(false)}>
+          <div style={{background:"#1c2333",borderRadius:14,padding:24,maxWidth:560,width:"100%",border:"1px solid #30363d",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:"0 0 6px",color:"#e6edf3"}}>Nuevo Programa Comercial</h3>
+            <div style={{fontSize:10,color:"#8b949e",marginBottom:16,fontStyle:"italic"}}>Parte de la solicitud de un cliente. Las exportadoras se asignan después en el detalle.</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div style={{gridColumn:"1/-1"}}>
+                <div style={lblSt}>Cliente solicitante *</div>
+                <select value={form.clienteId||""} onChange={e=>setForm(p=>({...p,clienteId:e.target.value}))} style={inputSt} autoFocus>
+                  <option value="">—</option>
+                  {(clientes||[]).map(c=><option key={c.id} value={c.id}>{c.nombre}{c.pais?` (${c.pais})`:""}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={lblSt}>Especie *</div>
+                <select value={form.especie||""} onChange={e=>setForm(p=>({...p,especie:e.target.value}))} style={inputSt}>
+                  <option value="">—</option>
+                  {especies.map(e=><option key={e}>{e}</option>)}
+                </select>
+              </div>
+              <div><div style={lblSt}>Variedad</div><input value={form.variedad||""} onChange={e=>setForm(p=>({...p,variedad:e.target.value}))} style={inputSt}/></div>
+              <div><div style={lblSt}>Calibre/spec</div><input value={form.calibre||""} onChange={e=>setForm(p=>({...p,calibre:e.target.value}))} placeholder="L+, M..." style={inputSt}/></div>
+              <div><div style={lblSt}>Volumen objetivo (cont.)</div><input type="number" value={form.volumenObjetivo||""} onChange={e=>setForm(p=>({...p,volumenObjetivo:parseFloat(e.target.value)||0}))} style={inputSt}/></div>
+              <div><div style={lblSt}>Semana inicio</div><input type="number" min="1" max="53" value={form.semanaIni||""} onChange={e=>setForm(p=>({...p,semanaIni:parseInt(e.target.value)||0}))} placeholder="ej: 18" style={inputSt}/></div>
+              <div><div style={lblSt}>Semana fin</div><input type="number" min="1" max="53" value={form.semanaFin||""} onChange={e=>setForm(p=>({...p,semanaFin:parseInt(e.target.value)||0}))} placeholder="ej: 30" style={inputSt}/></div>
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>setModal(false)} style={{padding:"8px 18px",borderRadius:8,border:"1px solid #30363d",background:"transparent",color:"#8b949e",cursor:"pointer"}}>Cancelar</button>
+              <button onClick={guardar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:"#2563eb",color:"#fff",cursor:"pointer",fontWeight:700}}>Crear programa</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1303,7 +1870,7 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
   const [showMaestros, setShowMaestros] = useState(false);
 
   const [data, setData] = useState({
-    clientes:[], exportadoras:[], contratos:[], programas:[], embarques:[],
+    clientes:[], exportadoras:[], contratos:[], programas:[], programasComerciales:[], embarques:[],
     qcOrigen:[], qcDestino:[], liquidaciones:[], cobros:[], informes:[],
     maestros:{contactos:[],fichas:[],noContactar:[],correosReportes:[]},
     hubCardsOrder:null
@@ -1317,13 +1884,13 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
   const canBase = typeof esSoloConsulta === "function" ? !esSoloConsulta(usuarioActual?.nombre) : !esSoloConsulta;
   // Rol específico Frisku (preparado para cuando se contrate comercial dedicado)
   // rolFrisku puede ser: null (admin normal) | "comercial" (edita ops) | "lectura" (solo ver)
-  // Comercial puede editar: clientes, exportadoras, contratos, embarques, liquidaciones, cobros
+  // Comercial puede editar: clientes, exportadoras, contratos, programas-comerciales, embarques, liquidaciones, cobros
   // Comercial NO puede: editar configuración del hub, hubCardsOrder
   const canPorModulo = (modulo) => {
     if(!canBase) return false;
     if(rolFrisku==="lectura") return false;
     if(rolFrisku==="comercial") {
-      const permitidos = ["clientes","exportadoras","contratos","embarques","liquidaciones","qc","programa"];
+      const permitidos = ["clientes","exportadoras","contratos","programas-comerciales","embarques","liquidaciones","qc","programa"];
       return permitidos.includes(modulo);
     }
     return true; // admin u otro: editar todo
@@ -1331,11 +1898,15 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
   // can por defecto (compatible con código anterior que pasa "can" como prop)
   const can = canBase;
 
+  // Lista combinada de especies (base + custom guardadas en data)
+  const especies = useMemo(()=>getEspecies(data.especiesCustom),[data.especiesCustom]);
+
   // Setters
   const setClientes = fn => setData(p=>({...p, clientes: typeof fn==="function"?fn(p.clientes||[]):fn}));
   const setExportadoras = fn => setData(p=>({...p, exportadoras: typeof fn==="function"?fn(p.exportadoras||[]):fn}));
   const setContratos = fn => setData(p=>({...p, contratos: typeof fn==="function"?fn(p.contratos||[]):fn}));
   const setProgramas = fn => setData(p=>({...p, programas: typeof fn==="function"?fn(p.programas||[]):fn}));
+  const setProgramasComerciales = fn => setData(p=>({...p, programasComerciales: typeof fn==="function"?fn(p.programasComerciales||[]):fn}));
   const setEmbarques = fn => setData(p=>({...p, embarques: typeof fn==="function"?fn(p.embarques||[]):fn}));
   const setLiquidaciones = fn => setData(p=>({...p, liquidaciones: typeof fn==="function"?fn(p.liquidaciones||[]):fn}));
   const setCobros = fn => setData(p=>({...p, cobros: typeof fn==="function"?fn(p.cobros||[]):fn}));
@@ -1345,9 +1916,12 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
     (async()=>{
       const d = await dbLoadFrisku();
       if(d) {
+        // Asegurar campos nuevos para data antigua (compatibilidad)
+        if(!Array.isArray(d.programasComerciales)) d.programasComerciales = [];
+        if(!Array.isArray(d.especiesCustom)) d.especiesCustom = [];
         setData(d);
         window._lastSavedFrisku = {};
-        ["clientes","exportadoras","contratos","embarques","liquidaciones"].forEach(k=>{
+        ["clientes","exportadoras","contratos","programasComerciales","embarques","liquidaciones"].forEach(k=>{
           if(Array.isArray(d[k])) window._lastSavedFrisku[k] = d[k].length;
         });
         console.log("[Frisku] Cargado. Protección:", JSON.stringify(window._lastSavedFrisku));
@@ -1388,15 +1962,16 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
 
   // SUBAPPS
   const SUBAPPS = [
-    {id:"clientes",       label:"Clientes",               desc:"Importadores que Frisku representa a nivel mundial",                    icon:"👥", color:"#b91c1c", stats:`${(data.clientes||[]).length} clientes`},
-    {id:"exportadoras",   label:"Exportadoras",            desc:"Proveedores de fruta fresca de Chile y Latinoamérica",                  icon:"🏭", color:"#0f766e", stats:`${(data.exportadoras||[]).length} exportadoras`},
-    {id:"contratos",      label:"Business Closure",        desc:"Contratos y acuerdos cliente ↔ exportadora por temporada",              icon:"📋", color:"#7c3aed", stats:`${(data.contratos||[]).length} contratos`},
-    {id:"programa",       label:"Programa & Loading",      desc:"Programa de embarques, carga semanal, loading update a clientes",       icon:"📊", color:"#2563eb", stats:`${(data.programas||[]).length} programas`},
-    {id:"embarques",      label:"Embarques & COMEX",       desc:"Orden embarque, docs (BL, Factura, CO, Fito), despacho, tracking",      icon:"🚢", color:"#0ea5e9", stats:`${(data.embarques||[]).length} embarques`, alert:alertasDocsPendientes>0?`⚠️ ${alertasDocsPendientes} docs pendientes`:null},
-    {id:"qc",             label:"QC & Procedimientos",     desc:"QC origen, QC destino, LMR, homologación productores",                  icon:"🔍", color:"#16a34a", stats:`${(data.qcOrigen||[]).length + (data.qcDestino||[]).length} QC`},
-    {id:"liquidaciones",  label:"Liquidaciones & Cobros",  desc:"Liquidación cliente/exportadora, cobro comisión, facturación",          icon:"💰", color:"#d97706", stats:`${(data.liquidaciones||[]).length} liq.`, alert:alertasLiqRetraso>0?`🔴 ${alertasLiqRetraso} retrasadas`:alertasCobro>0?`⏳ ${alertasCobro} cobros pend.`:null},
-    {id:"informes",       label:"Informes & Reportes",     desc:"Reporte mercado, shipping summary, informe carga semanal",              icon:"📈", color:"#6366f1", stats:"Reportes"},
-    {id:"maestros",       label:"Maestros & Alarmas",      desc:"Contactos, fichas, listas, alertas de docs/pagos/QC",                   icon:"⚙️", color:"#64748b", stats:"Config"},
+    {id:"clientes",              label:"Clientes",               desc:"Importadores que Frisku representa a nivel mundial",                    icon:"👥", color:"#b91c1c", stats:`${(data.clientes||[]).length} clientes`},
+    {id:"exportadoras",          label:"Exportadoras",            desc:"Proveedores de fruta fresca de Chile y Latinoamérica",                  icon:"🏭", color:"#0f766e", stats:`${(data.exportadoras||[]).length} exportadoras`},
+    {id:"contratos",             label:"Business Closure",        desc:"Acuerdos marco cliente ↔ exportadora por temporada",                    icon:"📋", color:"#7c3aed", stats:`${(data.contratos||[]).length} contratos`},
+    {id:"programas-comerciales", label:"Programas Comerciales",   desc:"Solicitudes de cliente asignadas a una o varias exportadoras Frisku",   icon:"📝", color:"#2563eb", stats:`${(data.programasComerciales||[]).length} programas`},
+    {id:"programa",              label:"Programa & Loading",      desc:"Vista comparativa Real vs Programado por programa comercial",           icon:"📊", color:"#60a5fa", stats:"Real vs Prog."},
+    {id:"embarques",             label:"Embarques & COMEX",       desc:"Orden embarque, docs (BL, Factura, CO, Fito), despacho, tracking",      icon:"🚢", color:"#0ea5e9", stats:`${(data.embarques||[]).length} embarques`, alert:alertasDocsPendientes>0?`⚠️ ${alertasDocsPendientes} docs pendientes`:null},
+    {id:"qc",                    label:"QC & Procedimientos",     desc:"QC origen, QC destino, LMR, homologación productores",                  icon:"🔍", color:"#16a34a", stats:`${(data.qcOrigen||[]).length + (data.qcDestino||[]).length} QC`},
+    {id:"liquidaciones",         label:"Liquidaciones & Cobros",  desc:"Liquidación cliente/exportadora, cobro comisión, facturación",          icon:"💰", color:"#d97706", stats:`${(data.liquidaciones||[]).length} liq.`, alert:alertasLiqRetraso>0?`🔴 ${alertasLiqRetraso} retrasadas`:alertasCobro>0?`⏳ ${alertasCobro} cobros pend.`:null},
+    {id:"informes",              label:"Informes & Reportes",     desc:"Reporte mercado, shipping summary, informe carga semanal",              icon:"📈", color:"#6366f1", stats:"Reportes"},
+    {id:"maestros",              label:"Maestros & Alarmas",      desc:"Contactos, fichas, listas, alertas de docs/pagos/QC",                   icon:"⚙️", color:"#64748b", stats:"Config"},
   ];
 
   if(cargando) return <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted,fontFamily:"sans-serif"}}>Cargando Frisku Foods...</div>;
@@ -1422,11 +1997,12 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
         <button onClick={onLogout} style={{background:C.accent,color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12}}>Salir</button>
       </div>
       <Card>
-          {subApp==="clientes"&&<ClientesModule data={data.clientes||[]} setData={setClientes} can={canPorModulo("clientes")}/>}
-          {subApp==="exportadoras"&&<ExportadorasModule data={data.exportadoras||[]} setData={setExportadoras} can={canPorModulo("exportadoras")}/>}
-          {subApp==="contratos"&&<BusinessClosureModule data={data.contratos||[]} setData={setContratos} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} can={canPorModulo("contratos")} temporada={tempSeleccionada}/>}
-          {subApp==="programa"&&<ProgramaModule data={data.programas||[]} setData={setProgramas} embarques={data.embarques||[]} contratos={data.contratos||[]} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} can={canPorModulo("programa")} temporada={tempSeleccionada}/>}
-          {subApp==="embarques"&&<EmbarquesCOMEXModule data={data.embarques||[]} setData={setEmbarques} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} contratos={data.contratos||[]} can={canPorModulo("embarques")} temporada={tempSeleccionada}/>}
+          {subApp==="clientes"&&<ClientesModule data={data.clientes||[]} setData={setClientes} can={canPorModulo("clientes")} especies={especies}/>}
+          {subApp==="exportadoras"&&<ExportadorasModule data={data.exportadoras||[]} setData={setExportadoras} can={canPorModulo("exportadoras")} especies={especies}/>}
+          {subApp==="contratos"&&<BusinessClosureModule data={data.contratos||[]} setData={setContratos} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} can={canPorModulo("contratos")} temporada={tempSeleccionada} especies={especies}/>}
+          {subApp==="programas-comerciales"&&<ProgramasComercialesModule data={data.programasComerciales||[]} setData={setProgramasComerciales} contratos={data.contratos||[]} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} can={canPorModulo("programas-comerciales")} temporada={tempSeleccionada} especies={especies}/>}
+          {subApp==="programa"&&<ProgramaModule data={data.programas||[]} setData={setProgramas} embarques={data.embarques||[]} contratos={data.contratos||[]} programasComerciales={data.programasComerciales||[]} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} can={canPorModulo("programa")} temporada={tempSeleccionada} especies={especies}/>}
+          {subApp==="embarques"&&<EmbarquesCOMEXModule data={data.embarques||[]} setData={setEmbarques} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} contratos={data.contratos||[]} programasComerciales={data.programasComerciales||[]} can={canPorModulo("embarques")} temporada={tempSeleccionada} especies={especies}/>}
           {subApp==="qc"&&<QCModule embarques={data.embarques||[]} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} can={canPorModulo("qc")} temporada={tempSeleccionada}/>}
           {subApp==="liquidaciones"&&<LiquidacionesCobrosModule data={data.liquidaciones||[]} setData={setLiquidaciones} cobros={data.cobros||[]} setCobros={setCobros} embarques={data.embarques||[]} contratos={data.contratos||[]} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} can={canPorModulo("liquidaciones")} temporada={tempSeleccionada}/>}
           {subApp==="informes"&&<PlaceholderModule icon="📈" title="Informes & Reportes" desc="Reporte de mercado, shipping summary, informe carga semanal, real vs proyectado. Se construye en Sesión 3."/>}
