@@ -763,7 +763,7 @@ function LiquidacionesCobrosModule({data, setData, cobros, setCobros, embarques,
       {id:`ln_${Date.now()}_2`, tipo:"advance_fee",    label:"Advance Fee",          esPct:false, monto:0},
       {id:`ln_${Date.now()}_3`, tipo:"bonificacion",   label:"Bonificación",         esPct:false, monto:0},
     ];
-    setForm(p=>({...p, embarqueId:embId, montoVentaUSD:0, lineasComision:lineas, contratoOrigenId: contrato?.id||"", observaciones:""}));
+    setForm(p=>({...p, embarqueId:embId, montoVentaUSD:0, lineasComision:lineas, contratoOrigenId: contrato?.id||"", precioFobUSD:0, notasPrecioFob:"", observaciones:""}));
   }
 
   // Recalcular monto cuando cambia % o venta
@@ -883,6 +883,7 @@ function LiquidacionesCobrosModule({data, setData, cobros, setCobros, embarques,
           <h3 style={{margin:0,color:"#e6edf3",fontSize:16}}>💰 Liquidación {liqDetalle.contenedor}</h3>
           <span style={{fontSize:10,padding:"4px 12px",borderRadius:20,background:"#d9770622",color:"#d97706",fontWeight:700}}>{liqDetalle.estado||"Pendiente"}</span>
         </div>
+
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
           <div><div style={lblSt}>Cliente</div><div style={{fontSize:13,fontWeight:700,color:"#e6edf3"}}>{liqDetalle.clienteNombre||"—"}</div></div>
           <div><div style={lblSt}>Exportadora</div><div style={{fontSize:13,fontWeight:700,color:"#e6edf3"}}>{liqDetalle.exportadoraNombre||"—"}</div></div>
@@ -907,53 +908,53 @@ function LiquidacionesCobrosModule({data, setData, cobros, setCobros, embarques,
           </select></div>
         </div>
 
-        <div style={{fontSize:13,fontWeight:700,color:"#e6edf3",marginBottom:10,marginTop:6}}>📊 Líneas de comisión</div>
+        <div style={{fontSize:13,fontWeight:700,color:"#e6edf3",marginBottom:10,marginTop:6}}>📊 Líneas de comisión Frisku</div>
         <div style={{overflowX:"auto",borderRadius:8,border:"1px solid #30363d",marginBottom:14}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-            <thead><tr style={{background:"#161b22"}}>{["Concepto","%","Monto USD",""].map(h=><th key={h} style={{padding:"6px 10px",textAlign:"left",color:"#8b949e",fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
-            <tbody>{lns.map((ln,idx)=>(
-              <tr key={ln.id} style={{borderBottom:"1px solid #30363d22"}}>
-                <td style={{padding:"4px 10px"}}>
-                  {ln.tipo==="custom"?
-                    <input disabled={!can} value={ln.label} onChange={e=>{
-                      const nl=[...lns]; nl[idx]={...nl[idx],label:e.target.value};
-                      updLiqDetalle("lineasComision",nl);
-                    }} style={{...inputSt,padding:"4px 6px"}}/>
-                    :<span style={{color:"#e6edf3",fontWeight:600}}>{ln.label}</span>
-                  }
-                </td>
-                <td style={{padding:"4px 10px"}}>
-                  {ln.esPct?
-                    <input type="number" step="0.1" disabled={!can} value={ln.pct||""} onChange={e=>{
-                      const pct=parseFloat(e.target.value)||0;
-                      const venta=parseFloat(liqDetalle.montoVentaUSD)||0;
-                      const nl=[...lns]; nl[idx]={...nl[idx],pct,monto:Math.round(venta*pct/100*100)/100};
-                      updLiqDetalle("lineasComision",nl);
-                    }} style={{...inputSt,padding:"4px 6px",maxWidth:80}}/>
-                    :<span style={{color:"#8b949e"}}>—</span>
-                  }
-                </td>
-                <td style={{padding:"4px 10px"}}>
-                  {ln.esPct?
-                    <span style={{fontWeight:700,color:"#d97706"}}>USD {(parseFloat(ln.monto)||0).toLocaleString()}</span>
-                    :<input type="number" disabled={!can} value={ln.monto||""} onChange={e=>{
-                      const nl=[...lns]; nl[idx]={...nl[idx],monto:parseFloat(e.target.value)||0};
-                      updLiqDetalle("lineasComision",nl);
-                    }} style={{...inputSt,padding:"4px 6px",maxWidth:120}}/>
-                  }
-                </td>
-                <td style={{padding:"4px 10px"}}>
-                  {can && ln.tipo==="custom" && <button onClick={()=>{const nl=[...lns]; nl.splice(idx,1); updLiqDetalle("lineasComision",nl);}} style={{background:"transparent",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14}}>🗑</button>}
-                </td>
-              </tr>
-            ))}
-            </tbody>
-          </table>
-        </div>
-        {can&&<button onClick={()=>{
-          const nl=[...lns,{id:`ln_${Date.now()}`,tipo:"custom",label:"Nuevo concepto",esPct:false,monto:0}];
-          updLiqDetalle("lineasComision",nl);
-        }} style={{background:"transparent",border:"1px dashed #30363d",borderRadius:8,padding:"6px 16px",cursor:"pointer",color:"#8b949e",fontSize:11}}>+ Agregar línea custom</button>}
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead><tr style={{background:"#161b22"}}>{["Concepto","%","Monto USD",""].map(h=><th key={h} style={{padding:"6px 10px",textAlign:"left",color:"#8b949e",fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
+                <tbody>{lns.map((ln,idx)=>(
+                  <tr key={ln.id} style={{borderBottom:"1px solid #30363d22"}}>
+                    <td style={{padding:"4px 10px"}}>
+                      {ln.tipo==="custom"?
+                        <input disabled={!can} value={ln.label} onChange={e=>{
+                          const nl=[...lns]; nl[idx]={...nl[idx],label:e.target.value};
+                          updLiqDetalle("lineasComision",nl);
+                        }} style={{...inputSt,padding:"4px 6px"}}/>
+                        :<span style={{color:"#e6edf3",fontWeight:600}}>{ln.label}</span>
+                      }
+                    </td>
+                    <td style={{padding:"4px 10px"}}>
+                      {ln.esPct?
+                        <input type="number" step="0.1" disabled={!can} value={ln.pct||""} onChange={e=>{
+                          const pct=parseFloat(e.target.value)||0;
+                          const venta=parseFloat(liqDetalle.montoVentaUSD)||0;
+                          const nl=[...lns]; nl[idx]={...nl[idx],pct,monto:Math.round(venta*pct/100*100)/100};
+                          updLiqDetalle("lineasComision",nl);
+                        }} style={{...inputSt,padding:"4px 6px",maxWidth:80}}/>
+                        :<span style={{color:"#8b949e"}}>—</span>
+                      }
+                    </td>
+                    <td style={{padding:"4px 10px"}}>
+                      {ln.esPct?
+                        <span style={{fontWeight:700,color:"#d97706"}}>USD {(parseFloat(ln.monto)||0).toLocaleString()}</span>
+                        :<input type="number" disabled={!can} value={ln.monto||""} onChange={e=>{
+                          const nl=[...lns]; nl[idx]={...nl[idx],monto:parseFloat(e.target.value)||0};
+                          updLiqDetalle("lineasComision",nl);
+                        }} style={{...inputSt,padding:"4px 6px",maxWidth:120}}/>
+                      }
+                    </td>
+                    <td style={{padding:"4px 10px"}}>
+                      {can && ln.tipo==="custom" && <button onClick={()=>{const nl=[...lns]; nl.splice(idx,1); updLiqDetalle("lineasComision",nl);}} style={{background:"transparent",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14}}>🗑</button>}
+                    </td>
+                  </tr>
+                ))}
+                </tbody>
+              </table>
+            </div>
+            {can&&<button onClick={()=>{
+              const nl=[...lns,{id:`ln_${Date.now()}`,tipo:"custom",label:"Nuevo concepto",esPct:false,monto:0}];
+              updLiqDetalle("lineasComision",nl);
+            }} style={{background:"transparent",border:"1px dashed #30363d",borderRadius:8,padding:"6px 16px",cursor:"pointer",color:"#8b949e",fontSize:11}}>+ Agregar línea custom</button>}
 
         <div style={{marginTop:18,padding:14,background:"#161b22",borderRadius:10,border:"1px solid #30363d"}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
@@ -968,6 +969,50 @@ function LiquidacionesCobrosModule({data, setData, cobros, setCobros, embarques,
             <span style={{color:"#e6edf3",fontWeight:700}}>Líquido a entregar:</span>
             <span style={{fontWeight:900,color:"#0ea5e9",fontSize:14}}>USD {liquido.toLocaleString()}</span>
           </div>
+        </div>
+
+        {/* Sección de Precio FOB y Margen */}
+        <div style={{marginTop:14,padding:14,background:"#7c3aed11",borderRadius:10,border:"1px solid #7c3aed44"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#a78bfa",marginBottom:10,display:"flex",alignItems:"center",gap:6}}>
+            🏷️ <span>Precio FOB Exportador</span>
+            <span style={{fontSize:9,fontWeight:600,color:"#8b949e",fontStyle:"italic"}}>(uso interno · base para análisis y reportes)</span>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:10}}>
+            <div>
+              <div style={lblSt}>Precio FOB USD (definitivo)</div>
+              <input type="number" disabled={!can} value={liqDetalle.precioFobUSD||""} onChange={e=>updLiqDetalle("precioFobUSD",parseFloat(e.target.value)||0)} placeholder="Cuando esté confirmado por exportadora" style={inputSt}/>
+            </div>
+            <div>
+              <div style={lblSt}>Estado del FOB</div>
+              <select disabled={!can} value={liqDetalle.estadoFob||"Pendiente"} onChange={e=>updLiqDetalle("estadoFob",e.target.value)} style={inputSt}>
+                <option>Pendiente</option><option>Provisorio</option><option>Definitivo</option><option>Con complementos</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div style={lblSt}>Notas FOB (complementos pendientes, ajustes, etc.)</div>
+            <textarea disabled={!can} value={liqDetalle.notasPrecioFob||""} onChange={e=>updLiqDetalle("notasPrecioFob",e.target.value)} placeholder="Ej: complemento de USD 1.500 pendiente para W22" style={{...inputSt,minHeight:40}}/>
+          </div>
+          {/* Margen Frisku visible solo si hay venta y FOB */}
+          {(parseFloat(liqDetalle.montoVentaUSD)>0 && parseFloat(liqDetalle.precioFobUSD)>0) && (()=>{
+            const venta = parseFloat(liqDetalle.montoVentaUSD)||0;
+            const fob = parseFloat(liqDetalle.precioFobUSD)||0;
+            const margenCliente = venta - fob;        // lo que el cliente gana en destino antes de comisión Frisku
+            const margenFrisku = totalCom;            // lo que Frisku se lleva
+            const margenClienteNeto = margenCliente - margenFrisku;  // lo que cliente gana neto
+            const margenPct = venta>0?(margenClienteNeto/venta*100):0;
+            return (
+              <div style={{marginTop:10,padding:10,background:"#0c1018",borderRadius:8,border:"1px solid #30363d"}}>
+                <div style={{fontSize:10,color:"#8b949e",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Análisis</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,fontSize:10}}>
+                  <div><div style={{color:"#8b949e"}}>Venta</div><div style={{color:"#16a34a",fontWeight:700}}>USD {venta.toLocaleString()}</div></div>
+                  <div><div style={{color:"#8b949e"}}>FOB</div><div style={{color:"#a78bfa",fontWeight:700}}>USD {fob.toLocaleString()}</div></div>
+                  <div><div style={{color:"#8b949e"}}>Margen cliente</div><div style={{color:"#e6edf3",fontWeight:700}}>USD {margenCliente.toLocaleString()}</div></div>
+                  <div><div style={{color:"#8b949e"}}>Margen %</div><div style={{color:margenPct>=15?"#16a34a":margenPct>=5?"#d97706":"#dc2626",fontWeight:700}}>{margenPct.toFixed(1)}%</div></div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         <div style={{marginTop:14}}>
@@ -1836,6 +1881,1037 @@ function ProgramasComercialesModule({data, setData, contratos, clientes, exporta
 }
 
 // PlaceholderModule fallback (por si se usa en algún lugar futuro)
+// ═══════════════════════════════════════════════════════════════════
+// REPORTES — UTILITIES (jsPDF loader, i18n, helpers cálculo)
+// ═══════════════════════════════════════════════════════════════════
+
+// Loader dinámico de jsPDF + autoTable
+let _jsPDFLoaded = false;
+async function loadJsPDF() {
+  if(_jsPDFLoaded && window.jspdf) return window.jspdf.jsPDF;
+  return new Promise((resolve, reject)=>{
+    const s1=document.createElement("script");
+    s1.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s1.onload=()=>{
+      const s2=document.createElement("script");
+      s2.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js";
+      s2.onload=()=>{ _jsPDFLoaded=true; resolve(window.jspdf.jsPDF); };
+      s2.onerror=reject;
+      document.head.appendChild(s2);
+    };
+    s1.onerror=reject;
+    document.head.appendChild(s1);
+  });
+}
+
+// Diccionario i18n ES/EN
+const I18N = {
+  es: {
+    shippingSummary:"Resumen de Embarques",
+    performance:"Performance de Exportador",
+    volumenesCargados:"Volúmenes Cargados Acumulados",
+    comparativaPrecios:"Comparativa de Precios",
+    reporteMercado:"Reporte de Mercado",
+    analisisInsights:"Análisis e Insights de Mercado",
+    statusEmbarques:"Status de Embarques Activos",
+    cumplimientoPrograma:"Cumplimiento del Programa Comercial",
+    resumenTemporada:"Resumen de Temporada",
+    temporada:"Temporada",
+    semana:"Semana",
+    fecha:"Fecha",
+    contenedor:"Contenedor",
+    cliente:"Cliente",
+    exportadora:"Exportadora",
+    especie:"Especie",
+    variedad:"Variedad",
+    destino:"Destino",
+    estado:"Estado",
+    etd:"ETD",
+    eta:"ETA",
+    programa:"Programa",
+    objetivo:"Objetivo",
+    real:"Real",
+    cumplimiento:"Cumplimiento",
+    precio:"Precio",
+    precioMercado:"Precio Mercado",
+    precioFob:"Precio FOB",
+    precioVenta:"Precio Venta",
+    margenCliente:"Margen Cliente",
+    fob:"FOB",
+    venta:"Venta",
+    desviacion:"Desviación",
+    total:"Total",
+    promedio:"Promedio",
+    contenedores:"Contenedores",
+    naviera:"Naviera",
+    booking:"Booking",
+    generadoEl:"Generado el",
+    paginaDe:"Página",
+    de:"de",
+    notas:"Notas",
+    calibre:"Calibre",
+    fuente:"Fuente",
+    todos:"Todos",
+    sinDatos:"Sin datos para este reporte",
+    filtros:"Filtros",
+    confidencial:"Confidencial · Información comercial",
+    paraExportador:"Reporte para Exportador",
+    paraCliente:"Reporte para Cliente",
+    insightsTitulo:"Análisis del Comercial",
+    via:"Vía",
+    docs:"Documentos",
+    documento:"Documento",
+    cantidad:"Cantidad",
+    porSemana:"Por Semana",
+    porEspecie:"Por Especie",
+    porExportadora:"Por Exportadora",
+    asignado:"Asignado",
+    saldo:"Saldo",
+    enLinea:"En línea",
+    atrasado:"Atrasado",
+    adelantado:"Adelantado",
+    porIniciar:"Por iniciar",
+  },
+  en: {
+    shippingSummary:"Shipping Summary",
+    performance:"Exporter Performance",
+    volumenesCargados:"Cumulative Loaded Volumes",
+    comparativaPrecios:"Price Comparison",
+    reporteMercado:"Market Report",
+    analisisInsights:"Market Analysis & Insights",
+    statusEmbarques:"Active Shipments Status",
+    cumplimientoPrograma:"Commercial Program Compliance",
+    resumenTemporada:"Season Summary",
+    temporada:"Season",
+    semana:"Week",
+    fecha:"Date",
+    contenedor:"Container",
+    cliente:"Client",
+    exportadora:"Exporter",
+    especie:"Species",
+    variedad:"Variety",
+    destino:"Destination",
+    estado:"Status",
+    etd:"ETD",
+    eta:"ETA",
+    programa:"Program",
+    objetivo:"Target",
+    real:"Actual",
+    cumplimiento:"Achievement",
+    precio:"Price",
+    precioMercado:"Market Price",
+    precioFob:"FOB Price",
+    precioVenta:"Sale Price",
+    margenCliente:"Client Margin",
+    fob:"FOB",
+    venta:"Sale",
+    desviacion:"Deviation",
+    total:"Total",
+    promedio:"Average",
+    contenedores:"Containers",
+    naviera:"Carrier",
+    booking:"Booking",
+    generadoEl:"Generated on",
+    paginaDe:"Page",
+    de:"of",
+    notas:"Notes",
+    calibre:"Size",
+    fuente:"Source",
+    todos:"All",
+    sinDatos:"No data for this report",
+    filtros:"Filters",
+    confidencial:"Confidential · Commercial information",
+    paraExportador:"Exporter Report",
+    paraCliente:"Client Report",
+    insightsTitulo:"Commercial Analysis",
+    via:"Mode",
+    docs:"Documents",
+    documento:"Document",
+    cantidad:"Quantity",
+    porSemana:"By Week",
+    porEspecie:"By Species",
+    porExportadora:"By Exporter",
+    asignado:"Allocated",
+    saldo:"Balance",
+    enLinea:"On track",
+    atrasado:"Behind",
+    adelantado:"Ahead",
+    porIniciar:"Pending start",
+  }
+};
+function t(idioma,key){ return (I18N[idioma]||I18N.es)[key]||key; }
+
+// Helpers de cálculo para reportes
+function semanaISOde(dateStr){
+  if(!dateStr) return null;
+  const d=new Date(dateStr);
+  const o=new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-o)/86400000)+o.getDay()+1)/7);
+}
+function semanaISOActual(){
+  const hoy=new Date();
+  const o=new Date(hoy.getFullYear(),0,1);
+  return Math.ceil((((hoy-o)/86400000)+o.getDay()+1)/7);
+}
+
+// PDF header común (con logo y título)
+function pdfAddHeader(doc, idioma, titulo, opts={}){
+  const W = doc.internal.pageSize.getWidth();
+  // Banda superior
+  doc.setFillColor(28, 35, 51);
+  doc.rect(0, 0, W, 22, "F");
+  // Logo placeholder (cuando subas el real, lo reemplazamos)
+  doc.setTextColor(216, 119, 6);
+  doc.setFontSize(16);
+  doc.setFont("helvetica","bold");
+  doc.text("FRISKU FOODS", 12, 14);
+  // Título
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(11);
+  doc.setFont("helvetica","normal");
+  doc.text(titulo, W-12, 14, {align:"right"});
+  // Subtítulo opcional
+  if(opts.subtitulo){
+    doc.setFillColor(245,247,250);
+    doc.rect(0, 22, W, 8, "F");
+    doc.setTextColor(100);
+    doc.setFontSize(9);
+    doc.text(opts.subtitulo, 12, 28);
+  }
+  doc.setTextColor(0);
+  return opts.subtitulo ? 36 : 28;
+}
+
+// PDF footer común
+function pdfAddFooter(doc, idioma){
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const pageCount = doc.internal.getNumberOfPages();
+  const hoy = new Date().toLocaleString();
+  for(let i=1; i<=pageCount; i++){
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(140);
+    doc.text(`${t(idioma,"generadoEl")}: ${hoy}`, 12, H-6);
+    doc.text(`${t(idioma,"paginaDe")} ${i} ${t(idioma,"de")} ${pageCount}`, W-12, H-6, {align:"right"});
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REPORTES PDF — 9 GENERADORES
+// ═══════════════════════════════════════════════════════════════════
+// Cada función recibe (datos, idioma, opts) y genera un PDF descargable
+
+async function generarShippingSummary(datos, idioma="es", opts={}) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({orientation:"landscape", unit:"mm", format:"a4"});
+  const filtros = opts.filtros||{};
+  const subtitulo = `${t(idioma,"temporada")} ${filtros.temporada||""} ${filtros.semana?`· W${filtros.semana}`:""}`;
+  let y = pdfAddHeader(doc, idioma, t(idioma,"shippingSummary"), {subtitulo});
+
+  const embarques = datos.embarques||[];
+  const clientes = datos.clientes||[];
+  const exportadoras = datos.exportadoras||[];
+
+  // Filtrar por semana si se especifica
+  const filtrados = embarques.filter(e=>{
+    if(filtros.temporada && e.temporada!==filtros.temporada) return false;
+    if(filtros.exportadoraId && e.exportadoraId!==filtros.exportadoraId) return false;
+    if(filtros.semana){
+      const w = semanaISOde(e.etd);
+      if(w!==filtros.semana) return false;
+    }
+    return true;
+  });
+
+  if(filtrados.length===0){
+    doc.setFontSize(11);
+    doc.text(t(idioma,"sinDatos"), 14, y+10);
+  } else {
+    const cuerpo = filtrados.map(e=>{
+      const cl = clientes.find(c=>c.id===e.clienteId)?.nombre || e.cliente || "—";
+      const ex = exportadoras.find(x=>x.id===e.exportadoraId)?.nombre || e.exportadora || "—";
+      return [
+        e.contenedor||"—",
+        ex,
+        opts.ocultarCliente?"—":cl,
+        e.especie||"—",
+        e.destino||"—",
+        e.etd||"—",
+        e.eta||"—",
+        e.via||"—",
+        e.estado||"—",
+      ];
+    });
+    doc.autoTable({
+      startY: y+4,
+      head: [[t(idioma,"contenedor"), t(idioma,"exportadora"), t(idioma,"cliente"),
+              t(idioma,"especie"), t(idioma,"destino"), t(idioma,"etd"),
+              t(idioma,"eta"), t(idioma,"via"), t(idioma,"estado")]],
+      body: cuerpo,
+      theme:"striped",
+      headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9},
+      bodyStyles:{fontSize:8},
+      alternateRowStyles:{fillColor:[245,247,250]},
+    });
+  }
+
+  doc.setFontSize(9);
+  doc.setTextColor(140);
+  doc.text(`${t(idioma,"total")}: ${filtrados.length} ${t(idioma,"contenedores")}`, 14, doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY+8 : y+16);
+
+  pdfAddFooter(doc, idioma);
+  doc.save(`shipping-summary-${filtros.temporada||"actual"}.pdf`);
+}
+
+async function generarPerformanceExportador(datos, idioma="es", opts={}) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+  const filtros = opts.filtros||{};
+  const ex = (datos.exportadoras||[]).find(x=>x.id===filtros.exportadoraId);
+  const subtitulo = `${ex?.nombre||"—"} · ${t(idioma,"temporada")} ${filtros.temporada||""}`;
+  let y = pdfAddHeader(doc, idioma, t(idioma,"performance"), {subtitulo});
+
+  const programas = (datos.programasComerciales||[]).filter(p=>{
+    if(filtros.temporada && p.temporada!==filtros.temporada) return false;
+    return (p.asignaciones||[]).some(a=>a.exportadoraId===filtros.exportadoraId);
+  });
+  const embarques = (datos.embarques||[]).filter(e=>{
+    if(filtros.temporada && e.temporada!==filtros.temporada) return false;
+    return e.exportadoraId===filtros.exportadoraId;
+  });
+
+  // Tabla: por programa, asignación vs real
+  const semHoy = semanaISOActual();
+  const filas = programas.map(pg=>{
+    const asg = (pg.asignaciones||[]).find(a=>a.exportadoraId===filtros.exportadoraId);
+    if(!asg) return null;
+    const totalAsignado = parseFloat(asg.contenedoresTotal)||0;
+    const contSem = parseFloat(asg.contenedoresSemana)||0;
+    const embsDelPg = embarques.filter(e=>e.programaComercialId===pg.id);
+    const real = embsDelPg.length;
+    const semIni=parseInt(pg.semanaIni)||0, semFin=parseInt(pg.semanaFin)||0;
+    let aFecha=0;
+    if(semIni && semFin && contSem && semHoy>=semIni){
+      const corridas = Math.min(semHoy, semFin) - semIni + 1;
+      aFecha = corridas * contSem;
+    }
+    const cumpl = aFecha>0 ? Math.round((real/aFecha)*100) : 0;
+    let estado=t(idioma,"porIniciar");
+    if(aFecha>0){
+      if(cumpl>=95 && cumpl<=105) estado=t(idioma,"enLinea");
+      else if(cumpl>105) estado=t(idioma,"adelantado");
+      else estado=t(idioma,"atrasado");
+    }
+    return [
+      opts.ocultarCliente?"—":pg.clienteNombre,
+      pg.especie||"—",
+      semIni&&semFin?`W${semIni}-W${semFin}`:"—",
+      String(totalAsignado),
+      String(real),
+      `${aFecha}`,
+      `${cumpl}%`,
+      estado,
+    ];
+  }).filter(Boolean);
+
+  if(filas.length===0){
+    doc.setFontSize(11);
+    doc.text(t(idioma,"sinDatos"), 14, y+10);
+  } else {
+    doc.autoTable({
+      startY: y+4,
+      head: [[t(idioma,"cliente"), t(idioma,"especie"), t(idioma,"semana"),
+              t(idioma,"asignado"), t(idioma,"real"), t(idioma,"objetivo"),
+              t(idioma,"cumplimiento"), t(idioma,"estado")]],
+      body: filas,
+      theme:"striped",
+      headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9},
+      bodyStyles:{fontSize:8},
+    });
+  }
+  pdfAddFooter(doc, idioma);
+  doc.save(`performance-${ex?.nombre||"exportador"}-${filtros.temporada||"actual"}.pdf`);
+}
+
+async function generarVolumenesAcumulados(datos, idioma="es", opts={}) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+  const filtros = opts.filtros||{};
+  const subtitulo = `${t(idioma,"temporada")} ${filtros.temporada||""}`;
+  let y = pdfAddHeader(doc, idioma, t(idioma,"volumenesCargados"), {subtitulo});
+
+  const embarques = (datos.embarques||[]).filter(e=>{
+    if(filtros.temporada && e.temporada!==filtros.temporada) return false;
+    if(filtros.exportadoraId && e.exportadoraId!==filtros.exportadoraId) return false;
+    return true;
+  });
+
+  // Por semana
+  const porSemana={};
+  embarques.forEach(e=>{
+    const w=semanaISOde(e.etd);
+    if(!w) return;
+    const k=`W${String(w).padStart(2,"0")}`;
+    porSemana[k]=(porSemana[k]||0)+1;
+  });
+  // Por especie
+  const porEspecie={};
+  embarques.forEach(e=>{
+    const k=e.especie||"—";
+    porEspecie[k]=(porEspecie[k]||0)+1;
+  });
+  // Por exportadora
+  const porExp={};
+  embarques.forEach(e=>{
+    const ex=(datos.exportadoras||[]).find(x=>x.id===e.exportadoraId)?.nombre||e.exportadora||"—";
+    porExp[ex]=(porExp[ex]||0)+1;
+  });
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica","bold");
+  doc.text(`${t(idioma,"total")}: ${embarques.length} ${t(idioma,"contenedores")}`, 14, y+8);
+  y += 14;
+
+  // Tabla por semana
+  doc.setFontSize(10);
+  doc.text(t(idioma,"porSemana"), 14, y);
+  doc.autoTable({
+    startY: y+2,
+    head: [[t(idioma,"semana"), t(idioma,"contenedores")]],
+    body: Object.entries(porSemana).sort().map(([w,n])=>[w, String(n)]),
+    theme:"striped", headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9}, bodyStyles:{fontSize:8},
+  });
+
+  y = doc.lastAutoTable.finalY + 8;
+  doc.text(t(idioma,"porEspecie"), 14, y);
+  doc.autoTable({
+    startY: y+2,
+    head: [[t(idioma,"especie"), t(idioma,"contenedores")]],
+    body: Object.entries(porEspecie).sort((a,b)=>b[1]-a[1]).map(([k,n])=>[k, String(n)]),
+    theme:"striped", headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9}, bodyStyles:{fontSize:8},
+  });
+
+  if(!filtros.exportadoraId){
+    y = doc.lastAutoTable.finalY + 8;
+    doc.text(t(idioma,"porExportadora"), 14, y);
+    doc.autoTable({
+      startY: y+2,
+      head: [[t(idioma,"exportadora"), t(idioma,"contenedores")]],
+      body: Object.entries(porExp).sort((a,b)=>b[1]-a[1]).map(([k,n])=>[k, String(n)]),
+      theme:"striped", headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9}, bodyStyles:{fontSize:8},
+    });
+  }
+
+  pdfAddFooter(doc, idioma);
+  doc.save(`volumenes-${filtros.temporada||"actual"}.pdf`);
+}
+
+async function generarComparativaPrecios(datos, idioma="es", opts={}) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({orientation:"landscape", unit:"mm", format:"a4"});
+  const filtros = opts.filtros||{};
+  const subtitulo = `${t(idioma,"temporada")} ${filtros.temporada||""}`;
+  let y = pdfAddHeader(doc, idioma, t(idioma,"comparativaPrecios"), {subtitulo});
+
+  const liquidaciones = (datos.liquidaciones||[]).filter(l=>{
+    if(filtros.temporada && l.temporada!==filtros.temporada) return false;
+    return true;
+  });
+  const preciosMercado = (datos.preciosMercado||[]).filter(p=>{
+    if(filtros.temporada && p.temporada!==filtros.temporada) return false;
+    return true;
+  });
+  const embarques = datos.embarques||[];
+
+  // Cruzar: para cada liquidación, encontrar precio mercado de su semana/especie/destino
+  const filas = liquidaciones.map(l=>{
+    const emb = embarques.find(e=>e.id===l.embarqueRefId);
+    if(!emb) return null;
+    const w = semanaISOde(emb.etd);
+    const fob = parseFloat(l.precioFobUSD)||0;
+    const venta = parseFloat(l.montoVentaUSD)||0;
+    const mercado = preciosMercado.find(p=>p.semana===w && p.especie===emb.especie && p.destino===emb.destino);
+    const precioMercado = mercado ? parseFloat(mercado.precioUSD)||0 : null;
+    const diff = (precioMercado!==null && venta>0) ? venta - precioMercado : null;
+    return [
+      `W${String(w||0).padStart(2,"0")}`,
+      emb.especie||"—",
+      emb.destino||"—",
+      l.contenedor||emb.contenedor||"—",
+      fob>0?`USD ${fob.toLocaleString()}`:"—",
+      venta>0?`USD ${venta.toLocaleString()}`:"—",
+      precioMercado!==null?`USD ${precioMercado.toLocaleString()}`:"—",
+      diff!==null?(diff>0?`+${diff.toLocaleString()}`:diff.toLocaleString()):"—",
+    ];
+  }).filter(Boolean);
+
+  if(filas.length===0){
+    doc.setFontSize(11);
+    doc.text(t(idioma,"sinDatos"), 14, y+10);
+  } else {
+    doc.autoTable({
+      startY: y+4,
+      head: [[t(idioma,"semana"), t(idioma,"especie"), t(idioma,"destino"),
+              t(idioma,"contenedor"), t(idioma,"precioFob"), t(idioma,"precioVenta"),
+              t(idioma,"precioMercado"), t(idioma,"desviacion")]],
+      body: filas,
+      theme:"striped",
+      headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9},
+      bodyStyles:{fontSize:8},
+    });
+  }
+
+  pdfAddFooter(doc, idioma);
+  doc.save(`comparativa-precios-${filtros.temporada||"actual"}.pdf`);
+}
+
+async function generarReporteMercado(datos, idioma="es", opts={}) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+  const filtros = opts.filtros||{};
+  const subtitulo = `${t(idioma,"temporada")} ${filtros.temporada||""} ${filtros.mes?`· ${filtros.mes}`:""}`;
+  let y = pdfAddHeader(doc, idioma, t(idioma,"reporteMercado"), {subtitulo});
+
+  const precios = (datos.preciosMercado||[]).filter(p=>{
+    if(filtros.temporada && p.temporada!==filtros.temporada) return false;
+    if(filtros.especie && p.especie!==filtros.especie) return false;
+    return true;
+  });
+
+  // Agrupar por especie × destino, calcular evolución de precios
+  const grupos = {};
+  precios.forEach(p=>{
+    const k = `${p.especie}-${p.destino}`;
+    if(!grupos[k]) grupos[k] = {especie:p.especie, destino:p.destino, semanas:[]};
+    grupos[k].semanas.push({sem:p.semana, precio:parseFloat(p.precioUSD)||0, fuente:p.fuente, calibre:p.calibre, notas:p.notas});
+  });
+
+  if(Object.keys(grupos).length===0){
+    doc.setFontSize(11);
+    doc.text(t(idioma,"sinDatos"), 14, y+10);
+  } else {
+    Object.values(grupos).forEach(g=>{
+      if(y > 250) { doc.addPage(); y = pdfAddHeader(doc, idioma, t(idioma,"reporteMercado"), {subtitulo}); }
+      doc.setFontSize(11);
+      doc.setFont("helvetica","bold");
+      doc.setTextColor(28,35,51);
+      doc.text(`${g.especie} · ${g.destino}`, 14, y+6);
+      const semOrd = g.semanas.sort((a,b)=>a.sem-b.sem);
+      const precs = semOrd.map(s=>s.precio).filter(p=>p>0);
+      const prom = precs.length>0 ? precs.reduce((a,b)=>a+b,0)/precs.length : 0;
+      doc.setFontSize(9);
+      doc.setFont("helvetica","normal");
+      doc.setTextColor(100);
+      doc.text(`${t(idioma,"promedio")}: USD ${prom.toFixed(2)}`, 14, y+11);
+      doc.autoTable({
+        startY: y+14,
+        head: [[t(idioma,"semana"), t(idioma,"calibre"), t(idioma,"precio"), t(idioma,"fuente"), t(idioma,"notas")]],
+        body: semOrd.map(s=>[`W${String(s.sem).padStart(2,"0")}`, s.calibre||"—", `USD ${s.precio.toLocaleString()}`, s.fuente||"—", s.notas||""]),
+        theme:"striped",
+        headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9},
+        bodyStyles:{fontSize:8},
+        margin:{left:14, right:14},
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    });
+  }
+
+  pdfAddFooter(doc, idioma);
+  doc.save(`reporte-mercado-${filtros.temporada||"actual"}.pdf`);
+}
+
+async function generarAnalisisInsights(datos, idioma="es", opts={}) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+  const filtros = opts.filtros||{};
+  const subtitulo = `${t(idioma,"temporada")} ${filtros.temporada||""}`;
+  let y = pdfAddHeader(doc, idioma, t(idioma,"analisisInsights"), {subtitulo});
+
+  const insightsTexto = opts.insightsTexto || (idioma==="en"
+    ? "Type your market analysis here. This space is for the commercial agent to describe market trends, observations, and recommendations based on the data."
+    : "Aquí va tu análisis del mercado. Este espacio es para que el comercial describa tendencias, observaciones y recomendaciones basadas en los datos.");
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica","bold");
+  doc.setTextColor(28,35,51);
+  doc.text(t(idioma,"insightsTitulo"), 14, y+6);
+  doc.setFontSize(10);
+  doc.setFont("helvetica","normal");
+  doc.setTextColor(60);
+  const lines = doc.splitTextToSize(insightsTexto, 180);
+  doc.text(lines, 14, y+14);
+
+  pdfAddFooter(doc, idioma);
+  doc.save(`analisis-mercado-${filtros.temporada||"actual"}.pdf`);
+}
+
+async function generarStatusEmbarques(datos, idioma="es", opts={}) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({orientation:"landscape", unit:"mm", format:"a4"});
+  const filtros = opts.filtros||{};
+  const cl = (datos.clientes||[]).find(c=>c.id===filtros.clienteId);
+  const subtitulo = `${cl?.nombre||"—"} · ${t(idioma,"temporada")} ${filtros.temporada||""}`;
+  let y = pdfAddHeader(doc, idioma, t(idioma,"statusEmbarques"), {subtitulo});
+
+  const activos = (datos.embarques||[]).filter(e=>{
+    if(filtros.temporada && e.temporada!==filtros.temporada) return false;
+    if(filtros.clienteId && e.clienteId!==filtros.clienteId) return false;
+    return e.estado!=="Cerrado";
+  });
+
+  if(activos.length===0){
+    doc.setFontSize(11);
+    doc.text(t(idioma,"sinDatos"), 14, y+10);
+  } else {
+    const filas = activos.map(e=>{
+      const ex=(datos.exportadoras||[]).find(x=>x.id===e.exportadoraId)?.nombre||e.exportadora||"—";
+      return [
+        e.contenedor||"—",
+        ex,
+        e.especie||"—",
+        e.destino||"—",
+        e.etd||"—",
+        e.eta||"—",
+        e.via||"—",
+        e.estado||"—",
+      ];
+    });
+    doc.autoTable({
+      startY: y+4,
+      head: [[t(idioma,"contenedor"), t(idioma,"exportadora"), t(idioma,"especie"),
+              t(idioma,"destino"), t(idioma,"etd"), t(idioma,"eta"),
+              t(idioma,"via"), t(idioma,"estado")]],
+      body: filas,
+      theme:"striped",
+      headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9},
+      bodyStyles:{fontSize:8},
+    });
+  }
+
+  pdfAddFooter(doc, idioma);
+  doc.save(`status-embarques-${cl?.nombre||"cliente"}.pdf`);
+}
+
+async function generarCumplimientoPrograma(datos, idioma="es", opts={}) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+  const filtros = opts.filtros||{};
+  const cl = (datos.clientes||[]).find(c=>c.id===filtros.clienteId);
+  const subtitulo = `${cl?.nombre||"—"} · ${t(idioma,"temporada")} ${filtros.temporada||""}`;
+  let y = pdfAddHeader(doc, idioma, t(idioma,"cumplimientoPrograma"), {subtitulo});
+
+  const programas = (datos.programasComerciales||[]).filter(p=>{
+    if(filtros.temporada && p.temporada!==filtros.temporada) return false;
+    if(filtros.clienteId && p.clienteId!==filtros.clienteId) return false;
+    return true;
+  });
+  const embarques = datos.embarques||[];
+
+  if(programas.length===0){
+    doc.setFontSize(11);
+    doc.text(t(idioma,"sinDatos"), 14, y+10);
+  } else {
+    programas.forEach(pg=>{
+      if(y > 230) { doc.addPage(); y = pdfAddHeader(doc, idioma, t(idioma,"cumplimientoPrograma"), {subtitulo}); }
+      doc.setFontSize(11);
+      doc.setFont("helvetica","bold");
+      doc.setTextColor(28,35,51);
+      doc.text(`${pg.especie}${pg.variedad?` (${pg.variedad})`:""} · W${pg.semanaIni}-W${pg.semanaFin}`, 14, y+6);
+
+      const objetivo = parseFloat(pg.volumenObjetivo)||0;
+      const embsDelPg = embarques.filter(e=>e.programaComercialId===pg.id);
+      const real = embsDelPg.length;
+      doc.setFontSize(9);
+      doc.setFont("helvetica","normal");
+      doc.setTextColor(100);
+      doc.text(`${t(idioma,"objetivo")}: ${objetivo} · ${t(idioma,"real")}: ${real} · ${t(idioma,"cumplimiento")}: ${objetivo>0?Math.round(real/objetivo*100):0}%`, 14, y+11);
+
+      const filas = (pg.asignaciones||[]).map(a=>{
+        const ex=(datos.exportadoras||[]).find(x=>x.id===a.exportadoraId)?.nombre||a.exportadoraNombre||"—";
+        const real = embarques.filter(e=>e.programaComercialId===pg.id && e.exportadoraId===a.exportadoraId).length;
+        return [
+          ex,
+          String(parseFloat(a.contenedoresTotal)||0),
+          String(real),
+          `${(a.contenedoresTotal>0)?Math.round(real/a.contenedoresTotal*100):0}%`,
+        ];
+      });
+      doc.autoTable({
+        startY: y+14,
+        head: [[t(idioma,"exportadora"), t(idioma,"asignado"), t(idioma,"real"), t(idioma,"cumplimiento")]],
+        body: filas,
+        theme:"striped", headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9}, bodyStyles:{fontSize:8},
+        margin:{left:14, right:14},
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    });
+  }
+
+  pdfAddFooter(doc, idioma);
+  doc.save(`cumplimiento-programa-${cl?.nombre||"cliente"}.pdf`);
+}
+
+async function generarResumenTemporada(datos, idioma="es", opts={}) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+  const filtros = opts.filtros||{};
+  const cl = filtros.clienteId ? (datos.clientes||[]).find(c=>c.id===filtros.clienteId) : null;
+  const subtitulo = `${cl?cl.nombre:"Global"} · ${t(idioma,"temporada")} ${filtros.temporada||""}`;
+  let y = pdfAddHeader(doc, idioma, t(idioma,"resumenTemporada"), {subtitulo});
+
+  const embarques = (datos.embarques||[]).filter(e=>{
+    if(filtros.temporada && e.temporada!==filtros.temporada) return false;
+    if(filtros.clienteId && e.clienteId!==filtros.clienteId) return false;
+    return true;
+  });
+  const programas = (datos.programasComerciales||[]).filter(p=>{
+    if(filtros.temporada && p.temporada!==filtros.temporada) return false;
+    if(filtros.clienteId && p.clienteId!==filtros.clienteId) return false;
+    return true;
+  });
+  const liquidaciones = (datos.liquidaciones||[]).filter(l=>{
+    if(filtros.temporada && l.temporada!==filtros.temporada) return false;
+    if(filtros.clienteId && l.clienteId!==filtros.clienteId) return false;
+    return true;
+  });
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica","bold");
+  doc.text(`KPIs ${t(idioma,"temporada")}`, 14, y+6);
+  doc.setFont("helvetica","normal");
+  doc.setFontSize(10);
+  doc.setTextColor(60);
+  const totalVenta = liquidaciones.reduce((s,l)=>s+(parseFloat(l.montoVentaUSD)||0),0);
+  const totalFob = liquidaciones.reduce((s,l)=>s+(parseFloat(l.precioFobUSD)||0),0);
+  const kpis = [
+    [`${t(idioma,"contenedores")} ${t(idioma,"total").toLowerCase()}`, String(embarques.length)],
+    [`${t(idioma,"programa")}s`, String(programas.length)],
+    [`${t(idioma,"venta")} ${t(idioma,"total").toLowerCase()} USD`, totalVenta.toLocaleString()],
+    [`${t(idioma,"fob")} ${t(idioma,"total").toLowerCase()} USD`, totalFob.toLocaleString()],
+  ];
+  doc.autoTable({
+    startY: y+10,
+    body: kpis,
+    theme:"plain", bodyStyles:{fontSize:10}, columnStyles:{1:{halign:"right",fontStyle:"bold"}},
+    margin:{left:14, right:14},
+  });
+
+  // Por especie
+  const porEsp={};
+  embarques.forEach(e=>{ porEsp[e.especie||"—"]=(porEsp[e.especie||"—"]||0)+1; });
+  if(Object.keys(porEsp).length>0){
+    y = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(11);
+    doc.setFont("helvetica","bold");
+    doc.setTextColor(28,35,51);
+    doc.text(t(idioma,"porEspecie"), 14, y);
+    doc.autoTable({
+      startY: y+2,
+      head: [[t(idioma,"especie"), t(idioma,"contenedores")]],
+      body: Object.entries(porEsp).sort((a,b)=>b[1]-a[1]).map(([k,n])=>[k, String(n)]),
+      theme:"striped", headStyles:{fillColor:[28,35,51], textColor:255, fontSize:9}, bodyStyles:{fontSize:8},
+      margin:{left:14, right:14},
+    });
+  }
+
+  pdfAddFooter(doc, idioma);
+  doc.save(`resumen-temporada-${filtros.temporada||"actual"}.pdf`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PRECIOS DE MERCADO (Referencia para reportes y análisis)
+// ═══════════════════════════════════════════════════════════════════
+const DESTINOS_PRECIO=["China","USA","UK","Países Bajos","Alemania","Japón","Corea del Sur","Brasil","Otro"];
+const FUENTES_PRECIO=["USDA","FreshPlaza","Manual","Comercial directo","Cliente","Exportadora","Otro"];
+
+function PreciosMercadoModule({data, setData, can, temporada, especies=ESPECIES_FRISKU}) {
+  const [modal, setModal] = useState(false);
+  const [filtroEspecie, setFiltroEspecie] = useState("todos");
+  const [filtroDestino, setFiltroDestino] = useState("todos");
+  const EMPTY={semana:0, especie:"", destino:"", precioUSD:0, calibre:"", fuente:"Manual", notas:"", temporada:temporada||""};
+  const [form, setForm] = useState(EMPTY);
+
+  function guardar(){
+    if(!form.semana){alert("Semana obligatoria.");return;}
+    if(!form.especie){alert("Especie obligatoria.");return;}
+    if(!form.destino){alert("Destino obligatorio.");return;}
+    setData(prev=>[...prev,{...form,id:`fpr_${Date.now()}`,temporada,fechaCreacion:new Date().toISOString().slice(0,10)}]);
+    setForm(EMPTY); setModal(false);
+  }
+
+  const filtrado = (data||[]).filter(p=>{
+    if(p.temporada!==temporada) return false;
+    if(filtroEspecie!=="todos" && p.especie!==filtroEspecie) return false;
+    if(filtroDestino!=="todos" && p.destino!==filtroDestino) return false;
+    return true;
+  }).sort((a,b)=>b.semana-a.semana || (a.especie||"").localeCompare(b.especie||""));
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#e6edf3"}}>📈 Precios de Mercado · Temporada {temporada}</div>
+        {can&&<button onClick={()=>{setForm({...EMPTY,temporada,fuente:"Manual"});setModal(true);}} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Nuevo precio</button>}
+      </div>
+
+      <div style={{padding:"10px 14px",background:"#1c2333",borderRadius:8,marginBottom:14,fontSize:11,color:"#8b949e",fontStyle:"italic"}}>
+        💡 Registra precios de mercado de referencia por semana, especie y destino. Sirve para comparativas en reportes a exportadores y análisis de mercado.
+      </div>
+
+      {/* Filtros */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        <select value={filtroEspecie} onChange={e=>setFiltroEspecie(e.target.value)} style={{...inputSt,maxWidth:180}}>
+          <option value="todos">Todas las especies</option>
+          {especies.map(e=><option key={e}>{e}</option>)}
+        </select>
+        <select value={filtroDestino} onChange={e=>setFiltroDestino(e.target.value)} style={{...inputSt,maxWidth:180}}>
+          <option value="todos">Todos los destinos</option>
+          {DESTINOS_PRECIO.map(d=><option key={d}>{d}</option>)}
+        </select>
+      </div>
+
+      <div style={{overflowX:"auto",borderRadius:10,border:"1px solid #30363d"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead><tr style={{background:"#161b22"}}>{["Semana","Especie","Destino","Calibre","Precio USD","Fuente","Notas",""].map(h=><th key={h} style={{padding:"6px 10px",textAlign:"left",color:"#8b949e",fontWeight:700,fontSize:10}}>{h}</th>)}</tr></thead>
+          <tbody>{filtrado.map(p=>(
+            <tr key={p.id} style={{borderBottom:"1px solid #30363d22"}}>
+              <td style={{padding:"6px 10px",fontFamily:"monospace",fontWeight:700,color:"#e6edf3"}}>W{String(p.semana).padStart(2,"0")}</td>
+              <td style={{padding:"6px 10px"}}><span style={{fontSize:9,background:"#0ea5e922",color:"#0ea5e9",padding:"1px 6px",borderRadius:10,fontWeight:600}}>{p.especie}</span></td>
+              <td style={{padding:"6px 10px",color:"#8b949e"}}>{p.destino}</td>
+              <td style={{padding:"6px 10px",color:"#8b949e"}}>{p.calibre||"—"}</td>
+              <td style={{padding:"6px 10px",fontWeight:700,color:"#16a34a"}}>USD {(parseFloat(p.precioUSD)||0).toLocaleString()}</td>
+              <td style={{padding:"6px 10px"}}><span style={{fontSize:9,padding:"1px 6px",background:"#7c3aed22",color:"#a78bfa",borderRadius:10,fontWeight:600}}>{p.fuente}</span></td>
+              <td style={{padding:"6px 10px",color:"#8b949e",fontSize:10,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.notas||"—"}</td>
+              <td style={{padding:"6px 10px"}}>{can&&<button onClick={()=>{if(window.confirm("¿Eliminar este precio?"))setData(prev=>prev.filter(x=>x.id!==p.id));}} style={{background:"transparent",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14}}>🗑</button>}</td>
+            </tr>))}
+            {filtrado.length===0&&<tr><td colSpan={8} style={{padding:30,textAlign:"center",color:"#484f58"}}>Sin precios registrados</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {modal&&(
+        <div style={{position:"fixed",inset:0,background:"#000a",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setModal(false)}>
+          <div style={{background:"#1c2333",borderRadius:14,padding:24,maxWidth:520,width:"100%",border:"1px solid #30363d",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:"0 0 16px",color:"#e6edf3"}}>Nuevo precio de mercado</h3>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div>
+                <div style={lblSt}>Semana ISO *</div>
+                <input type="number" min="1" max="53" value={form.semana||""} onChange={e=>setForm(p=>({...p,semana:parseInt(e.target.value)||0}))} style={inputSt} autoFocus/>
+              </div>
+              <div>
+                <div style={lblSt}>Precio USD *</div>
+                <input type="number" step="0.01" value={form.precioUSD||""} onChange={e=>setForm(p=>({...p,precioUSD:parseFloat(e.target.value)||0}))} style={inputSt}/>
+              </div>
+              <div>
+                <div style={lblSt}>Especie *</div>
+                <select value={form.especie||""} onChange={e=>setForm(p=>({...p,especie:e.target.value}))} style={inputSt}>
+                  <option value="">—</option>
+                  {especies.map(e=><option key={e}>{e}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={lblSt}>Destino *</div>
+                <select value={form.destino||""} onChange={e=>setForm(p=>({...p,destino:e.target.value}))} style={inputSt}>
+                  <option value="">—</option>
+                  {DESTINOS_PRECIO.map(d=><option key={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={lblSt}>Calibre / spec</div>
+                <input value={form.calibre||""} onChange={e=>setForm(p=>({...p,calibre:e.target.value}))} placeholder="L+, M, etc." style={inputSt}/>
+              </div>
+              <div>
+                <div style={lblSt}>Fuente</div>
+                <select value={form.fuente||"Manual"} onChange={e=>setForm(p=>({...p,fuente:e.target.value}))} style={inputSt}>
+                  {FUENTES_PRECIO.map(f=><option key={f}>{f}</option>)}
+                </select>
+              </div>
+              <div style={{gridColumn:"1/-1"}}>
+                <div style={lblSt}>Notas</div>
+                <textarea value={form.notas||""} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} placeholder="Contexto, observaciones del mercado..." style={{...inputSt,minHeight:50}}/>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>setModal(false)} style={{padding:"8px 18px",borderRadius:8,border:"1px solid #30363d",background:"transparent",color:"#8b949e",cursor:"pointer"}}>Cancelar</button>
+              <button onClick={guardar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:"#0ea5e9",color:"#fff",cursor:"pointer",fontWeight:700}}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REPORTES — Módulo central de generación
+// ═══════════════════════════════════════════════════════════════════
+const REPORTES_CATALOG = [
+  // Para EXPORTADORES
+  {id:"shipping-summary",   audiencia:"exportador", titulo:"shippingSummary",      desc:"Embarques de la semana o periodo", generador:"generarShippingSummary",     filtros:["temporada","exportadora","semana"]},
+  {id:"performance",        audiencia:"exportador", titulo:"performance",          desc:"Cumplimiento real vs asignado",    generador:"generarPerformanceExportador",filtros:["temporada","exportadora"]},
+  {id:"volumenes",          audiencia:"exportador", titulo:"volumenesCargados",    desc:"Acumulado por semana/especie",     generador:"generarVolumenesAcumulados", filtros:["temporada","exportadora"]},
+  {id:"comparativa-precios",audiencia:"exportador", titulo:"comparativaPrecios",   desc:"FOB y venta vs precio mercado",    generador:"generarComparativaPrecios",  filtros:["temporada"]},
+  {id:"reporte-mercado",    audiencia:"exportador", titulo:"reporteMercado",       desc:"Evolución de precios de referencia",generador:"generarReporteMercado",     filtros:["temporada","especie"]},
+  {id:"analisis-insights",  audiencia:"exportador", titulo:"analisisInsights",     desc:"Análisis comercial libre (editable)",generador:"generarAnalisisInsights",  filtros:["temporada"], requiereTexto:true},
+  // Para CLIENTES
+  {id:"status-embarques",   audiencia:"cliente",    titulo:"statusEmbarques",      desc:"Embarques activos en curso",        generador:"generarStatusEmbarques",     filtros:["temporada","cliente"]},
+  {id:"cumplimiento-prog",  audiencia:"cliente",    titulo:"cumplimientoPrograma", desc:"Real vs solicitado por programa",   generador:"generarCumplimientoPrograma",filtros:["temporada","cliente"]},
+  {id:"resumen-temp",       audiencia:"cliente",    titulo:"resumenTemporada",     desc:"KPIs y resumen al cierre",          generador:"generarResumenTemporada",    filtros:["temporada","cliente"]},
+];
+
+const GENERADORES = {
+  generarShippingSummary,
+  generarPerformanceExportador,
+  generarVolumenesAcumulados,
+  generarComparativaPrecios,
+  generarReporteMercado,
+  generarAnalisisInsights,
+  generarStatusEmbarques,
+  generarCumplimientoPrograma,
+  generarResumenTemporada,
+};
+
+function ReportesModule({datosTodos, can, temporada}) {
+  const [audiencia, setAudiencia] = useState("exportador");
+  const [reporteSel, setReporteSel] = useState(null);
+  const [idioma, setIdioma] = useState("es");
+  const [filtros, setFiltros] = useState({temporada});
+  const [insightsTexto, setInsightsTexto] = useState("");
+  const [generando, setGenerando] = useState(false);
+
+  const reportesFiltrados = REPORTES_CATALOG.filter(r=>r.audiencia===audiencia);
+
+  function reset(){
+    setReporteSel(null);
+    setFiltros({temporada});
+    setInsightsTexto("");
+  }
+
+  async function generar(){
+    if(!reporteSel) return;
+    setGenerando(true);
+    try {
+      const fn = GENERADORES[reporteSel.generador];
+      await fn(datosTodos, idioma, {filtros:{temporada,...filtros}, insightsTexto});
+    } catch(err){
+      alert("Error al generar PDF: " + err.message);
+      console.error(err);
+    }
+    setGenerando(false);
+  }
+
+  // Reporte seleccionado: mostrar filtros
+  if(reporteSel){
+    const r = reporteSel;
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+          <button onClick={reset} style={{background:"#21283b",border:"1px solid #30363d",borderRadius:8,padding:"6px 14px",cursor:"pointer",color:"#8b949e",fontSize:12}}>← Volver al catálogo</button>
+          <h3 style={{margin:0,color:"#e6edf3",fontSize:16}}>📄 {t(idioma,r.titulo)}</h3>
+          <span style={{fontSize:10,padding:"4px 12px",borderRadius:20,background:r.audiencia==="exportador"?"#0f766e22":"#b91c1c22",color:r.audiencia==="exportador"?"#0f766e":"#b91c1c",fontWeight:700}}>
+            {r.audiencia==="exportador"?t(idioma,"paraExportador"):t(idioma,"paraCliente")}
+          </span>
+        </div>
+
+        <div style={{padding:14,background:"#1c2333",borderRadius:10,border:"1px solid #30363d",marginBottom:14}}>
+          <div style={{fontSize:11,color:"#8b949e",marginBottom:12,fontStyle:"italic"}}>{r.desc}</div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+            <div>
+              <div style={lblSt}>Idioma del PDF</div>
+              <select value={idioma} onChange={e=>setIdioma(e.target.value)} style={inputSt}>
+                <option value="es">Español</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <div>
+              <div style={lblSt}>Temporada</div>
+              <input value={filtros.temporada||""} onChange={e=>setFiltros(p=>({...p,temporada:e.target.value}))} style={inputSt}/>
+            </div>
+            {r.filtros.includes("exportadora") && (
+              <div>
+                <div style={lblSt}>Exportadora</div>
+                <select value={filtros.exportadoraId||""} onChange={e=>setFiltros(p=>({...p,exportadoraId:e.target.value}))} style={inputSt}>
+                  <option value="">— Todas —</option>
+                  {(datosTodos.exportadoras||[]).map(x=><option key={x.id} value={x.id}>{x.nombre}</option>)}
+                </select>
+              </div>
+            )}
+            {r.filtros.includes("cliente") && (
+              <div>
+                <div style={lblSt}>Cliente</div>
+                <select value={filtros.clienteId||""} onChange={e=>setFiltros(p=>({...p,clienteId:e.target.value}))} style={inputSt}>
+                  <option value="">— Todos —</option>
+                  {(datosTodos.clientes||[]).map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+              </div>
+            )}
+            {r.filtros.includes("semana") && (
+              <div>
+                <div style={lblSt}>Semana (opcional)</div>
+                <input type="number" min="1" max="53" value={filtros.semana||""} onChange={e=>setFiltros(p=>({...p,semana:parseInt(e.target.value)||0}))} placeholder="Ej: 22" style={inputSt}/>
+              </div>
+            )}
+            {r.filtros.includes("especie") && (
+              <div>
+                <div style={lblSt}>Especie (opcional)</div>
+                <input value={filtros.especie||""} onChange={e=>setFiltros(p=>({...p,especie:e.target.value}))} placeholder="Cerezas, Arándanos..." style={inputSt}/>
+              </div>
+            )}
+          </div>
+
+          {r.requiereTexto && (
+            <div>
+              <div style={lblSt}>Texto del análisis (este texto irá al PDF)</div>
+              <textarea value={insightsTexto} onChange={e=>setInsightsTexto(e.target.value)} placeholder={idioma==="en"?"Type your market analysis here...":"Escribe aquí tu análisis del mercado..."} style={{...inputSt,minHeight:120}}/>
+            </div>
+          )}
+
+          <div style={{display:"flex",justifyContent:"flex-end",marginTop:14,gap:8}}>
+            <button onClick={reset} style={{padding:"8px 18px",borderRadius:8,border:"1px solid #30363d",background:"transparent",color:"#8b949e",cursor:"pointer"}}>Cancelar</button>
+            <button disabled={generando} onClick={generar} style={{padding:"8px 18px",borderRadius:8,border:"none",background:generando?"#666":"#0ea5e9",color:"#fff",cursor:generando?"wait":"pointer",fontWeight:700}}>
+              {generando?"⏳ Generando...":"📄 Generar PDF"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Catálogo
+  return (
+    <div>
+      <div style={{fontSize:13,fontWeight:700,color:"#e6edf3",marginBottom:14}}>📄 Catálogo de Reportes</div>
+
+      <div style={{padding:"10px 14px",background:"#1c2333",borderRadius:8,marginBottom:14,fontSize:11,color:"#8b949e",fontStyle:"italic"}}>
+        💡 Selecciona un reporte para generar. El PDF se descarga directamente al navegador. También hay botones contextuales en cada módulo relevante.
+      </div>
+
+      <div style={{display:"flex",gap:6,marginBottom:18,flexWrap:"wrap"}}>
+        <button onClick={()=>setAudiencia("exportador")} style={{padding:"8px 16px",borderRadius:8,border:audiencia==="exportador"?"2px solid #0f766e":"1px solid #30363d",background:audiencia==="exportador"?"#0f766e":"transparent",color:audiencia==="exportador"?"#fff":"#8b949e",cursor:"pointer",fontSize:12,fontWeight:700}}>🏭 Para Exportadores</button>
+        <button onClick={()=>setAudiencia("cliente")} style={{padding:"8px 16px",borderRadius:8,border:audiencia==="cliente"?"2px solid #b91c1c":"1px solid #30363d",background:audiencia==="cliente"?"#b91c1c":"transparent",color:audiencia==="cliente"?"#fff":"#8b949e",cursor:"pointer",fontSize:12,fontWeight:700}}>👥 Para Clientes</button>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
+        {reportesFiltrados.map(r=>(
+          <div key={r.id} onClick={()=>setReporteSel(r)} style={{padding:14,background:"#1c2333",borderRadius:10,border:"1px solid #30363d",cursor:"pointer",transition:"all 0.2s"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="#0ea5e9";e.currentTarget.style.background="#0ea5e911";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor="#30363d";e.currentTarget.style.background="#1c2333";}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#e6edf3",marginBottom:6}}>{t("es",r.titulo)}</div>
+            <div style={{fontSize:10,color:"#8b949e",marginBottom:8}}>{r.desc}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:9,padding:"2px 8px",background:r.audiencia==="exportador"?"#0f766e22":"#b91c1c22",color:r.audiencia==="exportador"?"#0f766e":"#b91c1c",borderRadius:10,fontWeight:700}}>
+                {r.audiencia==="exportador"?"Exportador":"Cliente"}
+              </span>
+              <span style={{fontSize:11,color:"#0ea5e9",fontWeight:700}}>Generar →</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PlaceholderModule({icon, title, desc}) {
   return (
     <div style={{textAlign:"center",padding:60,color:"#8b949e"}}>
@@ -1871,7 +2947,7 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
 
   const [data, setData] = useState({
     clientes:[], exportadoras:[], contratos:[], programas:[], programasComerciales:[], embarques:[],
-    qcOrigen:[], qcDestino:[], liquidaciones:[], cobros:[], informes:[],
+    qcOrigen:[], qcDestino:[], liquidaciones:[], cobros:[], preciosMercado:[], informes:[],
     maestros:{contactos:[],fichas:[],noContactar:[],correosReportes:[]},
     hubCardsOrder:null
   });
@@ -1890,7 +2966,7 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
     if(!canBase) return false;
     if(rolFrisku==="lectura") return false;
     if(rolFrisku==="comercial") {
-      const permitidos = ["clientes","exportadoras","contratos","programas-comerciales","embarques","liquidaciones","qc","programa"];
+      const permitidos = ["clientes","exportadoras","contratos","programas-comerciales","embarques","liquidaciones","qc","programa","precios-mercado","informes"];
       return permitidos.includes(modulo);
     }
     return true; // admin u otro: editar todo
@@ -1907,6 +2983,7 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
   const setContratos = fn => setData(p=>({...p, contratos: typeof fn==="function"?fn(p.contratos||[]):fn}));
   const setProgramas = fn => setData(p=>({...p, programas: typeof fn==="function"?fn(p.programas||[]):fn}));
   const setProgramasComerciales = fn => setData(p=>({...p, programasComerciales: typeof fn==="function"?fn(p.programasComerciales||[]):fn}));
+  const setPreciosMercado = fn => setData(p=>({...p, preciosMercado: typeof fn==="function"?fn(p.preciosMercado||[]):fn}));
   const setEmbarques = fn => setData(p=>({...p, embarques: typeof fn==="function"?fn(p.embarques||[]):fn}));
   const setLiquidaciones = fn => setData(p=>({...p, liquidaciones: typeof fn==="function"?fn(p.liquidaciones||[]):fn}));
   const setCobros = fn => setData(p=>({...p, cobros: typeof fn==="function"?fn(p.cobros||[]):fn}));
@@ -1919,6 +2996,7 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
         // Asegurar campos nuevos para data antigua (compatibilidad)
         if(!Array.isArray(d.programasComerciales)) d.programasComerciales = [];
         if(!Array.isArray(d.especiesCustom)) d.especiesCustom = [];
+        if(!Array.isArray(d.preciosMercado)) d.preciosMercado = [];
         setData(d);
         window._lastSavedFrisku = {};
         ["clientes","exportadoras","contratos","programasComerciales","embarques","liquidaciones"].forEach(k=>{
@@ -1970,7 +3048,8 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
     {id:"embarques",             label:"Embarques & COMEX",       desc:"Orden embarque, docs (BL, Factura, CO, Fito), despacho, tracking",      icon:"🚢", color:"#0ea5e9", stats:`${(data.embarques||[]).length} embarques`, alert:alertasDocsPendientes>0?`⚠️ ${alertasDocsPendientes} docs pendientes`:null},
     {id:"qc",                    label:"QC & Procedimientos",     desc:"QC origen, QC destino, LMR, homologación productores",                  icon:"🔍", color:"#16a34a", stats:`${(data.qcOrigen||[]).length + (data.qcDestino||[]).length} QC`},
     {id:"liquidaciones",         label:"Liquidaciones & Cobros",  desc:"Liquidación cliente/exportadora, cobro comisión, facturación",          icon:"💰", color:"#d97706", stats:`${(data.liquidaciones||[]).length} liq.`, alert:alertasLiqRetraso>0?`🔴 ${alertasLiqRetraso} retrasadas`:alertasCobro>0?`⏳ ${alertasCobro} cobros pend.`:null},
-    {id:"informes",              label:"Informes & Reportes",     desc:"Reporte mercado, shipping summary, informe carga semanal",              icon:"📈", color:"#6366f1", stats:"Reportes"},
+    {id:"precios-mercado",       label:"Precios de Mercado",      desc:"Precios de referencia por semana, especie y destino",                   icon:"📈", color:"#0284c7", stats:`${(data.preciosMercado||[]).length} registros`},
+    {id:"informes",              label:"Reportes",                desc:"Generador de reportes PDF para clientes y exportadores",                icon:"📄", color:"#6366f1", stats:"9 reportes"},
     {id:"maestros",              label:"Maestros & Alarmas",      desc:"Contactos, fichas, listas, alertas de docs/pagos/QC",                   icon:"⚙️", color:"#64748b", stats:"Config"},
   ];
 
@@ -2005,7 +3084,8 @@ export default function FriskuModule({usuarioActual, esAdmin, esSoloConsulta, ta
           {subApp==="embarques"&&<EmbarquesCOMEXModule data={data.embarques||[]} setData={setEmbarques} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} contratos={data.contratos||[]} programasComerciales={data.programasComerciales||[]} can={canPorModulo("embarques")} temporada={tempSeleccionada} especies={especies}/>}
           {subApp==="qc"&&<QCModule embarques={data.embarques||[]} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} can={canPorModulo("qc")} temporada={tempSeleccionada}/>}
           {subApp==="liquidaciones"&&<LiquidacionesCobrosModule data={data.liquidaciones||[]} setData={setLiquidaciones} cobros={data.cobros||[]} setCobros={setCobros} embarques={data.embarques||[]} contratos={data.contratos||[]} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} can={canPorModulo("liquidaciones")} temporada={tempSeleccionada}/>}
-          {subApp==="informes"&&<PlaceholderModule icon="📈" title="Informes & Reportes" desc="Reporte de mercado, shipping summary, informe carga semanal, real vs proyectado. Se construye en Sesión 3."/>}
+          {subApp==="precios-mercado"&&<PreciosMercadoModule data={data.preciosMercado||[]} setData={setPreciosMercado} can={canPorModulo("precios-mercado")} temporada={tempSeleccionada} especies={especies}/>}
+          {subApp==="informes"&&<ReportesModule datosTodos={data} can={can} temporada={tempSeleccionada}/>}
           {subApp==="maestros"&&<MaestrosModule data={data} setData={setData} embarques={data.embarques||[]} contratos={data.contratos||[]} clientes={data.clientes||[]} exportadoras={data.exportadoras||[]} cobros={data.cobros||[]} temporada={tempSeleccionada} can={canPorModulo("maestros")}/>}
       </Card>
     </div>
