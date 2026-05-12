@@ -7727,14 +7727,24 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
     Object.keys(next).forEach(key=>{
       const antes = Number(anterior[key]?.monto) || 0;
       const despues = Number(next[key]?.monto) || 0;
+      const fechaAntes = anterior[key]?.fecha || null;
+      const fechaDespues = next[key]?.fecha || null;
+      const partes = key.split("||");
+      const [emp, banco, moneda] = partes;
       if(antes !== despues) {
-        const partes = key.split("||");
-        const [emp, banco, moneda] = partes;
+        // Cambio de monto (con o sin cambio de fecha)
         window.auditLog&&window.auditLog("editar", {modulo:"finanzas", seccion:"saldos bancos",
           descripcion:`Actualizó saldo de ${emp} · ${banco} · ${(moneda||"").toUpperCase()}`,
           registroId:key, campo:"monto",
           valorAnterior:antes.toLocaleString("es-CL"),
           valorNuevo:despues.toLocaleString("es-CL")});
+      } else if(fechaAntes !== fechaDespues && despues !== 0) {
+        // Ratificación: mismo monto pero fecha distinta (usuario confirmó que el saldo sigue igual hoy)
+        window.auditLog&&window.auditLog("editar", {modulo:"finanzas", seccion:"saldos bancos",
+          descripcion:`Ratificó saldo de ${emp} · ${banco} · ${(moneda||"").toUpperCase()} (sin cambio de monto)`,
+          registroId:key, campo:"fecha",
+          valorAnterior:fechaAntes||"—",
+          valorNuevo:fechaDespues||"—"});
       }
     });
     // Detectar eliminaciones
