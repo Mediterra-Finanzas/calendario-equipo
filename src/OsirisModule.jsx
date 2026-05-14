@@ -5751,6 +5751,17 @@ async function exportarContratos(filtrado) {
       const fL    = typeof a==="object" ? (a.firmadoLicenciado?"Sí":"No") : "—";
       partes.push(`${label}${tipo?": "+tipo:""} (Osiris:${fO}/Lic:${fL})`);
     });
+    // Anexos extra
+    if(Array.isArray(r.anexosExtra)) {
+      r.anexosExtra.forEach((a, i)=>{
+        if(!a?.activo) return;
+        const label = `A${4+i}`;
+        const tipo = a.tipo||"";
+        const fO   = a.firmadoOsiris?"Sí":"No";
+        const fL   = a.firmadoLicenciado?"Sí":"No";
+        partes.push(`${label}${tipo?": "+tipo:""} (Osiris:${fO}/Lic:${fL})`);
+      });
+    }
     return partes.join(" | ") || "—";
   };
   const headers = [
@@ -5797,15 +5808,30 @@ async function exportarContratos(filtrado) {
   });
 }
 
-function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[],setVariedadesMaestro,especiesMaestro=[],setEspeciesMaestro,obtentoresData=[],viverosData=[],setViveros,can}){
+function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[],setVariedadesMaestro,especiesMaestro=[],setEspeciesMaestro,obtentoresData=[],viverosData=[],setViveros,can,tiposAnexoPersist,setTiposAnexoPersist,tiposContratoPersist,setTiposContratoPersist}){
   const [vista,setVista]=useState("tabla");
   const [sel,setSel]=useState(null);
   const [sec,setSec]=useState("empresa");
   const [busq,setBusq]=useState("");
   const [filtroPais,setFiltroPais]=useState("Todos");
-  // Mantenedores
-  const [tiposContrato,setTiposContrato]=useState(TIPOS_CONTRATO_BASE);
-  const [tiposAnexo,setTiposAnexo]=useState(TIPOS_ANEXO_BASE);
+  // Mantenedores: si vienen como props (persistidos), usamos esos. Sino, fallback al state local.
+  const [tiposContratoLocal,setTiposContratoLocal]=useState(TIPOS_CONTRATO_BASE);
+  const [tiposAnexoLocal,setTiposAnexoLocal]=useState(TIPOS_ANEXO_BASE);
+  // Wrapper: si hay persistidor, usarlo; si no, state local
+  const tiposContrato = Array.isArray(tiposContratoPersist) && tiposContratoPersist.length > 0
+    ? tiposContratoPersist : tiposContratoLocal;
+  const tiposAnexo = Array.isArray(tiposAnexoPersist) && tiposAnexoPersist.length > 0
+    ? tiposAnexoPersist : tiposAnexoLocal;
+  const setTiposContrato = (updaterOrValue) => {
+    const next = typeof updaterOrValue === "function" ? updaterOrValue(tiposContrato) : updaterOrValue;
+    if(setTiposContratoPersist) setTiposContratoPersist(next);
+    else setTiposContratoLocal(next);
+  };
+  const setTiposAnexo = (updaterOrValue) => {
+    const next = typeof updaterOrValue === "function" ? updaterOrValue(tiposAnexo) : updaterOrValue;
+    if(setTiposAnexoPersist) setTiposAnexoPersist(next);
+    else setTiposAnexoLocal(next);
+  };
   const [showMantenedor,setShowMantenedor]=useState(false);
   const [showClientes,setShowClientes]=useState(false);
   const [showVariedades,setShowVariedades]=useState(false);
@@ -6145,8 +6171,20 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
               </div>
               {/* Anexos mejorados */}
               <div style={{background:"#f8fafc",borderRadius:12,padding:16,marginBottom:16}}>
-                <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:12}}>Anexos del contrato</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.sl}}>Anexos del contrato</div>
+                  {can&&(
+                    <button onClick={()=>{
+                      const extras = Array.isArray(r.anexosExtra) ? r.anexosExtra : [];
+                      const nuevoAnx = {id:`anx_${Date.now()}`,activo:true,firmadoOsiris:false,firmadoLicenciado:false,tipo:"",link:""};
+                      upd(r.id, "anexosExtra", [...extras, nuevoAnx]);
+                    }} style={{padding:"4px 12px",background:C.mo,color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:600}}>
+                      + Agregar anexo
+                    </button>
+                  )}
+                </div>
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {/* Anexos fijos 1, 2, 3 — preservados para compatibilidad con datos existentes */}
                   {[["anexo1","Anexo 1"],["anexo2","Anexo 2"],["anexo3","Anexo 3"]].map(([campo,label])=>{
                     const anx = typeof r[campo]==="object" ? r[campo] : {activo:!!r[campo],firmadoOsiris:false,firmadoLicenciado:false,tipo:""};
                     return(
@@ -6183,6 +6221,75 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                             <span style={{fontSize:11,color:C.gris,fontWeight:600}}>📎 Link OneDrive:</span>
                             {can
                               ? <input value={anx.link||""} onChange={e=>upd(r.id,campo,{...anx,link:e.target.value})}
+                                  placeholder="https://..." style={{flex:1,minWidth:200,padding:"4px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,outline:"none"}}/>
+                              : <span style={{fontSize:11,color:C.gris}}>{anx.link||"—"}</span>
+                            }
+                            {anx.link&&<>
+                              <a href={anx.link} target="_blank" rel="noreferrer"
+                                style={{background:C.azul,color:"#fff",borderRadius:5,padding:"3px 10px",fontSize:11,fontWeight:600,textDecoration:"none"}}>👁 Ver</a>
+                              <a href={anx.link} download
+                                style={{background:"#16a34a",color:"#fff",borderRadius:5,padding:"3px 10px",fontSize:11,fontWeight:600,textDecoration:"none"}}>⬇️</a>
+                              <button onClick={()=>{const w=window.open(anx.link,"_blank");w&&setTimeout(()=>w.print(),1500);}}
+                                style={{background:"#7c3aed",color:"#fff",borderRadius:5,padding:"3px 10px",fontSize:11,fontWeight:600,border:"none",cursor:"pointer"}}>🖨️</button>
+                            </>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* Anexos extra — agregados dinámicamente */}
+                  {(Array.isArray(r.anexosExtra)?r.anexosExtra:[]).map((anx, idxExtra)=>{
+                    const label = `Anexo ${4 + idxExtra}`;
+                    const updExtra = (cambios) => {
+                      const extras = Array.isArray(r.anexosExtra)?[...r.anexosExtra]:[];
+                      extras[idxExtra] = {...extras[idxExtra], ...cambios};
+                      upd(r.id, "anexosExtra", extras);
+                    };
+                    const eliminarExtra = () => {
+                      if(!window.confirm(`¿Eliminar ${label} de este contrato?`)) return;
+                      const extras = Array.isArray(r.anexosExtra)?r.anexosExtra.filter((_,j)=>j!==idxExtra):[];
+                      upd(r.id, "anexosExtra", extras);
+                    };
+                    return(
+                      <div key={anx.id||`extra_${idxExtra}`} style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:`1px solid ${anx.activo?"#c4b5fd":"#e2e8f0"}`}}>
+                        <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                          <label style={{display:"flex",alignItems:"center",gap:6,cursor:can?"pointer":"default",fontSize:13,fontWeight:700,color:anx.activo?C.mo:"#94a3b8",minWidth:80}}>
+                            <input type="checkbox" checked={anx.activo} disabled={!can}
+                              onChange={()=>updExtra({activo:!anx.activo})}/>
+                            {anx.activo?"📎":"○"} {label}
+                          </label>
+                          {anx.activo&&(
+                            <>
+                              <select value={anx.tipo||""} disabled={!can}
+                                onChange={e=>updExtra({tipo:e.target.value})}
+                                style={{padding:"5px 8px",borderRadius:6,border:"1px solid #c4b5fd",fontSize:12,flex:1,minWidth:180}}>
+                                <option value="">— Tipo de anexo —</option>
+                                {tiposAnexo.map(t=><option key={t} value={t}>{t}</option>)}
+                              </select>
+                              <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600,color:anx.firmadoOsiris?C.verde:"#94a3b8",cursor:can?"pointer":"default"}}>
+                                <input type="checkbox" checked={anx.firmadoOsiris||false} disabled={!can}
+                                  onChange={()=>updExtra({firmadoOsiris:!anx.firmadoOsiris})}/>
+                                {anx.firmadoOsiris?"✅":"❌"} OSIRIS
+                              </label>
+                              <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600,color:anx.firmadoLicenciado?C.verde:"#94a3b8",cursor:can?"pointer":"default"}}>
+                                <input type="checkbox" checked={anx.firmadoLicenciado||false} disabled={!can}
+                                  onChange={()=>updExtra({firmadoLicenciado:!anx.firmadoLicenciado})}/>
+                                {anx.firmadoLicenciado?"✅":"❌"} Licenciado
+                              </label>
+                            </>
+                          )}
+                          {can&&(
+                            <button onClick={eliminarExtra} title={`Eliminar ${label}`}
+                              style={{background:"transparent",border:`1px solid ${C.rojo}`,color:C.rojo,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11,fontWeight:600}}>
+                              🗑 Eliminar
+                            </button>
+                          )}
+                        </div>
+                        {anx.activo&&(
+                          <div style={{display:"flex",gap:8,alignItems:"center",marginTop:8,paddingTop:8,borderTop:"1px solid #e2e8f0",flexWrap:"wrap"}}>
+                            <span style={{fontSize:11,color:C.gris,fontWeight:600}}>📎 Link OneDrive:</span>
+                            {can
+                              ? <input value={anx.link||""} onChange={e=>updExtra({link:e.target.value})}
                                   placeholder="https://..." style={{flex:1,minWidth:200,padding:"4px 8px",borderRadius:6,border:"1px solid #d1d5db",fontSize:11,outline:"none"}}/>
                               : <span style={{fontSize:11,color:C.gris}}>{anx.link||"—"}</span>
                             }
@@ -6982,7 +7089,16 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                   </label>
                 ))}
               </div>
-              <div style={{fontSize:12,fontWeight:700,color:C.sl,marginBottom:8}}>Anexos</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.sl}}>Anexos</div>
+                <button type="button" onClick={()=>{
+                  const extras = Array.isArray(form.anexosExtra) ? form.anexosExtra : [];
+                  const nuevoAnx = {id:`anx_${Date.now()}`,activo:true,firmadoOsiris:false,firmadoLicenciado:false,tipo:"",link:""};
+                  setF("anexosExtra", [...extras, nuevoAnx]);
+                }} style={{padding:"3px 10px",background:C.mo,color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:600}}>
+                  + Agregar anexo
+                </button>
+              </div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {[["anexo1","Anexo 1"],["anexo2","Anexo 2"],["anexo3","Anexo 3"]].map(([c,label])=>{
                   const anx = form[c]||{activo:false,firmadoOsiris:false,firmadoLicenciado:false,tipo:""};
@@ -7010,6 +7126,51 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                             </label>
                           </>
                         )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Anexos extra dinámicos en el form */}
+                {(Array.isArray(form.anexosExtra)?form.anexosExtra:[]).map((anx, idxExtra)=>{
+                  const label = `Anexo ${4 + idxExtra}`;
+                  const updExtraForm = (cambios) => {
+                    const extras = Array.isArray(form.anexosExtra)?[...form.anexosExtra]:[];
+                    extras[idxExtra] = {...extras[idxExtra], ...cambios};
+                    setF("anexosExtra", extras);
+                  };
+                  const eliminarExtraForm = () => {
+                    if(!window.confirm(`¿Eliminar ${label}?`)) return;
+                    const extras = Array.isArray(form.anexosExtra)?form.anexosExtra.filter((_,j)=>j!==idxExtra):[];
+                    setF("anexosExtra", extras);
+                  };
+                  return(
+                    <div key={anx.id||`extra_${idxExtra}`} style={{background:"#f8fafc",borderRadius:8,padding:"10px 14px",border:`1px solid ${anx.activo?"#c4b5fd":"#e2e8f0"}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                        <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,fontWeight:700,color:anx.activo?C.mo:"#94a3b8",minWidth:80}}>
+                          <input type="checkbox" checked={anx.activo||false} onChange={()=>updExtraForm({activo:!anx.activo})}/>
+                          {anx.activo?"📎":"○"} {label}
+                        </label>
+                        {anx.activo&&(
+                          <>
+                            <select value={anx.tipo||""} onChange={e=>updExtraForm({tipo:e.target.value})}
+                              style={{padding:"5px 8px",borderRadius:6,border:"1px solid #c4b5fd",fontSize:12,flex:1,minWidth:180}}>
+                              <option value="">— Tipo de anexo —</option>
+                              {tiposAnexo.map(t=><option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600,color:anx.firmadoOsiris?C.verde:"#94a3b8",cursor:"pointer"}}>
+                              <input type="checkbox" checked={anx.firmadoOsiris||false} onChange={()=>updExtraForm({firmadoOsiris:!anx.firmadoOsiris})}/>
+                              {anx.firmadoOsiris?"✅":"❌"} OSIRIS
+                            </label>
+                            <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600,color:anx.firmadoLicenciado?C.verde:"#94a3b8",cursor:"pointer"}}>
+                              <input type="checkbox" checked={anx.firmadoLicenciado||false} onChange={()=>updExtraForm({firmadoLicenciado:!anx.firmadoLicenciado})}/>
+                              {anx.firmadoLicenciado?"✅":"❌"} Licenciado
+                            </label>
+                          </>
+                        )}
+                        <button type="button" onClick={eliminarExtraForm} title={`Eliminar ${label}`}
+                          style={{background:"transparent",border:`1px solid ${C.rojo}`,color:C.rojo,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11,fontWeight:600}}>
+                          🗑 Eliminar
+                        </button>
                       </div>
                     </div>
                   );
@@ -7377,7 +7538,17 @@ function ControlContratos({data,setData,clientes,setClientes,variedadesMaestro=[
                   <span style={{color:r.firmadoOsiris?C.verde:C.rojo}}>{r.firmadoOsiris?"✅":"❌"}</span> Osiris
                 </td>
                 <td style={{padding:"9px 12px",textAlign:"center",fontSize:11,color:C.gris}}>
-                  {[r.anexo1&&"A1",r.anexo2&&"A2",r.anexo3&&"A3"].filter(Boolean).join(" · ")||"—"}
+                  {(()=>{
+                    const fijos = [["anexo1","A1"],["anexo2","A2"],["anexo3","A3"]].map(([campo,label])=>{
+                      const a = r[campo];
+                      if(!a) return null;
+                      const activo = typeof a==="object" ? a.activo : !!a;
+                      return activo ? label : null;
+                    }).filter(Boolean);
+                    const extras = Array.isArray(r.anexosExtra) ? r.anexosExtra.filter(a=>a?.activo).map((_,i)=>`A${4+i}`) : [];
+                    const todos = [...fijos, ...extras];
+                    return todos.length ? todos.join(" · ") : "—";
+                  })()}
                 </td>
                 <td style={{padding:"9px 12px",textAlign:"right",fontSize:12,color:C.mo,fontWeight:600}}>{r.tipoContractFee==="Sin Contract Fee"?"Sin fee":$$(r.montoContractFee)}</td>
                 <td style={{padding:"9px 12px",textAlign:"center",fontSize:12}}>{r.valorRoyaltyPlanta?`$${r.valorRoyaltyPlanta}/pl`:"—"}</td>
@@ -8054,7 +8225,19 @@ export default function OsirisModule({usuarioActual,esAdmin,esSoloConsulta,tabPe
       )}
       <div style={{background:"#fff",borderRadius:14,padding:20,boxShadow:"0 2px 10px #0001"}}>
         {canVerContratos
-        ? <ControlContratos data={ctData} setData={setCt} clientes={clientes} setClientes={setClientes} variedadesMaestro={variedadesMaestro} setVariedadesMaestro={setVariedadesMaestro} especiesMaestro={especiesMaestro} setEspeciesMaestro={setEspeciesMaestro} obtentoresData={obtentoresData} viverosData={Array.isArray(osirisData?.viveros)?osirisData.viveros:[]} setViveros={setVivGlobal} can={canContratos}/>
+        ? <ControlContratos
+            data={ctData} setData={setCt}
+            clientes={clientes} setClientes={setClientes}
+            variedadesMaestro={variedadesMaestro} setVariedadesMaestro={setVariedadesMaestro}
+            especiesMaestro={especiesMaestro} setEspeciesMaestro={setEspeciesMaestro}
+            obtentoresData={obtentoresData}
+            viverosData={Array.isArray(osirisData?.viveros)?osirisData.viveros:[]}
+            setViveros={setVivGlobal}
+            tiposAnexoPersist={Array.isArray(osirisData?.tiposAnexo)?osirisData.tiposAnexo:undefined}
+            setTiposAnexoPersist={(next)=>setOsirisData(prev=>({...prev, tiposAnexo: next}))}
+            tiposContratoPersist={Array.isArray(osirisData?.tiposContrato)?osirisData.tiposContrato:undefined}
+            setTiposContratoPersist={(next)=>setOsirisData(prev=>({...prev, tiposContrato: next}))}
+            can={canContratos}/>
         : <div style={{textAlign:"center",padding:40,color:"#94a3b8"}}>Sin acceso a Contratos</div>
       }
       </div>
