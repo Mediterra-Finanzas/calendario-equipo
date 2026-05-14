@@ -3029,16 +3029,13 @@ function getSaldoBancoParaSemana(saldosBancos, empNombre, mesIdx, semIdx=0) {
 
 function getSaldoBancoInicial(saldosBancos, empNombre, fallback) {
   if(!saldosBancos) return fallback;
-  const HOY = new Date();
   const porCuenta={};
   Object.entries(saldosBancos).forEach(([key,rec])=>{
     const parts=key.split("||");
     if(parts[0]!==empNombre) return;
     if(!rec?.monto||!rec?.fecha) return;
-    const f = new Date(rec.fecha);
-    if(f > HOY) return; // ignorar registros con fecha futura
     const cuentaKey=`${parts[1]}||${parts[2]||rec.moneda||"usd"}`;
-    if(!porCuenta[cuentaKey]||new Date(porCuenta[cuentaKey].fecha)<f) porCuenta[cuentaKey]=rec;
+    if(!porCuenta[cuentaKey]||new Date(porCuenta[cuentaKey].fecha)<new Date(rec.fecha)) porCuenta[cuentaKey]=rec;
   });
   let total=0,found=false;
   Object.values(porCuenta).forEach(rec=>{
@@ -3060,7 +3057,6 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
   const empNames=Object.keys(empresas);
   const empNamesConsolidado = empNames.filter(n => n !== "Allpa Farms Perú");
   const [vistaConsolidado,setVistaConsolidado]=useState("sumada");
-  const [desgloseEmpresas,setDesgloseEmpresas]=useState(false);
   const [agrup,setAgrup]=useState("mes");
   const [openSeason,setOpenSeason]=useState(()=>{const o={};SEASON_KEYS.forEach((k,i)=>{o[k]=i<2;});return o;});
 
@@ -3116,9 +3112,7 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
       Object.entries(empSubLines).forEach(([lineLabel, slList])=>{
         if(!Array.isArray(slList)) return;
         for(const sec of emp.sections) {
-          // Excluir líneas fórmula (Pago Préstamos, Renovaciones, Ingreso Renovación):
-          // su proy[i] ya viene calculado, sumar subLines causaría doble conteo
-          const parentLine = sec.lines.find(l=>l.label===lineLabel && l.subLines && !l.formula && !l.label.includes("Préstamos"));
+          const parentLine = sec.lines.find(l=>l.label===lineLabel && l.subLines);
           if(parentLine) {
             // Para cada mes (0-64), sumar subLines igual que sumSubLinesMes
             for(let idx=0; idx<65; idx++) {
@@ -3214,13 +3208,7 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
 
   function colVal(arr,col){
     const sum=col.indices.reduce((a,i)=>a+(arr[i]||0),0);
-    // Vista semanal del Consolidado: el flujo mensual va completo a la última semana
-    // (no se puede desglosar a semanas individuales porque arr ya viene agregado por mes)
-    if(agrup==="semana"&&!col.collapsed){
-      const isLastWeek = col.semIdx === ((col.nSems||1)-1);
-      return isLastWeek ? sum : 0;
-    }
-    return sum;
+    return agrup==="semana"&&!col.collapsed?sum/(col.nSems||1):sum;
   }
 
   function saldoBancoParaCol(empNombre,col){
@@ -3357,17 +3345,6 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
             </div>
           )}
           </>)}
-          {vistaConsolidado==="sumada"&&(
-            <div>
-              <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Desglose</div>
-              <button onClick={()=>setDesgloseEmpresas(p=>!p)}
-                style={{padding:"7px 14px",border:`1px solid ${desgloseEmpresas?C.accent:C.border}`,borderRadius:8,cursor:"pointer",
-                  background:desgloseEmpresas?`${C.accent}1a`:"transparent",
-                  color:desgloseEmpresas?C.accent:C.muted,fontWeight:desgloseEmpresas?700:500,fontSize:12,transition:"all 0.15s",whiteSpace:"nowrap"}}>
-                {desgloseEmpresas?"▼ Por empresa":"▶ Por empresa"}
-              </button>
-            </div>
-          )}
         </div>
       </Card>
 
@@ -3377,57 +3354,8 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
           <table id="flujo-table-consolidado" style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
             <THead/>
             <tbody>
-              {/* Saldo Banco USD - total + desglose */}
               <FilaSaldoBanco nombre="_consolidado"/>
-              {desgloseEmpresas&&empNamesConsolidado.map(n=>(
-                <tr key={`sb-${n}`} style={{background:`${C.blue}08`}}>
-                  <td style={{padding:"5px 14px 5px 32px",position:"sticky",left:0,zIndex:1,background:C.card,borderRight:`1px solid ${C.border}`,fontSize:10,color:C.muted,fontWeight:500}}>
-                    {n}
-                  </td>
-                  {cols.map(col=>{
-                    const v=saldoBancoParaCol(n,col)||0;
-                    return(<td key={col.key} style={{padding:"4px 5px",textAlign:"right",fontSize:9,color:C.muted2,fontWeight:500,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>{$$(v)}</td>);
-                  })}
-                </tr>
-              ))}
-              {/* Flujo Neto - total + desglose */}
-              <tr style={{background:`${C.accentL}1a`,borderTop:`2px solid ${C.border2}`}}>
-                <td style={{padding:"8px 14px",fontWeight:800,color:C.accentL,fontSize:12,position:"sticky",left:0,background:C.card,zIndex:1,borderRight:`1px solid ${C.border}`}}>
-                  Σ FLUJO NETO CONSOLIDADO
-                </td>
-                {cols.map(col=>{const v=colVal(flujoConsolidado,col);return(<td key={col.key} style={{padding:"7px 5px",textAlign:"right",fontWeight:900,fontSize:10,color:cf(v),background:`${cf(v)===C.green?C.green:C.red}0a`,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}22`}}>{$$(v)}</td>);})}
-              </tr>
-              {desgloseEmpresas&&empNamesConsolidado.map(n=>(
-                <tr key={`fn-${n}`} style={{background:`${C.accentL}05`}}>
-                  <td style={{padding:"5px 14px 5px 32px",position:"sticky",left:0,zIndex:1,background:C.card,borderRight:`1px solid ${C.border}`,fontSize:10,color:C.muted,fontWeight:500}}>
-                    {n}
-                  </td>
-                  {cols.map(col=>{
-                    const v=colVal(flujoPorEmp[n]||Z65(),col);
-                    return(<td key={col.key} style={{padding:"4px 5px",textAlign:"right",fontSize:9,color:v===0?C.muted2:cf(v),fontWeight:500,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>{$$(v)}</td>);
-                  })}
-                </tr>
-              ))}
-              {/* Saldo Acumulado - total + desglose */}
-              <tr style={{background:`${C.blue}0a`}}>
-                <td style={{padding:"8px 14px",fontWeight:800,color:C.blue,fontSize:12,position:"sticky",left:0,background:C.card,zIndex:1,borderRight:`1px solid ${C.border}`}}>
-                  Σ SALDO ACUMULADO CONSOLIDADO
-                </td>
-                {cols.map(col=>{const lastIdx=col.indices[col.indices.length-1];const v=acumConsolidado[lastIdx];const esNull=v==null;return(<td key={col.key} style={{padding:"7px 5px",textAlign:"right",fontWeight:900,fontSize:10,color:esNull?C.muted2:cf(v||0),borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}22`}}>{esNull?"—":$$(v||0)}</td>);})}
-              </tr>
-              {desgloseEmpresas&&empNamesConsolidado.map(n=>(
-                <tr key={`ac-${n}`} style={{background:`${C.blue}05`}}>
-                  <td style={{padding:"5px 14px 5px 32px",position:"sticky",left:0,zIndex:1,background:C.card,borderRight:`1px solid ${C.border}`,fontSize:10,color:C.muted,fontWeight:500}}>
-                    {n}
-                  </td>
-                  {cols.map(col=>{
-                    const lastIdx=col.indices[col.indices.length-1];
-                    const v=(acumPorEmp[n]||[])[lastIdx];
-                    const esNull=v==null;
-                    return(<td key={col.key} style={{padding:"4px 5px",textAlign:"right",fontSize:9,color:esNull?C.muted2:(v===0?C.muted2:cf(v||0)),fontWeight:500,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>{esNull?"—":$$(v||0)}</td>);
-                  })}
-                </tr>
-              ))}
+              <FilasFlujoYAcum flujoArr={flujoConsolidado} acumArr={acumConsolidado} color={C.accentL} isTotal/>
             </tbody>
           </table>
         </div>
@@ -4186,22 +4114,6 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     return found ? total : null;
   },[saldosBancos, empNombre]);
 
-  // Fecha de la cuenta de saldo banco más reciente (para determinar la semana de arranque)
-  const fechaInicioSaldo = useMemo(()=>{
-    if(!saldosBancos) return null;
-    const HOY = new Date();
-    let maxFecha = null;
-    Object.entries(saldosBancos).forEach(([key, rec])=>{
-      const parts = key.split("||");
-      if(parts[0]!==empNombre) return;
-      if(!rec?.monto || !rec?.fecha) return;
-      const f = new Date(rec.fecha);
-      if(f > HOY) return;
-      if(!maxFecha || f > maxFecha) maxFecha = f;
-    });
-    return maxFecha;
-  },[saldosBancos, empNombre]);
-
   // Mes en MESES_65 desde el cual arranca el saldo banco = mes ACTUAL (hoy)
   // El saldo banco (con fecha histórica) se aplica en la semana en curso, no en su fecha
   const mesIdxInicioSaldo = useMemo(()=>{
@@ -4213,22 +4125,6 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     const idx = MESES_65.indexOf(label);
     return idx >= 0 ? idx : 0;
   },[]);
-
-  // Semana del mes (0-3) en la que arranca el saldo banco
-  // Calcula la semana ISO de la fecha y la busca en SEMANAS_MES del mes correspondiente
-  const semIdxInicioSaldo = useMemo(()=>{
-    const ref = fechaInicioSaldo || new Date();
-    // Calcular semana ISO de la fecha de referencia (mismo método que semanaHoy)
-    const jan1 = new Date(ref.getFullYear(),0,4);
-    const isoWeek = 1+Math.round(((ref-jan1)/86400000-3+((jan1.getDay()+6)%7))/7);
-    const semLabel = `S${String(isoWeek).padStart(2,"0")}`;
-    // Mes label de la fecha
-    const mn=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const mesLabel = `${mn[ref.getMonth()]}-${String(ref.getFullYear()).slice(2)}`;
-    const sems = SEMANAS_MES[mesLabel] || [];
-    const idx = sems.indexOf(semLabel);
-    return idx >= 0 ? idx : 0;
-  },[fechaInicioSaldo]);
 
   // ── Valor proyectado efectivo (base + override) ────────────────
   // Si override es objeto {_sem0,_sem1,_sem2,_sem3}: suma SOLO las semanas definidas por el usuario
@@ -4271,12 +4167,11 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
       if(l){ base = l.proy[idx]||0; break; }
     }
     if(ov === undefined) {
-      // Sin override: parámetro mensual va a la ÚLTIMA semana del mes
-      // (asume cobro/pago a fin de mes; las demás semanas quedan en 0)
-      return isLastInMonth ? base : 0;
+      // Sin override: mostrar el valor base COMPLETO en la primera semana
+      return semIdx === 0 ? base : 0;
     }
     if(typeof ov === "number") {
-      // Override mensual: mostrar solo en la última semana
+      // Override mensual antiguo: mostrar solo en última semana
       return isLastInMonth ? ov : 0;
     }
     if(typeof ov === "object" && ov !== null) {
@@ -4380,10 +4275,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
           // Usar getProy que maneja tanto overrides mensuales como objeto por semanas
           const v = getProy(l.label, i);
           f += v * sec.signo;
-          // Include subLines (CxC/Capital Calls/Aportes) in flujo
-          // EXCLUIR Préstamos y Renovaciones porque su proy[i] ya viene calculado de la fórmula
-          // (sumar subLines además del valor de la fórmula causa doble conteo)
-          if(l.subLines && !l.formula && !l.label.includes("Préstamos"))(subLines[l.label]||[]).forEach(sl=>{
+          // Include subLines (CxC/Préstamos sub-items) in flujo
+          if(l.subLines)(subLines[l.label]||[]).forEach(sl=>{
             if(typeof sl === "string") return;
             const vals = sl.vals || {};
             // Sumar formato nuevo (idx_semIdx) + formato antiguo (idx como número)
@@ -4397,26 +4290,20 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
             f += sv * sec.signo;
           });
         });
-        // Include user-added lines in flujo
-        // Regla: si tiene semanales (i_0, i_1, ..) usar SOLO semanales; si no, usar mensual
-        // (NO sumar ambos para evitar doble conteo)
+        // Include user-added lines in flujo (sumar valor mensual + semanales i_0, i_1, ...)
         (addedLines[sec.cat]||[]).forEach(al=>{
           if(typeof al==="string") return;
           const v = al.vals||{};
-          let av = 0;
-          let hasSem = false;
-          for(let s=0; s<4; s++){
-            const k = `${i}_${s}`;
-            if(v[k] !== undefined){ av += Number(v[k])||0; hasSem = true; }
-          }
-          if(!hasSem && v[i] !== undefined) av = Number(v[i])||0;
+          let av = Number(v[i])||0;
+          // Sumar valores semanales del mismo mes (i_0, i_1, ..)
+          Object.entries(v).forEach(([k,val])=>{
+            if(k.startsWith(`${i}_`)) av += (Number(val)||0);
+          });
           f += av * sec.signo;
         });
       });
       return f;
     });
-    // acumArr mensual se calcula DESPUÉS de acumArrSemana para garantizar consistencia
-    // (ver useMemo siguiente). Aquí solo creamos un placeholder que se refinará.
     let a = saldoIni;
     const aa = fa.map((f,i)=>{
       // Antes del mes del saldo banco: no acumular (mes pasado, sin valor de saldo)
@@ -4428,99 +4315,6 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     });
     return {flujoArr:fa, acumArr:aa};
   },[emp, proyOverrides, saldoBancoUSD, mesIdxInicioSaldo, addedLines, subLines, getProy]); // eslint-disable-line
-
-  // Flujo neto SEMANAL real: arr[i][s] = flujo neto del mes i, semana s
-  // El parámetro mensual cae en la última semana del mes (consistente con getProySemana)
-  const flujoArrSemana = useMemo(()=>{
-    return MESES_65.map((_,i)=>{
-      const sems = [0,0,0,0];
-      const nSems = 4;
-      for(let s=0; s<nSems; s++){
-        const isLastInMonth = s === nSems-1;
-        let f = 0;
-        emp.sections.forEach(sec=>{
-          sec.lines.forEach(l=>{
-            // Valor proyectado de la semana específica
-            const v = getProySemana(l.label, i, s, isLastInMonth);
-            f += v * sec.signo;
-            // SubLines: solo el valor semanal específico (excluir formula y Préstamos)
-            if(l.subLines && !l.formula && !l.label.includes("Préstamos")){
-              (subLines[l.label]||[]).forEach(sl=>{
-                if(typeof sl === "string") return;
-                const vals = sl.vals || {};
-                const kSem = `${i}_${s}`;
-                if(vals[kSem] !== undefined){
-                  f += (Number(vals[kSem])||0) * sec.signo;
-                } else {
-                  // Si no hay semanal pero hay mensual, ponerlo en última semana
-                  const hasAnySem = [0,1,2,3].some(ss=>vals[`${i}_${ss}`]!==undefined);
-                  if(!hasAnySem && vals[i] !== undefined && isLastInMonth){
-                    f += (Number(vals[i])||0) * sec.signo;
-                  }
-                }
-              });
-            }
-          });
-          // addedLines: valor semanal específico, o mensual en última semana
-          (addedLines[sec.cat]||[]).forEach(al=>{
-            if(typeof al==="string") return;
-            const vals = al.vals||{};
-            const kSem = `${i}_${s}`;
-            if(vals[kSem] !== undefined){
-              f += (Number(vals[kSem])||0) * sec.signo;
-            } else {
-              const hasAnySem = [0,1,2,3].some(ss=>vals[`${i}_${ss}`]!==undefined);
-              if(!hasAnySem && vals[i] !== undefined && isLastInMonth){
-                f += (Number(vals[i])||0) * sec.signo;
-              }
-            }
-          });
-        });
-        sems[s] = f;
-      }
-      return sems;
-    });
-  },[emp, proyOverrides, addedLines, subLines, getProySemana]); // eslint-disable-line
-
-  // Acumulado SEMANAL: aa[i][s] = saldo acumulado al final de la semana s del mes i
-  const acumArrSemana = useMemo(()=>{
-    const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
-    let a = saldoIni;
-    let arrancado = false;
-    return flujoArrSemana.map((sems,i)=>{
-      // Antes del mes del saldo banco: no acumular
-      if(i < mesIdxInicioSaldo) return [null,null,null,null];
-      const out = [null,null,null,null];
-      for(let s=0; s<4; s++){
-        // En el mes de arranque: las semanas anteriores a semIdxInicioSaldo quedan en null (no existe saldo aún)
-        if(i === mesIdxInicioSaldo && s < semIdxInicioSaldo){
-          out[s] = null;
-          continue;
-        }
-        // Primera semana válida: arrancar con saldo inicial + flujo de esa semana
-        if(!arrancado){
-          a = saldoIni + (sems[s]||0);
-          arrancado = true;
-        } else {
-          a += (sems[s]||0);
-        }
-        out[s] = a;
-      }
-      return out;
-    });
-  },[flujoArrSemana, saldoBancoUSD, emp, mesIdxInicioSaldo, semIdxInicioSaldo]); // eslint-disable-line
-
-  // Acumulado MENSUAL DERIVADO: para garantizar que Σ mes = último valor semanal del mes
-  // (el flujo de semanas anteriores al saldo banco no se incluye en el saldo final)
-  const acumArrFinal = useMemo(()=>{
-    return acumArrSemana.map((sems,i)=>{
-      // Devuelve el último valor no-null de la semana del mes
-      for(let s=3; s>=0; s--){
-        if(sems[s] != null) return sems[s];
-      }
-      return null;
-    });
-  },[acumArrSemana]);
 
   // Flujo neto por mes (para totales mensuales en vista semanal)
   const flujoMes = useMemo(()=>{
@@ -4730,21 +4524,9 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       const total=s.indices.reduce((a,i)=>{
                         return a + sec.lines.reduce((b,l)=>{
                           if(l.label.startsWith("  ")) return b;
-                          const subSum = l.subLines && !l.formula && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
+                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
                           return b + getProy(l.label,i) + subSum;
-                        },0) + (addedLines[sec.cat]||[]).reduce((b,al)=>{
-                          if(typeof al==="string") return b;
-                          const vals = al.vals||{};
-                          // Si tiene valores semanales, usar SOLO semanales; si no, usar mensual
-                          let av = 0;
-                          let hasSem = false;
-                          for(let s=0; s<4; s++){
-                            const k = `${i}_${s}`;
-                            if(vals[k] !== undefined){ av += Number(vals[k])||0; hasSem = true; }
-                          }
-                          if(!hasSem && vals[i] !== undefined) av = Number(vals[i])||0;
-                          return b + av;
-                        },0);
+                        },0) + (addedLines[sec.cat]||[]).reduce((b,al)=>b+(Number(typeof al==="string"?0:(al.vals||{})[i])||0),0);
                       },0);
                       return (
                         <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontWeight:800,
@@ -4758,43 +4540,16 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       if(col.type==="month"||col.type==="month_collapsed"||col.isTotalMes){
                         v = sec.lines.reduce((a,l)=>{
                           if(l.label.startsWith("  ")) return a;
-                          // Excluir subLines de líneas fórmula (Pago Préstamos, Renovaciones, Ingreso Renovación)
-                          // porque su proy[i] ya viene calculado y sumar subLines causa doble conteo
-                          const subSum = l.subLines && !l.formula && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
+                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
                           return a + getProy(l.label,col.idx) + subSum;
-                        },0) + (addedLines[sec.cat]||[]).reduce((a,al)=>{
-                          if(typeof al==="string") return a;
-                          const vals = al.vals||{};
-                          // Sumar valor mensual + todos los semanales del mes (consistente con flujoArr)
-                          // Si tiene valores semanales, usar SOLO semanales; si no, usar mensual
-                          let av = 0;
-                          let hasSem = false;
-                          for(let s=0; s<4; s++){
-                            const k = `${col.idx}_${s}`;
-                            if(vals[k] !== undefined){ av += Number(vals[k])||0; hasSem = true; }
-                          }
-                          if(!hasSem && vals[col.idx] !== undefined) av = Number(vals[col.idx])||0;
-                          return a + av;
-                        },0);
+                        },0) + (addedLines[sec.cat]||[]).reduce((a,al)=>a+(Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0),0);
                       } else if(col.type==="week"){
                         v = sec.lines.reduce((a,l)=>{
                           if(l.label.startsWith("  ")) return a;
                           const propSem = getProySemana(l.label, col.idx, col.semIdx, col.isLastInMonth);
-                          // Excluir subLines de líneas fórmula (mismo motivo que vista mensual)
-                          const subSem = l.subLines && !l.formula && !l.label.includes("Préstamos")
+                          const subSem = l.subLines && !l.label.includes("Préstamos")
                             ? sumSubLinesSemana(l.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
                           return a + propSem + subSem;
-                        },0) + (addedLines[sec.cat]||[]).reduce((a,al)=>{
-                          if(typeof al==="string") return a;
-                          const vals = al.vals||{};
-                          // Valor semanal específico, o mensual en última semana del mes
-                          const kSem = `${col.idx}_${col.semIdx}`;
-                          if(vals[kSem] !== undefined) return a + (Number(vals[kSem])||0);
-                          const hasAnySem = [0,1,2,3].some(ss=>vals[`${col.idx}_${ss}`]!==undefined);
-                          if(!hasAnySem && vals[col.idx] !== undefined && col.isLastInMonth){
-                            return a + (Number(vals[col.idx])||0);
-                          }
-                          return a;
                         },0);
                       }
                       return (
@@ -5191,15 +4946,13 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     </td>
                     {colStructure.map(({season:s,collapsed,cols})=>{
                       if(collapsed){
-                        // Si tiene valores semanales usar SOLO semanales; si no, usar mensual
+                        // Sumar valores mensuales + valores semanales (idx_semIdx)
                         const tot=s.indices.reduce((a,i)=>{
-                          let sum = 0;
-                          let hasSem = false;
-                          for(let ss=0; ss<4; ss++){
-                            const k = `${i}_${ss}`;
-                            if(alVals[k] !== undefined){ sum += Number(alVals[k])||0; hasSem = true; }
-                          }
-                          if(!hasSem && alVals[i] !== undefined) sum = Number(alVals[i])||0;
+                          let sum = Number(alVals[i])||0;
+                          // Sumar también todas las semanas individuales del mes
+                          Object.entries(alVals).forEach(([k,v])=>{
+                            if(k.startsWith(`${i}_`)) sum += (Number(v)||0);
+                          });
                           return a+sum;
                         },0);
                         return <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontSize:9,
@@ -5210,22 +4963,14 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         const isTot=col.isTotalMes;
                         // idx único por semana: para semanas usar "monthIdx_semIdx", para mes usar "monthIdx"
                         const cellKey = col.type==="week" ? `${col.idx}_${col.semIdx}` : String(col.idx);
-                        // Para total del mes: si hay semanales usar SOLO semanales, si no usar mensual
-                        let disp;
-                        if(col.type==="month_total" || col.type==="month" || col.type==="month_collapsed"){
-                          let sum = 0;
-                          let hasSem = false;
-                          for(let ss=0; ss<4; ss++){
-                            const k = `${col.idx}_${ss}`;
-                            if(alVals[k] !== undefined){ sum += Number(alVals[k])||0; hasSem = true; }
-                          }
-                          if(!hasSem && alVals[col.idx] !== undefined) sum = Number(alVals[col.idx])||0;
-                          disp = sum;
-                        } else {
-                          // Vista semanal: solo el valor de esa semana específica
-                          disp = Number(alVals[cellKey])||0;
-                        }
+                        // Para total del mes: sumar valor mensual + todas las semanas individuales
+                        const sumWeeks = col.type==="month_total" 
+                          ? Object.entries(alVals).filter(([k])=>k.startsWith(`${col.idx}_`)).reduce((a,[,v])=>a+(Number(v)||0),0)
+                          : 0;
                         const rawVal=Number(alVals[cellKey])||0;
+                        const disp = col.type==="month_total" 
+                          ? (Number(alVals[String(col.idx)])||0) + sumWeeks
+                          : rawVal;
                         const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                         return (
                           <td key={`al-${ali}-${col.mes||""}-${ci}`}
@@ -5275,22 +5020,10 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       const total=s.indices.reduce((a,i)=>{
                         const linTot = sec.lines.reduce((b,l)=>{
                           if(l.label.startsWith("  ")) return b;
-                          const subSum = l.subLines && !l.formula && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
+                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
                           return b + getProy(l.label,i) + subSum;
                         },0);
-                        const addSum = (addedLines[sec.cat]||[]).reduce((b,al)=>{
-                          if(typeof al==="string") return b;
-                          const vals = al.vals||{};
-                          // Si tiene valores semanales, usar SOLO semanales; si no, usar mensual
-                          let av = 0;
-                          let hasSem = false;
-                          for(let s=0; s<4; s++){
-                            const k = `${i}_${s}`;
-                            if(vals[k] !== undefined){ av += Number(vals[k])||0; hasSem = true; }
-                          }
-                          if(!hasSem && vals[i] !== undefined) av = Number(vals[i])||0;
-                          return b + av;
-                        },0);
+                        const addSum = (addedLines[sec.cat]||[]).reduce((b,al)=>b+(Number(typeof al==="string"?0:(al.vals||{})[i])||0),0);
                         return a + linTot + addSum;
                       },0);
                       return (
@@ -5310,46 +5043,28 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         // Columna total mes: suma mensual completa (línea padre + sus subLines)
                         baseTotal = sec.lines.reduce((a,l)=>{
                           if(l.label.startsWith("  ")) return a;
-                          const subSum = l.subLines && !l.formula && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
+                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
                           return a + getProy(l.label,col.idx) + subSum;
                         },0);
-                        // addedLines: sumar mensual + todos los semanales (consistente con flujoArr)
                         addedTotal = (addedLines[sec.cat]||[]).reduce((a,al)=>{
-                          if(typeof al==="string") return a;
-                          const vals = al.vals||{};
-                          // Si tiene valores semanales, usar SOLO semanales; si no, usar mensual
-                          let av = 0;
-                          let hasSem = false;
-                          for(let s=0; s<4; s++){
-                            const k = `${col.idx}_${s}`;
-                            if(vals[k] !== undefined){ av += Number(vals[k])||0; hasSem = true; }
-                          }
-                          if(!hasSem && vals[col.idx] !== undefined) av = Number(vals[col.idx])||0;
-                          return a + av;
+                          const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
+                          return a+v;
                         },0);
                       } else if(col.type==="week") {
                         // Columna de semana: suma los valores semanales de cada línea + subLines de esa semana
                         baseTotal = sec.lines.reduce((a,l)=>{
                           if(l.label.startsWith("  ")) return a;
                           const propSem = getProySemana(l.label, col.idx, col.semIdx, col.isLastInMonth);
-                          const subSem = l.subLines && !l.formula && !l.label.includes("Préstamos")
+                          const subSem = l.subLines && !l.label.includes("Préstamos")
                             ? sumSubLinesSemana(l.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
                           return a + propSem + subSem;
                         }, 0);
-                        // addedLines: en vista semanal, mostrar el valor semanal específico de esta semana
-                        // Si la addedLine tiene valor mensual sin semanas, mostrarlo en última semana
-                        addedTotal = (addedLines[sec.cat]||[]).reduce((a,al)=>{
-                          if(typeof al==="string") return a;
-                          const vals = al.vals||{};
-                          const kSem = `${col.idx}_${col.semIdx}`;
-                          if(vals[kSem] !== undefined) return a + (Number(vals[kSem])||0);
-                          // Sin valor semanal: si tiene mensual, ponerlo en última semana
-                          const hasAnySem = [0,1,2,3].some(s=>vals[`${col.idx}_${s}`]!==undefined);
-                          if(!hasAnySem && vals[col.idx] !== undefined && col.isLastInMonth) {
-                            return a + (Number(vals[col.idx])||0);
-                          }
-                          return a;
-                        },0);
+                        // addedLines son mensuales, mostrar solo en primera semana
+                        addedTotal = col.semIdx === 0 ?
+                          (addedLines[sec.cat]||[]).reduce((a,al)=>{
+                            const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
+                            return a+v;
+                          },0) : 0;
                       }
                       const total=baseTotal+addedTotal;
                       const isFirst=col.isFirstInSeason||col.isFirstInMonth;
@@ -5376,23 +5091,13 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     s.lines.forEach(l=>{
                       if(l.label.startsWith("  ")) return;
                       total += getProy(l.label, idx);
-                      // Excluir formula:true para evitar doble conteo
-                      if(l.subLines && !l.formula && !l.label.includes("Préstamos")) {
+                      if(l.subLines && !l.label.includes("Préstamos")) {
                         total += sumSubLinesMes(l.label, idx);
                       }
                     });
                     (addedLines[s.cat]||[]).forEach(al=>{
-                      if(typeof al==="string") return;
-                      const vals = al.vals||{};
-                      // Si tiene semanales usar SOLO semanales; si no, usar mensual
-                      let av = 0;
-                      let hasSem = false;
-                      for(let ss=0; ss<4; ss++){
-                        const k = `${idx}_${ss}`;
-                        if(vals[k] !== undefined){ av += Number(vals[k])||0; hasSem = true; }
-                      }
-                      if(!hasSem && vals[idx] !== undefined) av = Number(vals[idx])||0;
-                      total += av;
+                      const v = Number(typeof al==="string" ? 0 : (al.vals||{})[idx]) || 0;
+                      total += v;
                     });
                     return total * s.signo;
                   };
@@ -5403,24 +5108,17 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     s.lines.forEach(l=>{
                       if(l.label.startsWith("  ")) return;
                       total += getProySemana(l.label, idx, semIdx, isLastInMonth);
-                      if(l.subLines && !l.formula && !l.label.includes("Préstamos")) {
+                      if(l.subLines && !l.label.includes("Préstamos")) {
                         total += sumSubLinesSemana(l.label, idx, semIdx, isLastInMonth);
                       }
                     });
-                    // addedLines: valor semanal específico, o mensual en última semana
-                    (addedLines[s.cat]||[]).forEach(al=>{
-                      if(typeof al==="string") return;
-                      const vals = al.vals||{};
-                      const kSem = `${idx}_${semIdx}`;
-                      if(vals[kSem] !== undefined){
-                        total += Number(vals[kSem])||0;
-                      } else {
-                        const hasAnySem = [0,1,2,3].some(ss=>vals[`${idx}_${ss}`]!==undefined);
-                        if(!hasAnySem && vals[idx] !== undefined && isLastInMonth){
-                          total += Number(vals[idx])||0;
-                        }
-                      }
-                    });
+                    // addedLines son mensuales: mostrar solo en primera semana
+                    if(semIdx === 0) {
+                      (addedLines[s.cat]||[]).forEach(al=>{
+                        const v = Number(typeof al==="string" ? 0 : (al.vals||{})[idx]) || 0;
+                        total += v;
+                      });
+                    }
                     return total * s.signo;
                   };
                   // Cálculo para un período: Saldo Caja + Ingresos Op + Egresos Op (var + fijo)
@@ -5464,16 +5162,6 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                                   borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>—</td>
                             );
                           }
-                          // Vista semanal: si la semana es anterior a la fecha del saldo, mostrar guion
-                          if(col.type==="week" && col.idx === mesIdxInicioSaldo && col.semIdx < semIdxInicioSaldo){
-                            const isFirst = col.isFirstInSeason || col.isFirstInMonth;
-                            return (
-                              <td key={`opCaja-${col.mes}-${col.label}-${ci}`}
-                                style={{padding:"6px 5px",textAlign:"right",fontSize:isTot?10:9,color:C.muted2,
-                                  background:isTot?`${C.yellow}18`:`${C.teal}05`,
-                                  borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>—</td>
-                            );
-                          }
                           let flujoOp = 0;
                           if(isTot || col.type==="month" || col.type==="month_collapsed") {
                             flujoOp = sumSeccionMes("ing_op", col.idx) + sumSeccionMes("egr_var", col.idx) + sumSeccionMes("egr_fijo", col.idx);
@@ -5481,16 +5169,6 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                             flujoOp = sumSeccionSemana("ing_op", col.idx, col.semIdx, col.isLastInMonth)
                                     + sumSeccionSemana("egr_var", col.idx, col.semIdx, col.isLastInMonth)
                                     + sumSeccionSemana("egr_fijo", col.idx, col.semIdx, col.isLastInMonth);
-                          }
-                          // Si NO hay flujo operacional en esta semana/mes, mostrar guion (no aplicable)
-                          if(flujoOp === 0){
-                            const isFirst = col.isFirstInSeason || col.isFirstInMonth;
-                            return (
-                              <td key={`opCaja-${col.mes}-${col.label}-${ci}`}
-                                style={{padding:"6px 5px",textAlign:"right",fontSize:isTot?10:9,color:C.muted2,
-                                  background:isTot?`${C.yellow}18`:`${C.teal}05`,
-                                  borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>—</td>
-                            );
                           }
                           const saldoOp = saldoCaja + flujoOp;
                           const isFirst = col.isFirstInSeason || col.isFirstInMonth;
@@ -5531,14 +5209,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                 }
                 return cols.map((col,ci)=>{
                   const isTot=col.isTotalMes;
-                  let val;
-                  if(col.type === "week"){
-                    // Vista semanal: usar el flujo neto de la semana específica
-                    val = (flujoArrSemana[col.idx]||[0,0,0,0])[col.semIdx]||0;
-                  } else {
-                    // Vista mensual / Σ mes / mes colapsado: valor mensual completo
-                    val = flujoArr[col.idx]||0;
-                  }
+                  const nSems=col.type==="month_collapsed"||isTot?1:col.nSems;
+                  const val=flujoArr[col.idx]/nSems;
                   const isFirst=col.isFirstInSeason||col.isFirstInMonth;
                   return (
                     <td key={`flujo-${col.mes}-${col.label}-${ci}`}
@@ -5546,7 +5218,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         fontSize:isTot?10:9,color:cf(val),
                         background:isTot?`${C.yellow}18`:"transparent",
                         borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
-                      {val===0?"—":$$(val)}
+                      {$$(val)}
                     </td>
                   );
                 });
@@ -5562,7 +5234,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
               {colStructure.map(({season:s,collapsed,cols})=>{
                 if(collapsed){
                   const last=s.indices[s.indices.length-1];
-                  const v = acumArrFinal[last];
+                  const v = acumArr[last];
                   return (
                     <td key={s.key} style={{padding:"7px 8px",textAlign:"right",fontWeight:800,
                       fontSize:11,color:v==null?C.muted2:cf(v),borderLeft:`2px solid ${C.border2}`}}>
@@ -5574,14 +5246,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                 return cols.map((col,ci)=>{
                   const isTot=col.isTotalMes;
                   const isFirst=col.isFirstInSeason||col.isFirstInMonth;
-                  let v;
-                  if(col.type === "week"){
-                    // Vista semanal: saldo acumulado al final de esa semana
-                    v = (acumArrSemana[col.idx]||[null,null,null,null])[col.semIdx];
-                  } else {
-                    // Vista mensual / Σ mes / colapsado: usar acumArrFinal (= último valor semanal del mes)
-                    v = acumArrFinal[col.idx];
-                  }
+                  const v = acumArr[col.idx];
                   return (
                     <td key={`acum-${col.mes}-${col.label}-${ci}`}
                       style={{padding:"6px 5px",textAlign:"right",fontWeight:isTot?900:700,
@@ -5734,109 +5399,19 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
 // ═══════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════════
-function Dashboard({empresas, saldosBancos, realData={}, addedLinesGlobal={}, subLinesGlobal={}}) {
-  // Construir empresas con overrides aplicados (igual que Consolidado)
-  const empresasConOverrides = useMemo(()=>{
-    const result = {};
-    Object.keys(empresas).forEach(n=>{
-      const emp = JSON.parse(JSON.stringify(empresas[n]));
-      const overrides = realData?.[n]?._proyOverrides || {};
-      emp.sections = emp.sections.map(sec=>({
-        ...sec,
-        lines: sec.lines.map(l=>{
-          if(overrides[l.label]) {
-            const newProy = [...l.proy];
-            Object.entries(overrides[l.label]).forEach(([idx, val])=>{
-              const i = Number(idx);
-              if(!isNaN(i) && i>=0 && i<newProy.length) {
-                if(typeof val === "object" && val !== null) {
-                  const semTotal = Object.values(val).reduce((s,v)=>s+(Number(v)||0),0);
-                  newProy[i] = semTotal;
-                } else {
-                  newProy[i] = Number(val)||0;
-                }
-              }
-            });
-            return {...l, proy:newProy};
-          }
-          return l;
-        })
-      }));
-      // addedLines
-      const added = addedLinesGlobal[n] || {};
-      Object.entries(added).forEach(([cat, lines])=>{
-        const sec = emp.sections.find(s=>s.cat===cat);
-        if(sec && Array.isArray(lines)) {
-          lines.forEach(al=>{
-            if(al && al.label) {
-              const vals = Array(63).fill(0);
-              if(al.vals) Object.entries(al.vals).forEach(([i,v])=>{
-                const idx=Number(i); if(!isNaN(idx)&&idx>=0&&idx<65) vals[idx]=Number(v)||0;
-              });
-              sec.lines.push({label:al.label, proy:vals});
-            }
-          });
-        }
-      });
-      // subLines
-      const empSubLines = subLinesGlobal[n] || {};
-      Object.entries(empSubLines).forEach(([lineLabel, slList])=>{
-        if(!Array.isArray(slList)) return;
-        for(const sec of emp.sections) {
-          // Excluir líneas fórmula (mismo motivo que en Consolidado)
-          const parentLine = sec.lines.find(l=>l.label===lineLabel && l.subLines && !l.formula && !l.label.includes("Préstamos"));
-          if(parentLine) {
-            for(let idx=0; idx<65; idx++) {
-              let mesTotal = 0;
-              slList.forEach(sl=>{
-                if(!sl || typeof sl === "string") return;
-                const vals = sl.vals || {};
-                let hasSem = false;
-                for(let s=0; s<4; s++){
-                  const k = `${idx}_${s}`;
-                  if(vals[k] !== undefined){ mesTotal += Number(vals[k])||0; hasSem = true; }
-                }
-                if(!hasSem && vals[idx] !== undefined) mesTotal += Number(vals[idx])||0;
-                if(!hasSem && vals[String(idx)] !== undefined && vals[idx] === undefined) mesTotal += Number(vals[String(idx)])||0;
-              });
-              if(mesTotal) parentLine.proy[idx] = (parentLine.proy[idx]||0) + mesTotal;
-            }
-            break;
-          }
-        }
-      });
-      // Sanitizar
-      emp.sections.forEach(sec=>{
-        sec.lines.forEach(l=>{
-          l.proy = l.proy.map(v=>{const n=Number(v); return isNaN(n)?0:n;});
-        });
-      });
-      result[n] = emp;
-    });
-    return result;
-  },[empresas, realData, addedLinesGlobal, subLinesGlobal]); // eslint-disable-line
-
-  // Excluir Allpa Perú del consolidado (igual que en Flujo Empresas Consolidado)
-  const empresasConsolidado = useMemo(()=>{
-    const r = {};
-    Object.entries(empresasConOverrides).forEach(([n,e])=>{
-      if(n !== "Allpa Farms Perú") r[n] = e;
-    });
-    return r;
-  },[empresasConOverrides]);
-
+function Dashboard({empresas, saldosBancos}) {
   const gmAcum=useMemo(()=>{
-    let acc=Object.entries(empresasConsolidado).reduce((s,[n,e])=>s+(getSaldoBancoInicial(saldosBancos,n,e.saldo_ini)||0),0);
+    let acc=Object.values(empresas).reduce((s,e)=>s+(e.saldo_ini||0),0);
     return MESES_65.map((_,i)=>{
       let f=0;
-      Object.values(empresasConsolidado).forEach(e=>e.sections.forEach(sec=>sec.lines.forEach(l=>{
+      Object.values(empresas).forEach(e=>e.sections.forEach(sec=>sec.lines.forEach(l=>{
         const num=Number(l.proy[i]);
         f+=(isNaN(num)?0:num)*sec.signo;
       })));
       acc+=f;
       return acc;
     });
-  },[empresasConsolidado, saldosBancos]);
+  },[empresas]);
   const EMPRESAS_CHILE = ["Mediterra","Allegria Foods","Allegria Service","Frisku Foods","Allpa Farms","Osiris","Integrity Farms"];
   const EMPRESAS_PERU  = ["Allpa Farms Perú"];
   const HOY_DASH = new Date();
@@ -5863,7 +5438,7 @@ function Dashboard({empresas, saldosBancos, realData={}, addedLinesGlobal={}, su
   }
   const saldoCajaChile = saldoDeEmpresas(EMPRESAS_CHILE);
   const saldoCajaPerU  = saldoDeEmpresas(EMPRESAS_PERU);
-  const empTotals=Object.entries(empresasConOverrides).map(([n,e])=>({n,totalIng:e.sections.filter(s=>s.signo>0).flatMap(s=>s.lines).reduce((a,l)=>a+l.proy.reduce((b,v)=>b+v,0),0)})).filter(e=>e.totalIng>0).sort((a,b)=>b.totalIng-a.totalIng);
+  const empTotals=Object.entries(empresas).map(([n,e])=>({n,totalIng:e.sections.filter(s=>s.signo>0).flatMap(s=>s.lines).reduce((a,l)=>a+l.proy.reduce((b,v)=>b+v,0),0)})).filter(e=>e.totalIng>0).sort((a,b)=>b.totalIng-a.totalIng);
   const maxIng=empTotals[0]?.totalIng||1;
   return (
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -7275,6 +6850,1337 @@ function Intercompany({transferencias=[],onSave,empresas={},canEdit}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// REPORTE SEMANAL — HELPERS DE CÁLCULO
+// ═══════════════════════════════════════════════════════════════════
+
+// Constantes del módulo
+const REPORTE_EMPRESAS = [
+  "Mediterra",
+  "Allegria Foods",
+  "Allegria Service",
+  "Frisku Foods",
+  "Osiris Plant",
+  "Integrity Farms",
+  "Allpa Farms Chile",
+  // Allpa Farms Perú EXCLUIDO del reporte (consolidación independiente)
+];
+
+const REPORTE_UMBRALES_DEFAULT = {
+  "Mediterra": 500000,
+  "Allegria Foods": 300000,
+  "Allegria Service": 200000,
+  "Frisku Foods": 80000,
+  "Osiris Plant": 100000,
+  "Integrity Farms": 50000,
+  "Allpa Farms Chile": 200000,
+};
+
+// Tipos de cambio fallback (si no hay tipo en params)
+const REPORTE_TC_DEFAULT_CLP = 950;  // CLP por USD
+const REPORTE_TC_DEFAULT_PEN = 3.75; // PEN por USD
+
+// Formateadores
+function _formatUSD(v, sign=false) {
+  if(v == null || isNaN(v)) return "—";
+  const abs = Math.abs(v);
+  const str = `USD ${Math.round(abs).toLocaleString("es-CL")}`;
+  if(v < 0) return `-${str}`;
+  if(sign && v > 0) return `+${str}`;
+  return str;
+}
+function _formatCLP(v) {
+  if(v == null || isNaN(v)) return "—";
+  return `CLP ${Math.round(v).toLocaleString("es-CL")}`;
+}
+
+// Saldo bancos por moneda para una empresa específica
+function reporte_calcSaldosPorMoneda(empNombre, saldosBancos, tcUSDtoCLP = REPORTE_TC_DEFAULT_CLP) {
+  const resultado = { usd: 0, clp: 0, equivCLPenUSD: 0, totalUSD: 0, lineas: [] };
+  if(!saldosBancos) return resultado;
+  Object.keys(saldosBancos).forEach(key => {
+    // key formato: "Empresa||Banco||moneda"
+    const partes = key.split("||");
+    if(partes.length < 3) return;
+    const [emp, banco, moneda] = partes;
+    if(emp !== empNombre) return;
+    const monto = Number(saldosBancos[key]?.monto) || 0;
+    if(monto === 0) return;
+    const monedaLower = (moneda || "").toLowerCase();
+    if(monedaLower === "usd") {
+      resultado.usd += monto;
+      resultado.lineas.push({moneda:"USD", banco, monto, descripcion:`${banco} USD`});
+    } else if(monedaLower === "clp") {
+      resultado.clp += monto;
+      resultado.lineas.push({moneda:"CLP", banco, monto, descripcion:`${banco} CLP`});
+    } else if(monedaLower === "pen") {
+      // PEN convertido a USD directamente (no se separa)
+      const enUSD = monto / REPORTE_TC_DEFAULT_PEN;
+      resultado.usd += enUSD;
+      resultado.lineas.push({moneda:"PEN", banco, monto, descripcion:`${banco} PEN (equiv. USD)`, enUSD});
+    }
+  });
+  // Equivalente CLP en USD
+  resultado.equivCLPenUSD = resultado.clp / (tcUSDtoCLP || REPORTE_TC_DEFAULT_CLP);
+  resultado.totalUSD = resultado.usd + resultado.equivCLPenUSD;
+  return resultado;
+}
+
+// Saldo proyectado mensual para una empresa - usa el saldo operacional desde la lógica del flujo
+// Retorna array de { mes, saldo } para los meses solicitados
+function reporte_calcSaldoProyectadoMensual(empNombre, realData, params, empresas, saldosBancos, mesesArr) {
+  // Saldo inicial = saldo actual de bancos en USD equivalente
+  const saldos = reporte_calcSaldosPorMoneda(empNombre, saldosBancos);
+  let saldoActual = saldos.totalUSD;
+  const empData = empresas[empNombre];
+  if(!empData) return mesesArr.map(m => ({mes:m, saldo:saldoActual}));
+
+  // Iterar mes a mes, sumar ingresos netos del flujo (proy + overrides)
+  const proyOverrides = realData?.[empNombre]?._proyOverrides || {};
+  const realPorMes = realData?.[empNombre] || {};
+
+  // Obtener mes actual (W20 = mayo 2026 en el contexto demo)
+  const hoy = new Date();
+  const mesActual = `${["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][hoy.getMonth()]} ${String(hoy.getFullYear()).slice(2)}`;
+
+  const resultado = [];
+  for(const mesLabel of mesesArr) {
+    const mesIdx = mIdx(mesLabel);
+    if(mesIdx < 0) { resultado.push({mes:mesLabel, saldo:saldoActual}); continue; }
+
+    // Calcular flujo neto del mes (ingresos - egresos)
+    let flujoNeto = 0;
+    if(empData.sections) {
+      for(const sec of empData.sections) {
+        const signo = sec.signo > 0 ? 1 : -1;
+        for(const linea of (sec.lines || [])) {
+          // Valor proyectado base
+          let valor = linea.proy?.[mesIdx] || 0;
+          // Override mensual (si existe)
+          const ov = proyOverrides[linea.label]?.[mesIdx];
+          if(ov !== undefined && ov !== null) {
+            if(typeof ov === "number") valor = ov;
+            else if(typeof ov === "object") {
+              // Override semanal: suma de semanas con valor
+              let total = 0;
+              for(let s = 0; s < 4; s++) {
+                const k = `_sem${s}`;
+                if(ov[k] !== undefined) total += Number(ov[k]) || 0;
+              }
+              valor = total;
+            }
+          }
+          // Valor real si existe (para meses pasados)
+          const real = realPorMes[linea.label]?.[mesIdx];
+          if(real != null && real !== "" && !isNaN(Number(real))) {
+            valor = Number(real);
+          }
+          flujoNeto += signo * valor;
+        }
+      }
+    }
+    saldoActual += flujoNeto;
+    resultado.push({mes:mesLabel, saldo:saldoActual});
+  }
+  return resultado;
+}
+
+// Obtener vista temporada (jul-jun) y calendario (ene-dic) para una empresa
+function reporte_getProyeccionesEmpresa(empNombre, realData, params, empresas, saldosBancos) {
+  const hoy = new Date();
+  const anioActual = hoy.getFullYear();
+  const anioPasado = anioActual - 1;
+  const a2act = String(anioActual).slice(2);
+  const a2pas = String(anioPasado).slice(2);
+  const MESES_NOMBRES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+  // Temporada: Jul (año pasado) → Jun (año actual)
+  const temporadaMeses = [];
+  for(let m = 6; m < 12; m++) temporadaMeses.push(`${MESES_NOMBRES[m]} ${a2pas}`);
+  for(let m = 0; m < 6; m++)  temporadaMeses.push(`${MESES_NOMBRES[m]} ${a2act}`);
+
+  // Calendario: Ene → Dic año actual
+  const calendarioMeses = [];
+  for(let m = 0; m < 12; m++) calendarioMeses.push(`${MESES_NOMBRES[m]} ${a2act}`);
+
+  return {
+    temporada: reporte_calcSaldoProyectadoMensual(empNombre, realData, params, empresas, saldosBancos, temporadaMeses),
+    calendario: reporte_calcSaldoProyectadoMensual(empNombre, realData, params, empresas, saldosBancos, calendarioMeses),
+  };
+}
+
+// Top 5 ingresos / egresos del mes en curso para una empresa
+function reporte_getTopMovimientos(empNombre, realData, empresas, mesLabel) {
+  const empData = empresas[empNombre];
+  if(!empData?.sections) return {ingresos:[], egresos:[]};
+  const mesIdx = mIdx(mesLabel);
+  if(mesIdx < 0) return {ingresos:[], egresos:[]};
+  const proyOverrides = realData?.[empNombre]?._proyOverrides || {};
+  const realPorMes = realData?.[empNombre] || {};
+
+  const todasLineas = [];
+  for(const sec of empData.sections) {
+    const tipo = sec.signo > 0 ? "ingreso" : "egreso";
+    for(const linea of (sec.lines || [])) {
+      let valor = linea.proy?.[mesIdx] || 0;
+      const ov = proyOverrides[linea.label]?.[mesIdx];
+      if(ov !== undefined && ov !== null) {
+        if(typeof ov === "number") valor = ov;
+        else if(typeof ov === "object") {
+          let total = 0;
+          for(let s = 0; s < 4; s++) {
+            const k = `_sem${s}`;
+            if(ov[k] !== undefined) total += Number(ov[k]) || 0;
+          }
+          valor = total;
+        }
+      }
+      const real = realPorMes[linea.label]?.[mesIdx];
+      if(real != null && real !== "" && !isNaN(Number(real))) valor = Number(real);
+      if(valor > 0) todasLineas.push({label:linea.label, monto:valor, tipo});
+    }
+  }
+
+  const ingresos = todasLineas.filter(l => l.tipo === "ingreso").sort((a,b) => b.monto - a.monto).slice(0, 5);
+  const egresos  = todasLineas.filter(l => l.tipo === "egreso") .sort((a,b) => b.monto - a.monto).slice(0, 5);
+  return { ingresos, egresos };
+}
+
+// Compromisos próximas 4 semanas (a partir del mes en curso)
+// Por ahora retorna los top egresos de los meses cercanos (aproximación)
+function reporte_getCompromisos4Semanas(empNombre, realData, empresas, mesActualLabel) {
+  // Simplificación: traer las líneas de egreso del mes actual y siguiente, ordenadas
+  const empData = empresas[empNombre];
+  if(!empData?.sections) return [];
+  const idxActual = mIdx(mesActualLabel);
+  if(idxActual < 0) return [];
+  const proyOverrides = realData?.[empNombre]?._proyOverrides || {};
+  const compromisos = [];
+  for(let offset = 0; offset <= 1; offset++) {
+    const idx = idxActual + offset;
+    const mesLabel = MESES_65[idx];
+    if(!mesLabel) continue;
+    for(const sec of empData.sections) {
+      if(sec.signo > 0) continue; // solo egresos
+      for(const linea of (sec.lines || [])) {
+        let valor = linea.proy?.[idx] || 0;
+        const ov = proyOverrides[linea.label]?.[idx];
+        if(ov !== undefined && ov !== null) {
+          if(typeof ov === "number") valor = ov;
+          else if(typeof ov === "object") {
+            let total = 0;
+            for(let s = 0; s < 4; s++) {
+              const k = `_sem${s}`;
+              if(ov[k] !== undefined) total += Number(ov[k]) || 0;
+            }
+            valor = total;
+          }
+        }
+        if(valor > 0) compromisos.push({mes:mesLabel, label:linea.label, monto:valor});
+      }
+    }
+  }
+  return compromisos.sort((a,b) => b.monto - a.monto).slice(0, 6);
+}
+
+// Ingresos próximas 4 semanas (mismo enfoque que compromisos)
+function reporte_getIngresos4Semanas(empNombre, realData, empresas, mesActualLabel) {
+  const empData = empresas[empNombre];
+  if(!empData?.sections) return [];
+  const idxActual = mIdx(mesActualLabel);
+  if(idxActual < 0) return [];
+  const proyOverrides = realData?.[empNombre]?._proyOverrides || {};
+  const ingresos = [];
+  for(let offset = 0; offset <= 1; offset++) {
+    const idx = idxActual + offset;
+    const mesLabel = MESES_65[idx];
+    if(!mesLabel) continue;
+    for(const sec of empData.sections) {
+      if(sec.signo < 0) continue; // solo ingresos
+      for(const linea of (sec.lines || [])) {
+        let valor = linea.proy?.[idx] || 0;
+        const ov = proyOverrides[linea.label]?.[idx];
+        if(ov !== undefined && ov !== null) {
+          if(typeof ov === "number") valor = ov;
+          else if(typeof ov === "object") {
+            let total = 0;
+            for(let s = 0; s < 4; s++) {
+              const k = `_sem${s}`;
+              if(ov[k] !== undefined) total += Number(ov[k]) || 0;
+            }
+            valor = total;
+          }
+        }
+        if(valor > 0) ingresos.push({mes:mesLabel, label:linea.label, monto:valor});
+      }
+    }
+  }
+  return ingresos.sort((a,b) => b.monto - a.monto).slice(0, 6);
+}
+
+// Detectar alertas para una empresa
+function reporte_detectarAlertas(empNombre, proyecciones, umbralMin, saldoActual) {
+  const alertas = [];
+  // Alerta crítica: saldo actual por debajo del umbral
+  if(saldoActual < umbralMin) {
+    const diff = umbralMin - saldoActual;
+    alertas.push({
+      nivel: "CRITICO",
+      texto: `Saldo actual ${_formatUSD(saldoActual)} está ${_formatUSD(diff)} por debajo del umbral mínimo (${_formatUSD(umbralMin)})`,
+      color: "RED",
+    });
+  }
+  // Alerta: déficit proyectado (saldo negativo en algún mes)
+  const mesesDeficit = (proyecciones.calendario || []).filter(m => m.saldo < 0);
+  if(mesesDeficit.length > 0) {
+    alertas.push({
+      nivel: "CRITICO",
+      texto: `${mesesDeficit.length} mes${mesesDeficit.length > 1 ? "es" : ""} con déficit proyectado: ${mesesDeficit.map(m => m.mes).join(", ")}`,
+      color: "RED",
+    });
+  }
+  // Alerta naranja: muchos meses bajo umbral
+  const mesesBajoUmbral = (proyecciones.temporada || []).filter(m => m.saldo >= 0 && m.saldo < umbralMin);
+  if(mesesBajoUmbral.length >= 3) {
+    alertas.push({
+      nivel: "ALERTA",
+      texto: `${mesesBajoUmbral.length} de ${proyecciones.temporada.length} meses de la temporada bajo umbral mínimo`,
+      color: "ORANGE",
+    });
+  }
+  return alertas;
+}
+
+// Datos consolidados del grupo (suma de empresas incluidas)
+function reporte_calcKPIsGrupo(datosEmpresas) {
+  const result = { saldoTotal:0, compromisos4S:0, ingresos4S:0, empresasAlerta:0 };
+  for(const e of datosEmpresas) {
+    result.saldoTotal += e.saldoTotal || 0;
+    result.compromisos4S += (e.compromisos || []).reduce((s,c) => s + (c.monto || 0), 0);
+    result.ingresos4S += (e.ingresos || []).reduce((s,i) => s + (i.monto || 0), 0);
+    if(e.alertas && e.alertas.some(a => a.nivel === "CRITICO" || a.nivel === "ALERTA")) {
+      result.empresasAlerta++;
+    }
+  }
+  return result;
+}
+
+// Función maestra: arma los datos de UNA empresa para el reporte
+function reporte_armarDatosEmpresa(empNombre, realData, params, empresas, saldosBancos, umbralMin, comentarioCFO, tcUSDtoCLP) {
+  const saldos = reporte_calcSaldosPorMoneda(empNombre, saldosBancos, tcUSDtoCLP);
+  const proyecciones = reporte_getProyeccionesEmpresa(empNombre, realData, params, empresas, saldosBancos);
+
+  // Mes actual
+  const hoy = new Date();
+  const MESES_NOMBRES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const mesActualLabel = `${MESES_NOMBRES[hoy.getMonth()]} ${String(hoy.getFullYear()).slice(2)}`;
+
+  const compromisos = reporte_getCompromisos4Semanas(empNombre, realData, empresas, mesActualLabel);
+  const ingresos = reporte_getIngresos4Semanas(empNombre, realData, empresas, mesActualLabel);
+  const top = reporte_getTopMovimientos(empNombre, realData, empresas, mesActualLabel);
+  const alertas = reporte_detectarAlertas(empNombre, proyecciones, umbralMin, saldos.totalUSD);
+
+  return {
+    nombre: empNombre,
+    umbralMin,
+    saldos,
+    saldoTotal: saldos.totalUSD,
+    proyecciones,
+    compromisos,
+    ingresos,
+    topIngresos: top.ingresos,
+    topEgresos: top.egresos,
+    alertas,
+    comentarioCFO: comentarioCFO || "",
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REPORTE SEMANAL — GENERADOR DE PDF (cliente, usa jsPDF + autoTable)
+// ═══════════════════════════════════════════════════════════════════
+
+// Loader dinámico de jsPDF (igual al que ya usa el módulo Frisku)
+let _reporteJsPDFLoaded = false;
+async function reporte_loadJsPDF() {
+  if(_reporteJsPDFLoaded && window.jspdf) return window.jspdf.jsPDF;
+  return new Promise((resolve, reject) => {
+    const s1 = document.createElement("script");
+    s1.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s1.onload = () => {
+      const s2 = document.createElement("script");
+      s2.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js";
+      s2.onload = () => { _reporteJsPDFLoaded = true; resolve(window.jspdf.jsPDF); };
+      s2.onerror = reject;
+      document.head.appendChild(s2);
+    };
+    s1.onerror = reject;
+    document.head.appendChild(s1);
+  });
+}
+
+// Cargar el logo Mediterra como base64 (desde /med.png)
+let _reporteLogoBase64 = null;
+async function reporte_loadLogo() {
+  if(_reporteLogoBase64) return _reporteLogoBase64;
+  try {
+    const res = await fetch("/med.png");
+    if(!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        _reporteLogoBase64 = reader.result;
+        resolve(_reporteLogoBase64);
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch(e) {
+    return null;
+  }
+}
+
+// Paleta para el PDF (consistente con el mockup)
+const _PDF_COLORS = {
+  TEAL:       [15, 118, 110],
+  TEAL_DARK:  [10, 79, 74],
+  TEAL_LIGHT: [94, 234, 212],
+  TEAL_VLIGHT:[204, 251, 241],
+  GREEN:      [22, 163, 74],
+  RED:        [220, 38, 38],
+  ORANGE:     [217, 119, 6],
+  GRAY_DARK:  [51, 51, 51],
+  GRAY_MED:   [102, 102, 102],
+  GRAY_LIGHT: [170, 170, 170],
+  BG_SOFT:    [247, 249, 252],
+  WHITE:      [255, 255, 255],
+  CARD_RED:   [255, 228, 225],
+  CARD_AMBER: [255, 248, 225],
+};
+
+// Helper: agregar header de página
+function _pdfAddHeader(doc, semana, fechaStr, isFirst, logo) {
+  const W = doc.internal.pageSize.getWidth();
+  const altura = isFirst ? 38 : 22; // mm
+  // Fondo blanco
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, W, altura, "F");
+  // Línea inferior teal
+  doc.setDrawColor(..._PDF_COLORS.TEAL);
+  doc.setLineWidth(isFirst ? 1.5 : 0.8);
+  doc.line(0, altura, W, altura);
+  // Logo Mediterra
+  if(logo) {
+    try {
+      doc.addImage(logo, "PNG", 12, isFirst ? 8 : 5, isFirst ? 30 : 18, isFirst ? 22 : 13);
+    } catch(e) {}
+  }
+  // Texto del header
+  if(isFirst) {
+    doc.setTextColor(..._PDF_COLORS.GRAY_DARK);
+    doc.setFont("helvetica","bold"); doc.setFontSize(14);
+    doc.text("Gestión Grupo Mediterra", 50, 16);
+    doc.setTextColor(..._PDF_COLORS.TEAL);
+    doc.setFont("helvetica","bold"); doc.setFontSize(10);
+    doc.text("Reporte Semanal de Flujo de Caja", 50, 22);
+    doc.setTextColor(..._PDF_COLORS.TEAL);
+    doc.setFont("helvetica","bold"); doc.setFontSize(12);
+    doc.text(`Semana ${semana}`, W - 12, 16, {align:"right"});
+    doc.setTextColor(..._PDF_COLORS.GRAY_DARK);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9);
+    doc.text(fechaStr, W - 12, 21, {align:"right"});
+    doc.setTextColor(..._PDF_COLORS.GRAY_MED);
+    doc.setFont("helvetica","italic"); doc.setFontSize(8);
+    doc.text("Información confidencial · Socios y directorio", W - 12, 26, {align:"right"});
+  } else {
+    doc.setTextColor(..._PDF_COLORS.GRAY_DARK);
+    doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.text("Reporte Semanal de Flujo de Caja", 32, 11);
+    doc.setTextColor(..._PDF_COLORS.GRAY_MED);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8);
+    doc.text("Gestión Grupo Mediterra", 32, 16);
+    doc.setTextColor(..._PDF_COLORS.TEAL);
+    doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.text(`Semana ${semana}`, W - 12, 11, {align:"right"});
+    doc.setTextColor(..._PDF_COLORS.GRAY_DARK);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8);
+    doc.text(fechaStr, W - 12, 16, {align:"right"});
+  }
+}
+
+// Helper: footer con número de página
+function _pdfAddFooter(doc) {
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const pages = doc.internal.getNumberOfPages();
+  for(let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setTextColor(..._PDF_COLORS.GRAY_LIGHT);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8);
+    doc.text("Generado por Gestión Grupo Mediterra", 12, H - 8);
+    doc.text(`Página ${p} de ${pages}`, W - 12, H - 8, {align:"right"});
+  }
+}
+
+// Generar el PDF completo del reporte semanal
+async function reporte_generarPDF(opts) {
+  const {
+    semana, fechaCorte, empresasData, kpisGrupo,
+    nombresExcluidos = ["Allpa Farms Perú"],
+  } = opts;
+
+  const jsPDF = await reporte_loadJsPDF();
+  const logo = await reporte_loadLogo();
+  const doc = new jsPDF({orientation:"portrait", unit:"mm", format:"a4"});
+  const fechaStr = new Date().toLocaleDateString("es-CL", {weekday:"long", year:"numeric", month:"long", day:"numeric"});
+
+  let yPos = 42; // después del header
+
+  // ─── PÁGINA 1: Resumen Ejecutivo ───
+  _pdfAddHeader(doc, semana, fechaStr, true, logo);
+
+  // Título
+  doc.setTextColor(..._PDF_COLORS.TEAL);
+  doc.setFont("helvetica","bold"); doc.setFontSize(16);
+  doc.text("Resumen Ejecutivo Grupo Mediterra", 12, yPos);
+  yPos += 6;
+  doc.setTextColor(..._PDF_COLORS.GRAY_MED);
+  doc.setFont("helvetica","italic"); doc.setFontSize(9);
+  doc.text(`Consolidado de ${empresasData.length} empresas · Estado al cierre del ${fechaCorte}`, 12, yPos);
+  yPos += 4;
+  doc.text(`Excluye ${nombresExcluidos.join(", ")} (consolidación independiente)`, 12, yPos);
+  yPos += 8;
+
+  // KPIs globales
+  doc.autoTable({
+    startY: yPos,
+    head: [["Saldo Bancos Grupo", "Compromisos 4 Sem.", "Ingresos 4 Sem.", "Empresas en Alerta"]],
+    body: [[
+      _formatUSD(kpisGrupo.saldoTotal),
+      _formatUSD(kpisGrupo.compromisos4S),
+      _formatUSD(kpisGrupo.ingresos4S),
+      `${kpisGrupo.empresasAlerta} de ${empresasData.length}`,
+    ]],
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 9, halign: "center", fontStyle: "bold"},
+    bodyStyles: {fillColor: _PDF_COLORS.TEAL_VLIGHT, textColor: _PDF_COLORS.TEAL_DARK, fontSize: 13, halign: "center", fontStyle: "bold", cellPadding: 4},
+    margin: {left: 12, right: 12},
+  });
+  yPos = doc.lastAutoTable.finalY + 6;
+
+  // ─── SECCIÓN POR CADA EMPRESA ───
+  for(let i = 0; i < empresasData.length; i++) {
+    const emp = empresasData[i];
+
+    // Si no caben los datos en la página actual, salto a nueva página
+    if(i > 0 || yPos > 230) {
+      doc.addPage();
+      _pdfAddHeader(doc, semana, fechaStr, false, logo);
+      yPos = 28;
+    }
+
+    _renderEmpresaEnPDF(doc, emp, i + 1, yPos, semana, fechaStr, logo);
+    yPos = doc.lastAutoTable ? doc.lastAutoTable.finalY + 6 : yPos + 200;
+  }
+
+  // Footer en todas las páginas
+  _pdfAddFooter(doc);
+
+  return doc;
+}
+
+// Render UNA empresa dentro del PDF (puede ocupar 1-2 páginas)
+function _renderEmpresaEnPDF(doc, emp, idx, startY, semana, fechaStr, logo) {
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  let y = startY;
+  const PAGE_BREAK_Y = H - 30; // si y > esto, saltar página
+
+  function ensureSpace(needed) {
+    if(y + needed > PAGE_BREAK_Y) {
+      doc.addPage();
+      _pdfAddHeader(doc, semana, fechaStr, false, logo);
+      y = 28;
+    }
+  }
+
+  // Título de la empresa
+  ensureSpace(20);
+  doc.setTextColor(..._PDF_COLORS.TEAL);
+  doc.setFont("helvetica","bold"); doc.setFontSize(15);
+  doc.text(`${idx}. ${emp.nombre}`, 12, y);
+  y += 5;
+  doc.setTextColor(..._PDF_COLORS.GRAY_MED);
+  doc.setFont("helvetica","italic"); doc.setFontSize(9);
+  doc.text(`Saldo al corte: ${emp.fechaCorte || "—"} · Umbral mínimo: ${_formatUSD(emp.umbralMin)}`, 12, y);
+  y += 6;
+
+  // Box saldo total
+  const saldoArribaUmbral = emp.saldoTotal >= emp.umbralMin;
+  const diferencia = emp.saldoTotal - emp.umbralMin;
+  const colorSaldo = saldoArribaUmbral ? _PDF_COLORS.GREEN : (emp.saldoTotal < 0 ? _PDF_COLORS.RED : _PDF_COLORS.ORANGE);
+  doc.autoTable({
+    startY: y,
+    head: [["Saldo Bancos Total (Equiv. USD)", "Umbral Mínimo", "Diferencia"]],
+    body: [[
+      _formatUSD(emp.saldoTotal),
+      _formatUSD(emp.umbralMin),
+      _formatUSD(diferencia, true),
+    ]],
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign: "center"},
+    bodyStyles: {
+      fillColor: saldoArribaUmbral ? _PDF_COLORS.TEAL_VLIGHT : _PDF_COLORS.CARD_RED,
+      fontSize: 12, halign: "center", fontStyle: "bold", cellPadding: 3,
+    },
+    columnStyles: {
+      0: {textColor: colorSaldo},
+      1: {textColor: _PDF_COLORS.GRAY_DARK},
+      2: {textColor: colorSaldo},
+    },
+    margin: {left: 12, right: 12},
+  });
+  y = doc.lastAutoTable.finalY + 4;
+
+  // Detalle saldos por moneda
+  ensureSpace(35);
+  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.text("Detalle saldos bancos por moneda", 12, y);
+  y += 2;
+  const monRows = [];
+  for(const ln of (emp.saldos?.lineas || [])) {
+    if(ln.moneda === "USD") monRows.push(["USD", ln.descripcion, _formatUSD(ln.monto)]);
+    else if(ln.moneda === "CLP") monRows.push(["CLP", ln.descripcion, _formatCLP(ln.monto)]);
+    else if(ln.moneda === "PEN") monRows.push(["PEN", ln.descripcion, _formatUSD(ln.enUSD)]);
+  }
+  if(emp.saldos?.equivCLPenUSD > 0) {
+    monRows.push(["—", "Equivalente CLP en USD", _formatUSD(emp.saldos.equivCLPenUSD)]);
+  }
+  monRows.push(["", "Total equivalente USD:", _formatUSD(emp.saldoTotal)]);
+  doc.autoTable({
+    startY: y,
+    head: [["Moneda", "Descripción", "Monto"]],
+    body: monRows,
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign: "center"},
+    bodyStyles: {fontSize: 8, cellPadding: 1.5},
+    columnStyles: {0: {halign: "center"}, 2: {halign: "right"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data) {
+      if(data.row.index === monRows.length - 1) {
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.textColor = _PDF_COLORS.TEAL_DARK;
+        data.cell.styles.fontSize = 9;
+      }
+    },
+    margin: {left: 12, right: 12},
+  });
+  y = doc.lastAutoTable.finalY + 4;
+
+  // Saldo Caja Proyectado - dos vistas lado a lado
+  ensureSpace(70);
+  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.text("Saldo Caja Proyectado", 12, y);
+  y += 2;
+  // Vista temporada - izquierda
+  const tempRows = (emp.proyecciones?.temporada || []).map(m => [m.mes, _formatUSD(m.saldo)]);
+  doc.autoTable({
+    startY: y,
+    head: [["Temporada Jul - Jun", "Saldo USD"]],
+    body: tempRows,
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign: "center"},
+    bodyStyles: {fontSize: 7.5, cellPadding: 1.2},
+    columnStyles: {1: {halign: "right"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data) {
+      if(data.column.index === 1 && data.section === "body") {
+        const fila = (emp.proyecciones?.temporada || [])[data.row.index];
+        if(fila) {
+          if(fila.saldo < 0) {
+            data.cell.styles.textColor = _PDF_COLORS.RED;
+            data.cell.styles.fontStyle = "bold";
+          } else if(fila.saldo < emp.umbralMin) {
+            data.cell.styles.textColor = _PDF_COLORS.ORANGE;
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      }
+    },
+    margin: {left: 12, right: 105},
+    tableWidth: 80,
+  });
+  const tempFinalY = doc.lastAutoTable.finalY;
+
+  // Vista calendario - derecha
+  const calRows = (emp.proyecciones?.calendario || []).map(m => [m.mes, _formatUSD(m.saldo)]);
+  doc.autoTable({
+    startY: y,
+    head: [["Calendario Ene - Dic", "Saldo USD"]],
+    body: calRows,
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign: "center"},
+    bodyStyles: {fontSize: 7.5, cellPadding: 1.2},
+    columnStyles: {1: {halign: "right"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data) {
+      if(data.column.index === 1 && data.section === "body") {
+        const fila = (emp.proyecciones?.calendario || [])[data.row.index];
+        if(fila) {
+          if(fila.saldo < 0) {
+            data.cell.styles.textColor = _PDF_COLORS.RED;
+            data.cell.styles.fontStyle = "bold";
+          } else if(fila.saldo < emp.umbralMin) {
+            data.cell.styles.textColor = _PDF_COLORS.ORANGE;
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      }
+    },
+    margin: {left: 105, right: 12},
+    tableWidth: 80,
+  });
+  y = Math.max(tempFinalY, doc.lastAutoTable.finalY) + 4;
+
+  // Compromisos
+  ensureSpace(40);
+  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.text("Compromisos próximas 4 semanas", 12, y);
+  y += 2;
+  const compRows = (emp.compromisos || []).map(c => [c.mes, c.label, _formatUSD(c.monto)]);
+  const totalComp = (emp.compromisos || []).reduce((s,c) => s + (c.monto || 0), 0);
+  if(compRows.length > 0) {
+    compRows.push(["", "Total compromisos:", _formatUSD(totalComp)]);
+  }
+  doc.autoTable({
+    startY: y,
+    head: [["Mes / Periodo", "Concepto", "Monto USD"]],
+    body: compRows.length > 0 ? compRows : [["—", "Sin compromisos registrados", "—"]],
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8.5},
+    bodyStyles: {fontSize: 8, cellPadding: 1.5},
+    columnStyles: {2: {halign: "right"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data) {
+      if(data.row.index === compRows.length - 1 && compRows.length > 1) {
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.textColor = _PDF_COLORS.TEAL_DARK;
+        data.cell.styles.fontSize = 9;
+      }
+    },
+    margin: {left: 12, right: 12},
+  });
+  y = doc.lastAutoTable.finalY + 4;
+
+  // Ingresos
+  ensureSpace(40);
+  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.text("Ingresos proyectados próximas 4 semanas", 12, y);
+  y += 2;
+  const ingRows = (emp.ingresos || []).map(i => [i.mes, i.label, _formatUSD(i.monto)]);
+  const totalIng = (emp.ingresos || []).reduce((s,i) => s + (i.monto || 0), 0);
+  if(ingRows.length > 0) {
+    ingRows.push(["", "Total ingresos:", _formatUSD(totalIng)]);
+  }
+  doc.autoTable({
+    startY: y,
+    head: [["Mes / Periodo", "Concepto", "Monto USD"]],
+    body: ingRows.length > 0 ? ingRows : [["—", "Sin ingresos registrados", "—"]],
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8.5},
+    bodyStyles: {fontSize: 8, cellPadding: 1.5},
+    columnStyles: {2: {halign: "right", textColor: _PDF_COLORS.GREEN, fontStyle: "bold"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data) {
+      if(data.row.index === ingRows.length - 1 && ingRows.length > 1) {
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fontSize = 9;
+        if(data.column.index === 2) data.cell.styles.textColor = _PDF_COLORS.GREEN;
+        else data.cell.styles.textColor = _PDF_COLORS.TEAL_DARK;
+      }
+    },
+    margin: {left: 12, right: 12},
+  });
+  y = doc.lastAutoTable.finalY + 4;
+
+  // Top 5 ingresos y egresos lado a lado
+  ensureSpace(45);
+  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.text("Top 5 movimientos del período", 12, y);
+  y += 2;
+  const topInRows = (emp.topIngresos || []).map((l, i) => [`${i+1}. ${l.label}`, _formatUSD(l.monto)]);
+  const topEgRows = (emp.topEgresos || []).map((l, i) => [`${i+1}. ${l.label}`, _formatUSD(l.monto)]);
+  doc.autoTable({
+    startY: y,
+    head: [["TOP 5 INGRESOS", ""]],
+    body: topInRows.length > 0 ? topInRows : [["Sin ingresos", "—"]],
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8.5},
+    bodyStyles: {fontSize: 8, cellPadding: 1.2},
+    columnStyles: {1: {halign: "right", textColor: _PDF_COLORS.GREEN, fontStyle: "bold"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    margin: {left: 12, right: 105},
+    tableWidth: 80,
+  });
+  const topInFinalY = doc.lastAutoTable.finalY;
+  doc.autoTable({
+    startY: y,
+    head: [["TOP 5 EGRESOS", ""]],
+    body: topEgRows.length > 0 ? topEgRows : [["Sin egresos", "—"]],
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8.5},
+    bodyStyles: {fontSize: 8, cellPadding: 1.2},
+    columnStyles: {1: {halign: "right", textColor: _PDF_COLORS.RED, fontStyle: "bold"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    margin: {left: 105, right: 12},
+    tableWidth: 80,
+  });
+  y = Math.max(topInFinalY, doc.lastAutoTable.finalY) + 4;
+
+  // Alertas
+  if((emp.alertas || []).length > 0) {
+    ensureSpace(30);
+    doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+    doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.text("Alertas detectadas", 12, y);
+    y += 2;
+    const alertRows = (emp.alertas || []).map(a => [a.nivel, a.texto]);
+    doc.autoTable({
+      startY: y,
+      body: alertRows,
+      theme: "grid",
+      bodyStyles: {fontSize: 8.5, cellPadding: 2, fillColor: _PDF_COLORS.CARD_AMBER, textColor: _PDF_COLORS.GRAY_DARK},
+      columnStyles: {
+        0: {fontStyle: "bold", fontSize: 8, halign: "center", textColor: 255, cellWidth: 22, valign: "middle"},
+        1: {valign: "middle"},
+      },
+      didParseCell: function(data) {
+        if(data.column.index === 0 && data.section === "body") {
+          const a = emp.alertas[data.row.index];
+          if(a) {
+            if(a.nivel === "CRITICO") data.cell.styles.fillColor = _PDF_COLORS.RED;
+            else if(a.nivel === "ALERTA") data.cell.styles.fillColor = _PDF_COLORS.ORANGE;
+            else data.cell.styles.fillColor = _PDF_COLORS.TEAL;
+          }
+        }
+      },
+      margin: {left: 12, right: 12},
+    });
+    y = doc.lastAutoTable.finalY + 4;
+  }
+
+  // Comentario CFO
+  if(emp.comentarioCFO && emp.comentarioCFO.trim()) {
+    ensureSpace(30);
+    doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+    doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.text("Comentario del CFO", 12, y);
+    y += 3;
+    // Caja teal con franja gold a la izquierda
+    const cardW = 186;
+    const cardX = 12;
+    const padding = 4;
+    doc.setFontSize(9); doc.setFont("helvetica","italic");
+    const lines = doc.splitTextToSize(emp.comentarioCFO, cardW - padding*2 - 4);
+    const cardH = lines.length * 4 + padding * 2;
+    // Fondo
+    doc.setFillColor(..._PDF_COLORS.TEAL_VLIGHT);
+    doc.rect(cardX, y, cardW, cardH, "F");
+    // Franja teal
+    doc.setFillColor(..._PDF_COLORS.TEAL);
+    doc.rect(cardX, y, 1.2, cardH, "F");
+    // Texto
+    doc.setTextColor(..._PDF_COLORS.GRAY_DARK);
+    doc.text(lines, cardX + 4, y + padding + 3);
+    y += cardH + 4;
+  }
+
+  // Asegurar que el lastAutoTable apunte a la última tabla para el cálculo de y siguiente
+  doc.lastAutoTable = doc.lastAutoTable || {finalY: y};
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REPORTE SEMANAL — COMPONENTE UI
+// ═══════════════════════════════════════════════════════════════════
+
+function ReporteSemanalModule({
+  realData, params, empresas, saldosBancos, canEdit,
+  umbralesConfig = {}, onSaveUmbrales,
+  destinatariosConfig = [], onSaveDestinatarios,
+  comentariosConfig = {}, onSaveComentarios,
+  historialReportes = [], onSaveHistorialReportes,
+  usuarioActual,
+}) {
+  const [subTab, setSubTab] = useState("generar"); // "generar" | "umbrales" | "destinatarios" | "historial"
+  const [generando, setGenerando] = useState(false);
+  const [errorGen, setErrorGen] = useState(null);
+  const [exitoGen, setExitoGen] = useState(null);
+
+  // Estados del tab "generar"
+  const [empresasIncluidas, setEmpresasIncluidas] = useState(() => {
+    const obj = {};
+    REPORTE_EMPRESAS.forEach(e => { obj[e] = true; });
+    return obj;
+  });
+  const [destinatariosMarcados, setDestinatariosMarcados] = useState({});
+  const [comentariosLocal, setComentariosLocal] = useState({}); // Temporal mientras edita
+
+  // Cargar comentarios persistidos
+  useEffect(() => {
+    setComentariosLocal(comentariosConfig || {});
+  }, [comentariosConfig]);
+
+  // Calcular fecha del último viernes
+  function getUltimoViernes() {
+    const hoy = new Date();
+    const dia = hoy.getDay();
+    const diasAtras = dia === 0 ? 2 : dia === 6 ? 1 : (dia + 2) % 7 || 7;
+    const v = new Date(hoy);
+    v.setDate(hoy.getDate() - diasAtras);
+    return v;
+  }
+  const ultimoViernes = getUltimoViernes();
+  const fechaCorteStr = ultimoViernes.toLocaleDateString("es-CL", {weekday:"long", year:"numeric", month:"long", day:"numeric"});
+  // Calcular semana ISO
+  function getSemanaISO(d) {
+    const c = new Date(d.getTime());
+    c.setHours(0,0,0,0);
+    c.setDate(c.getDate() + 3 - ((c.getDay()+6)%7));
+    const f = new Date(c.getFullYear(),0,4);
+    return 1 + Math.round(((c-f)/86400000 - 3 + ((f.getDay()+6)%7)) / 7);
+  }
+  const semanaISO = getSemanaISO(new Date());
+
+  // Umbrales: si no hay valor configurado, usar default
+  function umbralDe(emp) {
+    if(umbralesConfig && umbralesConfig[emp] != null) return Number(umbralesConfig[emp]) || 0;
+    return REPORTE_UMBRALES_DEFAULT[emp] || 100000;
+  }
+
+  // Preview de empresas a incluir
+  const empresasParaReporte = useMemo(() => {
+    return REPORTE_EMPRESAS
+      .filter(e => empresasIncluidas[e])
+      .map(emp => reporte_armarDatosEmpresa(
+        emp, realData, params, empresas, saldosBancos,
+        umbralDe(emp),
+        comentariosLocal[emp] || "",
+        params?.tcUSDtoCLP || REPORTE_TC_DEFAULT_CLP,
+      ));
+  }, [realData, params, empresas, saldosBancos, empresasIncluidas, umbralesConfig, comentariosLocal]);
+
+  const kpisGrupo = useMemo(() => reporte_calcKPIsGrupo(empresasParaReporte), [empresasParaReporte]);
+
+  // Generar PDF
+  async function handleGenerarPDF() {
+    setGenerando(true); setErrorGen(null); setExitoGen(null);
+    try {
+      // Persistir comentarios antes de generar
+      if(onSaveComentarios) await onSaveComentarios(comentariosLocal);
+
+      const empresasData = empresasParaReporte.map(e => ({
+        ...e,
+        fechaCorte: fechaCorteStr,
+      }));
+      const doc = await reporte_generarPDF({
+        semana: semanaISO,
+        fechaCorte: fechaCorteStr,
+        empresasData,
+        kpisGrupo,
+      });
+
+      const hoy = new Date().toISOString().slice(0, 10);
+      const nombreArchivo = `Reporte_Semanal_Flujo_de_Caja_Grupo_Mediterra_${hoy}_W${semanaISO}.pdf`;
+      doc.save(nombreArchivo);
+
+      // Guardar en historial
+      const blobPDF = doc.output("blob");
+      const pdfBase64 = await new Promise((res) => {
+        const r = new FileReader();
+        r.onloadend = () => res(r.result);
+        r.readAsDataURL(blobPDF);
+      });
+      const entradaHistorial = {
+        id: `rep_${Date.now()}`,
+        semana: semanaISO,
+        fechaGeneracion: new Date().toISOString(),
+        generadoPor: usuarioActual?.nombre || "—",
+        empresasIncluidas: empresasParaReporte.map(e => e.nombre),
+        nombreArchivo,
+        pdfBase64,
+      };
+      if(onSaveHistorialReportes) {
+        await onSaveHistorialReportes([...(historialReportes || []), entradaHistorial]);
+      }
+
+      setExitoGen(`✅ Reporte generado: ${nombreArchivo}`);
+      setTimeout(() => setExitoGen(null), 6000);
+    } catch(err) {
+      console.error(err);
+      setErrorGen("Error generando PDF: " + (err?.message || String(err)));
+    }
+    setGenerando(false);
+  }
+
+  // Estilo del tab activo
+  const tabStyle = (active) => ({
+    padding: "8px 16px",
+    background: active ? C.accent : "transparent",
+    border: `1px solid ${active ? C.accent : C.border}`,
+    borderRadius: 8,
+    color: active ? "#fff" : C.muted,
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: 700,
+  });
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:800,color:C.accentL,marginBottom:4}}>📅 Reporte Semanal de Flujo de Caja</div>
+          <div style={{fontSize:11,color:C.muted}}>Semana ISO {semanaISO} · Corte al {fechaCorteStr}</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        <button onClick={()=>setSubTab("generar")}      style={tabStyle(subTab==="generar")}>📄 Generar</button>
+        <button onClick={()=>setSubTab("umbrales")}     style={tabStyle(subTab==="umbrales")}>⚙️ Umbrales</button>
+        <button onClick={()=>setSubTab("destinatarios")}style={tabStyle(subTab==="destinatarios")}>📧 Destinatarios</button>
+        <button onClick={()=>setSubTab("historial")}    style={tabStyle(subTab==="historial")}>📁 Historial</button>
+      </div>
+
+      {/* ─── TAB: GENERAR ─── */}
+      {subTab === "generar" && (
+        <div>
+          {/* KPIs del grupo */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+            {[
+              {label:"Saldo Bancos Grupo", val:_formatUSD(kpisGrupo.saldoTotal), color:C.green},
+              {label:"Compromisos 4 Sem.", val:_formatUSD(kpisGrupo.compromisos4S), color:C.red},
+              {label:"Ingresos 4 Sem.",    val:_formatUSD(kpisGrupo.ingresos4S), color:C.green},
+              {label:"Empresas en Alerta", val:`${kpisGrupo.empresasAlerta} de ${empresasParaReporte.length}`, color:kpisGrupo.empresasAlerta>0?C.yellow:C.green},
+            ].map((kpi,i)=>(
+              <div key={i} style={{padding:"10px 12px",background:C.card,borderRadius:8,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:9,color:C.muted2,textTransform:"uppercase",letterSpacing:0.5}}>{kpi.label}</div>
+                <div style={{fontSize:14,fontWeight:800,color:kpi.color,marginTop:4}}>{kpi.val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Selector de empresas a incluir */}
+          <div style={{padding:12,background:C.card,borderRadius:10,border:`1px solid ${C.border}`,marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.accentL,marginBottom:8}}>Empresas a incluir en el reporte</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:6}}>
+              {REPORTE_EMPRESAS.map(emp=>(
+                <label key={emp} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:11,color:C.text,padding:"4px 8px",borderRadius:6,background:empresasIncluidas[emp]?C.accent+"22":"transparent"}}>
+                  <input type="checkbox" checked={!!empresasIncluidas[emp]} onChange={e=>setEmpresasIncluidas(p=>({...p,[emp]:e.target.checked}))}/>
+                  {emp}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Comentarios CFO por empresa */}
+          <div style={{padding:12,background:C.card,borderRadius:10,border:`1px solid ${C.border}`,marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.accentL,marginBottom:8}}>Comentarios del CFO por empresa</div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:10,fontStyle:"italic"}}>Se guardan automáticamente al generar el reporte. La próxima semana parten en blanco.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {REPORTE_EMPRESAS.filter(e=>empresasIncluidas[e]).map(emp=>(
+                <div key={emp}>
+                  <div style={{fontSize:11,fontWeight:700,color:C.text,marginBottom:4}}>{emp}</div>
+                  <textarea
+                    value={comentariosLocal[emp] || ""}
+                    onChange={e=>setComentariosLocal(p=>({...p,[emp]:e.target.value}))}
+                    placeholder="Comentario o contexto adicional para esta empresa (opcional)..."
+                    style={{width:"100%",padding:"6px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.text,fontSize:11,minHeight:50,boxSizing:"border-box",resize:"vertical"}}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mensajes */}
+          {errorGen && <div style={{padding:10,background:C.red+"22",border:`1px solid ${C.red}`,borderRadius:8,color:C.red,fontSize:11,marginBottom:10}}>{errorGen}</div>}
+          {exitoGen && <div style={{padding:10,background:C.green+"22",border:`1px solid ${C.green}`,borderRadius:8,color:C.green,fontSize:11,marginBottom:10}}>{exitoGen}</div>}
+
+          {/* Botones de acción */}
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
+            <button disabled={generando||empresasParaReporte.length===0} onClick={handleGenerarPDF} style={{padding:"10px 22px",background:generando?C.muted:C.accent,color:"#fff",border:"none",borderRadius:8,cursor:generando?"wait":"pointer",fontWeight:700,fontSize:13}}>
+              {generando ? "⏳ Generando..." : "📄 Generar PDF"}
+            </button>
+          </div>
+
+          {/* Preview compacto */}
+          <div style={{marginTop:18,padding:12,background:C.card2,borderRadius:8,border:`1px solid ${C.border2}`}}>
+            <div style={{fontSize:11,fontWeight:700,color:C.accentL,marginBottom:8}}>Preview: empresas a incluir ({empresasParaReporte.length})</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {empresasParaReporte.map(e=>{
+                const arribaUmbral = e.saldoTotal >= e.umbralMin;
+                const colorEstado = arribaUmbral ? C.green : (e.saldoTotal < 0 ? C.red : C.yellow);
+                return (
+                  <div key={e.nombre} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:C.card,borderRadius:6,fontSize:11}}>
+                    <span style={{fontWeight:700,color:C.text}}>{e.nombre}</span>
+                    <span style={{fontFamily:"monospace",color:colorEstado,fontWeight:700}}>
+                      {_formatUSD(e.saldoTotal)} / {_formatUSD(e.umbralMin)}
+                      {e.alertas.length > 0 && <span style={{marginLeft:8,fontSize:9,padding:"2px 6px",background:C.red+"33",color:C.red,borderRadius:10}}>{e.alertas.length} alerta{e.alertas.length>1?"s":""}</span>}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: UMBRALES ─── */}
+      {subTab === "umbrales" && (
+        <ReporteUmbralesEditor
+          umbralesConfig={umbralesConfig}
+          onSave={onSaveUmbrales}
+          canEdit={canEdit}
+        />
+      )}
+
+      {/* ─── TAB: DESTINATARIOS ─── */}
+      {subTab === "destinatarios" && (
+        <ReporteDestinatariosEditor
+          destinatariosConfig={destinatariosConfig}
+          onSave={onSaveDestinatarios}
+          canEdit={canEdit}
+        />
+      )}
+
+      {/* ─── TAB: HISTORIAL ─── */}
+      {subTab === "historial" && (
+        <ReporteHistorial
+          historial={historialReportes}
+          onUpdate={onSaveHistorialReportes}
+          canEdit={canEdit}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Editor de umbrales ───
+function ReporteUmbralesEditor({umbralesConfig, onSave, canEdit}) {
+  const [local, setLocal] = useState({});
+  const [saved, setSaved] = useState(null);
+
+  useEffect(() => {
+    const inicial = {};
+    REPORTE_EMPRESAS.forEach(emp => {
+      inicial[emp] = umbralesConfig?.[emp] != null
+        ? umbralesConfig[emp]
+        : REPORTE_UMBRALES_DEFAULT[emp] || 100000;
+    });
+    setLocal(inicial);
+  }, [umbralesConfig]);
+
+  async function guardar() {
+    if(onSave) await onSave(local);
+    setSaved("✅ Umbrales guardados");
+    setTimeout(()=>setSaved(null), 3000);
+  }
+
+  return (
+    <div style={{padding:14,background:C.card,borderRadius:10,border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.accentL,marginBottom:6}}>⚙️ Configuración de Umbrales Mínimos de Caja</div>
+      <div style={{fontSize:10,color:C.muted,marginBottom:14,fontStyle:"italic"}}>
+        El umbral mínimo es el saldo de caja que cada empresa debe mantener. Si baja de este nivel, se genera una alerta en el reporte. Todos los valores en USD.
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {REPORTE_EMPRESAS.map(emp=>(
+          <div key={emp} style={{display:"grid",gridTemplateColumns:"1fr 200px 100px",gap:10,alignItems:"center",padding:"8px 12px",background:C.card2,borderRadius:6}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text}}>{emp}</div>
+            <input
+              type="number"
+              disabled={!canEdit}
+              value={local[emp] || ""}
+              onChange={e=>setLocal(p=>({...p,[emp]:Number(e.target.value)||0}))}
+              placeholder="USD"
+              style={{padding:"6px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.text,fontSize:12,textAlign:"right"}}
+            />
+            <div style={{fontSize:11,color:C.muted,textAlign:"right"}}>{_formatUSD(local[emp]||0)}</div>
+          </div>
+        ))}
+      </div>
+
+      {saved && <div style={{marginTop:10,padding:8,background:C.green+"22",color:C.green,borderRadius:6,fontSize:11}}>{saved}</div>}
+
+      {canEdit && (
+        <div style={{marginTop:14,display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={guardar} style={{padding:"8px 18px",background:C.accent,color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            💾 Guardar umbrales
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Editor de destinatarios ───
+function ReporteDestinatariosEditor({destinatariosConfig, onSave, canEdit}) {
+  const [local, setLocal] = useState([]);
+  const [nuevo, setNuevo] = useState({nombre:"", email:"", rol:"Socio"});
+  const [saved, setSaved] = useState(null);
+
+  useEffect(() => {
+    setLocal(Array.isArray(destinatariosConfig) ? destinatariosConfig : []);
+  }, [destinatariosConfig]);
+
+  function agregar() {
+    if(!nuevo.email || !nuevo.email.includes("@")) {
+      alert("Email inválido");
+      return;
+    }
+    if(local.some(d => d.email === nuevo.email)) {
+      alert("Email ya existe en la lista");
+      return;
+    }
+    setLocal([...local, {...nuevo, id:`dst_${Date.now()}`, activo:true}]);
+    setNuevo({nombre:"", email:"", rol:"Socio"});
+  }
+
+  function eliminar(id) {
+    if(!window.confirm("¿Eliminar este destinatario?")) return;
+    setLocal(local.filter(d => d.id !== id));
+  }
+
+  function toggleActivo(id) {
+    setLocal(local.map(d => d.id === id ? {...d, activo: !d.activo} : d));
+  }
+
+  async function guardar() {
+    if(onSave) await onSave(local);
+    setSaved("✅ Destinatarios guardados");
+    setTimeout(()=>setSaved(null), 3000);
+  }
+
+  return (
+    <div style={{padding:14,background:C.card,borderRadius:10,border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.accentL,marginBottom:6}}>📧 Lista de Destinatarios</div>
+      <div style={{fontSize:10,color:C.muted,marginBottom:14,fontStyle:"italic"}}>
+        Estas son las personas que recibirán el reporte por email cuando se active el envío automático. Por ahora puedes administrar la lista; el envío automático se activa después de configurar Resend (Capa 2).
+      </div>
+
+      {/* Lista existente */}
+      <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
+        {local.length === 0 && <div style={{padding:20,textAlign:"center",color:C.muted2,fontSize:11,fontStyle:"italic"}}>Sin destinatarios agregados</div>}
+        {local.map(d=>(
+          <div key={d.id} style={{display:"grid",gridTemplateColumns:"40px 1fr 200px 100px 40px",gap:8,alignItems:"center",padding:"6px 10px",background:d.activo?C.card2:C.bg,borderRadius:6,opacity:d.activo?1:0.5}}>
+            <label style={{cursor:"pointer"}}><input type="checkbox" checked={d.activo} onChange={()=>toggleActivo(d.id)}/></label>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,color:C.text}}>{d.nombre || "—"}</div>
+              <div style={{fontSize:10,color:C.muted}}>{d.email}</div>
+            </div>
+            <div style={{fontSize:11,color:C.accentL,fontWeight:600}}>{d.rol}</div>
+            <div style={{fontSize:10,color:d.activo?C.green:C.muted2}}>{d.activo?"Activo":"Inactivo"}</div>
+            <button onClick={()=>eliminar(d.id)} style={{background:"transparent",border:"none",color:C.red,cursor:"pointer",fontSize:14}}>🗑</button>
+          </div>
+        ))}
+      </div>
+
+      {/* Agregar nuevo */}
+      {canEdit && (
+        <div style={{padding:10,background:C.card2,borderRadius:8,border:`1px dashed ${C.border}`}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.accentL,marginBottom:8}}>+ Agregar destinatario</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 140px 100px",gap:8}}>
+            <input value={nuevo.nombre} onChange={e=>setNuevo(p=>({...p,nombre:e.target.value}))} placeholder="Nombre" style={{padding:"6px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.text,fontSize:11}}/>
+            <input value={nuevo.email} onChange={e=>setNuevo(p=>({...p,email:e.target.value}))} placeholder="email@dominio.cl" style={{padding:"6px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.text,fontSize:11}}/>
+            <select value={nuevo.rol} onChange={e=>setNuevo(p=>({...p,rol:e.target.value}))} style={{padding:"6px 10px",borderRadius:6,border:`1px solid ${C.border}`,background:C.bg,color:C.text,fontSize:11}}>
+              <option>Socio</option>
+              <option>Directorio</option>
+              <option>Gerente</option>
+              <option>Equipo CFO</option>
+              <option>Otro</option>
+            </select>
+            <button onClick={agregar} style={{padding:"6px 14px",background:C.accent,color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:11}}>+ Agregar</button>
+          </div>
+        </div>
+      )}
+
+      {saved && <div style={{marginTop:10,padding:8,background:C.green+"22",color:C.green,borderRadius:6,fontSize:11}}>{saved}</div>}
+
+      {canEdit && (
+        <div style={{marginTop:14,display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={guardar} style={{padding:"8px 18px",background:C.accent,color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12}}>
+            💾 Guardar lista
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Historial de reportes generados ───
+function ReporteHistorial({historial, onUpdate, canEdit}) {
+  function descargar(entrada) {
+    if(!entrada?.pdfBase64) {
+      alert("PDF no disponible (puede ser un reporte antiguo sin archivo guardado)");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = entrada.pdfBase64;
+    link.download = entrada.nombreArchivo || `Reporte_${entrada.id}.pdf`;
+    link.click();
+  }
+
+  function eliminar(id) {
+    if(!window.confirm("¿Eliminar este reporte del historial? Esta acción no se puede deshacer.")) return;
+    if(onUpdate) onUpdate(historial.filter(h => h.id !== id));
+  }
+
+  const ordenado = [...(historial || [])].sort((a,b) => (b.fechaGeneracion || "").localeCompare(a.fechaGeneracion || ""));
+
+  return (
+    <div style={{padding:14,background:C.card,borderRadius:10,border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.accentL,marginBottom:6}}>📁 Historial de Reportes</div>
+      <div style={{fontSize:10,color:C.muted,marginBottom:14,fontStyle:"italic"}}>
+        Todos los reportes generados. Puedes descargar PDFs antiguos o eliminarlos.
+      </div>
+
+      {ordenado.length === 0 ? (
+        <div style={{padding:30,textAlign:"center",color:C.muted2,fontSize:11,fontStyle:"italic"}}>Sin reportes generados todavía</div>
+      ) : (
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+            <thead>
+              <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                {["Fecha", "Semana", "Generado por", "Empresas", "Acciones"].map(h=>(
+                  <th key={h} style={{padding:"8px",textAlign:"left",color:C.muted,fontWeight:700,fontSize:10}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ordenado.map(h=>(
+                <tr key={h.id} style={{borderBottom:`1px solid ${C.border2}33`}}>
+                  <td style={{padding:"6px 8px",color:C.text}}>{new Date(h.fechaGeneracion).toLocaleString("es-CL")}</td>
+                  <td style={{padding:"6px 8px",fontFamily:"monospace",color:C.accentL,fontWeight:700}}>W{h.semana}</td>
+                  <td style={{padding:"6px 8px",color:C.muted}}>{h.generadoPor || "—"}</td>
+                  <td style={{padding:"6px 8px",fontSize:10,color:C.muted}}>{(h.empresasIncluidas || []).length} empresas</td>
+                  <td style={{padding:"6px 8px",display:"flex",gap:6}}>
+                    <button onClick={()=>descargar(h)} style={{padding:"3px 10px",background:C.accent,color:"#fff",border:"none",borderRadius:4,cursor:"pointer",fontSize:10,fontWeight:700}}>📥 Descargar</button>
+                    {canEdit && <button onClick={()=>eliminar(h.id)} style={{padding:"3px 8px",background:"transparent",border:`1px solid ${C.red}`,color:C.red,borderRadius:4,cursor:"pointer",fontSize:10}}>🗑</button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // MÓDULO PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════
 export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermisos={}}) {
@@ -7302,6 +8208,11 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   // [{id, fecha, origen, destino, tipo, monto, descripcion, mes}]
   const [intercompany,setIntercompany]=useState([]);
   const [saldosBancos,setSaldosBancos]=useState({});
+  // Reporte Semanal: configuración
+  const [umbralesReporte,setUmbralesReporte]=useState({});
+  const [destinatariosReporte,setDestinatariosReporte]=useState([]);
+  const [comentariosReporte,setComentariosReporte]=useState({});
+  const [historialReportes,setHistorialReportes]=useState([]);
   const [loading,setLoading]=useState(true);
   const [saved,setSaved]=useState(null);
 
@@ -7428,6 +8339,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
     {id:"bancos",   label:"🏦 Saldos Bancos"},
     {id:"creditos", label:"💳 Créditos"},
     {id:"nominas",  label:"📋 Nóminas"},
+    {id:"reporte",  label:"📅 Reporte Semanal"},
     {id:"auditoria",label:"🔍 Auditoría"},
   ];
   // Solo mostrar pestañas a las que el usuario tiene acceso
@@ -7563,6 +8475,59 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
   useEffect(()=>{ subLinesRef.current     = subLines;     },[subLines]);
   useEffect(()=>{ addedLinesRef.current   = addedLinesGlobal; },[addedLinesGlobal]);
   useEffect(()=>{ intercompanyRef.current = intercompany; },[intercompany]);
+
+  // ─── Handlers para Reporte Semanal ───
+  // Guarda configuración en realData._reporteSemanal._<seccion>
+  const handleSaveUmbralesReporte = useCallback(async (umbrales) => {
+    const next = JSON.parse(JSON.stringify(realDataRef.current));
+    if(!next._reporteSemanal) next._reporteSemanal = {};
+    next._reporteSemanal.umbrales = umbrales;
+    setRealData(next);
+    realDataRef.current = next;
+    setUmbralesReporte(umbrales);
+    await persistAll({ finanzas_real: next });
+  }, []); // eslint-disable-line
+
+  const handleSaveDestinatariosReporte = useCallback(async (destinatarios) => {
+    const next = JSON.parse(JSON.stringify(realDataRef.current));
+    if(!next._reporteSemanal) next._reporteSemanal = {};
+    next._reporteSemanal.destinatarios = destinatarios;
+    setRealData(next);
+    realDataRef.current = next;
+    setDestinatariosReporte(destinatarios);
+    await persistAll({ finanzas_real: next });
+  }, []); // eslint-disable-line
+
+  const handleSaveComentariosReporte = useCallback(async (comentarios) => {
+    const next = JSON.parse(JSON.stringify(realDataRef.current));
+    if(!next._reporteSemanal) next._reporteSemanal = {};
+    next._reporteSemanal.comentarios = comentarios;
+    setRealData(next);
+    realDataRef.current = next;
+    setComentariosReporte(comentarios);
+    await persistAll({ finanzas_real: next });
+  }, []); // eslint-disable-line
+
+  const handleSaveHistorialReportes = useCallback(async (historial) => {
+    const next = JSON.parse(JSON.stringify(realDataRef.current));
+    if(!next._reporteSemanal) next._reporteSemanal = {};
+    next._reporteSemanal.historial = historial;
+    setRealData(next);
+    realDataRef.current = next;
+    setHistorialReportes(historial);
+    await persistAll({ finanzas_real: next });
+  }, []); // eslint-disable-line
+
+  // Cargar configuración cuando carga realData
+  useEffect(() => {
+    const cfg = realData?._reporteSemanal;
+    if(cfg) {
+      if(cfg.umbrales) setUmbralesReporte(cfg.umbrales);
+      if(Array.isArray(cfg.destinatarios)) setDestinatariosReporte(cfg.destinatarios);
+      if(cfg.comentarios) setComentariosReporte(cfg.comentarios);
+      if(Array.isArray(cfg.historial)) setHistorialReportes(cfg.historial);
+    }
+  }, [realData?._reporteSemanal]);
 
   // Helper centralizado - siempre usa los valores mas recientes
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -7863,7 +8828,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
       </div>
 
       {/* ── Contenido por pestaña ──────────────────────────── */}
-      {tab==="dashboard"&&puedoVer("dashboard")&&<Dashboard empresas={empresas} saldosBancos={saldosBancos} realData={realData} addedLinesGlobal={addedLinesGlobal} subLinesGlobal={subLines}/>}
+      {tab==="dashboard"&&puedoVer("dashboard")&&<Dashboard empresas={empresas} saldosBancos={saldosBancos}/>}
 
       {tab==="flujo"&&puedoVer("flujo")&&(
         <div>
@@ -8004,6 +8969,25 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
 
       {tab==="nominas"&&puedoVer("nominas")&&(
         <NominasModule usuario={usuarioActual} canEdit={puedoEdit("nominas")} saldosBancos={saldosBancos}/>
+      )}
+
+      {tab==="reporte"&&puedoVer("reporte")&&(
+        <ReporteSemanalModule
+          realData={realData}
+          params={params}
+          empresas={empresas}
+          saldosBancos={saldosBancos}
+          canEdit={puedoEdit("reporte")}
+          umbralesConfig={umbralesReporte}
+          onSaveUmbrales={handleSaveUmbralesReporte}
+          destinatariosConfig={destinatariosReporte}
+          onSaveDestinatarios={handleSaveDestinatariosReporte}
+          comentariosConfig={comentariosReporte}
+          onSaveComentarios={handleSaveComentariosReporte}
+          historialReportes={historialReportes}
+          onSaveHistorialReportes={handleSaveHistorialReportes}
+          usuarioActual={usuarioActual}
+        />
       )}
 
       {tab==="auditoria"&&usuarioActual?.rol==="admin"&&(
@@ -8175,123 +9159,9 @@ function BadgeEstado({estado}) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// SELECT CUSTOM PARA TIPO DOC (con iconos editar/eliminar inline)
-// ─────────────────────────────────────────────────────────────────
-function TipoDocSelect({value, tiposBase, tiposExtra, inputSt, onChange, onAdd, onRename, onDelete}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  // Cerrar al hacer click fuera
-  useEffect(()=>{
-    if(!open) return;
-    function handler(e){
-      if(ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return ()=>document.removeEventListener("mousedown", handler);
-  },[open]);
-
-  // Lista combinada
-  const todos = [...tiposBase];
-  (tiposExtra||[]).forEach(t=>{ if(t && !todos.includes(t)) todos.push(t); });
-  if(value && !todos.includes(value)) todos.push(value);
-
-  function esExtra(tipo){ return (tiposExtra||[]).includes(tipo) && !tiposBase.includes(tipo); }
-
-  function handleRename(e, tipo){
-    e.stopPropagation();
-    const nuevo = prompt(`Renombrar "${tipo}" a:`, tipo);
-    if(!nuevo || !nuevo.trim() || nuevo.trim()===tipo) return;
-    const limpio = nuevo.trim();
-    if(tiposBase.includes(limpio) || (tiposExtra||[]).includes(limpio)){
-      alert(`El tipo "${limpio}" ya existe.`);
-      return;
-    }
-    if(onRename) onRename(tipo, limpio);
-  }
-
-  function handleDelete(e, tipo){
-    e.stopPropagation();
-    if(onDelete) onDelete(tipo);
-  }
-
-  return (
-    <div ref={ref} style={{position:"relative",display:"flex",gap:2,alignItems:"center"}}>
-      <button type="button" onClick={()=>setOpen(o=>!o)}
-        style={{...inputSt,flex:1,cursor:"pointer",textAlign:"left",
-          display:"flex",justifyContent:"space-between",alignItems:"center",
-          padding:"4px 8px"}}>
-        <span style={{color:value?C.text:C.muted,fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-          {value || "— Tipo —"}
-        </span>
-        <span style={{color:C.muted,fontSize:8,marginLeft:4}}>▼</span>
-      </button>
-      {open && (
-        <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,zIndex:1000,
-          minWidth:200,maxHeight:280,overflowY:"auto",
-          background:C.card,border:`1px solid ${C.border2}`,borderRadius:6,
-          boxShadow:"0 4px 16px rgba(0,0,0,0.4)"}}>
-          <div onClick={()=>{onChange(""); setOpen(false);}}
-            style={{padding:"6px 10px",cursor:"pointer",fontSize:10,color:C.muted,
-              borderBottom:`1px solid ${C.border}33`}}>
-            — Tipo —
-          </div>
-          {todos.map(t=>{
-            const extra = esExtra(t);
-            const seleccionado = t===value;
-            return (
-              <div key={t}
-                onClick={()=>{onChange(t); setOpen(false);}}
-                style={{padding:"6px 10px",cursor:"pointer",fontSize:11,
-                  color:seleccionado?C.accent:C.text,
-                  background:seleccionado?`${C.accent}11`:"transparent",
-                  display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}
-                onMouseEnter={e=>{if(!seleccionado)e.currentTarget.style.background=`${C.border}22`;}}
-                onMouseLeave={e=>{if(!seleccionado)e.currentTarget.style.background="transparent";}}>
-                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{t}</span>
-                {extra && (
-                  <span style={{display:"flex",gap:4,alignItems:"center",flexShrink:0}}>
-                    <span title="Renombrar" onClick={e=>handleRename(e,t)}
-                      style={{cursor:"pointer",fontSize:11,opacity:0.7,padding:"0 2px"}}
-                      onMouseEnter={e=>e.currentTarget.style.opacity=1}
-                      onMouseLeave={e=>e.currentTarget.style.opacity=0.7}>✏️</span>
-                    <span title="Eliminar" onClick={e=>handleDelete(e,t)}
-                      style={{cursor:"pointer",fontSize:13,color:C.red,opacity:0.7,padding:"0 2px",fontWeight:700,lineHeight:1}}
-                      onMouseEnter={e=>e.currentTarget.style.opacity=1}
-                      onMouseLeave={e=>e.currentTarget.style.opacity=0.7}>×</span>
-                  </span>
-                )}
-              </div>
-            );
-          })}
-          <div onClick={()=>{
-              const nuevo = prompt("Ingrese el nuevo tipo de documento:");
-              if(nuevo && nuevo.trim()){
-                const n = nuevo.trim();
-                if(todos.includes(n)){
-                  alert(`El tipo "${n}" ya existe.`);
-                  return;
-                }
-                if(onAdd) onAdd(n);
-                setOpen(false);
-              }
-            }}
-            style={{padding:"6px 10px",cursor:"pointer",fontSize:10,
-              color:C.green,fontWeight:600,
-              borderTop:`1px solid ${C.border}33`,
-              background:`${C.green}08`}}>
-            + Agregar nuevo...
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────
 // TABLA ITEMS (por sección)
 // ─────────────────────────────────────────────────────────────────
-function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", semanaNomina, tiposDocExtra=[], onAddTipoDoc, onRenameTipoDoc, onDeleteTipoDoc}) {
+function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", semanaNomina, tiposDocExtra=[], onAddTipoDoc}) {
   const rows = items.filter(it=>it.seccion===seccion);
   const soloUSD = moneda==="usd";
   const soloCLP = moneda==="clp";
@@ -8369,16 +9239,30 @@ function TablaItems({items, seccion, onChange, canEdit, tc, moneda="ambas", sema
                 opacity:it.pagado?0.6:1}}>
                 <td style={{padding:"3px 6px",minWidth:130}}>
                   {canEdit
-                    ? <TipoDocSelect
-                        value={it.tipoDoc||""}
-                        tiposBase={TIPOS_DOCUMENTO}
-                        tiposExtra={tiposDocExtra||[]}
-                        inputSt={inputSt}
-                        onChange={v=>updItem(it.id,"tipoDoc",v)}
-                        onAdd={n=>{ if(onAddTipoDoc) onAddTipoDoc(n); updItem(it.id,"tipoDoc",n); }}
-                        onRename={onRenameTipoDoc}
-                        onDelete={onDeleteTipoDoc}
-                      />
+                    ? <div style={{display:"flex",gap:2,alignItems:"center"}}>
+                        <select value={it.tipoDoc||""} onChange={e=>{
+                          if(e.target.value==="__nuevo__"){
+                            const nuevo=prompt("Ingrese el nuevo tipo de documento:");
+                            if(nuevo&&nuevo.trim()){
+                              const n=nuevo.trim();
+                              if(!TIPOS_DOCUMENTO.includes(n)) TIPOS_DOCUMENTO.push(n);
+                              if(onAddTipoDoc) onAddTipoDoc(n);
+                              updItem(it.id,"tipoDoc",n);
+                            }
+                          } else {
+                            updItem(it.id,"tipoDoc",e.target.value);
+                          }
+                        }}
+                          style={{...inputSt,flex:1,cursor:"pointer"}}>
+                          <option value="">— Tipo —</option>
+                          {(()=>{
+                            // Restaurar tipos doc extra
+                            (tiposDocExtra||[]).forEach(t=>{ if(!TIPOS_DOCUMENTO.includes(t)) TIPOS_DOCUMENTO.push(t); });
+                            return TIPOS_DOCUMENTO.map(t=><option key={t} value={t}>{t}</option>);
+                          })()}
+                          <option value="__nuevo__">+ Agregar nuevo...</option>
+                        </select>
+                      </div>
                     : <span style={{color:C.muted,fontSize:10}}>{it.tipoDoc||"—"}</span>}
                 </td>
                 <td style={{padding:"3px 6px",minWidth:140}}>
@@ -8649,7 +9533,7 @@ function PanelBancosNomina({empresa, saldosBancos}) {
 // ─────────────────────────────────────────────────────────────────
 // VISTA NÓMINA DETALLE
 // ─────────────────────────────────────────────────────────────────
-function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos, nominasHermanas=[], onSwitchNomina, onCrearYAbrir, onCrearNueva, tiposDocExtraGlobal=[], onAddTipoDocGlobal, onRenameTipoDocGlobal, onDeleteTipoDocGlobal}) {
+function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos, nominasHermanas=[], onSwitchNomina, onCrearYAbrir, onCrearNueva}) {
   const nom = nomina;
   const esCFO = usuario?.rol==="admin" || usuario?.esCFO;
   const [soloVer, setSoloVer] = useState(false);
@@ -9384,13 +10268,8 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                 tc={nom.tc}
                 moneda={monedaSec}
                 semanaNomina={nom.semana}
-                tiposDocExtra={[...(tiposDocExtraGlobal||[]), ...(nom.tiposDocExtra||[]).filter(t=>!(tiposDocExtraGlobal||[]).includes(t))]}
-                onAddTipoDoc={n=>{
-                  // Guardar globalmente (visible en todas las nóminas)
-                  if(onAddTipoDocGlobal) onAddTipoDocGlobal(n);
-                }}
-                onRenameTipoDoc={onRenameTipoDocGlobal}
-                onDeleteTipoDoc={onDeleteTipoDocGlobal}
+                tiposDocExtra={nom.tiposDocExtra||[]}
+                onAddTipoDoc={n=>{const extras=nom.tiposDocExtra||[];if(!extras.includes(n))upd("tiposDocExtra",[...extras,n]);}}
               />
             </div>
           );
@@ -9571,7 +10450,6 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
 }
 function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
   const [nominas, setNominas] = useState([]);
-  const [tiposDocExtraGlobal, setTiposDocExtraGlobal] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [selNomina, setSelNomina] = useState(null); // id nomina abierta
   const [filtroAño, setFiltroAño]       = useState(añoActualNom());
@@ -9588,21 +10466,6 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
   useEffect(()=>{
     dbLoadNominas().then(d=>{
       if(d?.nominas) setNominas(d.nominas);
-      // Cargar tipos doc extra globales
-      if(Array.isArray(d?.tiposDocExtra)){
-        setTiposDocExtraGlobal(d.tiposDocExtra);
-      } else if(d?.nominas) {
-        // Migración: extraer tipos extra de las nóminas existentes y consolidar
-        const setExtras = new Set();
-        d.nominas.forEach(n=>{
-          (n.tiposDocExtra||[]).forEach(t=>setExtras.add(t));
-          // También buscar en items por si hay tipos no estándar
-          (n.items||[]).forEach(it=>{
-            if(it.tipoDoc && !TIPOS_DOCUMENTO.includes(it.tipoDoc)) setExtras.add(it.tipoDoc);
-          });
-        });
-        if(setExtras.size > 0) setTiposDocExtraGlobal([...setExtras]);
-      }
       setCargando(false);
     });
   },[]);
@@ -9620,13 +10483,6 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
             return prev;
           });
         }
-        // Sincronizar tipos doc extra globales (otros usuarios pudieron agregar)
-        if(Array.isArray(d?.tiposDocExtra)){
-          setTiposDocExtraGlobal(prev=>{
-            if(JSON.stringify(prev)!==JSON.stringify(d.tiposDocExtra)) return d.tiposDocExtra;
-            return prev;
-          });
-        }
       }).catch(()=>{});
     }, 30000);
     return ()=>clearInterval(interval);
@@ -9638,7 +10494,6 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
       if(document.visibilityState === "visible"){
         dbLoadNominas().then(d=>{
           if(d?.nominas) setNominas(d.nominas);
-          if(Array.isArray(d?.tiposDocExtra)) setTiposDocExtraGlobal(d.tiposDocExtra);
         }).catch(()=>{});
       }
     }
@@ -9648,83 +10503,11 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
 
   // Save (debounce 800ms)
   const saveTimer = useRef(null);
-  function saveNominas(list, tiposExtra=null) {
+  function saveNominas(list) {
     clearTimeout(saveTimer.current);
-    const tipos = tiposExtra !== null ? tiposExtra : tiposDocExtraGlobal;
     saveTimer.current = setTimeout(()=>{
-      dbSaveNominas({nominas: list, tiposDocExtra: tipos});
+      dbSaveNominas({nominas: list});
     }, 800);
-  }
-
-  // Cuando se actualizan los tipos doc extra globales, persistir
-  function actualizarTiposDocExtra(nuevoTipo) {
-    setTiposDocExtraGlobal(prev=>{
-      if(prev.includes(nuevoTipo)) return prev;
-      const next = [...prev, nuevoTipo];
-      saveNominas(nominasRef.current, next);
-      return next;
-    });
-  }
-
-  // Renombrar tipo doc extra: actualiza el array global Y todos los items que lo usan (cascada)
-  function renombrarTipoDocExtra(viejo, nuevo) {
-    if(!viejo || !nuevo || viejo===nuevo) return;
-    // Validar que el viejo es realmente un extra (no un tipo base inmutable)
-    if(TIPOS_DOCUMENTO.includes(viejo)){
-      alert(`"${viejo}" es un tipo del sistema y no se puede renombrar.`);
-      return;
-    }
-    // Validar que el nuevo no choque
-    if(TIPOS_DOCUMENTO.includes(nuevo) || tiposDocExtraGlobal.includes(nuevo)){
-      alert(`El tipo "${nuevo}" ya existe.`);
-      return;
-    }
-    // Actualizar array global
-    const nuevosTipos = tiposDocExtraGlobal.map(t=>t===viejo?nuevo:t);
-    setTiposDocExtraGlobal(nuevosTipos);
-    // Cascada: actualizar items en todas las nóminas
-    const nominasActualizadas = nominasRef.current.map(n=>{
-      const itemsActualizados = (n.items||[]).map(it=>
-        it.tipoDoc===viejo ? {...it, tipoDoc:nuevo} : it
-      );
-      return {...n, items: itemsActualizados};
-    });
-    setNominas(nominasActualizadas);
-    saveNominas(nominasActualizadas, nuevosTipos);
-    // Auditoría
-    window.auditLog&&window.auditLog("editar", {modulo:"finanzas", seccion:"nóminas",
-      descripcion:`Renombró tipo de documento "${viejo}" → "${nuevo}"`,
-      campo:"tipoDoc", valorAnterior:viejo, valorNuevo:nuevo});
-  }
-
-  // Eliminar tipo doc extra: bloquea si está en uso, sino lo quita
-  function eliminarTipoDocExtra(tipo) {
-    if(!tipo) return;
-    if(TIPOS_DOCUMENTO.includes(tipo)){
-      alert(`"${tipo}" es un tipo del sistema y no se puede eliminar.`);
-      return;
-    }
-    // Contar items que lo usan
-    let usos = 0;
-    const detalleNominas = [];
-    nominasRef.current.forEach(n=>{
-      const cnt = (n.items||[]).filter(it=>it.tipoDoc===tipo).length;
-      if(cnt>0){
-        usos += cnt;
-        detalleNominas.push(`• ${n.empresa} S${n.semana}/${n.año} (${cnt} ítem${cnt>1?"s":""})`);
-      }
-    });
-    if(usos > 0){
-      alert(`No se puede eliminar "${tipo}".\n\nEstá en uso en ${usos} ítem${usos>1?"s":""}:\n\n${detalleNominas.slice(0,10).join("\n")}${detalleNominas.length>10?`\n... y ${detalleNominas.length-10} más`:""}\n\nReasigne o elimine esos ítems primero.`);
-      return;
-    }
-    if(!window.confirm(`¿Eliminar el tipo de documento "${tipo}"?\n\nNo hay ítems usándolo, así que es seguro eliminar.`)) return;
-    const nuevosTipos = tiposDocExtraGlobal.filter(t=>t!==tipo);
-    setTiposDocExtraGlobal(nuevosTipos);
-    saveNominas(nominasRef.current, nuevosTipos);
-    window.auditLog&&window.auditLog("eliminar", {modulo:"finanzas", seccion:"nóminas",
-      descripcion:`Eliminó tipo de documento "${tipo}"`,
-      campo:"tipoDoc", valorAnterior:tipo});
   }
 
   function updNomina(nom) {
@@ -9884,10 +10667,6 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
       saldosBancos={saldosBancos}
       nominasHermanas={nominasHermanas}
       onSwitchNomina={id=>setSelNomina(id)}
-      tiposDocExtraGlobal={tiposDocExtraGlobal}
-      onAddTipoDocGlobal={actualizarTiposDocExtra}
-      onRenameTipoDocGlobal={renombrarTipoDocExtra}
-      onDeleteTipoDocGlobal={eliminarTipoDocExtra}
       onCrearYAbrir={(empresa, semDest, añoDest, itemAplazado)=>{
         if(semDest && añoDest) {
           // Aplazamiento: buscar o crear nómina en semana destino
