@@ -3060,19 +3060,6 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
   const [agrup,setAgrup]=useState("mes");
   const [openSeason,setOpenSeason]=useState(()=>{const o={};SEASON_KEYS.forEach((k,i)=>{o[k]=i<2;});return o;});
 
-  // Por empresa: cada categoría puede estar colapsada (solo subtotal) o expandida (líneas detalladas)
-  // Default: TODO colapsado (solo subtotales)
-  const [expandedCats, setExpandedCats] = useState({}); // { "empresa::cat": true }
-  const toggleCat = (emp, cat) => setExpandedCats(p => ({...p, [`${emp}::${cat}`]: !p[`${emp}::${cat}`]}));
-  const expandAll = () => {
-    const all = {};
-    empNamesConsolidado.forEach(n => {
-      (empresas[n]?.sections || []).forEach(s => { all[`${n}::${s.cat}`] = true; });
-    });
-    setExpandedCats(all);
-  };
-  const collapseAll = () => setExpandedCats({});
-
   // Construir empresas con overrides aplicados (igual que FlujoEmpresa)
   const empresasConOverrides = useMemo(()=>{
     const result = {};
@@ -3380,84 +3367,46 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
         </div>
       )}
 
-      {/* Vista por empresa - agrupada por categoría con opción de expandir */}
+      {/* Vista por empresa - solo subtotales por categoría */}
       {vistaConsolidado==="por_empresa"&&(
-        <>
-          <div style={{display:"flex", gap:8, alignItems:"center", marginBottom:10}}>
-            <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Detalle</div>
-            <Btn small onClick={expandAll} color={C.accent}>▾ Expandir todo</Btn>
-            <Btn small onClick={collapseAll} color={C.muted}>▸ Colapsar todo</Btn>
-            <span style={{fontSize:10, color:C.muted, marginLeft:8, fontStyle:"italic"}}>
-              Click en cada categoría para ver el detalle de sus líneas
-            </span>
-          </div>
-          <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`}}>
-            <table style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
-              <THead/>
-              <tbody>
-                {empNamesConsolidado.map((n,ei)=>{
-                  const emp=empresas[n];
-                  return(
-                    <React.Fragment key={n}>
-                      <tr style={{background:`${emp.color}22`}}>
-                        <td colSpan={cols.length+1} style={{padding:"8px 14px",position:"sticky",left:0,background:`${emp.color}22`,borderTop:ei>0?`3px solid ${C.border2}`:"none"}}>
-                          <div style={{fontSize:13,fontWeight:900,color:emp.color}}>{emp.emoji} {n}</div>
-                          <div style={{fontSize:10,color:C.muted}}>{emp.desc}</div>
+        <div style={{overflowX:"auto",borderRadius:12,border:`1px solid ${C.border}`}}>
+          <table style={{borderCollapse:"collapse",fontSize:11,minWidth:600}}>
+            <THead/>
+            <tbody>
+              {empNamesConsolidado.map((n,ei)=>{
+                const emp=empresas[n];
+                return(
+                  <React.Fragment key={n}>
+                    <tr style={{background:`${emp.color}22`}}>
+                      <td colSpan={cols.length+1} style={{padding:"8px 14px",position:"sticky",left:0,background:`${emp.color}22`,borderTop:ei>0?`3px solid ${C.border2}`:"none"}}>
+                        <div style={{fontSize:13,fontWeight:900,color:emp.color}}>{emp.emoji} {n}</div>
+                        <div style={{fontSize:10,color:C.muted}}>{emp.desc}</div>
+                      </td>
+                    </tr>
+                    <FilaSaldoBanco nombre={n}/>
+                    {emp.sections.map(sec=>(
+                      <tr key={sec.cat} style={{background:C.bg2, borderTop:`1px solid ${C.border}33`}}>
+                        <td style={{padding:"7px 14px",position:"sticky",left:0,background:C.bg2,borderRight:`1px solid ${C.border}`,zIndex:1,whiteSpace:"nowrap"}}>
+                          <span style={{fontSize:11,fontWeight:800,color:CAT_COLOR[sec.cat]||C.muted,textTransform:"uppercase",letterSpacing:"0.5px"}}>
+                            {CAT_SIGNO[sec.cat]} {sec.label}
+                          </span>
                         </td>
+                        {cols.map(col=>{
+                          const v=sec.lines.reduce((a,l)=>a+colVal(l.proy,col),0);
+                          return(<td key={col.key} style={{padding:"6px 5px",textAlign:"right",fontWeight:700,fontSize:10,color:CAT_COLOR[sec.cat]||C.muted,background:C.bg2,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}22`}}>{v!==0?$$(v):"—"}</td>);
+                        })}
                       </tr>
-                      <FilaSaldoBanco nombre={n}/>
-                      {emp.sections.map(sec=>{
-                        const isExpanded = !!expandedCats[`${n}::${sec.cat}`];
-                        return (
-                          <React.Fragment key={sec.cat}>
-                            {/* Fila subtotal de la categoría (siempre visible, clickeable) */}
-                            <tr
-                              style={{background:C.bg2, cursor:"pointer", borderTop:`1px solid ${C.border}33`}}
-                              onClick={()=>toggleCat(n, sec.cat)}
-                              title={isExpanded ? "Colapsar líneas" : "Expandir para ver líneas"}
-                            >
-                              <td style={{padding:"7px 14px",position:"sticky",left:0,background:C.bg2,borderRight:`1px solid ${C.border}`,zIndex:1,whiteSpace:"nowrap"}}>
-                                <span style={{display:"inline-block",width:14,fontSize:9,color:C.muted}}>{isExpanded ? "▾" : "▸"}</span>
-                                <span style={{fontSize:11,fontWeight:800,color:CAT_COLOR[sec.cat]||C.muted,textTransform:"uppercase",letterSpacing:"0.5px"}}>
-                                  {CAT_SIGNO[sec.cat]} {sec.label}
-                                </span>
-                                {!isExpanded && sec.lines.length > 0 && (
-                                  <span style={{fontSize:9, color:C.muted2, marginLeft:6, fontStyle:"italic"}}>
-                                    ({sec.lines.length} líneas)
-                                  </span>
-                                )}
-                              </td>
-                              {cols.map(col=>{
-                                const v=sec.lines.reduce((a,l)=>a+colVal(l.proy,col),0);
-                                return(<td key={col.key} style={{padding:"6px 5px",textAlign:"right",fontWeight:700,fontSize:10,color:CAT_COLOR[sec.cat]||C.muted,background:C.bg2,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}22`}}>{v!==0?$$(v):"—"}</td>);
-                              })}
-                            </tr>
-                            {/* Líneas individuales (solo si está expandido) */}
-                            {isExpanded && sec.lines.map(line=>(
-                              <tr key={line.label} style={{borderBottom:`1px solid ${C.border}11`}}>
-                                <td style={{padding:"5px 14px 5px 36px",color:C.text,fontSize:10,position:"sticky",left:0,background:C.card,zIndex:1,borderRight:`1px solid ${C.border}`,whiteSpace:"nowrap",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis"}}>
-                                  {line.label}
-                                </td>
-                                {cols.map(col=>{
-                                  const v=colVal(line.proy,col);
-                                  return(<td key={col.key} style={{padding:"4px 5px",textAlign:"right",fontSize:9,fontWeight:v!==0?600:400,color:v!==0?(sec.signo>0?C.green:C.red):C.muted2,borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:`1px solid ${C.border}11`}}>{v!==0?$$(v):"—"}</td>);
-                                })}
-                              </tr>
-                            ))}
-                          </React.Fragment>
-                        );
-                      })}
-                      <FilasFlujoYAcum flujoArr={flujoPorEmp[n]||Z65()} acumArr={acumPorEmp[n]||Z65()} color={emp.color} isTotal={false}/>
-                    </React.Fragment>
-                  );
-                })}
-                <tr><td colSpan={cols.length+1} style={{height:6,background:`linear-gradient(90deg,${C.accent}66,${C.border})`}}/></tr>
+                    ))}
+                    <FilasFlujoYAcum flujoArr={flujoPorEmp[n]||Z65()} acumArr={acumPorEmp[n]||Z65()} color={emp.color} isTotal={false}/>
+                  </React.Fragment>
+                );
+              })}
+              <tr><td colSpan={cols.length+1} style={{height:6,background:`linear-gradient(90deg,${C.accent}66,${C.border})`}}/></tr>
               <FilaSaldoBanco nombre="_consolidado"/>
               <FilasFlujoYAcum flujoArr={flujoConsolidado} acumArr={acumConsolidado} color={C.accentL} isTotal/>
             </tbody>
           </table>
         </div>
-        </>
       )}
 
       {/* Vista Resumen Semanal */}
