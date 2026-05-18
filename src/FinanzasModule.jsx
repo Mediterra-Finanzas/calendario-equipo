@@ -5257,14 +5257,14 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         const isTot=col.isTotalMes;
                         // idx único por semana: para semanas usar "monthIdx_semIdx", para mes usar "monthIdx"
                         const cellKey = col.type==="week" ? `${col.idx}_${col.semIdx}` : String(col.idx);
-                        // Para total del mes O mes regular: sumar valor mensual + todas las semanas individuales
-                        // (el FLUJO NETO y los subtotales de categoría hacen esto, la celda debe coincidir)
-                        const esMesAgregado = col.type==="month_total" || col.type==="month" || col.type==="month_collapsed";
-                        const sumWeeks = esMesAgregado
+                        // Para total del mes (col.type === "month_total"): sumar mensual + semanas
+                        // Para mes regular (col.type === "month"): SOLO el valor mensual ingresado por el usuario
+                        // (la celda mensual es editable, así que su valor es lo que el usuario tipeó)
+                        const sumWeeks = col.type==="month_total"
                           ? Object.entries(alVals).filter(([k])=>k.startsWith(`${col.idx}_`)).reduce((a,[,v])=>a+(Number(v)||0),0)
                           : 0;
                         const rawVal=Number(alVals[cellKey])||0;
-                        const disp = esMesAgregado
+                        const disp = col.type==="month_total"
                           ? (Number(alVals[String(col.idx)])||0) + sumWeeks
                           : rawVal;
                         const isFirst=col.isFirstInSeason||col.isFirstInMonth;
@@ -5279,7 +5279,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                               </span>
                             ):(
                               <CeldaEditable val={disp} color={sec.signo>0?C.green:C.red}
-                                canEdit={canEdit&&col.type!=="month_collapsed"&&!isTot&&col.type!=="month"}
+                                canEdit={canEdit&&col.type!=="month_collapsed"&&!isTot}
                                 onSave={v=>updAlVal(cellKey, v)}/>
                             )}
                           </td>
