@@ -4779,7 +4779,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       const total=s.indices.reduce((a,i)=>{
                         return a + sec.lines.reduce((b,l)=>{
                           if(l.label.startsWith("  ")) return b;
-                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
+                          const subSum = l.subLines ? sumSubLinesMes(l.label, i) : 0;
                           return b + getProy(l.label,i) + subSum;
                         },0) + sumAddedLinesMes(sec.cat, i);
                       },0);
@@ -4795,14 +4795,14 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       if(col.type==="month"||col.type==="month_collapsed"||col.isTotalMes){
                         v = sec.lines.reduce((a,l)=>{
                           if(l.label.startsWith("  ")) return a;
-                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
+                          const subSum = l.subLines ? sumSubLinesMes(l.label, col.idx) : 0;
                           return a + getProy(l.label,col.idx) + subSum;
                         },0) + sumAddedLinesMes(sec.cat, col.idx);
                       } else if(col.type==="week"){
                         v = sec.lines.reduce((a,l)=>{
                           if(l.label.startsWith("  ")) return a;
                           const propSem = getProySemana(l.label, col.idx, col.semIdx, col.isLastInMonth);
-                          const subSem = l.subLines && !l.label.includes("Préstamos")
+                          const subSem = l.subLines
                             ? sumSubLinesSemana(l.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
                           return a + propSem + subSem;
                         },0) + sumAddedLinesSemana(sec.cat, col.idx, col.semIdx);
@@ -5275,7 +5275,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       const total=s.indices.reduce((a,i)=>{
                         const linTot = sec.lines.reduce((b,l)=>{
                           if(l.label.startsWith("  ")) return b;
-                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
+                          const subSum = l.subLines ? sumSubLinesMes(l.label, i) : 0;
                           return b + getProy(l.label,i) + subSum;
                         },0);
                         const addSum = sumAddedLinesMes(sec.cat, i);
@@ -5298,7 +5298,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         // Columna total mes: suma mensual completa (línea padre + sus subLines)
                         baseTotal = sec.lines.reduce((a,l)=>{
                           if(l.label.startsWith("  ")) return a;
-                          const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
+                          const subSum = l.subLines ? sumSubLinesMes(l.label, col.idx) : 0;
                           return a + getProy(l.label,col.idx) + subSum;
                         },0);
                         addedTotal = sumAddedLinesMes(sec.cat, col.idx);
@@ -5307,7 +5307,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         baseTotal = sec.lines.reduce((a,l)=>{
                           if(l.label.startsWith("  ")) return a;
                           const propSem = getProySemana(l.label, col.idx, col.semIdx, col.isLastInMonth);
-                          const subSem = l.subLines && !l.label.includes("Préstamos")
+                          const subSem = l.subLines
                             ? sumSubLinesSemana(l.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
                           return a + propSem + subSem;
                         }, 0);
@@ -5339,7 +5339,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     s.lines.forEach(l=>{
                       if(l.label.startsWith("  ")) return;
                       total += getProy(l.label, idx);
-                      if(l.subLines && !l.label.includes("Préstamos")) {
+                      if(l.subLines) {
                         total += sumSubLinesMes(l.label, idx);
                       }
                     });
@@ -5353,7 +5353,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     s.lines.forEach(l=>{
                       if(l.label.startsWith("  ")) return;
                       total += getProySemana(l.label, idx, semIdx, isLastInMonth);
-                      if(l.subLines && !l.label.includes("Préstamos")) {
+                      if(l.subLines) {
                         total += sumSubLinesSemana(l.label, idx, semIdx, isLastInMonth);
                       }
                     });
