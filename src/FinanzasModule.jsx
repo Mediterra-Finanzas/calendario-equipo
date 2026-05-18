@@ -11048,12 +11048,14 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
       rowsXml+=`</row>`;
       currentRow++;
     });
-    // Total general - separar anticipos por moneda
-    const grandAnticCLP = nom.items.reduce((s,it)=>{
+    // Total general - separar anticipos por moneda (solo items con sección válida)
+    const _seccionesValExp = new Set([...SECCIONES,...(nom.seccionesExtra||[])].map(s=>s.id));
+    const _itemsValExp = nom.items.filter(it=>_seccionesValExp.has(it.seccion));
+    const grandAnticCLP = _itemsValExp.reduce((s,it)=>{
       if(Number(it.montoCLP) && !Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
       return s;
     },0);
-    const grandAnticUSD = nom.items.reduce((s,it)=>{
+    const grandAnticUSD = _itemsValExp.reduce((s,it)=>{
       if(Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
       return s;
     },0);
@@ -11766,12 +11768,14 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
                 );
               })}
               {(()=>{
-                // Calcular anticipos separados por moneda
-                const gAnticCLP = nom.items.reduce((s,it)=>{
+                // Calcular anticipos separados por moneda (solo items con sección válida)
+                const _secValPrint = new Set([...SECCIONES,...(nom.seccionesExtra||[])].map(s=>s.id));
+                const _itemsValPrint = nom.items.filter(it=>_secValPrint.has(it.seccion));
+                const gAnticCLP = _itemsValPrint.reduce((s,it)=>{
                   if(Number(it.montoCLP) && !Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
                   return s;
                 },0);
-                const gAnticUSD = nom.items.reduce((s,it)=>{
+                const gAnticUSD = _itemsValPrint.reduce((s,it)=>{
                   if(Number(it.montoUSD)) return s+(Number(it.anticipo)||0);
                   return s;
                 },0);
@@ -11813,6 +11817,24 @@ function NominaDetalle({nomina, onUpdate, onBack, usuario, canEdit, saldosBancos
     </div>
   );
 }
+// Helper: suma items VÁLIDOS de una nómina (filtra items con seccion inválida o fantasma)
+// Mismo cálculo que se hace dentro de NominaDetalle para garantizar consistencia
+function sumNominaCLP(nom) {
+  if(!nom || !Array.isArray(nom.items)) return 0;
+  const seccionesValidas = new Set([...SECCIONES, ...(nom.seccionesExtra||[])].map(s=>s.id));
+  return nom.items
+    .filter(it => seccionesValidas.has(it.seccion))
+    .reduce((s,it) => s + (Number(it.montoCLP)||0), 0);
+}
+
+function sumNominaUSD(nom) {
+  if(!nom || !Array.isArray(nom.items)) return 0;
+  const seccionesValidas = new Set([...SECCIONES, ...(nom.seccionesExtra||[])].map(s=>s.id));
+  return nom.items
+    .filter(it => seccionesValidas.has(it.seccion))
+    .reduce((s,it) => s + (Number(it.montoUSD)||0), 0);
+}
+
 function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
   const [nominas, setNominas] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -12246,8 +12268,8 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
         // Resumen por empresa: totales anuales
         const resumenEmpresas = EMPRESAS_NOM.map(emp=>{
           const noms = nominasAño.filter(n=>n.empresa===emp);
-          const totCLP = noms.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoCLP)||0),0),0);
-          const totUSD = noms.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoUSD)||0),0),0);
+          const totCLP = noms.reduce((s,n)=>s+sumNominaCLP(n),0);
+          const totUSD = noms.reduce((s,n)=>s+sumNominaUSD(n),0);
           const cantNom = noms.length;
           return {emp, totCLP, totUSD, cantNom, noms};
         }).filter(r=>r.cantNom>0);
@@ -12386,8 +12408,8 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
                 <tbody>
                   {semsConDatos.map((sem,si)=>{
                     const nomsS = nominasAño.filter(n=>n.semana===sem);
-                    const semTotCLP = nomsS.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoCLP)||0),0),0);
-                    const semTotUSD = nomsS.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoUSD)||0),0),0);
+                    const semTotCLP = nomsS.reduce((s,n)=>s+sumNominaCLP(n),0);
+                    const semTotUSD = nomsS.reduce((s,n)=>s+sumNominaUSD(n),0);
                     return (
                       <tr key={sem} style={{borderBottom:`1px solid ${C.border}22`,background:si%2===0?"transparent":`${C.border}08`,
                         cursor:"pointer"}}
@@ -12401,8 +12423,8 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
                           const tiene = nominasAño.some(n=>n.empresa===emp);
                           if(!tiene) return null;
                           const n = nomsS.find(n=>n.empresa===emp);
-                          const eCLP = n?n.items.reduce((s,it)=>s+(Number(it.montoCLP)||0),0):0;
-                          const eUSD = n?n.items.reduce((s,it)=>s+(Number(it.montoUSD)||0),0):0;
+                          const eCLP = n?sumNominaCLP(n):0;
+                          const eUSD = n?sumNominaUSD(n):0;
                           return (
                             <React.Fragment key={emp}>
                               <td style={{padding:"5px 6px",textAlign:"right",color:eCLP?C.yellow:C.muted2,fontWeight:eCLP?600:400,
@@ -12435,8 +12457,8 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
                         const tiene = nominasAño.some(n=>n.empresa===emp);
                         if(!tiene) return null;
                         const noms = nominasAño.filter(n=>n.empresa===emp);
-                        const tCLP = noms.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoCLP)||0),0),0);
-                        const tUSD = noms.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoUSD)||0),0),0);
+                        const tCLP = noms.reduce((s,n)=>s+sumNominaCLP(n),0);
+                        const tUSD = noms.reduce((s,n)=>s+sumNominaUSD(n),0);
                         return (
                           <React.Fragment key={emp}>
                             <td style={{padding:"6px 6px",textAlign:"right",fontWeight:800,color:C.yellow,fontSize:10,borderLeft:`1px solid ${C.border}22`}}>{tCLP?$$clp(tCLP):"—"}</td>
@@ -12493,12 +12515,12 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
                           : <span style={{color:C.muted2,fontSize:11}}>Sin nómina</span>}
                   </td>
                   <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,
-                    color:nom?.items.reduce((s,it)=>s+(Number(it.montoCLP)||0),0)?C.yellow:C.muted2}}>
-                    {nom ? $$clp(nom.items.reduce((s,it)=>s+(Number(it.montoCLP)||0),0)) : "—"}
+                    color:sumNominaCLP(nom)?C.yellow:C.muted2}}>
+                    {nom ? $$clp(sumNominaCLP(nom)) : "—"}
                   </td>
                   <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,
-                    color:nom?.items.reduce((s,it)=>s+(Number(it.montoUSD)||0),0)?C.blue:C.muted2}}>
-                    {nom ? $$usd(nom.items.reduce((s,it)=>s+(Number(it.montoUSD)||0),0)) : "—"}
+                    color:sumNominaUSD(nom)?C.blue:C.muted2}}>
+                    {nom ? $$usd(sumNominaUSD(nom)) : "—"}
                   </td>
                   <td style={{padding:"8px 10px",textAlign:"center",fontSize:11,color:C.muted}}>
                     {nom?.preparadoPor||"—"}
@@ -12541,10 +12563,10 @@ function NominasModule({usuario, canEdit=false, saldosBancos={}}) {
                 <td style={{padding:"8px 14px",fontWeight:800,color:C.text}}>TOTAL GRUPO</td>
                 <td/>
                 <td style={{padding:"8px 10px",textAlign:"right",fontWeight:900,color:C.yellow,fontSize:13}}>
-                  {$$clp(nominasFiltradas.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoCLP)||0),0),0))}
+                  {$$clp(nominasFiltradas.reduce((s,n)=>s+sumNominaCLP(n),0))}
                 </td>
                 <td style={{padding:"8px 10px",textAlign:"right",fontWeight:900,color:C.blue,fontSize:13}}>
-                  {$$usd(nominasFiltradas.reduce((s,n)=>s+n.items.reduce((ss,it)=>ss+(Number(it.montoUSD)||0),0),0))}
+                  {$$usd(nominasFiltradas.reduce((s,n)=>s+sumNominaUSD(n),0))}
                 </td>
                 <td colSpan={3}/>
               </tr>
