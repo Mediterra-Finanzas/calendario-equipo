@@ -3317,7 +3317,13 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
           <div>
             <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Vista</div>
             <div style={{display:"flex",gap:0,borderRadius:8,overflow:"hidden",border:`1px solid ${C.border}`}}>
-              {[{id:"sumada",label:"🏛 Sumada"},{id:"waterfall",label:"📊 Waterfall"},{id:"semanal",label:"📅 Resumen Semanal"}].map(v=>(
+              {[
+                {id:"sumada",label:"🏛 Sumada"},
+                {id:"por_empresa",label:"📋 Por Empresa"},
+                {id:"resumen_mensual",label:"📊 Matriz Mensual"},
+                {id:"waterfall",label:"📉 Waterfall"},
+                {id:"semanal",label:"📅 Resumen Semanal"}
+              ].map(v=>(
                 <button key={v.id} onClick={()=>setVistaConsolidado(v.id)}
                   style={{padding:"7px 18px",border:"none",cursor:"pointer",fontWeight:vistaConsolidado===v.id?800:500,fontSize:12,
                     background:vistaConsolidado===v.id?C.accent:"transparent",
@@ -3416,6 +3422,17 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
       {/* Vista Resumen Semanal */}
       {vistaConsolidado==="semanal"&&(
         <ResumenSemanal empresas={empresasConOverrides} empNames={empNamesConsolidado}/>
+      )}
+
+      {/* Vista Matriz Mensual — Empresa x Mes para detectar mínimos consolidados */}
+      {vistaConsolidado==="resumen_mensual"&&(
+        <MatrizMensualConsolidado
+          empresas={empresasConOverrides}
+          empNames={empNamesConsolidado}
+          flujoPorEmp={flujoPorEmp}
+          acumPorEmp={acumPorEmp}
+          saldoIniPorEmp={saldoIniPorEmp}
+        />
       )}
 
       {/* Vista Waterfall — Conceptos × Empresas por temporada */}
@@ -3617,6 +3634,212 @@ function getSaldoBancoUSD(saldosBancos, empNombre) {
     else if(rec.usd != null) total += Number(rec.usd)||0;
   });
   return total;
+}
+
+// Vista compacta: filas = empresas, columnas = meses
+// Muestra dos sub-tablas: (1) Saldo acumulado por mes (2) Flujo neto mensual
+// Destaca el mes con saldo mínimo del consolidado y qué empresa lo está generando
+function MatrizMensualConsolidado({empresas, empNames, flujoPorEmp={}, acumPorEmp={}, saldoIniPorEmp={}}) {
+  // Determinar rango de meses a mostrar: desde mes actual hasta junio 2027 (≈ 14 meses)
+  // El usuario también puede ajustar el rango con selectores
+  const HOY = new Date();
+  const labelHoy = `${MN[HOY.getMonth()]}-${String(HOY.getFullYear()).slice(2)}`;
+  const idxHoy = Math.max(0, MESES_65.indexOf(labelHoy));
+  const [rangoMeses, setRangoMeses] = useState(14);
+  const [vistaTabla, setVistaTabla] = useState("saldo"); // "saldo" | "flujo"
+
+  const mesesIdx = [];
+  for(let i = 0; i < rangoMeses; i++) {
+    const idx = idxHoy + i;
+    if(idx >= 0 && idx < MESES_65.length) mesesIdx.push(idx);
+  }
+
+  // Formato compacto: 1.25M, 45K, 123
+  const fmtCompact = (v) => {
+    if(v == null || isNaN(v) || v === 0) return "—";
+    const abs = Math.abs(v);
+    let str;
+    if(abs >= 1000000) str = (abs/1000000).toFixed(2) + "M";
+    else if(abs >= 1000) str = Math.round(abs/1000) + "K";
+    else str = Math.round(abs).toString();
+    return v < 0 ? `-${str}` : str;
+  };
+
+  // Display de mes en español
+  const displayMes = (idx) => {
+    const m = MESES_65[idx];
+    if(!m) return "—";
+    const map = {Jan:"Ene", Feb:"Feb", Mar:"Mar", Apr:"Abr", May:"May", Jun:"Jun",
+      Jul:"Jul", Aug:"Ago", Sep:"Sep", Oct:"Oct", Nov:"Nov", Dec:"Dic"};
+    const [mes, anio] = m.split("-");
+    return `${map[mes]||mes} ${anio}`;
+  };
+
+  // Calcular saldo y flujo consolidado por mes
+  const dataPorMes = mesesIdx.map(mi => {
+    const fila = { mesIdx: mi, mes: displayMes(mi), saldoConsolidado: 0, flujoConsolidado: 0, porEmpresa: {} };
+    let minEmp = null, minVal = Infinity;
+    for(const empNombre of empNames) {
+      const saldo = (acumPorEmp[empNombre] || [])[mi] || 0;
+      const flujo = (flujoPorEmp[empNombre] || [])[mi] || 0;
+      fila.porEmpresa[empNombre] = { saldo, flujo };
+      fila.saldoConsolidado += saldo;
+      fila.flujoConsolidado += flujo;
+      if(saldo < minVal) { minVal = saldo; minEmp = empNombre; }
+    }
+    fila.empresaConMinSaldo = minEmp;
+    fila.empresaConMinSaldoValor = minVal;
+    return fila;
+  });
+
+  // Encontrar el mes con saldo consolidado mínimo (global del grupo)
+  const minMesGlobal = dataPorMes.reduce((min, f) => f.saldoConsolidado < (min?.saldoConsolidado ?? Infinity) ? f : min, null);
+
+  // Sumar flujo total por empresa en el rango
+  const totalFlujoPorEmp = {};
+  for(const empNombre of empNames) {
+    totalFlujoPorEmp[empNombre] = mesesIdx.reduce((s, mi) => s + ((flujoPorEmp[empNombre] || [])[mi] || 0), 0);
+  }
+
+  const cellStyle = (v, isHighlight = false) => ({
+    padding: "5px 7px",
+    textAlign: "right",
+    fontSize: 10,
+    fontWeight: v !== 0 ? 600 : 400,
+    color: v < 0 ? C.red : v > 0 ? C.green : C.muted2,
+    background: isHighlight ? "#FEE2E2" : "transparent",
+    borderRight: `1px solid ${C.border}22`,
+    whiteSpace: "nowrap",
+  });
+
+  return (
+    <Card>
+      <div style={{display:"flex", gap:14, alignItems:"center", marginBottom:14, flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Mostrar</div>
+          <div style={{display:"flex",gap:6}}>
+            <Btn active={vistaTabla==="saldo"} onClick={()=>setVistaTabla("saldo")} color={C.accent}>💰 Saldo acumulado</Btn>
+            <Btn active={vistaTabla==="flujo"} onClick={()=>setVistaTabla("flujo")} color={C.accent}>📈 Flujo neto mensual</Btn>
+          </div>
+        </div>
+        <div>
+          <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Horizonte</div>
+          <div style={{display:"flex",gap:6}}>
+            {[6, 12, 14, 24, 36].map(n => (
+              <Btn key={n} small active={rangoMeses===n} onClick={()=>setRangoMeses(n)} color={C.muted}>{n}m</Btn>
+            ))}
+          </div>
+        </div>
+        {minMesGlobal && vistaTabla === "saldo" && (
+          <div style={{flex:"1 1 250px", padding:"8px 14px", background:"#FEF2F2", border:`1px solid #FCA5A5`, borderRadius:8}}>
+            <div style={{fontSize:9, fontWeight:700, color:C.red, textTransform:"uppercase", letterSpacing:0.5, marginBottom:2}}>Saldo consolidado mínimo del horizonte</div>
+            <div style={{fontSize:13, fontWeight:800, color:C.red}}>
+              {minMesGlobal.mes}: {$$(minMesGlobal.saldoConsolidado)}
+            </div>
+            <div style={{fontSize:10, color:C.muted, marginTop:2}}>
+              Empresa que arrastra: <strong style={{color:C.text}}>{minMesGlobal.empresaConMinSaldo}</strong>
+              {" "}({$$(minMesGlobal.empresaConMinSaldoValor)})
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Tabla matriz: filas = empresas, columnas = meses */}
+      <div style={{overflowX:"auto", borderRadius:12, border:`1px solid ${C.border}`}}>
+        <table style={{borderCollapse:"collapse", fontSize:10, minWidth:600, width:"100%"}}>
+          <thead>
+            <tr style={{background:C.bg2}}>
+              <th style={{position:"sticky",left:0,background:C.bg2,padding:"8px 12px",textAlign:"left",fontSize:10,fontWeight:800,color:C.text,borderRight:`2px solid ${C.border2}`,borderBottom:`2px solid ${C.border2}`,zIndex:2,minWidth:160}}>
+                Empresa
+              </th>
+              {mesesIdx.map((mi, ci) => (
+                <th key={mi} style={{
+                  padding:"8px 7px",textAlign:"right",fontSize:9,fontWeight:700,
+                  color: minMesGlobal && minMesGlobal.mesIdx === mi && vistaTabla === "saldo" ? C.red : C.muted,
+                  borderBottom:`2px solid ${C.border2}`,
+                  background: minMesGlobal && minMesGlobal.mesIdx === mi && vistaTabla === "saldo" ? "#FEE2E2" : C.bg2,
+                  whiteSpace:"nowrap",
+                }}>
+                  {displayMes(mi)}
+                </th>
+              ))}
+              <th style={{padding:"8px 10px",textAlign:"right",fontSize:9,fontWeight:800,color:C.text,borderBottom:`2px solid ${C.border2}`,background:C.bg2,borderLeft:`2px solid ${C.border2}`}}>
+                {vistaTabla === "saldo" ? "Mín. en horizonte" : "Σ Horizonte"}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {empNames.map((n, ei) => {
+              const emp = empresas[n];
+              const minSaldoEmp = vistaTabla === "saldo"
+                ? Math.min(...mesesIdx.map(mi => (acumPorEmp[n]||[])[mi] || 0))
+                : totalFlujoPorEmp[n];
+              return (
+                <tr key={n} style={{borderBottom:`1px solid ${C.border}22`, background: ei % 2 === 0 ? C.card : C.bg2}}>
+                  <td style={{position:"sticky",left:0,padding:"6px 12px",fontSize:11,fontWeight:700,color:emp?.color||C.text,background: ei % 2 === 0 ? C.card : C.bg2,borderRight:`2px solid ${C.border2}`,zIndex:1,whiteSpace:"nowrap"}}>
+                    {emp?.emoji} {n}
+                  </td>
+                  {mesesIdx.map(mi => {
+                    const v = vistaTabla === "saldo"
+                      ? ((acumPorEmp[n]||[])[mi] || 0)
+                      : ((flujoPorEmp[n]||[])[mi] || 0);
+                    const isMinOfGroup = minMesGlobal && minMesGlobal.mesIdx === mi && minMesGlobal.empresaConMinSaldo === n && vistaTabla === "saldo";
+                    return (
+                      <td key={mi} style={cellStyle(v, isMinOfGroup)}>
+                        {fmtCompact(v)}
+                      </td>
+                    );
+                  })}
+                  <td style={{padding:"6px 10px", textAlign:"right", fontSize:10, fontWeight:800,
+                    color: minSaldoEmp < 0 ? C.red : C.green,
+                    background: ei % 2 === 0 ? C.card : C.bg2, borderLeft:`2px solid ${C.border2}`}}>
+                    {fmtCompact(minSaldoEmp)}
+                  </td>
+                </tr>
+              );
+            })}
+            {/* Fila TOTAL consolidado */}
+            <tr style={{background:`${C.accent}22`, borderTop:`3px solid ${C.accent}`}}>
+              <td style={{position:"sticky",left:0,padding:"9px 12px",fontSize:11,fontWeight:900,color:C.accent,background:`${C.accent}22`,borderRight:`2px solid ${C.border2}`,zIndex:1}}>
+                🏛 TOTAL GRUPO
+              </td>
+              {dataPorMes.map((f, ci) => {
+                const v = vistaTabla === "saldo" ? f.saldoConsolidado : f.flujoConsolidado;
+                const isMinGlobal = minMesGlobal && minMesGlobal.mesIdx === f.mesIdx && vistaTabla === "saldo";
+                return (
+                  <td key={f.mesIdx} style={{
+                    padding:"9px 7px", textAlign:"right", fontSize:10, fontWeight:900,
+                    color: v < 0 ? C.red : v > 0 ? C.green : C.muted2,
+                    background: isMinGlobal ? "#FCA5A5" : `${C.accent}11`,
+                    borderRight:`1px solid ${C.border}33`,
+                  }}>
+                    {fmtCompact(v)}
+                  </td>
+                );
+              })}
+              <td style={{padding:"9px 10px", textAlign:"right", fontSize:11, fontWeight:900,
+                color: (vistaTabla === "saldo" ? minMesGlobal?.saldoConsolidado : dataPorMes.reduce((s,f)=>s+f.flujoConsolidado,0)) < 0 ? C.red : C.green,
+                background:`${C.accent}22`, borderLeft:`2px solid ${C.border2}`}}>
+                {fmtCompact(vistaTabla === "saldo"
+                  ? (minMesGlobal?.saldoConsolidado || 0)
+                  : dataPorMes.reduce((s,f)=>s+f.flujoConsolidado,0))}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{marginTop:12, padding:"10px 14px", background:C.bg2, borderRadius:8, fontSize:10, color:C.muted, lineHeight:1.5}}>
+        💡 <strong>Cómo leer esta vista:</strong>
+        {" "}
+        {vistaTabla === "saldo"
+          ? <>Cada celda muestra el saldo acumulado de la empresa al cierre del mes. La columna del mes con menor saldo consolidado del grupo se resalta en rojo, y dentro de esa columna se destaca la celda de la empresa que más arrastra el resultado.</>
+          : <>Cada celda muestra el flujo neto del mes (ingresos − egresos) para esa empresa. La última columna acumula el flujo de todo el horizonte. Útil para ver qué empresa aporta o resta caja cada mes.</>
+        }
+        {" "}Las cifras están en miles (K) o millones (M) USD.
+      </div>
+    </Card>
+  );
 }
 
 function WaterfallConsolidado({empresas, saldosBancos, saldoIniPorEmp={}, acumPorEmp={}, flujoPorEmp={}}) {
