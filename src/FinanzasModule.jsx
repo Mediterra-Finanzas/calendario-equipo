@@ -7430,19 +7430,42 @@ function reporte_getMovimientos4Semanas(empNombre, realData, empresas, saldosBan
     }
 
     // AddedLines del usuario (por categoría de sección)
+    // Pueden estar como valor mensual (vals[i]) o valor semanal (vals["i_semIdx"])
+    // El valor MENSUAL se atribuye a la primera semana del mes (S1) en el reporte
     const adds = addedLines[sec.cat] || [];
     for(const al of adds) {
       if(typeof al === "string") continue;
       const vals = al.vals || {};
+      const label = al.label || al.nombre || "Línea agregada";
+
+      // Agrupar las semanas por mes para procesar el valor mensual una sola vez
+      const semanasPorMes = {};
       for(const semInfo of semanas4) {
-        const k = `${semInfo.mesIdx}_${semInfo.semIdx}`;
-        const v = Number(vals[k]) || 0;
-        if(v === 0) continue;
-        const semLabel = `${displayMes(semInfo.mesIdx)} S${semInfo.semIdx + 1}`;
-        const label = al.label || al.nombre || "Línea agregada";
-        const item = { mes: semLabel, label, monto: Math.abs(v), cat: sec.cat, catLabel };
-        if(esIngreso) ingresos.push(item);
-        else compromisos.push(item);
+        const mIdx = semInfo.mesIdx;
+        if(!semanasPorMes[mIdx]) semanasPorMes[mIdx] = [];
+        semanasPorMes[mIdx].push(semInfo);
+      }
+
+      for(const [mesIdxStr, semsDelMes] of Object.entries(semanasPorMes)) {
+        const mesIdx = parseInt(mesIdxStr, 10);
+        // 1) Si existe valor mensual (vals[mesIdx]) → atribuir al S1 del mes
+        const vMensual = Number(vals[mesIdx]) || 0;
+        if(vMensual !== 0) {
+          const primeraSem = semsDelMes[0];
+          const semLabel = `${displayMes(mesIdx)} S${primeraSem.semIdx + 1}`;
+          const item = { mes: semLabel, label, monto: Math.abs(vMensual), cat: sec.cat, catLabel };
+          if(esIngreso) ingresos.push(item);
+          else compromisos.push(item);
+        }
+        // 2) También revisar valores semanales individuales (vals["mes_sem"])
+        for(const semInfo of semsDelMes) {
+          const vSem = Number(vals[`${mesIdx}_${semInfo.semIdx}`]) || 0;
+          if(vSem === 0) continue;
+          const semLabel = `${displayMes(mesIdx)} S${semInfo.semIdx + 1}`;
+          const item = { mes: semLabel, label, monto: Math.abs(vSem), cat: sec.cat, catLabel };
+          if(esIngreso) ingresos.push(item);
+          else compromisos.push(item);
+        }
       }
     }
   }
@@ -7461,101 +7484,13 @@ function reporte_getMovimientos4Semanas(empNombre, realData, empresas, saldosBan
   compromisos.sort((a,b) => _parseSemKeyLocal(a.mes) - _parseSemKeyLocal(b.mes) || (b.monto - a.monto));
   ingresos.sort((a,b) => _parseSemKeyLocal(a.mes) - _parseSemKeyLocal(b.mes) || (b.monto - a.monto));
 
-  // DEBUG: log diagnóstico para TODAS las empresas
+  // DEBUG: log resumen para cada empresa (mantener mientras verificamos fix Royaltie IQ)
   if(typeof console !== "undefined") {
     const totalCompMonto = compromisos.reduce((s,c)=>s+c.monto, 0);
     const totalIngMonto = ingresos.reduce((s,c)=>s+c.monto, 0);
     console.log(
-      `[Reporte][${empNombre}] resumen: ${compromisos.length} compromisos (USD ${Math.round(totalCompMonto).toLocaleString()}), ${ingresos.length} ingresos (USD ${Math.round(totalIngMonto).toLocaleString()})`
+      `[Reporte][${empNombre}] ${compromisos.length} compromisos (USD ${Math.round(totalCompMonto).toLocaleString()}), ${ingresos.length} ingresos (USD ${Math.round(totalIngMonto).toLocaleString()})`
     );
-    // Mostrar TODAS las líneas con sus valores en cada mes (mayo-dic) para detectar las que se quedan afuera
-    console.groupCollapsed(`[Reporte][${empNombre}] detalle de líneas en flujo`);
-    empData.sections?.forEach(sec => {
-      console.groupCollapsed(`  Sección "${sec.cat}" (${sec.lines?.length || 0} líneas, signo ${sec.signo})`);
-      sec.lines?.forEach(l => {
-        const valores = [];
-        for(let i = 0; i < 8; i++) {
-          const idx = idxMesActual + i;
-          if(idx < 0 || idx >= MESES_65.length) continue;
-          const ov = proyOverrides[l.label]?.[idx];
-          const base = l.proy?.[idx] || 0;
-          let efectivo = base;
-          let fuente = "base";
-          if(ov !== undefined) {
-            if(typeof ov === "number") { efectivo = ov; fuente = "ov num"; }
-            else if(typeof ov === "object" && ov !== null) {
-              efectivo = 0;
-              for(let s=0; s<4; s++) {
-                const k = `_sem${s}`;
-                if(ov[k] !== undefined) efectivo += Number(ov[k]) || 0;
-              }
-              fuente = "ov sem";
-            }
-          }
-          if(efectivo !== 0) valores.push(`${MESES_65[idx]}:${Math.round(efectivo).toLocaleString()} (${fuente})`);
-        }
-        if(valores.length > 0) {
-          console.log(`    • "${l.label}": ${valores.join(" | ")}`);
-        } else {
-          console.log(`    • "${l.label}": (sin valores en mayo-dic)`);
-        }
-      });
-      console.groupEnd();
-    });
-    console.groupEnd();
-    // Logs adicionales: addedLines y subLines
-    const empAddedLines = addedLines || {};
-    const empSubLines = subLines || {};
-    if(Object.keys(empAddedLines).length > 0) {
-      console.groupCollapsed(`  AddedLines (líneas agregadas por usuario) en ${empNombre}`);
-      Object.entries(empAddedLines).forEach(([cat, lista]) => {
-        if(!lista?.length) return;
-        console.log(`    Categoría "${cat}": ${lista.length} línea${lista.length > 1 ? "s" : ""}`);
-        lista.forEach(al => {
-          if(typeof al === "string") { console.log(`      • (legacy string) "${al}"`); return; }
-          const label = al.label || al.nombre || "(sin nombre)";
-          const valores = [];
-          const vals = al.vals || {};
-          for(let i = 0; i < 8; i++) {
-            const idx = idxMesActual + i;
-            if(idx < 0) continue;
-            let efectivo = Number(vals[idx]) || 0;
-            for(let s=0; s<4; s++) {
-              const k = `${idx}_${s}`;
-              if(vals[k] !== undefined) efectivo += Number(vals[k]) || 0;
-            }
-            if(efectivo !== 0) valores.push(`${MESES_65[idx]}:${Math.round(efectivo).toLocaleString()}`);
-          }
-          console.log(`      • "${label}": ${valores.length > 0 ? valores.join(" | ") : "(sin valores en mayo-dic)"}`);
-        });
-      });
-      console.groupEnd();
-    }
-    if(Object.keys(empSubLines).length > 0) {
-      console.groupCollapsed(`  SubLines (CxC / Capital Calls / Aportes) en ${empNombre}`);
-      Object.entries(empSubLines).forEach(([parentLabel, lista]) => {
-        if(!lista?.length) return;
-        console.log(`    Sublineas de "${parentLabel}": ${lista.length}`);
-        lista.forEach(sl => {
-          if(typeof sl === "string") return;
-          const subLabel = sl.nombre || sl.label || "(sin nombre)";
-          const valores = [];
-          const vals = sl.vals || {};
-          for(let i = 0; i < 8; i++) {
-            const idx = idxMesActual + i;
-            if(idx < 0) continue;
-            let efectivo = Number(vals[idx]) || 0;
-            for(let s=0; s<4; s++) {
-              const k = `${idx}_${s}`;
-              if(vals[k] !== undefined) efectivo += Number(vals[k]) || 0;
-            }
-            if(efectivo !== 0) valores.push(`${MESES_65[idx]}:${Math.round(efectivo).toLocaleString()}`);
-          }
-          console.log(`      • "${subLabel}": ${valores.length > 0 ? valores.join(" | ") : "(sin valores)"}`);
-        });
-      });
-      console.groupEnd();
-    }
   }
 
   return { compromisos: compromisos.slice(0, 50), ingresos: ingresos.slice(0, 50) };
@@ -8403,11 +8338,11 @@ async function reporte_generarPDF(opts) {
       head: [["", "Concepto", ...mesesArr]],
       body: filasA,
       theme: "grid",
-      headStyles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7, halign: "center", fontStyle:"bold" },
-      bodyStyles: { fontSize: 6.5, cellPadding: 1 },
+      headStyles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign: "center", fontStyle:"bold" },
+      bodyStyles: { fontSize: 7.5, cellPadding: 1.2 },
       columnStyles: (()=>{
-        const cs = { 0: { cellWidth: 4 }, 1: { fontStyle: "bold", cellWidth: 22 } };
-        for(let i = 0; i < mesesArr.length; i++) cs[i + 2] = { halign: "right", cellWidth: 14 };
+        const cs = { 0: { cellWidth: 4 }, 1: { fontStyle: "bold", cellWidth: 30 } };
+        for(let i = 0; i < mesesArr.length; i++) cs[i + 2] = { halign: "right", cellWidth: 28 };
         return cs;
       })(),
       didParseCell: function(data) {
@@ -8470,16 +8405,31 @@ async function reporte_generarPDF(opts) {
       filasB.push(["", "Saldo Final", ...saldoPorEmp.map(v => _fmtCompact(v)), _fmtCompact(saldoSuma)]);
     }
 
+    // Nombres acortados para que entren todos en el header
+    const empresasColsCortas = empresasData.map(e => {
+      const n = e.nombre || "";
+      if(n.includes("Mediterra")) return "Mediterra";
+      if(n.includes("Allegria Foods")) return "Allegria F.";
+      if(n.includes("Allegria Service")) return "Allegria S.";
+      if(n.includes("Frisku")) return "Frisku";
+      if(n.includes("Osiris")) return "Osiris";
+      if(n.includes("Integrity")) return "Integrity";
+      if(n.includes("Allpa Farms Chile")) return "Allpa Chile";
+      if(n.includes("Allpa Farms Per")) return "Allpa Perú";
+      return n.length > 12 ? n.substring(0, 12) : n;
+    });
+
     doc.autoTable({
       startY: yL,
-      head: [["", "Concepto", ...empresasCols, "TOTAL"]],
+      head: [["", "Concepto", ...empresasColsCortas, "TOTAL"]],
       body: filasB,
       theme: "grid",
-      headStyles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 6, halign: "center", fontStyle:"bold", cellPadding: 0.6 },
-      bodyStyles: { fontSize: 5.5, cellPadding: 0.7 },
+      headStyles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 6.5, halign: "center", fontStyle:"bold", cellPadding: 0.5 },
+      bodyStyles: { fontSize: 6, cellPadding: 0.6, overflow: "linebreak" },
       columnStyles: (()=>{
-        const cs = { 0: { cellWidth: 3 }, 1: { fontStyle: "bold", cellWidth: 18 } };
-        const usableW = 281 - 8 - 8 - 3 - 18; // landscape A4 ≈ 297mm de ancho, márgenes 8+8
+        const cs = { 0: { cellWidth: 2 }, 1: { fontStyle: "bold", cellWidth: 16, overflow: "linebreak" } };
+        // landscape A4 = 297mm, márgenes 5+5 = 287mm útiles
+        const usableW = 297 - 5 - 5 - 2 - 16;
         const colW = Math.floor(usableW / (empresasData.length + 1));
         for(let i = 0; i <= empresasData.length; i++) cs[i + 2] = { halign: "right", cellWidth: colW };
         return cs;
@@ -8504,7 +8454,8 @@ async function reporte_generarPDF(opts) {
           if(isTotal) data.cell.styles.fontStyle = "bold";
         }
       },
-      margin: { left: 8, right: 8 },
+      margin: { left: 5, right: 5 },
+      tableWidth: "wrap",
     });
 
     yPos = doc.lastAutoTable.finalY + 6;
