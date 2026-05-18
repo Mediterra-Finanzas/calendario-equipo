@@ -6937,390 +6937,390 @@ function reporte_calcSaldosPorMoneda(empNombre, saldosBancos, tcUSDtoCLP = REPOR
   return resultado;
 }
 
-// Saldo proyectado mensual para una empresa - usa el saldo operacional desde la lógica del flujo
+// Saldo proyectado mensual para una empresa
+// USA LA MISMA LÓGICA QUE FlujoEmpresa (flujoArr + acumArr)
 // Retorna array de { mes, saldo, flujoMes } para los meses solicitados
-function reporte_calcSaldoProyectadoMensual(empNombre, realData, params, empresas, saldosBancos, mesesArr, creditosData, addedLinesGlobal, intercompany) {
-  // Saldo inicial = saldo actual de bancos en USD equivalente
-  const saldos = reporte_calcSaldosPorMoneda(empNombre, saldosBancos);
-  let saldoActual = saldos.totalUSD;
+// `mesesIdx` es un array de índices en MESES_65 (no labels)
+function reporte_calcSaldoProyectadoMensual_v2(empNombre, realData, empresas, saldosBancos, mesesIdx, subLinesGlobal, addedLinesGlobal) {
   const empData = empresas[empNombre];
   if(!empData) {
-    console.warn(`[ReporteSemanal] Empresa "${empNombre}" no encontrada en empresas. Disponibles:`, Object.keys(empresas || {}));
-    return mesesArr.map(m => ({mes:m, saldo:saldoActual, flujoMes:0}));
+    console.warn(`[ReporteSemanal] Empresa "${empNombre}" no encontrada`);
+    return mesesIdx.map(i => ({idx:i, mes:MESES_65[i]||"—", saldo:0, flujoMes:0, esPasado:true}));
   }
 
+  // 1. Saldo inicial: getSaldoBancoUSD o emp.saldo_ini
+  const saldoIni = (()=>{
+    const sb = getSaldoBancoUSD(saldosBancos, empNombre);
+    return sb != null ? sb : (Number(empData.saldo_ini)||0);
+  })();
+
+  // 2. mesIdxInicioSaldo: el mes de hoy en MESES_65
+  const HOY = new Date();
+  const labelHoy = `${MN[HOY.getMonth()]}-${String(HOY.getFullYear()).slice(2)}`;
+  let mesIdxInicioSaldo = MESES_65.indexOf(labelHoy);
+  if(mesIdxInicioSaldo < 0) mesIdxInicioSaldo = 0;
+
+  // 3. Recursos del empData
   const proyOverrides = realData?.[empNombre]?._proyOverrides || {};
-  const realPorMes = realData?.[empNombre] || {};
+  const subLines = subLinesGlobal?.[empNombre] || {};
   const addedLines = addedLinesGlobal?.[empNombre] || {};
 
-  // Mes actual (índice en MESES_65)
-  const hoy = new Date();
-  const MESES_NOMBRES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const mesActualLabel = `${MESES_NOMBRES[hoy.getMonth()]} ${String(hoy.getFullYear()).slice(2)}`;
-  const idxMesActual = mIdx(mesActualLabel);
-
-  const resultado = [];
-  for(const mesLabel of mesesArr) {
-    const mesIdx = mIdx(mesLabel);
-    if(mesIdx < 0) { resultado.push({mes:mesLabel, saldo:saldoActual, flujoMes:0}); continue; }
-
-    // Si es mes pasado: no afecta saldo (ya está en el saldo bancos actual)
-    // Si es mes actual o futuro: sumar flujo neto
-    if(mesIdx < idxMesActual) {
-      resultado.push({mes:mesLabel, saldo:saldoActual, flujoMes:0});
-      continue;
+  // 4. getProy: idéntica a la de FlujoEmpresa
+  function getProy(lineLabel, idx) {
+    const ov = proyOverrides[lineLabel]?.[idx];
+    let base = 0;
+    for(const sec of empData.sections){
+      const l = sec.lines.find(x=>x.label===lineLabel);
+      if(l){ base = l.proy?.[idx]||0; break; }
     }
-
-    // Calcular flujo neto del mes (ingresos - egresos)
-    let flujoNeto = 0;
-
-    // Líneas base de EMPRESAS_STATIC
-    if(empData.sections) {
-      for(const sec of empData.sections) {
-        const signo = sec.signo > 0 ? 1 : -1;
-        for(const linea of (sec.lines || [])) {
-          let valor = linea.proy?.[mesIdx] || 0;
-          const ov = proyOverrides[linea.label]?.[mesIdx];
-          if(ov !== undefined && ov !== null) {
-            if(typeof ov === "number") valor = ov;
-            else if(typeof ov === "object") {
-              let total = 0;
-              for(let s = 0; s < 4; s++) {
-                const k = `_sem${s}`;
-                if(ov[k] !== undefined) total += Number(ov[k]) || 0;
-              }
-              valor = total;
-            }
-          }
-          // Valor real si existe (para meses pasados ya filtrados arriba)
-          flujoNeto += signo * valor;
-        }
+    if(ov === undefined) return base;
+    if(typeof ov === "number") return ov;
+    if(typeof ov === "object" && ov !== null) {
+      let total = 0;
+      for(let s=0; s<4; s++){
+        const k = `_sem${s}`;
+        if(ov[k] !== undefined) total += Number(ov[k])||0;
       }
+      return total;
     }
-
-    // Líneas agregadas manualmente (addedLines)
-    Object.keys(addedLines || {}).forEach(secCat => {
-      const lineasExtra = addedLines[secCat] || [];
-      for(const linea of lineasExtra) {
-        // Las addedLines también tienen proy
-        const valor = (linea.proy?.[mesIdx]) || 0;
-        // Override desde proyOverrides
-        const ov = proyOverrides[linea.label]?.[mesIdx];
-        let valFinal = valor;
-        if(ov !== undefined && ov !== null) {
-          if(typeof ov === "number") valFinal = ov;
-          else if(typeof ov === "object") {
-            let total = 0;
-            for(let s = 0; s < 4; s++) {
-              const k = `_sem${s}`;
-              if(ov[k] !== undefined) total += Number(ov[k]) || 0;
-            }
-            valFinal = total;
-          }
-        }
-        // Determinar signo según categoría
-        const esIngreso = String(secCat).startsWith("ing_");
-        const signo = esIngreso ? 1 : -1;
-        flujoNeto += signo * valFinal;
-      }
-    });
-
-    // Pagos de créditos del mes (egresos)
-    if(creditosData && Array.isArray(creditosData)) {
-      const fechaMesInicio = new Date();
-      const yr = parseInt("20" + mesLabel.slice(-2));
-      const mIdxNumber = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"].indexOf(mesLabel.slice(0,3));
-      const fechaMesIni = new Date(yr, mIdxNumber, 1);
-      const fechaMesFin = new Date(yr, mIdxNumber + 1, 0);
-      for(const cr of creditosData) {
-        if(cr.empresa !== empNombre) continue;
-        if(cr.pagado) continue;
-        const fv = cr.f_venc ? new Date(cr.f_venc) : null;
-        if(!fv) continue;
-        if(fv >= fechaMesIni && fv <= fechaMesFin) {
-          flujoNeto -= Number(cr.cuota) || 0;
-        }
-      }
-    }
-
-    // Transferencias intercompany
-    if(intercompany && Array.isArray(intercompany)) {
-      for(const tr of intercompany) {
-        const mesTr = tr.mes; // formato esperado "Ene 26" igual a mesLabel
-        if(mesTr !== mesLabel) continue;
-        const monto = Number(tr.monto) || 0;
-        if(tr.origen === empNombre) flujoNeto -= monto;
-        else if(tr.destino === empNombre) flujoNeto += monto;
-      }
-    }
-
-    saldoActual += flujoNeto;
-    resultado.push({mes:mesLabel, saldo:saldoActual, flujoMes:flujoNeto});
+    return base;
   }
-  return resultado;
+
+  // 5. Construir flujoArr completo (idéntico a FlujoEmpresa)
+  const flujoArr = MESES_65.map((_,i)=>{
+    let f = 0;
+    empData.sections.forEach(sec=>{
+      sec.lines.forEach(l=>{
+        const v = getProy(l.label, i);
+        f += v * sec.signo;
+        // Sublines (CxC, Capital Calls, etc)
+        if(l.subLines) (subLines[l.label]||[]).forEach(sl=>{
+          if(typeof sl === "string") return;
+          const vals = sl.vals || {};
+          let sv = 0;
+          let hasSem = false;
+          for(let s=0; s<4; s++){
+            const k = `${i}_${s}`;
+            if(vals[k] !== undefined){ sv += Number(vals[k])||0; hasSem = true; }
+          }
+          if(!hasSem && vals[i] !== undefined) sv = Number(vals[i])||0;
+          f += sv * sec.signo;
+        });
+      });
+      // AddedLines del usuario (también con formato vals[i] o vals[i_semIdx])
+      (addedLines[sec.cat]||[]).forEach(al=>{
+        if(typeof al==="string") return;
+        const v = al.vals||{};
+        let av = Number(v[i])||0;
+        Object.entries(v).forEach(([k,val])=>{
+          if(k.startsWith(`${i}_`)) av += (Number(val)||0);
+        });
+        f += av * sec.signo;
+      });
+    });
+    return f;
+  });
+
+  // 6. Construir acumArr (igual a FlujoEmpresa)
+  let a = saldoIni;
+  const acumArr = flujoArr.map((f,i)=>{
+    if(i < mesIdxInicioSaldo) return null;
+    if(i === mesIdxInicioSaldo) { a = saldoIni + f; return a; }
+    a += f;
+    return a;
+  });
+
+  // 7. Retornar solo los meses pedidos
+  return mesesIdx.map(idx => {
+    if(idx < 0 || idx >= MESES_65.length) return {idx, mes:"—", saldo:null, flujoMes:0, esPasado:true};
+    const esPasado = idx < mesIdxInicioSaldo;
+    return {
+      idx,
+      mes: MESES_65[idx],
+      saldo: esPasado ? null : acumArr[idx],
+      flujoMes: flujoArr[idx],
+      esPasado,
+    };
+  });
 }
 
 // Obtener vista temporada (jul-jun) y calendario (ene-dic) para una empresa
-function reporte_getProyeccionesEmpresa(empNombre, realData, params, empresas, saldosBancos, creditosData, addedLinesGlobal, intercompany) {
-  const hoy = new Date();
-  const anioActual = hoy.getFullYear();
-  const anioPasado = anioActual - 1;
-  const a2act = String(anioActual).slice(2);
-  const a2pas = String(anioPasado).slice(2);
-  const MESES_NOMBRES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+function reporte_getProyeccionesEmpresa(empNombre, realData, empresas, saldosBancos, subLinesGlobal, addedLinesGlobal) {
+  // Encontrar temporada actual y meses calendario actual desde MESES_65
+  const HOY = new Date();
+  const anioActual = HOY.getFullYear();
+  const mesActual = HOY.getMonth();
 
-  // Temporada: Jul (año pasado) → Jun (año actual)
-  const temporadaMeses = [];
-  for(let m = 6; m < 12; m++) temporadaMeses.push(`${MESES_NOMBRES[m]} ${a2pas}`);
-  for(let m = 0; m < 6; m++)  temporadaMeses.push(`${MESES_NOMBRES[m]} ${a2act}`);
+  // Temporada: si estamos en Jul-Dic → temporada anio-anio+1, si Ene-Jun → anio-1-anio
+  let seasonYear; // año de arranque de la temporada (jul-jun)
+  if(mesActual >= 6) seasonYear = anioActual;
+  else seasonYear = anioActual - 1;
 
-  // Calendario: Ene → Dic año actual
-  const calendarioMeses = [];
-  for(let m = 0; m < 12; m++) calendarioMeses.push(`${MESES_NOMBRES[m]} ${a2act}`);
+  // Construir índices de la temporada (12 meses de Jul-seasonYear a Jun-seasonYear+1)
+  const temporadaIdx = [];
+  for(let m = 6; m < 12; m++) {
+    const label = `${MN[m]}-${String(seasonYear).slice(2)}`;
+    const idx = MESES_65.indexOf(label);
+    if(idx >= 0) temporadaIdx.push(idx);
+    else temporadaIdx.push(-1 - temporadaIdx.length); // marcador único para "mes antes del rango"
+  }
+  for(let m = 0; m < 6; m++) {
+    const label = `${MN[m]}-${String(seasonYear+1).slice(2)}`;
+    const idx = MESES_65.indexOf(label);
+    if(idx >= 0) temporadaIdx.push(idx);
+    else temporadaIdx.push(-100 - temporadaIdx.length);
+  }
 
-  return {
-    temporada: reporte_calcSaldoProyectadoMensual(empNombre, realData, params, empresas, saldosBancos, temporadaMeses, creditosData, addedLinesGlobal, intercompany),
-    calendario: reporte_calcSaldoProyectadoMensual(empNombre, realData, params, empresas, saldosBancos, calendarioMeses, creditosData, addedLinesGlobal, intercompany),
+  // Calendario: 12 meses del año actual
+  const calendarioIdx = [];
+  for(let m = 0; m < 12; m++) {
+    const label = `${MN[m]}-${String(anioActual).slice(2)}`;
+    const idx = MESES_65.indexOf(label);
+    if(idx >= 0) calendarioIdx.push(idx);
+    else calendarioIdx.push(-1000 - calendarioIdx.length);
+  }
+
+  // Labels para display: convertir Apr-26 → "Abr 26", May-26 → "May 26", etc.
+  const labelMapDisplay = {
+    "Jan":"Ene","Feb":"Feb","Mar":"Mar","Apr":"Abr","May":"May","Jun":"Jun",
+    "Jul":"Jul","Aug":"Ago","Sep":"Sep","Oct":"Oct","Nov":"Nov","Dec":"Dic",
   };
+  function displayLabel(idx, fallbackMonth, fallbackYear) {
+    if(idx < 0 || idx >= MESES_65.length) {
+      // Mes fuera del rango disponible en la app
+      return `${labelMapDisplay[MN[fallbackMonth]]} ${String(fallbackYear).slice(2)}`;
+    }
+    const lbl = MESES_65[idx]; // "May-26"
+    const [mn3, yr2] = lbl.split("-");
+    return `${labelMapDisplay[mn3]} ${yr2}`;
+  }
+
+  const temporadaRaw = reporte_calcSaldoProyectadoMensual_v2(empNombre, realData, empresas, saldosBancos, temporadaIdx.map(i => i >= 0 ? i : 0), subLinesGlobal, addedLinesGlobal);
+  const calendarioRaw = reporte_calcSaldoProyectadoMensual_v2(empNombre, realData, empresas, saldosBancos, calendarioIdx.map(i => i >= 0 ? i : 0), subLinesGlobal, addedLinesGlobal);
+
+  // Mapear con labels en español y marcar meses "fuera de rango" como N/A
+  const temporada = temporadaIdx.map((idx, i) => {
+    let mesNum, anioNum;
+    if(i < 6) { mesNum = 6 + i; anioNum = seasonYear; }
+    else { mesNum = i - 6; anioNum = seasonYear + 1; }
+    if(idx < 0) {
+      return { mes: displayLabel(-1, mesNum, anioNum), saldo: null, flujoMes: 0, esFueraRango: true };
+    }
+    const r = temporadaRaw[i];
+    return { mes: displayLabel(idx, mesNum, anioNum), saldo: r.saldo, flujoMes: r.flujoMes, esPasado: r.esPasado };
+  });
+
+  const calendario = calendarioIdx.map((idx, i) => {
+    if(idx < 0) {
+      return { mes: displayLabel(-1, i, anioActual), saldo: null, flujoMes: 0, esFueraRango: true };
+    }
+    const r = calendarioRaw[i];
+    return { mes: displayLabel(idx, i, anioActual), saldo: r.saldo, flujoMes: r.flujoMes, esPasado: r.esPasado };
+  });
+
+  return { temporada, calendario };
 }
 
 // Top 5 ingresos / egresos del mes en curso para una empresa
-function reporte_getTopMovimientos(empNombre, realData, empresas, mesLabel, addedLinesGlobal) {
+function reporte_getTopMovimientos(empNombre, realData, empresas, subLinesGlobal, addedLinesGlobal) {
   const empData = empresas[empNombre];
-  const mesIdx = mIdx(mesLabel);
+  if(!empData) return {ingresos:[], egresos:[]};
+
+  // Mes actual en MESES_65
+  const HOY = new Date();
+  const labelHoy = `${MN[HOY.getMonth()]}-${String(HOY.getFullYear()).slice(2)}`;
+  const mesIdx = MESES_65.indexOf(labelHoy);
   if(mesIdx < 0) return {ingresos:[], egresos:[]};
+
   const proyOverrides = realData?.[empNombre]?._proyOverrides || {};
+  const subLines = subLinesGlobal?.[empNombre] || {};
   const addedLines = addedLinesGlobal?.[empNombre] || {};
+
+  function getProy(lineLabel, idx) {
+    const ov = proyOverrides[lineLabel]?.[idx];
+    let base = 0;
+    for(const sec of empData.sections){
+      const l = sec.lines.find(x=>x.label===lineLabel);
+      if(l){ base = l.proy?.[idx]||0; break; }
+    }
+    if(ov === undefined) return base;
+    if(typeof ov === "number") return ov;
+    if(typeof ov === "object" && ov !== null) {
+      let total = 0;
+      for(let s=0; s<4; s++){
+        const k = `_sem${s}`;
+        if(ov[k] !== undefined) total += Number(ov[k])||0;
+      }
+      return total;
+    }
+    return base;
+  }
 
   const todasLineas = [];
 
-  if(empData?.sections) {
-    for(const sec of empData.sections) {
-      const tipo = sec.signo > 0 ? "ingreso" : "egreso";
-      for(const linea of (sec.lines || [])) {
-        let valor = linea.proy?.[mesIdx] || 0;
-        const ov = proyOverrides[linea.label]?.[mesIdx];
-        if(ov !== undefined && ov !== null) {
-          if(typeof ov === "number") valor = ov;
-          else if(typeof ov === "object") {
-            let total = 0;
-            for(let s = 0; s < 4; s++) {
-              const k = `_sem${s}`;
-              if(ov[k] !== undefined) total += Number(ov[k]) || 0;
-            }
-            valor = total;
+  for(const sec of empData.sections) {
+    const tipo = sec.signo > 0 ? "ingreso" : "egreso";
+    for(const linea of (sec.lines || [])) {
+      const v = getProy(linea.label, mesIdx);
+      if(v > 0) todasLineas.push({ label: linea.label, monto: v, tipo });
+
+      // SubLines
+      if(linea.subLines) {
+        const subList = subLines[linea.label] || [];
+        for(const sl of subList) {
+          if(typeof sl === "string") continue;
+          const vals = sl.vals || {};
+          let sv = 0;
+          let hasSem = false;
+          for(let s=0; s<4; s++){
+            const k = `${mesIdx}_${s}`;
+            if(vals[k] !== undefined){ sv += Number(vals[k])||0; hasSem = true; }
           }
+          if(!hasSem && vals[mesIdx] !== undefined) sv = Number(vals[mesIdx])||0;
+          if(sv > 0) todasLineas.push({ label: `${linea.label} → ${sl.nombre || sl.label || "—"}`, monto: sv, tipo });
         }
-        if(valor > 0) todasLineas.push({label:linea.label, monto:valor, tipo});
+      }
+    }
+
+    // AddedLines del usuario
+    const adds = addedLines[sec.cat] || [];
+    for(const al of adds) {
+      if(typeof al === "string") continue;
+      const vals = al.vals || {};
+      let av = Number(vals[mesIdx]) || 0;
+      Object.entries(vals).forEach(([k, v]) => {
+        if(k.startsWith(`${mesIdx}_`)) av += (Number(v) || 0);
+      });
+      if(av > 0) {
+        const label = al.label || al.nombre || "Línea agregada";
+        todasLineas.push({ label, monto: av, tipo });
       }
     }
   }
-
-  // AddedLines
-  Object.keys(addedLines || {}).forEach(secCat => {
-    const lineasExtra = addedLines[secCat] || [];
-    const tipo = secCat.startsWith("ing_") ? "ingreso" : "egreso";
-    for(const linea of lineasExtra) {
-      let valor = linea.proy?.[mesIdx] || 0;
-      const ov = proyOverrides[linea.label]?.[mesIdx];
-      if(ov !== undefined && ov !== null) {
-        if(typeof ov === "number") valor = ov;
-        else if(typeof ov === "object") {
-          let total = 0;
-          for(let s = 0; s < 4; s++) {
-            const k = `_sem${s}`;
-            if(ov[k] !== undefined) total += Number(ov[k]) || 0;
-          }
-          valor = total;
-        }
-      }
-      if(valor > 0) todasLineas.push({label:linea.label, monto:valor, tipo});
-    }
-  });
 
   const ingresos = todasLineas.filter(l => l.tipo === "ingreso").sort((a,b) => b.monto - a.monto).slice(0, 5);
   const egresos  = todasLineas.filter(l => l.tipo === "egreso") .sort((a,b) => b.monto - a.monto).slice(0, 5);
   return { ingresos, egresos };
 }
 
-// Compromisos próximas 4 semanas (a partir del mes en curso)
-// Incluye: líneas de flujo (egresos), pagos de créditos, transferencias intercompany (origen)
-function reporte_getCompromisos4Semanas(empNombre, realData, empresas, mesActualLabel, creditosData, addedLinesGlobal, intercompany) {
+// Compromisos e Ingresos próximas 4 semanas
+// Usa LA MISMA lógica que la vista semanal de FlujoEmpresa
+// Itera línea por línea, semana por semana de las próximas 4 semanas reales
+function reporte_getMovimientos4Semanas(empNombre, realData, empresas, saldosBancos, subLinesGlobal, addedLinesGlobal) {
   const empData = empresas[empNombre];
-  const idxActual = mIdx(mesActualLabel);
-  if(idxActual < 0) return [];
+  if(!empData) return { compromisos:[], ingresos:[] };
+
   const proyOverrides = realData?.[empNombre]?._proyOverrides || {};
+  const subLines = subLinesGlobal?.[empNombre] || {};
   const addedLines = addedLinesGlobal?.[empNombre] || {};
+
+  // Determinar mes actual y mes siguiente (cubrir 4 semanas que pueden caer entre 2 meses)
+  const HOY = new Date();
+  const labelHoy = `${MN[HOY.getMonth()]}-${String(HOY.getFullYear()).slice(2)}`;
+  const idxMesActual = MESES_65.indexOf(labelHoy);
+  if(idxMesActual < 0) return { compromisos:[], ingresos:[] };
+  const idxMesSig = idxMesActual + 1 < MESES_65.length ? idxMesActual + 1 : idxMesActual;
+
+  // Display labels para los meses
+  const labelMapDisplay = {
+    "Jan":"Ene","Feb":"Feb","Mar":"Mar","Apr":"Abr","May":"May","Jun":"Jun",
+    "Jul":"Jul","Aug":"Ago","Sep":"Sep","Oct":"Oct","Nov":"Nov","Dec":"Dic",
+  };
+  function displayMes(idx) {
+    if(idx < 0 || idx >= MESES_65.length) return "—";
+    const [mn3, yr2] = MESES_65[idx].split("-");
+    return `${labelMapDisplay[mn3]} ${yr2}`;
+  }
+
+  // Función getProySemana idéntica a FlujoEmpresa
+  function getProySemana(lineLabel, idx, semIdx, isLastInMonth) {
+    const ov = proyOverrides[lineLabel]?.[idx];
+    let base = 0;
+    for(const sec of empData.sections){
+      const l = sec.lines.find(x=>x.label===lineLabel);
+      if(l){ base = l.proy?.[idx]||0; break; }
+    }
+    if(ov === undefined) return semIdx === 0 ? base : 0;
+    if(typeof ov === "number") return isLastInMonth ? ov : 0;
+    if(typeof ov === "object" && ov !== null) {
+      const k = `_sem${semIdx}`;
+      return ov[k] !== undefined ? (Number(ov[k])||0) : 0;
+    }
+    return 0;
+  }
+
+  // Iterar las próximas 4 semanas: mes actual sem 0-3 + mes siguiente sem 0-3 (8 total)
+  // Pero tomamos solo las "próximas 4 semanas desde la semana actual"
+  // Semana actual aproximada según día del mes
+  const diaMes = HOY.getDate();
+  const semIdxActual = Math.min(3, Math.floor((diaMes - 1) / 7));
+
+  // Generar lista de (mesIdx, semIdx) cubriendo las próximas 4 semanas
+  const semanas4 = [];
+  let curMes = idxMesActual, curSem = semIdxActual;
+  while(semanas4.length < 4) {
+    semanas4.push({ mesIdx: curMes, semIdx: curSem, isLastInMonth: curSem === 3 });
+    curSem++;
+    if(curSem > 3) { curSem = 0; curMes++; }
+    if(curMes >= MESES_65.length) break;
+  }
+
   const compromisos = [];
-
-  // Líneas de flujo - egresos del mes actual y siguiente
-  if(empData?.sections) {
-    for(let offset = 0; offset <= 1; offset++) {
-      const idx = idxActual + offset;
-      const mesLabel = MESES_65[idx];
-      if(!mesLabel) continue;
-      for(const sec of empData.sections) {
-        if(sec.signo > 0) continue; // solo egresos
-        for(const linea of (sec.lines || [])) {
-          let valor = linea.proy?.[idx] || 0;
-          const ov = proyOverrides[linea.label]?.[idx];
-          if(ov !== undefined && ov !== null) {
-            if(typeof ov === "number") valor = ov;
-            else if(typeof ov === "object") {
-              let total = 0;
-              for(let s = 0; s < 4; s++) {
-                const k = `_sem${s}`;
-                if(ov[k] !== undefined) total += Number(ov[k]) || 0;
-              }
-              valor = total;
-            }
-          }
-          if(valor > 0) compromisos.push({mes:mesLabel, label:linea.label, monto:valor});
-        }
-      }
-    }
-  }
-
-  // AddedLines de categorías de egreso
-  Object.keys(addedLines || {}).forEach(secCat => {
-    if(!secCat.startsWith("egr_")) return;
-    const lineasExtra = addedLines[secCat] || [];
-    for(let offset = 0; offset <= 1; offset++) {
-      const idx = idxActual + offset;
-      const mesLabel = MESES_65[idx];
-      if(!mesLabel) continue;
-      for(const linea of lineasExtra) {
-        let valor = linea.proy?.[idx] || 0;
-        const ov = proyOverrides[linea.label]?.[idx];
-        if(ov !== undefined && ov !== null) {
-          if(typeof ov === "number") valor = ov;
-          else if(typeof ov === "object") {
-            let total = 0;
-            for(let s = 0; s < 4; s++) {
-              const k = `_sem${s}`;
-              if(ov[k] !== undefined) total += Number(ov[k]) || 0;
-            }
-            valor = total;
-          }
-        }
-        if(valor > 0) compromisos.push({mes:mesLabel, label:linea.label, monto:valor});
-      }
-    }
-  });
-
-  // Pagos de créditos próximos 60 días
-  if(creditosData && Array.isArray(creditosData)) {
-    const hoy = new Date();
-    const limite = new Date(hoy.getTime() + 60 * 24 * 3600 * 1000);
-    for(const cr of creditosData) {
-      if(cr.empresa !== empNombre) continue;
-      if(cr.pagado) continue;
-      const fv = cr.f_venc ? new Date(cr.f_venc) : null;
-      if(!fv || fv < hoy || fv > limite) continue;
-      const fechaStr = fv.toLocaleDateString("es-CL", {day:"2-digit", month:"short", year:"2-digit"});
-      compromisos.push({
-        mes: fechaStr,
-        label: `Crédito ${cr.acreedor} (${cr.tipo_cr || "—"})`,
-        monto: Number(cr.cuota) || 0,
-      });
-    }
-  }
-
-  // Transferencias intercompany donde empresa es origen
-  if(intercompany && Array.isArray(intercompany)) {
-    for(const tr of intercompany) {
-      if(tr.origen !== empNombre) continue;
-      const idx = mIdx(tr.mes);
-      if(idx < idxActual || idx > idxActual + 1) continue;
-      compromisos.push({
-        mes: tr.mes,
-        label: `Transferencia → ${tr.destino} (${tr.tipo || "—"})`,
-        monto: Number(tr.monto) || 0,
-      });
-    }
-  }
-
-  return compromisos.sort((a,b) => b.monto - a.monto).slice(0, 10);
-}
-
-// Ingresos próximas 4 semanas (mismo enfoque que compromisos)
-function reporte_getIngresos4Semanas(empNombre, realData, empresas, mesActualLabel, addedLinesGlobal, intercompany) {
-  const empData = empresas[empNombre];
-  const idxActual = mIdx(mesActualLabel);
-  if(idxActual < 0) return [];
-  const proyOverrides = realData?.[empNombre]?._proyOverrides || {};
-  const addedLines = addedLinesGlobal?.[empNombre] || {};
   const ingresos = [];
 
-  if(empData?.sections) {
-    for(let offset = 0; offset <= 1; offset++) {
-      const idx = idxActual + offset;
-      const mesLabel = MESES_65[idx];
-      if(!mesLabel) continue;
-      for(const sec of empData.sections) {
-        if(sec.signo < 0) continue;
-        for(const linea of (sec.lines || [])) {
-          let valor = linea.proy?.[idx] || 0;
-          const ov = proyOverrides[linea.label]?.[idx];
-          if(ov !== undefined && ov !== null) {
-            if(typeof ov === "number") valor = ov;
-            else if(typeof ov === "object") {
-              let total = 0;
-              for(let s = 0; s < 4; s++) {
-                const k = `_sem${s}`;
-                if(ov[k] !== undefined) total += Number(ov[k]) || 0;
-              }
-              valor = total;
-            }
+  for(const sec of empData.sections) {
+    const esIngreso = sec.signo > 0;
+    for(const linea of (sec.lines || [])) {
+      // Por cada semana, ver si hay valor
+      for(const semInfo of semanas4) {
+        const v = getProySemana(linea.label, semInfo.mesIdx, semInfo.semIdx, semInfo.isLastInMonth);
+        if(v === 0) continue;
+        const semLabel = `${displayMes(semInfo.mesIdx)} S${semInfo.semIdx + 1}`;
+        if(esIngreso) ingresos.push({ mes: semLabel, label: linea.label, monto: Math.abs(v) });
+        else compromisos.push({ mes: semLabel, label: linea.label, monto: Math.abs(v) });
+      }
+
+      // SubLines (CxC, Capital Calls, etc.)
+      if(linea.subLines) {
+        const subList = subLines[linea.label] || [];
+        for(const sl of subList) {
+          if(typeof sl === "string") continue;
+          const vals = sl.vals || {};
+          for(const semInfo of semanas4) {
+            const k = `${semInfo.mesIdx}_${semInfo.semIdx}`;
+            const v = Number(vals[k]) || 0;
+            if(v === 0) continue;
+            const semLabel = `${displayMes(semInfo.mesIdx)} S${semInfo.semIdx + 1}`;
+            const subLabel = `${linea.label} → ${sl.nombre || sl.label || "—"}`;
+            if(esIngreso) ingresos.push({ mes: semLabel, label: subLabel, monto: Math.abs(v) });
+            else compromisos.push({ mes: semLabel, label: subLabel, monto: Math.abs(v) });
           }
-          if(valor > 0) ingresos.push({mes:mesLabel, label:linea.label, monto:valor});
         }
+      }
+    }
+
+    // AddedLines del usuario (por categoría de sección)
+    const adds = addedLines[sec.cat] || [];
+    for(const al of adds) {
+      if(typeof al === "string") continue;
+      const vals = al.vals || {};
+      for(const semInfo of semanas4) {
+        const k = `${semInfo.mesIdx}_${semInfo.semIdx}`;
+        const v = Number(vals[k]) || 0;
+        if(v === 0) continue;
+        const semLabel = `${displayMes(semInfo.mesIdx)} S${semInfo.semIdx + 1}`;
+        const label = al.label || al.nombre || "Línea agregada";
+        if(esIngreso) ingresos.push({ mes: semLabel, label, monto: Math.abs(v) });
+        else compromisos.push({ mes: semLabel, label, monto: Math.abs(v) });
       }
     }
   }
 
-  // AddedLines de categorías de ingreso
-  Object.keys(addedLines || {}).forEach(secCat => {
-    if(!secCat.startsWith("ing_")) return;
-    const lineasExtra = addedLines[secCat] || [];
-    for(let offset = 0; offset <= 1; offset++) {
-      const idx = idxActual + offset;
-      const mesLabel = MESES_65[idx];
-      if(!mesLabel) continue;
-      for(const linea of lineasExtra) {
-        let valor = linea.proy?.[idx] || 0;
-        const ov = proyOverrides[linea.label]?.[idx];
-        if(ov !== undefined && ov !== null) {
-          if(typeof ov === "number") valor = ov;
-          else if(typeof ov === "object") {
-            let total = 0;
-            for(let s = 0; s < 4; s++) {
-              const k = `_sem${s}`;
-              if(ov[k] !== undefined) total += Number(ov[k]) || 0;
-            }
-            valor = total;
-          }
-        }
-        if(valor > 0) ingresos.push({mes:mesLabel, label:linea.label, monto:valor});
-      }
-    }
-  });
+  // Ordenar por monto descendente
+  compromisos.sort((a,b) => b.monto - a.monto);
+  ingresos.sort((a,b) => b.monto - a.monto);
 
-  // Transferencias intercompany donde empresa es destino
-  if(intercompany && Array.isArray(intercompany)) {
-    for(const tr of intercompany) {
-      if(tr.destino !== empNombre) continue;
-      const idx = mIdx(tr.mes);
-      if(idx < idxActual || idx > idxActual + 1) continue;
-      ingresos.push({
-        mes: tr.mes,
-        label: `Ingreso ← ${tr.origen} (${tr.tipo || "—"})`,
-        monto: Number(tr.monto) || 0,
-      });
-    }
-  }
-
-  return ingresos.sort((a,b) => b.monto - a.monto).slice(0, 10);
+  return { compromisos: compromisos.slice(0, 10), ingresos: ingresos.slice(0, 10) };
 }
 
 // Detectar alertas para una empresa
@@ -7335,8 +7335,8 @@ function reporte_detectarAlertas(empNombre, proyecciones, umbralMin, saldoActual
       color: "RED",
     });
   }
-  // Alerta: déficit proyectado (saldo negativo en algún mes)
-  const mesesDeficit = (proyecciones.calendario || []).filter(m => m.saldo < 0);
+  // Alerta: déficit proyectado (saldo negativo en algún mes con saldo válido)
+  const mesesDeficit = (proyecciones.calendario || []).filter(m => m.saldo != null && m.saldo < 0);
   if(mesesDeficit.length > 0) {
     alertas.push({
       nivel: "CRITICO",
@@ -7344,12 +7344,13 @@ function reporte_detectarAlertas(empNombre, proyecciones, umbralMin, saldoActual
       color: "RED",
     });
   }
-  // Alerta naranja: muchos meses bajo umbral
-  const mesesBajoUmbral = (proyecciones.temporada || []).filter(m => m.saldo >= 0 && m.saldo < umbralMin);
+  // Alerta naranja: muchos meses bajo umbral (solo meses con saldo válido)
+  const mesesConSaldo = (proyecciones.temporada || []).filter(m => m.saldo != null);
+  const mesesBajoUmbral = mesesConSaldo.filter(m => m.saldo >= 0 && m.saldo < umbralMin);
   if(mesesBajoUmbral.length >= 3) {
     alertas.push({
       nivel: "ALERTA",
-      texto: `${mesesBajoUmbral.length} de ${proyecciones.temporada.length} meses de la temporada bajo umbral mínimo`,
+      texto: `${mesesBajoUmbral.length} de ${mesesConSaldo.length} meses proyectados de la temporada bajo umbral mínimo`,
       color: "ORANGE",
     });
   }
@@ -7371,18 +7372,12 @@ function reporte_calcKPIsGrupo(datosEmpresas) {
 }
 
 // Función maestra: arma los datos de UNA empresa para el reporte
-function reporte_armarDatosEmpresa(empNombre, realData, params, empresas, saldosBancos, umbralMin, comentarioCFO, tcUSDtoCLP, creditosData, addedLinesGlobal, intercompany) {
+function reporte_armarDatosEmpresa(empNombre, realData, empresas, saldosBancos, umbralMin, comentarioCFO, tcUSDtoCLP, subLinesGlobal, addedLinesGlobal) {
   const saldos = reporte_calcSaldosPorMoneda(empNombre, saldosBancos, tcUSDtoCLP);
-  const proyecciones = reporte_getProyeccionesEmpresa(empNombre, realData, params, empresas, saldosBancos, creditosData, addedLinesGlobal, intercompany);
+  const proyecciones = reporte_getProyeccionesEmpresa(empNombre, realData, empresas, saldosBancos, subLinesGlobal, addedLinesGlobal);
 
-  // Mes actual
-  const hoy = new Date();
-  const MESES_NOMBRES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const mesActualLabel = `${MESES_NOMBRES[hoy.getMonth()]} ${String(hoy.getFullYear()).slice(2)}`;
-
-  const compromisos = reporte_getCompromisos4Semanas(empNombre, realData, empresas, mesActualLabel, creditosData, addedLinesGlobal, intercompany);
-  const ingresos = reporte_getIngresos4Semanas(empNombre, realData, empresas, mesActualLabel, addedLinesGlobal, intercompany);
-  const top = reporte_getTopMovimientos(empNombre, realData, empresas, mesActualLabel, addedLinesGlobal);
+  const movs = reporte_getMovimientos4Semanas(empNombre, realData, empresas, saldosBancos, subLinesGlobal, addedLinesGlobal);
+  const top = reporte_getTopMovimientos(empNombre, realData, empresas, subLinesGlobal, addedLinesGlobal);
   const alertas = reporte_detectarAlertas(empNombre, proyecciones, umbralMin, saldos.totalUSD);
 
   return {
@@ -7392,8 +7387,8 @@ function reporte_armarDatosEmpresa(empNombre, realData, params, empresas, saldos
     saldos,
     saldoTotal: saldos.totalUSD,
     proyecciones,
-    compromisos,
-    ingresos,
+    compromisos: movs.compromisos,
+    ingresos: movs.ingresos,
     topIngresos: top.ingresos,
     topEgresos: top.egresos,
     alertas,
@@ -7927,7 +7922,7 @@ function _renderEmpresaEnPDF(doc, emp, idx, startY, semana, fechaStr, logo) {
 
 function ReporteSemanalModule({
   realData, params, empresas, saldosBancos, canEdit,
-  creditosData = [], addedLinesGlobal = {}, intercompany = [],
+  creditosData = [], addedLinesGlobal = {}, subLinesGlobal = {}, intercompany = [],
   umbralesConfig = {}, onSaveUmbrales,
   destinatariosConfig = [], onSaveDestinatarios,
   comentariosConfig = {}, onSaveComentarios,
@@ -7995,13 +7990,13 @@ function ReporteSemanalModule({
     return REPORTE_EMPRESAS
       .filter(e => empresasIncluidas[e])
       .map(emp => reporte_armarDatosEmpresa(
-        emp, realData, params, empresas, saldosBancos,
+        emp, realData, empresas, saldosBancos,
         umbralDe(emp),
         comentariosLocal[emp] || "",
         params?.tcUSDtoCLP || REPORTE_TC_DEFAULT_CLP,
-        creditosData, addedLinesGlobal, intercompany,
+        subLinesGlobal, addedLinesGlobal,
       ));
-  }, [realData, params, empresas, saldosBancos, empresasIncluidas, umbralesConfig, comentariosLocal, creditosData, addedLinesGlobal, intercompany]);
+  }, [realData, params, empresas, saldosBancos, empresasIncluidas, umbralesConfig, comentariosLocal, subLinesGlobal, addedLinesGlobal]);
 
   const kpisGrupo = useMemo(() => reporte_calcKPIsGrupo(empresasParaReporte), [empresasParaReporte]);
 
@@ -9211,6 +9206,7 @@ export default function FinanzasModule({onBack,onLogout,usuarioActual,tabPermiso
           saldosBancos={saldosBancos}
           creditosData={creditosData}
           addedLinesGlobal={addedLinesGlobal}
+          subLinesGlobal={subLines}
           intercompany={intercompany}
           canEdit={puedoEdit("reporte")}
           umbralesConfig={umbralesReporte}
