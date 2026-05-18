@@ -4547,10 +4547,6 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
   // Flujo con overrides aplicados
   const {flujoArr, acumArr} = useMemo(()=>{
     const saldoIni = saldoBancoUSD != null ? saldoBancoUSD : emp.saldo_ini;
-    // DEBUG: capturar desglose por línea solo para May-26 (idx 5) de Mediterra
-    const DBG_IDX = 5;
-    const dbgLog = (empNombre === "Mediterra");
-    const dbgDetalle = [];
     const fa = MESES_65.map((_,i)=>{
       let f=0;
       emp.sections.forEach(sec=>{
@@ -4558,9 +4554,6 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
           // Usar getProy que maneja tanto overrides mensuales como objeto por semanas
           const v = getProy(l.label, i);
           f += v * sec.signo;
-          if(dbgLog && i === DBG_IDX && v !== 0) {
-            dbgDetalle.push({ sec: sec.cat, signo: sec.signo, label: l.label, fuente: "proy/override", monto: v });
-          }
           // Include subLines (CxC/Préstamos sub-items) in flujo
           if(l.subLines)(subLines[l.label]||[]).forEach(sl=>{
             if(typeof sl === "string") return;
@@ -4574,9 +4567,6 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
             }
             if(!hasSem && vals[i] !== undefined) sv = Number(vals[i])||0;
             f += sv * sec.signo;
-            if(dbgLog && i === DBG_IDX && sv !== 0) {
-              dbgDetalle.push({ sec: sec.cat, signo: sec.signo, label: `${l.label} > ${sl.label || sl.nombre || "(sub)"}`, fuente: "subLine", monto: sv });
-            }
           });
         });
         // Include user-added lines in flujo
@@ -4584,47 +4574,21 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
         (addedLines[sec.cat]||[]).forEach(al=>{
           if(typeof al==="string") return;
           const v = al.vals||{};
-          // ¿Hay semanas cargadas para este mes?
           const hasAnySem = [0,1,2,3].some(s => v[`${i}_${s}`] !== undefined);
           let av = 0;
           if(hasAnySem) {
-            // Semanas mandan: sumar las 4
             for(let s=0; s<4; s++){
               const k = `${i}_${s}`;
               if(v[k] !== undefined) av += Number(v[k])||0;
             }
           } else {
-            // No hay semanas: usar valor mensual antiguo
             av = Number(v[i])||0;
           }
           f += av * sec.signo;
-          if(dbgLog && i === DBG_IDX && av !== 0) {
-            dbgDetalle.push({ sec: sec.cat, signo: sec.signo, label: al.label || "(addedLine)", fuente: hasAnySem ? "addedLine(semanas)" : "addedLine(mensual)", monto: av });
-          }
         });
       });
       return f;
     });
-    if(dbgLog && typeof console !== "undefined") {
-      console.groupCollapsed(`[DEBUG][Mediterra May-26] desglose línea por línea (Flujo = ${Math.round(fa[DBG_IDX]).toLocaleString()})`);
-      console.table(dbgDetalle.map(d => ({
-        sección: d.sec,
-        signo: d.signo,
-        línea: d.label,
-        fuente: d.fuente,
-        "monto bruto": d.monto.toLocaleString(),
-        "aporta al flujo": (d.monto * d.signo).toLocaleString(),
-      })));
-      // Subtotal por sección
-      const porSec = {};
-      dbgDetalle.forEach(d => {
-        if(!porSec[d.sec]) porSec[d.sec] = 0;
-        porSec[d.sec] += d.monto * d.signo;
-      });
-      console.log("Subtotales por sección:");
-      console.table(porSec);
-      console.groupEnd();
-    }
     let a = saldoIni;
     const aa = fa.map((f,i)=>{
       // Antes del mes del saldo banco: no acumular (mes pasado, sin valor de saldo)
