@@ -3098,9 +3098,22 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
         if(sec && Array.isArray(lines)) {
           lines.forEach(al=>{
             if(al && al.label) {
-              const vals = Array(63).fill(0);
-              if(al.vals) Object.entries(al.vals).forEach(([i,v])=>{
-                const idx=Number(i); if(!isNaN(idx)&&idx>=0&&idx<65) vals[idx]=Number(v)||0;
+              const vals = Array(65).fill(0);
+              if(al.vals) Object.entries(al.vals).forEach(([key,v])=>{
+                const num = Number(v) || 0;
+                if(num === 0) return;
+                // Caso 1: clave numérica entera (valor mensual): vals[5] = 100000
+                const idxNum = Number(key);
+                if(!isNaN(idxNum) && Number.isInteger(idxNum) && idxNum >= 0 && idxNum < 65) {
+                  vals[idxNum] += num;
+                  return;
+                }
+                // Caso 2: clave semanal "i_semIdx": vals["5_0"] = 25000 → suma a mes 5
+                const m = String(key).match(/^(\d+)_(\d+)$/);
+                if(m) {
+                  const mesIdx = parseInt(m[1], 10);
+                  if(mesIdx >= 0 && mesIdx < 65) vals[mesIdx] += num;
+                }
               });
               sec.lines.push({label:al.label, proy:vals});
             }
