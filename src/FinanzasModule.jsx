@@ -5257,12 +5257,14 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         const isTot=col.isTotalMes;
                         // idx único por semana: para semanas usar "monthIdx_semIdx", para mes usar "monthIdx"
                         const cellKey = col.type==="week" ? `${col.idx}_${col.semIdx}` : String(col.idx);
-                        // Para total del mes: sumar valor mensual + todas las semanas individuales
-                        const sumWeeks = col.type==="month_total" 
+                        // Para total del mes O mes regular: sumar valor mensual + todas las semanas individuales
+                        // (el FLUJO NETO y los subtotales de categoría hacen esto, la celda debe coincidir)
+                        const esMesAgregado = col.type==="month_total" || col.type==="month" || col.type==="month_collapsed";
+                        const sumWeeks = esMesAgregado
                           ? Object.entries(alVals).filter(([k])=>k.startsWith(`${col.idx}_`)).reduce((a,[,v])=>a+(Number(v)||0),0)
                           : 0;
                         const rawVal=Number(alVals[cellKey])||0;
-                        const disp = col.type==="month_total" 
+                        const disp = esMesAgregado
                           ? (Number(alVals[String(col.idx)])||0) + sumWeeks
                           : rawVal;
                         const isFirst=col.isFirstInSeason||col.isFirstInMonth;
@@ -5277,7 +5279,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                               </span>
                             ):(
                               <CeldaEditable val={disp} color={sec.signo>0?C.green:C.red}
-                                canEdit={canEdit&&col.type!=="month_collapsed"&&!isTot}
+                                canEdit={canEdit&&col.type!=="month_collapsed"&&!isTot&&col.type!=="month"}
                                 onSave={v=>updAlVal(cellKey, v)}/>
                             )}
                           </td>
