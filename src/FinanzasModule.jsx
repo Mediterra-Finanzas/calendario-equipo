@@ -3164,33 +3164,11 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
     const res={};
     empNames.forEach(n=>{
       const arr=Z65();
-      const detalleSec = {}; // DEBUG: por sección, valor total mes a mes
-      empresasConOverrides[n].sections.forEach(sec=>{
-        const aporteSec = Z65();
-        sec.lines.forEach(l=>l.proy.forEach((v,i)=>{
-          const num = Number(v);
-          const contrib = (isNaN(num)?0:num)*sec.signo;
-          arr[i]+=contrib;
-          aporteSec[i]+=contrib;
-        }));
-        detalleSec[sec.cat] = { label: sec.label, lines: sec.lines.map(l=>({label:l.label, proy:l.proy.slice(0,12)})), aporte: aporteSec.slice(0,12) };
-      });
+      empresasConOverrides[n].sections.forEach(sec=>sec.lines.forEach(l=>l.proy.forEach((v,i)=>{
+        const num = Number(v);
+        arr[i]+=(isNaN(num)?0:num)*sec.signo;
+      })));
       res[n]=arr;
-
-      // DEBUG: solo para Mediterra, primeros 12 meses
-      if(typeof console !== "undefined" && n === "Mediterra") {
-        console.groupCollapsed(`[Consolidado][${n}] Flujo aporte por sección (primeros 12 meses)`);
-        console.log("Meses idx 0-11:", MESES_65.slice(0,12).join(" | "));
-        Object.entries(detalleSec).forEach(([cat, info])=>{
-          console.log(`  ${cat} (${info.label}): aporte=`, info.aporte.map(v=>Math.round(v).toLocaleString()).join(" | "));
-          info.lines.forEach(l=>{
-            const tieneValor = l.proy.some(v=>v!==0);
-            if(tieneValor) console.log(`    • "${l.label}":`, l.proy.map(v=>Math.round(v).toLocaleString()).join(" | "));
-          });
-        });
-        console.log("TOTAL FLUJO arr (0-11):", arr.slice(0,12).map(v=>Math.round(v).toLocaleString()).join(" | "));
-        console.groupEnd();
-      }
     });
     return res;
   },[empresasConOverrides]); // eslint-disable-line
@@ -4465,6 +4443,38 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
     return total;
   },[subLines]);
 
+  // Helper: total mensual de un AddedLine = valor mensual vals[idx] + suma de semanales vals["idx_s"]
+  // Usado en subtotales por categoría para que coincida con el cálculo del flujo total (línea 4539)
+  const sumAddedLinesMes = useCallback((cat, idx) => {
+    let total = 0;
+    (addedLines[cat]||[]).forEach(al=>{
+      if(typeof al === "string") return;
+      const vals = al.vals || {};
+      total += Number(vals[idx]) || 0;
+      Object.entries(vals).forEach(([k, v]) => {
+        if(typeof k === "string" && k.startsWith(`${idx}_`)) total += Number(v) || 0;
+      });
+    });
+    return total;
+  },[addedLines]);
+
+  const sumAddedLinesSemana = useCallback((cat, idx, semIdx) => {
+    let total = 0;
+    (addedLines[cat]||[]).forEach(al=>{
+      if(typeof al === "string") return;
+      const vals = al.vals || {};
+      // Solo la semana específica
+      const v = Number(vals[`${idx}_${semIdx}`]) || 0;
+      total += v;
+      // Si no hay valores semanales pero sí mensual, atribuir a S1 (igual que las líneas base)
+      const hasAnySem = [0,1,2,3].some(s => vals[`${idx}_${s}`] !== undefined);
+      if(!hasAnySem && semIdx === 0 && vals[idx] !== undefined) {
+        total += Number(vals[idx]) || 0;
+      }
+    });
+    return total;
+  },[addedLines]);
+
   // Guardar override semanal (o mensual si semIdx no se especifica)
   const handleEditProy = useCallback((lineLabel, idx, nuevoVal, semIdx) => {
     setProyOverrides(prev=>{
@@ -4771,7 +4781,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                           if(l.label.startsWith("  ")) return b;
                           const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
                           return b + getProy(l.label,i) + subSum;
-                        },0) + (addedLines[sec.cat]||[]).reduce((b,al)=>b+(Number(typeof al==="string"?0:(al.vals||{})[i])||0),0);
+                        },0) + sumAddedLinesMes(sec.cat, i);
                       },0);
                       return (
                         <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontWeight:800,
@@ -4787,7 +4797,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                           if(l.label.startsWith("  ")) return a;
                           const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
                           return a + getProy(l.label,col.idx) + subSum;
-                        },0) + (addedLines[sec.cat]||[]).reduce((a,al)=>a+(Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0),0);
+                        },0) + sumAddedLinesMes(sec.cat, col.idx);
                       } else if(col.type==="week"){
                         v = sec.lines.reduce((a,l)=>{
                           if(l.label.startsWith("  ")) return a;
@@ -4795,7 +4805,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                           const subSem = l.subLines && !l.label.includes("Préstamos")
                             ? sumSubLinesSemana(l.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
                           return a + propSem + subSem;
-                        },0);
+                        },0) + sumAddedLinesSemana(sec.cat, col.idx, col.semIdx);
                       }
                       return (
                         <td key={col.key} style={{padding:"5px 5px",textAlign:"right",fontWeight:700,fontSize:9,
@@ -5268,7 +5278,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                           const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, i) : 0;
                           return b + getProy(l.label,i) + subSum;
                         },0);
-                        const addSum = (addedLines[sec.cat]||[]).reduce((b,al)=>b+(Number(typeof al==="string"?0:(al.vals||{})[i])||0),0);
+                        const addSum = sumAddedLinesMes(sec.cat, i);
                         return a + linTot + addSum;
                       },0);
                       return (
@@ -5291,10 +5301,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                           const subSum = l.subLines && !l.label.includes("Préstamos") ? sumSubLinesMes(l.label, col.idx) : 0;
                           return a + getProy(l.label,col.idx) + subSum;
                         },0);
-                        addedTotal = (addedLines[sec.cat]||[]).reduce((a,al)=>{
-                          const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
-                          return a+v;
-                        },0);
+                        addedTotal = sumAddedLinesMes(sec.cat, col.idx);
                       } else if(col.type==="week") {
                         // Columna de semana: suma los valores semanales de cada línea + subLines de esa semana
                         baseTotal = sec.lines.reduce((a,l)=>{
@@ -5304,12 +5311,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                             ? sumSubLinesSemana(l.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
                           return a + propSem + subSem;
                         }, 0);
-                        // addedLines son mensuales, mostrar solo en primera semana
-                        addedTotal = col.semIdx === 0 ?
-                          (addedLines[sec.cat]||[]).reduce((a,al)=>{
-                            const v=Number(typeof al==="string"?0:(al.vals||{})[col.idx])||0;
-                            return a+v;
-                          },0) : 0;
+                        // AddedLines: usar el helper que considera valores mensuales + semanales
+                        addedTotal = sumAddedLinesSemana(sec.cat, col.idx, col.semIdx);
                       }
                       const total=baseTotal+addedTotal;
                       const isFirst=col.isFirstInSeason||col.isFirstInMonth;
@@ -5340,10 +5343,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         total += sumSubLinesMes(l.label, idx);
                       }
                     });
-                    (addedLines[s.cat]||[]).forEach(al=>{
-                      const v = Number(typeof al==="string" ? 0 : (al.vals||{})[idx]) || 0;
-                      total += v;
-                    });
+                    total += sumAddedLinesMes(s.cat, idx);
                     return total * s.signo;
                   };
                   const sumSeccionSemana = (catBuscar, idx, semIdx, isLastInMonth) => {
@@ -5357,13 +5357,7 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         total += sumSubLinesSemana(l.label, idx, semIdx, isLastInMonth);
                       }
                     });
-                    // addedLines son mensuales: mostrar solo en primera semana
-                    if(semIdx === 0) {
-                      (addedLines[s.cat]||[]).forEach(al=>{
-                        const v = Number(typeof al==="string" ? 0 : (al.vals||{})[idx]) || 0;
-                        total += v;
-                      });
-                    }
+                    total += sumAddedLinesSemana(s.cat, idx, semIdx);
                     return total * s.signo;
                   };
                   // Cálculo para un período: Saldo Caja + Ingresos Op + Egresos Op (var + fijo)
@@ -7729,7 +7723,7 @@ function reporte_getMovimientos4Semanas(empNombre, realData, empresas, saldosBan
   compromisos.sort((a,b) => _parseSemKeyLocal(a.mes) - _parseSemKeyLocal(b.mes) || (b.monto - a.monto));
   ingresos.sort((a,b) => _parseSemKeyLocal(a.mes) - _parseSemKeyLocal(b.mes) || (b.monto - a.monto));
 
-  // DEBUG: log resumen para cada empresa (mantener mientras verificamos fix Royaltie IQ)
+  // Log resumen para cada empresa (útil para validar reporte semanal en consola)
   if(typeof console !== "undefined") {
     const totalCompMonto = compromisos.reduce((s,c)=>s+c.monto, 0);
     const totalIngMonto = ingresos.reduce((s,c)=>s+c.monto, 0);
