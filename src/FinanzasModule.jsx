@@ -3092,6 +3092,8 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
         })
       }));
       // Agregar addedLines
+      // Nueva lógica: si el mes tiene semanas cargadas → semanas mandan (ignora mensual)
+      //                si NO tiene semanas → usar valor mensual antiguo (retrocompatibilidad)
       const added = addedLinesGlobal[n] || {};
       Object.entries(added).forEach(([cat, lines])=>{
         const sec = emp.sections.find(s=>s.cat===cat);
@@ -3100,17 +3102,23 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
             if(al && al.label) {
               const vals = Array(65).fill(0);
               const alVals = al.vals || {};
-              // Replicar EXACTAMENTE la lógica de FlujoEmpresa (línea ~4525):
-              // av = vals[i] (mensual) + suma de vals["i_0".."i_3"] (semanales)
-              // Las dos se SUMAN, no son excluyentes.
               for(let i = 0; i < 65; i++) {
-                let v = Number(alVals[i]) || 0;
-                if(!v) v = Number(alVals[String(i)]) || 0; // por si la clave es string
-                for(let s = 0; s < 4; s++) {
-                  const k = `${i}_${s}`;
-                  if(alVals[k] !== undefined) v += Number(alVals[k]) || 0;
+                // ¿Hay alguna semana cargada para este mes?
+                const hasAnySem = [0,1,2,3].some(s => alVals[`${i}_${s}`] !== undefined);
+                if(hasAnySem) {
+                  // Semanas mandan
+                  let v = 0;
+                  for(let s = 0; s < 4; s++) {
+                    const k = `${i}_${s}`;
+                    if(alVals[k] !== undefined) v += Number(alVals[k]) || 0;
+                  }
+                  vals[i] = v;
+                } else {
+                  // No hay semanas: valor mensual antiguo
+                  let v = Number(alVals[i]) || 0;
+                  if(!v) v = Number(alVals[String(i)]) || 0;
+                  vals[i] = v;
                 }
-                vals[i] = v;
               }
               sec.lines.push({label:al.label, proy:vals});
             }
@@ -4445,31 +4453,47 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
 
   // Helper: total mensual de un AddedLine = valor mensual vals[idx] + suma de semanales vals["idx_s"]
   // Usado en subtotales por categoría para que coincida con el cálculo del flujo total (línea 4539)
+  // Helper: total mensual de un AddedLine en un mes
+  // Nueva lógica: si hay valores semanales cargados, EL MES = SUMA DE SEMANAS (ignora valor mensual)
+  // Si NO hay valores semanales, fallback al valor mensual antiguo (retrocompatibilidad)
   const sumAddedLinesMes = useCallback((cat, idx) => {
     let total = 0;
     (addedLines[cat]||[]).forEach(al=>{
       if(typeof al === "string") return;
       const vals = al.vals || {};
-      total += Number(vals[idx]) || 0;
-      Object.entries(vals).forEach(([k, v]) => {
-        if(typeof k === "string" && k.startsWith(`${idx}_`)) total += Number(v) || 0;
-      });
+      // ¿Hay alguna semana cargada para este mes?
+      const sumSemanas = [0,1,2,3].reduce((s, semIdx) => {
+        const v = vals[`${idx}_${semIdx}`];
+        return s + (v !== undefined ? (Number(v) || 0) : 0);
+      }, 0);
+      const hasAnySem = [0,1,2,3].some(s => vals[`${idx}_${s}`] !== undefined);
+      if(hasAnySem) {
+        // Las semanas mandan: el mes es la suma de sus semanas
+        total += sumSemanas;
+      } else {
+        // No hay semanas: usar el valor mensual antiguo (retrocompatibilidad)
+        total += Number(vals[idx]) || 0;
+      }
     });
     return total;
   },[addedLines]);
 
+  // Helper: valor semanal de un AddedLine en una semana específica
   const sumAddedLinesSemana = useCallback((cat, idx, semIdx) => {
     let total = 0;
     (addedLines[cat]||[]).forEach(al=>{
       if(typeof al === "string") return;
       const vals = al.vals || {};
-      // Solo la semana específica
-      const v = Number(vals[`${idx}_${semIdx}`]) || 0;
-      total += v;
-      // Si no hay valores semanales pero sí mensual, atribuir a S1 (igual que las líneas base)
-      const hasAnySem = [0,1,2,3].some(s => vals[`${idx}_${s}`] !== undefined);
-      if(!hasAnySem && semIdx === 0 && vals[idx] !== undefined) {
-        total += Number(vals[idx]) || 0;
+      // Solo el valor semanal exacto
+      const v = vals[`${idx}_${semIdx}`];
+      if(v !== undefined) {
+        total += Number(v) || 0;
+      } else {
+        // Si no hay semanas y sí mensual, atribuir todo a S1 (retrocompatibilidad)
+        const hasAnySem = [0,1,2,3].some(s => vals[`${idx}_${s}`] !== undefined);
+        if(!hasAnySem && semIdx === 0 && vals[idx] !== undefined) {
+          total += Number(vals[idx]) || 0;
+        }
       }
     });
     return total;
@@ -4555,18 +4579,27 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
             }
           });
         });
-        // Include user-added lines in flujo (sumar valor mensual + semanales i_0, i_1, ...)
+        // Include user-added lines in flujo
+        // Nueva lógica: si hay valores semanales cargados, semanas mandan. Si no, fallback mensual.
         (addedLines[sec.cat]||[]).forEach(al=>{
           if(typeof al==="string") return;
           const v = al.vals||{};
-          let av = Number(v[i])||0;
-          // Sumar valores semanales del mismo mes (i_0, i_1, ..)
-          Object.entries(v).forEach(([k,val])=>{
-            if(k.startsWith(`${i}_`)) av += (Number(val)||0);
-          });
+          // ¿Hay semanas cargadas para este mes?
+          const hasAnySem = [0,1,2,3].some(s => v[`${i}_${s}`] !== undefined);
+          let av = 0;
+          if(hasAnySem) {
+            // Semanas mandan: sumar las 4
+            for(let s=0; s<4; s++){
+              const k = `${i}_${s}`;
+              if(v[k] !== undefined) av += Number(v[k])||0;
+            }
+          } else {
+            // No hay semanas: usar valor mensual antiguo
+            av = Number(v[i])||0;
+          }
           f += av * sec.signo;
           if(dbgLog && i === DBG_IDX && av !== 0) {
-            dbgDetalle.push({ sec: sec.cat, signo: sec.signo, label: al.label || "(addedLine)", fuente: "addedLine", monto: av });
+            dbgDetalle.push({ sec: sec.cat, signo: sec.signo, label: al.label || "(addedLine)", fuente: hasAnySem ? "addedLine(semanas)" : "addedLine(mensual)", monto: av });
           }
         });
       });
@@ -5240,13 +5273,19 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     </td>
                     {colStructure.map(({season:s,collapsed,cols})=>{
                       if(collapsed){
-                        // Sumar valores mensuales + valores semanales (idx_semIdx)
+                        // Nueva lógica: si el mes tiene semanas cargadas, suma de semanas (ignora mensual).
+                        // Si NO hay semanas, usa valor mensual antiguo.
                         const tot=s.indices.reduce((a,i)=>{
-                          let sum = Number(alVals[i])||0;
-                          // Sumar también todas las semanas individuales del mes
-                          Object.entries(alVals).forEach(([k,v])=>{
-                            if(k.startsWith(`${i}_`)) sum += (Number(v)||0);
-                          });
+                          const hasAnySem = [0,1,2,3].some(si => alVals[`${i}_${si}`] !== undefined);
+                          let sum = 0;
+                          if(hasAnySem) {
+                            for(let si=0; si<4; si++){
+                              const v = alVals[`${i}_${si}`];
+                              if(v !== undefined) sum += Number(v)||0;
+                            }
+                          } else {
+                            sum = Number(alVals[i])||0;
+                          }
                           return a+sum;
                         },0);
                         return <td key={s.key} style={{padding:"5px 8px",textAlign:"right",fontSize:9,
@@ -5257,27 +5296,40 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         const isTot=col.isTotalMes;
                         // idx único por semana: para semanas usar "monthIdx_semIdx", para mes usar "monthIdx"
                         const cellKey = col.type==="week" ? `${col.idx}_${col.semIdx}` : String(col.idx);
-                        // Para total del mes (col.type === "month_total"): sumar mensual + semanas
-                        // Para mes regular (col.type === "month"): SOLO el valor mensual ingresado por el usuario
-                        // (la celda mensual es editable, así que su valor es lo que el usuario tipeó)
-                        const sumWeeks = col.type==="month_total"
-                          ? Object.entries(alVals).filter(([k])=>k.startsWith(`${col.idx}_`)).reduce((a,[,v])=>a+(Number(v)||0),0)
+                        // Nueva lógica para el mes (col.type "month", "month_total", "month_collapsed"):
+                        //   Si hay semanas cargadas → suma de semanas (NO editable directamente)
+                        //   Si no hay semanas → valor mensual antiguo (editable, retrocompatibilidad)
+                        const esMes = col.type==="month" || col.type==="month_total" || col.type==="month_collapsed";
+                        const hasAnySemMes = esMes && [0,1,2,3].some(s => alVals[`${col.idx}_${s}`] !== undefined);
+                        const sumSemanasMes = esMes && hasAnySemMes
+                          ? [0,1,2,3].reduce((s,si)=>{
+                              const v=alVals[`${col.idx}_${si}`];
+                              return s + (v !== undefined ? (Number(v)||0) : 0);
+                            },0)
                           : 0;
                         const rawVal=Number(alVals[cellKey])||0;
-                        const disp = col.type==="month_total"
-                          ? (Number(alVals[String(col.idx)])||0) + sumWeeks
+                        const disp = esMes
+                          ? (hasAnySemMes ? sumSemanasMes : (Number(alVals[String(col.idx)])||0))
                           : rawVal;
                         const isFirst=col.isFirstInSeason||col.isFirstInMonth;
+                        // No editable cuando el mes está calculado desde semanas (sería confuso)
+                        const mensualCalculado = esMes && hasAnySemMes;
                         return (
                           <td key={`al-${ali}-${col.mes||""}-${ci}`}
                             style={{padding:"4px 5px",textAlign:"right",fontSize:9,
-                              background:isTot?`${C.yellow}12`:C.card,
+                              background:isTot?`${C.yellow}12`:(mensualCalculado?`${C.bg2}66`:C.card),
                               borderLeft:col.isFirstInSeason?`2px solid ${C.border2}`:isFirst?`1px solid ${C.border}44`:`1px solid ${C.border}11`}}>
                             {isTot?(
                               <span style={{color:disp?(sec.signo>0?C.green:C.red):C.muted2,fontWeight:disp?700:400}}>
                                 {disp?$$(disp):"—"}
                               </span>
-                            ):(
+                            ) : mensualCalculado ? (
+                              // Mes calculado desde semanas: solo mostrar (no editable)
+                              <span title="Suma de semanas (editar en vista semanal)"
+                                style={{color:disp?(sec.signo>0?C.green:C.red):C.muted2,fontWeight:disp?700:400,fontStyle:"italic",opacity:0.85}}>
+                                {disp?$$(disp):"—"}
+                              </span>
+                            ) : (
                               <CeldaEditable val={disp} color={sec.signo>0?C.green:C.red}
                                 canEdit={canEdit&&col.type!=="month_collapsed"&&!isTot}
                                 onSave={v=>updAlVal(cellKey, v)}/>
