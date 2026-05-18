@@ -3099,22 +3099,19 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
           lines.forEach(al=>{
             if(al && al.label) {
               const vals = Array(65).fill(0);
-              if(al.vals) Object.entries(al.vals).forEach(([key,v])=>{
-                const num = Number(v) || 0;
-                if(num === 0) return;
-                // Caso 1: clave numérica entera (valor mensual): vals[5] = 100000
-                const idxNum = Number(key);
-                if(!isNaN(idxNum) && Number.isInteger(idxNum) && idxNum >= 0 && idxNum < 65) {
-                  vals[idxNum] += num;
-                  return;
+              const alVals = al.vals || {};
+              // Replicar EXACTAMENTE la lógica de FlujoEmpresa (línea ~4525):
+              // av = vals[i] (mensual) + suma de vals["i_0".."i_3"] (semanales)
+              // Las dos se SUMAN, no son excluyentes.
+              for(let i = 0; i < 65; i++) {
+                let v = Number(alVals[i]) || 0;
+                if(!v) v = Number(alVals[String(i)]) || 0; // por si la clave es string
+                for(let s = 0; s < 4; s++) {
+                  const k = `${i}_${s}`;
+                  if(alVals[k] !== undefined) v += Number(alVals[k]) || 0;
                 }
-                // Caso 2: clave semanal "i_semIdx": vals["5_0"] = 25000 → suma a mes 5
-                const m = String(key).match(/^(\d+)_(\d+)$/);
-                if(m) {
-                  const mesIdx = parseInt(m[1], 10);
-                  if(mesIdx >= 0 && mesIdx < 65) vals[mesIdx] += num;
-                }
-              });
+                vals[i] = v;
+              }
               sec.lines.push({label:al.label, proy:vals});
             }
           });
@@ -3167,11 +3164,33 @@ function Consolidado({empresas,saldosBancos,realData={},addedLinesGlobal={},subL
     const res={};
     empNames.forEach(n=>{
       const arr=Z65();
-      empresasConOverrides[n].sections.forEach(sec=>sec.lines.forEach(l=>l.proy.forEach((v,i)=>{
-        const num = Number(v);
-        arr[i]+=(isNaN(num)?0:num)*sec.signo;
-      })));
+      const detalleSec = {}; // DEBUG: por sección, valor total mes a mes
+      empresasConOverrides[n].sections.forEach(sec=>{
+        const aporteSec = Z65();
+        sec.lines.forEach(l=>l.proy.forEach((v,i)=>{
+          const num = Number(v);
+          const contrib = (isNaN(num)?0:num)*sec.signo;
+          arr[i]+=contrib;
+          aporteSec[i]+=contrib;
+        }));
+        detalleSec[sec.cat] = { label: sec.label, lines: sec.lines.map(l=>({label:l.label, proy:l.proy.slice(0,12)})), aporte: aporteSec.slice(0,12) };
+      });
       res[n]=arr;
+
+      // DEBUG: solo para Mediterra, primeros 12 meses
+      if(typeof console !== "undefined" && n === "Mediterra") {
+        console.groupCollapsed(`[Consolidado][${n}] Flujo aporte por sección (primeros 12 meses)`);
+        console.log("Meses idx 0-11:", MESES_65.slice(0,12).join(" | "));
+        Object.entries(detalleSec).forEach(([cat, info])=>{
+          console.log(`  ${cat} (${info.label}): aporte=`, info.aporte.map(v=>Math.round(v).toLocaleString()).join(" | "));
+          info.lines.forEach(l=>{
+            const tieneValor = l.proy.some(v=>v!==0);
+            if(tieneValor) console.log(`    • "${l.label}":`, l.proy.map(v=>Math.round(v).toLocaleString()).join(" | "));
+          });
+        });
+        console.log("TOTAL FLUJO arr (0-11):", arr.slice(0,12).map(v=>Math.round(v).toLocaleString()).join(" | "));
+        console.groupEnd();
+      }
     });
     return res;
   },[empresasConOverrides]); // eslint-disable-line
