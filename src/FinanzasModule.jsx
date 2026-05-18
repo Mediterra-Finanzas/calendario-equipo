@@ -7044,6 +7044,120 @@ function reporte_calcSaldoProyectadoMensual_v2(empNombre, realData, empresas, sa
   });
 }
 
+// Detalle mensual completo de una empresa: ingresos, egresos, flujo neto, saldo final
+// para una serie de meses (índices de MESES_65)
+// Retorna [{idx, mes, ingresos, egresos, flujoNeto, saldo, esPasado}]
+function reporte_calcDetalleMensual(empNombre, realData, empresas, saldosBancos, mesesIdx, subLinesGlobal, addedLinesGlobal) {
+  const empData = empresas[empNombre];
+  if(!empData) return mesesIdx.map(i => ({idx:i, mes:MESES_65[i]||"—", ingresos:0, egresos:0, flujoNeto:0, saldo:null, esPasado:true}));
+
+  // Saldo inicial
+  const saldoIni = (()=>{
+    const sb = getSaldoBancoUSD(saldosBancos, empNombre);
+    return sb != null ? sb : (Number(empData.saldo_ini)||0);
+  })();
+
+  // mesIdxInicioSaldo
+  const HOY = new Date();
+  const labelHoy = `${MN[HOY.getMonth()]}-${String(HOY.getFullYear()).slice(2)}`;
+  let mesIdxInicioSaldo = MESES_65.indexOf(labelHoy);
+  if(mesIdxInicioSaldo < 0) mesIdxInicioSaldo = 0;
+
+  const proyOverrides = realData?.[empNombre]?._proyOverrides || {};
+  const subLines = subLinesGlobal?.[empNombre] || {};
+  const addedLines = addedLinesGlobal?.[empNombre] || {};
+
+  function getProy(lineLabel, idx) {
+    const ov = proyOverrides[lineLabel]?.[idx];
+    let base = 0;
+    for(const sec of empData.sections){
+      const l = sec.lines.find(x=>x.label===lineLabel);
+      if(l){ base = l.proy?.[idx]||0; break; }
+    }
+    if(ov === undefined) return base;
+    if(typeof ov === "number") return ov;
+    if(typeof ov === "object" && ov !== null) {
+      let total = 0;
+      for(let s=0; s<4; s++){
+        const k = `_sem${s}`;
+        if(ov[k] !== undefined) total += Number(ov[k])||0;
+      }
+      return total;
+    }
+    return base;
+  }
+
+  // Construir arrays completos de ingresos, egresos, flujo neto
+  const ingresosArr = [];
+  const egresosArr = [];
+  const flujoArr = [];
+
+  for(let i = 0; i < MESES_65.length; i++) {
+    let ingTotal = 0;
+    let egrTotal = 0;
+    empData.sections.forEach(sec => {
+      const esIngreso = sec.signo > 0;
+      sec.lines.forEach(l => {
+        const v = getProy(l.label, i);
+        if(esIngreso) ingTotal += v;
+        else egrTotal += v;
+        // Sublines
+        if(l.subLines) (subLines[l.label]||[]).forEach(sl=>{
+          if(typeof sl === "string") return;
+          const vals = sl.vals || {};
+          let sv = 0;
+          let hasSem = false;
+          for(let s=0; s<4; s++){
+            const k = `${i}_${s}`;
+            if(vals[k] !== undefined){ sv += Number(vals[k])||0; hasSem = true; }
+          }
+          if(!hasSem && vals[i] !== undefined) sv = Number(vals[i])||0;
+          if(esIngreso) ingTotal += sv;
+          else egrTotal += sv;
+        });
+      });
+      // AddedLines
+      (addedLines[sec.cat]||[]).forEach(al=>{
+        if(typeof al==="string") return;
+        const v = al.vals||{};
+        let av = Number(v[i])||0;
+        Object.entries(v).forEach(([k,val])=>{
+          if(k.startsWith(`${i}_`)) av += (Number(val)||0);
+        });
+        if(esIngreso) ingTotal += av;
+        else egrTotal += av;
+      });
+    });
+    ingresosArr.push(ingTotal);
+    egresosArr.push(egrTotal);
+    flujoArr.push(ingTotal - egrTotal);
+  }
+
+  // Acumular saldo
+  let a = saldoIni;
+  const saldoArr = flujoArr.map((f, i) => {
+    if(i < mesIdxInicioSaldo) return null;
+    if(i === mesIdxInicioSaldo) { a = saldoIni + f; return a; }
+    a += f;
+    return a;
+  });
+
+  return mesesIdx.map(idx => {
+    if(idx < 0 || idx >= MESES_65.length) {
+      return { idx, mes:"—", ingresos:0, egresos:0, flujoNeto:0, saldo:null, esPasado:true, esFueraRango:true };
+    }
+    return {
+      idx,
+      mes: MESES_65[idx],
+      ingresos: ingresosArr[idx],
+      egresos: egresosArr[idx],
+      flujoNeto: flujoArr[idx],
+      saldo: saldoArr[idx],
+      esPasado: idx < mesIdxInicioSaldo,
+    };
+  });
+}
+
 // Obtener vista temporada (jul-jun) y calendario (ene-dic) para una empresa
 function reporte_getProyeccionesEmpresa(empNombre, realData, empresas, saldosBancos, subLinesGlobal, addedLinesGlobal) {
   // Encontrar temporada actual y meses calendario actual desde MESES_65
@@ -7448,6 +7562,18 @@ function reporte_armarDatosEmpresa(empNombre, realData, empresas, saldosBancos, 
   const top = reporte_getTopMovimientos(empNombre, realData, empresas, subLinesGlobal, addedLinesGlobal);
   const alertas = reporte_detectarAlertas(empNombre, proyecciones, umbralMin, saldos.totalUSD);
 
+  // Detalle mensual 14 meses: desde el mes actual hasta jun del año siguiente (temporada)
+  // Si mes actual es Mayo 2026 → May-26, Jun-26, Jul-26, ..., Jun-27
+  const HOY = new Date();
+  const labelHoy = `${MN[HOY.getMonth()]}-${String(HOY.getFullYear()).slice(2)}`;
+  const idxHoy = MESES_65.indexOf(labelHoy);
+  const mesesIdx14 = [];
+  for(let i = 0; i < 14; i++) {
+    const idx = idxHoy + i;
+    if(idx >= 0 && idx < MESES_65.length) mesesIdx14.push(idx);
+  }
+  const detalleTemporada = reporte_calcDetalleMensual(empNombre, realData, empresas, saldosBancos, mesesIdx14, subLinesGlobal, addedLinesGlobal);
+
   return {
     nombre: REPORTE_EMPRESAS_DISPLAY[empNombre] || empNombre,
     nombreInterno: empNombre,
@@ -7460,6 +7586,7 @@ function reporte_armarDatosEmpresa(empNombre, realData, empresas, saldosBancos, 
     topIngresos: top.ingresos,
     topEgresos: top.egresos,
     alertas,
+    detalleTemporada,
     comentarioCFO: comentarioCFO || "",
   };
 }
@@ -7821,12 +7948,213 @@ async function reporte_generarPDF(opts) {
   });
   yPos = Math.max(tempConsFinalY, doc.lastAutoTable.finalY) + 6;
 
+  // ─── VISTAS MENSUALES DETALLADAS (14 meses temporada) ───
+  // Helpers de formato compacto para tablas anchas
+  function _fmtCompact(v) {
+    if(v == null || isNaN(v) || v === 0) return "—";
+    const abs = Math.abs(v);
+    let str;
+    if(abs >= 1000000) str = (abs/1000000).toFixed(2) + "M";
+    else if(abs >= 1000) str = Math.round(abs/1000) + "K";
+    else str = Math.round(abs).toString();
+    return v < 0 ? `-${str}` : str;
+  }
+  function _displayMesShort(mesLabel) {
+    // "May-26" → "May 26"
+    if(!mesLabel || mesLabel === "—") return "—";
+    const map = {Jan:"Ene", Feb:"Feb", Mar:"Mar", Apr:"Abr", May:"May", Jun:"Jun",
+      Jul:"Jul", Aug:"Ago", Sep:"Sep", Oct:"Oct", Nov:"Nov", Dec:"Dic"};
+    const [m, y] = mesLabel.split("-");
+    return `${map[m]||m} ${y}`;
+  }
+
+  // Determinar meses comunes (los del primer empresa con datos) — son los 14 meses temporada
+  const empConDet = empresasData.find(e => Array.isArray(e.detalleTemporada) && e.detalleTemporada.length > 0);
+  const mesesArr = empConDet ? empConDet.detalleTemporada.map(d => _displayMesShort(d.mes)) : [];
+
+  if(mesesArr.length > 0) {
+    // ───── VISTA 1: Filas = Empresas, Columnas = Meses ─────
+    // Como son 14 meses + label de empresa = 15 columnas → cambio a horizontal
+    doc.addPage("landscape");
+    _pdfAddHeader(doc, semana, fechaStr, false, logo);
+    let yL = 28;
+
+    doc.setTextColor(..._PDF_COLORS.TEAL);
+    doc.setFont("helvetica","bold"); doc.setFontSize(13);
+    doc.text("Detalle Mensual Consolidado — Próximos 14 Meses (Temporada)", 12, yL);
+    yL += 5;
+    doc.setTextColor(..._PDF_COLORS.GRAY_MED);
+    doc.setFont("helvetica","italic"); doc.setFontSize(8);
+    doc.text("Vista A: Empresas en filas · Meses en columnas · Cifras en miles USD (K) o millones (M)", 12, yL);
+    yL += 5;
+
+    // Por cada empresa, 4 filas: Ingresos, Egresos, Flujo Neto, Saldo Final
+    const filasA = [];
+    for(const emp of empresasData) {
+      const det = emp.detalleTemporada || [];
+      // Header de empresa (fila spanning)
+      filasA.push([
+        { content: emp.nombre, colSpan: mesesArr.length + 2, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 8.5, halign:"left" } }
+      ]);
+      // Ingresos
+      filasA.push([
+        "", "Ingresos",
+        ...det.map(d => _fmtCompact(d.ingresos)),
+      ]);
+      // Egresos
+      filasA.push([
+        "", "Egresos",
+        ...det.map(d => _fmtCompact(-Math.abs(d.egresos || 0))),
+      ]);
+      // Flujo Neto
+      filasA.push([
+        "", "Flujo Neto",
+        ...det.map(d => _fmtCompact(d.flujoNeto)),
+      ]);
+      // Saldo Final
+      filasA.push([
+        "", "Saldo Final",
+        ...det.map(d => _fmtCompact(d.saldo)),
+      ]);
+    }
+
+    // Fila TOTAL GRUPO (4 filas adicionales)
+    if(empresasData.length > 0) {
+      const totalIng = mesesArr.map((_,i) => empresasData.reduce((s,e)=>s+((e.detalleTemporada||[])[i]?.ingresos || 0), 0));
+      const totalEgr = mesesArr.map((_,i) => empresasData.reduce((s,e)=>s+((e.detalleTemporada||[])[i]?.egresos || 0), 0));
+      const totalFlu = totalIng.map((v,i) => v - totalEgr[i]);
+      const totalSal = mesesArr.map((_,i) => empresasData.reduce((s,e)=>{
+        const sal = (e.detalleTemporada||[])[i]?.saldo;
+        return s + (sal == null ? 0 : sal);
+      }, 0));
+
+      filasA.push([
+        { content: "TOTAL GRUPO", colSpan: mesesArr.length + 2, styles: { fillColor: _PDF_COLORS.TEAL_DARK, textColor: 255, fontStyle: "bold", fontSize: 9, halign:"left" } }
+      ]);
+      filasA.push(["", "Ingresos", ...totalIng.map(v=>_fmtCompact(v))]);
+      filasA.push(["", "Egresos", ...totalEgr.map(v=>_fmtCompact(-Math.abs(v)))]);
+      filasA.push(["", "Flujo Neto", ...totalFlu.map(v=>_fmtCompact(v))]);
+      filasA.push(["", "Saldo Final", ...totalSal.map(v=>_fmtCompact(v))]);
+    }
+
+    doc.autoTable({
+      startY: yL,
+      head: [["", "Concepto", ...mesesArr]],
+      body: filasA,
+      theme: "grid",
+      headStyles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7, halign: "center", fontStyle:"bold" },
+      bodyStyles: { fontSize: 6.5, cellPadding: 1 },
+      columnStyles: (()=>{
+        const cs = { 0: { cellWidth: 4 }, 1: { fontStyle: "bold", cellWidth: 22 } };
+        for(let i = 0; i < mesesArr.length; i++) cs[i + 2] = { halign: "right", cellWidth: 17 };
+        return cs;
+      })(),
+      didParseCell: function(data) {
+        if(data.section !== "body") return;
+        // Colorear según concepto
+        const concepto = data.row.cells[1]?.text?.[0] || "";
+        const valStr = data.cell.text?.[0] || "";
+        const isNeg = valStr.startsWith("-");
+        if(data.column.index >= 2) {
+          if(concepto === "Ingresos") data.cell.styles.textColor = _PDF_COLORS.GREEN;
+          else if(concepto === "Egresos") data.cell.styles.textColor = _PDF_COLORS.RED;
+          else if(concepto === "Flujo Neto") {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.textColor = isNeg ? _PDF_COLORS.RED : _PDF_COLORS.GREEN;
+          } else if(concepto === "Saldo Final") {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = isNeg ? [255, 228, 225] : _PDF_COLORS.TEAL_VLIGHT;
+            data.cell.styles.textColor = isNeg ? _PDF_COLORS.RED : _PDF_COLORS.TEAL_DARK;
+          }
+        }
+      },
+      margin: { left: 8, right: 8 },
+    });
+
+    // ───── VISTA 2: Filas = Meses, Columnas = Empresas ─────
+    doc.addPage("landscape");
+    _pdfAddHeader(doc, semana, fechaStr, false, logo);
+    yL = 28;
+
+    doc.setTextColor(..._PDF_COLORS.TEAL);
+    doc.setFont("helvetica","bold"); doc.setFontSize(13);
+    doc.text("Detalle Mensual Consolidado — Próximos 14 Meses (Temporada)", 12, yL);
+    yL += 5;
+    doc.setTextColor(..._PDF_COLORS.GRAY_MED);
+    doc.setFont("helvetica","italic"); doc.setFontSize(8);
+    doc.text("Vista B: Meses en filas · Empresas en columnas · Cifras en miles USD (K) o millones (M)", 12, yL);
+    yL += 5;
+
+    const empresasCols = empresasData.map(e => e.nombre);
+
+    // Por cada mes, 4 filas
+    const filasB = [];
+    for(let i = 0; i < mesesArr.length; i++) {
+      // Header del mes
+      filasB.push([
+        { content: mesesArr[i], colSpan: empresasData.length + 3, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 8.5, halign: "left" } }
+      ]);
+      // Ingresos
+      const ingPorEmp = empresasData.map(e => (e.detalleTemporada||[])[i]?.ingresos || 0);
+      filasB.push(["", "Ingresos", ...ingPorEmp.map(v => _fmtCompact(v)), _fmtCompact(ingPorEmp.reduce((s,v)=>s+v,0))]);
+      // Egresos
+      const egrPorEmp = empresasData.map(e => (e.detalleTemporada||[])[i]?.egresos || 0);
+      filasB.push(["", "Egresos", ...egrPorEmp.map(v => _fmtCompact(-Math.abs(v))), _fmtCompact(-egrPorEmp.reduce((s,v)=>s+v,0))]);
+      // Flujo Neto
+      const flujoPorEmp = empresasData.map(e => (e.detalleTemporada||[])[i]?.flujoNeto || 0);
+      filasB.push(["", "Flujo Neto", ...flujoPorEmp.map(v => _fmtCompact(v)), _fmtCompact(flujoPorEmp.reduce((s,v)=>s+v,0))]);
+      // Saldo Final
+      const saldoPorEmp = empresasData.map(e => (e.detalleTemporada||[])[i]?.saldo);
+      const saldoSuma = saldoPorEmp.reduce((s,v) => s + (v == null ? 0 : v), 0);
+      filasB.push(["", "Saldo Final", ...saldoPorEmp.map(v => _fmtCompact(v)), _fmtCompact(saldoSuma)]);
+    }
+
+    doc.autoTable({
+      startY: yL,
+      head: [["", "Concepto", ...empresasCols, "TOTAL"]],
+      body: filasB,
+      theme: "grid",
+      headStyles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7, halign: "center", fontStyle:"bold" },
+      bodyStyles: { fontSize: 6.5, cellPadding: 1 },
+      columnStyles: (()=>{
+        const cs = { 0: { cellWidth: 4 }, 1: { fontStyle: "bold", cellWidth: 22 } };
+        const usableW = 281 - 8 - 8 - 4 - 22; // landscape A4 = ~297mm
+        const colW = Math.floor(usableW / (empresasData.length + 1));
+        for(let i = 0; i <= empresasData.length; i++) cs[i + 2] = { halign: "right", cellWidth: colW };
+        return cs;
+      })(),
+      didParseCell: function(data) {
+        if(data.section !== "body") return;
+        const concepto = data.row.cells[1]?.text?.[0] || "";
+        const valStr = data.cell.text?.[0] || "";
+        const isNeg = valStr.startsWith("-");
+        const isTotal = data.column.index === empresasData.length + 2;
+        if(data.column.index >= 2) {
+          if(concepto === "Ingresos") data.cell.styles.textColor = _PDF_COLORS.GREEN;
+          else if(concepto === "Egresos") data.cell.styles.textColor = _PDF_COLORS.RED;
+          else if(concepto === "Flujo Neto") {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.textColor = isNeg ? _PDF_COLORS.RED : _PDF_COLORS.GREEN;
+          } else if(concepto === "Saldo Final") {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = isNeg ? [255, 228, 225] : _PDF_COLORS.TEAL_VLIGHT;
+            data.cell.styles.textColor = isNeg ? _PDF_COLORS.RED : _PDF_COLORS.TEAL_DARK;
+          }
+          if(isTotal) data.cell.styles.fontStyle = "bold";
+        }
+      },
+      margin: { left: 8, right: 8 },
+    });
+
+    yPos = doc.lastAutoTable.finalY + 6;
+  }
+
   // ─── SECCIÓN POR CADA EMPRESA ───
   for(let i = 0; i < empresasData.length; i++) {
     const emp = empresasData[i];
 
-    // Siempre saltar a nueva página para cada empresa (compacto: 1 página por empresa)
-    doc.addPage();
+    // Siempre saltar a nueva página PORTRAIT para cada empresa (compacto: 1 página por empresa)
+    doc.addPage("a4", "portrait");
     _pdfAddHeader(doc, semana, fechaStr, false, logo);
     yPos = 28;
 
