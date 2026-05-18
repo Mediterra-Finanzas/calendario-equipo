@@ -7359,15 +7359,83 @@ function reporte_detectarAlertas(empNombre, proyecciones, umbralMin, saldoActual
 
 // Datos consolidados del grupo (suma de empresas incluidas)
 function reporte_calcKPIsGrupo(datosEmpresas) {
-  const result = { saldoTotal:0, compromisos4S:0, ingresos4S:0, empresasAlerta:0 };
+  const result = {
+    saldoTotal:0, compromisos4S:0, ingresos4S:0, empresasAlerta:0,
+    saldosPorEmpresa: [],     // [{nombre, saldo, umbral, diff, alertas}]
+    compromisosConsolidados:[],// top 10 del grupo con empresa indicada
+    ingresosConsolidados: [],  // top 10 del grupo con empresa indicada
+    flujoTemporada: [],        // suma por mes de proyecciones.temporada (group)
+    flujoCalendario: [],       // suma por mes de proyecciones.calendario (group)
+  };
+  const todosCompromisos = [];
+  const todosIngresos = [];
+
   for(const e of datosEmpresas) {
     result.saldoTotal += e.saldoTotal || 0;
-    result.compromisos4S += (e.compromisos || []).reduce((s,c) => s + (c.monto || 0), 0);
-    result.ingresos4S += (e.ingresos || []).reduce((s,i) => s + (i.monto || 0), 0);
-    if(e.alertas && e.alertas.some(a => a.nivel === "CRITICO" || a.nivel === "ALERTA")) {
-      result.empresasAlerta++;
+    const compEmp = (e.compromisos || []).reduce((s,c) => s + (c.monto || 0), 0);
+    const ingEmp  = (e.ingresos || []).reduce((s,i) => s + (i.monto || 0), 0);
+    result.compromisos4S += compEmp;
+    result.ingresos4S    += ingEmp;
+    const tieneAlerta = e.alertas && e.alertas.some(a => a.nivel === "CRITICO" || a.nivel === "ALERTA");
+    if(tieneAlerta) result.empresasAlerta++;
+
+    result.saldosPorEmpresa.push({
+      nombre: e.nombre,
+      saldo: e.saldoTotal || 0,
+      umbral: e.umbralMin || 0,
+      diff: (e.saldoTotal || 0) - (e.umbralMin || 0),
+      compromisos4S: compEmp,
+      ingresos4S: ingEmp,
+      alertaCritica: e.alertas?.some(a => a.nivel === "CRITICO"),
+      alertaMedia:   e.alertas?.some(a => a.nivel === "ALERTA"),
+    });
+
+    // Acumular compromisos / ingresos con empresa indicada
+    for(const c of (e.compromisos || [])) {
+      todosCompromisos.push({ ...c, empresa: e.nombre });
+    }
+    for(const i of (e.ingresos || [])) {
+      todosIngresos.push({ ...i, empresa: e.nombre });
     }
   }
+
+  // Top 10 consolidados (ordenados por monto)
+  result.compromisosConsolidados = todosCompromisos.sort((a,b)=>b.monto-a.monto).slice(0, 10);
+  result.ingresosConsolidados    = todosIngresos.sort((a,b)=>b.monto-a.monto).slice(0, 10);
+
+  // Flujo consolidado: sumar saldo de todas las empresas por mes (alineado por posición en el array)
+  const tempMax = Math.max(0, ...datosEmpresas.map(e => (e.proyecciones?.temporada || []).length));
+  for(let i = 0; i < tempMax; i++) {
+    let suma = 0;
+    let mesLabel = "—";
+    let hayDato = false;
+    for(const e of datosEmpresas) {
+      const fila = (e.proyecciones?.temporada || [])[i];
+      if(fila && fila.saldo != null) {
+        suma += fila.saldo;
+        hayDato = true;
+      }
+      if(fila?.mes) mesLabel = fila.mes;
+    }
+    result.flujoTemporada.push({ mes: mesLabel, saldo: hayDato ? suma : null });
+  }
+
+  const calMax = Math.max(0, ...datosEmpresas.map(e => (e.proyecciones?.calendario || []).length));
+  for(let i = 0; i < calMax; i++) {
+    let suma = 0;
+    let mesLabel = "—";
+    let hayDato = false;
+    for(const e of datosEmpresas) {
+      const fila = (e.proyecciones?.calendario || [])[i];
+      if(fila && fila.saldo != null) {
+        suma += fila.saldo;
+        hayDato = true;
+      }
+      if(fila?.mes) mesLabel = fila.mes;
+    }
+    result.flujoCalendario.push({ mes: mesLabel, saldo: hayDato ? suma : null });
+  }
+
   return result;
 }
 
@@ -7537,8 +7605,16 @@ async function reporte_generarPDF(opts) {
 
   let yPos = 42; // después del header
 
-  // ─── PÁGINA 1: Resumen Ejecutivo ───
+  // ─── PÁGINA 1: Resumen Ejecutivo CONSOLIDADO ───
   _pdfAddHeader(doc, semana, fechaStr, true, logo);
+  const H = doc.internal.pageSize.getHeight();
+  function ensureSpacePortada(needed) {
+    if(yPos + needed > H - 30) {
+      doc.addPage();
+      _pdfAddHeader(doc, semana, fechaStr, false, logo);
+      yPos = 28;
+    }
+  }
 
   // Título
   doc.setTextColor(..._PDF_COLORS.TEAL);
@@ -7552,7 +7628,7 @@ async function reporte_generarPDF(opts) {
   doc.text(`Excluye ${nombresExcluidos.join(", ")} (consolidación independiente)`, 12, yPos);
   yPos += 8;
 
-  // KPIs globales
+  // 1. KPIs globales
   doc.autoTable({
     startY: yPos,
     head: [["Saldo Bancos Grupo", "Compromisos 4 Sem.", "Ingresos 4 Sem.", "Empresas en Alerta"]],
@@ -7569,16 +7645,190 @@ async function reporte_generarPDF(opts) {
   });
   yPos = doc.lastAutoTable.finalY + 6;
 
+  // 2. Saldo Bancos por Empresa
+  ensureSpacePortada(60);
+  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(10);
+  doc.text("Saldo Bancos por Empresa", 12, yPos);
+  yPos += 2;
+
+  const saldoEmpRows = (kpisGrupo.saldosPorEmpresa || []).map(s => [
+    s.nombre,
+    _formatUSD(s.saldo),
+    _formatUSD(s.umbral),
+    _formatUSD(s.diff, true),
+    s.alertaCritica ? "🔴 Crítico" : s.alertaMedia ? "🟠 Alerta" : "🟢 OK",
+  ]);
+  // Fila total
+  const totalSaldo = (kpisGrupo.saldosPorEmpresa || []).reduce((s,e)=>s+e.saldo, 0);
+  const totalUmbral = (kpisGrupo.saldosPorEmpresa || []).reduce((s,e)=>s+e.umbral, 0);
+  saldoEmpRows.push(["TOTAL GRUPO", _formatUSD(totalSaldo), _formatUSD(totalUmbral), _formatUSD(totalSaldo - totalUmbral, true), ""]);
+
+  doc.autoTable({
+    startY: yPos,
+    head: [["Empresa", "Saldo Bancos", "Umbral Mínimo", "Diferencia", "Estado"]],
+    body: saldoEmpRows,
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 9, fontStyle:"bold"},
+    bodyStyles: {fontSize: 8.5, cellPadding: 2.5},
+    columnStyles: {
+      0: {fontStyle:"bold"},
+      1: {halign:"right"},
+      2: {halign:"right"},
+      3: {halign:"right", fontStyle:"bold"},
+      4: {halign:"center", fontSize: 8.5},
+    },
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data){
+      if(data.section === "body" && data.row.index === saldoEmpRows.length - 1) {
+        // Fila total
+        data.cell.styles.fillColor = _PDF_COLORS.TEAL_VLIGHT;
+        data.cell.styles.textColor = _PDF_COLORS.TEAL_DARK;
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fontSize = 9.5;
+      } else if(data.section === "body" && data.column.index === 3) {
+        // Diferencia: rojo si negativo, verde si positivo
+        const fila = (kpisGrupo.saldosPorEmpresa || [])[data.row.index];
+        if(fila) {
+          data.cell.styles.textColor = fila.diff < 0 ? _PDF_COLORS.RED : _PDF_COLORS.GREEN;
+        }
+      }
+    },
+    margin: {left: 12, right: 12},
+  });
+  yPos = doc.lastAutoTable.finalY + 6;
+
+  // 3. Compromisos consolidados próximas 4 semanas
+  ensureSpacePortada(50);
+  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(10);
+  doc.text("Compromisos Consolidados — Próximas 4 Semanas (Top 10)", 12, yPos);
+  yPos += 2;
+
+  const compConsRows = (kpisGrupo.compromisosConsolidados || []).map(c => [
+    c.mes, c.empresa, c.label, _formatUSD(c.monto),
+  ]);
+  if(compConsRows.length === 0) compConsRows.push(["—", "—", "Sin compromisos registrados", "—"]);
+  else compConsRows.push(["", "", "Total Top 10:", _formatUSD((kpisGrupo.compromisosConsolidados || []).reduce((s,c)=>s+c.monto,0))]);
+
+  doc.autoTable({
+    startY: yPos,
+    head: [["Semana", "Empresa", "Concepto", "Monto USD"]],
+    body: compConsRows,
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 9, fontStyle:"bold"},
+    bodyStyles: {fontSize: 8, cellPadding: 1.8},
+    columnStyles: {3: {halign:"right", textColor: _PDF_COLORS.RED, fontStyle:"bold"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data){
+      if(data.section === "body" && data.row.index === compConsRows.length - 1 && compConsRows.length > 1) {
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fontSize = 9;
+        data.cell.styles.textColor = data.column.index === 3 ? _PDF_COLORS.RED : _PDF_COLORS.TEAL_DARK;
+      }
+    },
+    margin: {left: 12, right: 12},
+  });
+  yPos = doc.lastAutoTable.finalY + 6;
+
+  // 4. Ingresos consolidados próximas 4 semanas
+  ensureSpacePortada(50);
+  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(10);
+  doc.text("Ingresos Consolidados — Próximas 4 Semanas (Top 10)", 12, yPos);
+  yPos += 2;
+
+  const ingConsRows = (kpisGrupo.ingresosConsolidados || []).map(i => [
+    i.mes, i.empresa, i.label, _formatUSD(i.monto),
+  ]);
+  if(ingConsRows.length === 0) ingConsRows.push(["—", "—", "Sin ingresos registrados", "—"]);
+  else ingConsRows.push(["", "", "Total Top 10:", _formatUSD((kpisGrupo.ingresosConsolidados || []).reduce((s,c)=>s+c.monto,0))]);
+
+  doc.autoTable({
+    startY: yPos,
+    head: [["Semana", "Empresa", "Concepto", "Monto USD"]],
+    body: ingConsRows,
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 9, fontStyle:"bold"},
+    bodyStyles: {fontSize: 8, cellPadding: 1.8},
+    columnStyles: {3: {halign:"right", textColor: _PDF_COLORS.GREEN, fontStyle:"bold"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data){
+      if(data.section === "body" && data.row.index === ingConsRows.length - 1 && ingConsRows.length > 1) {
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fontSize = 9;
+        data.cell.styles.textColor = data.column.index === 3 ? _PDF_COLORS.GREEN : _PDF_COLORS.TEAL_DARK;
+      }
+    },
+    margin: {left: 12, right: 12},
+  });
+  yPos = doc.lastAutoTable.finalY + 6;
+
+  // 5. Saldo Caja Proyectado Consolidado (Temporada + Calendario lado a lado)
+  ensureSpacePortada(70);
+  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+  doc.setFont("helvetica","bold"); doc.setFontSize(10);
+  doc.text("Saldo Caja Proyectado — Consolidado Grupo", 12, yPos);
+  yPos += 2;
+
+  // Tabla temporada izquierda
+  const tempConsRows = (kpisGrupo.flujoTemporada || []).map(m => [m.mes, _formatUSD(m.saldo)]);
+  doc.autoTable({
+    startY: yPos,
+    head: [["Temporada Jul - Jun", "Saldo Grupo USD"]],
+    body: tempConsRows,
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign:"center"},
+    bodyStyles: {fontSize: 7.5, cellPadding: 1.2},
+    columnStyles: {1: {halign:"right", fontStyle:"bold"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data){
+      if(data.column.index === 1 && data.section === "body") {
+        const fila = (kpisGrupo.flujoTemporada || [])[data.row.index];
+        if(fila && fila.saldo != null) {
+          if(fila.saldo < 0) data.cell.styles.textColor = _PDF_COLORS.RED;
+          else data.cell.styles.textColor = _PDF_COLORS.TEAL_DARK;
+        }
+      }
+    },
+    margin: {left: 12, right: 105},
+    tableWidth: 80,
+  });
+  const tempConsFinalY = doc.lastAutoTable.finalY;
+
+  // Tabla calendario derecha
+  const calConsRows = (kpisGrupo.flujoCalendario || []).map(m => [m.mes, _formatUSD(m.saldo)]);
+  doc.autoTable({
+    startY: yPos,
+    head: [["Calendario Ene - Dic", "Saldo Grupo USD"]],
+    body: calConsRows,
+    theme: "grid",
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign:"center"},
+    bodyStyles: {fontSize: 7.5, cellPadding: 1.2},
+    columnStyles: {1: {halign:"right", fontStyle:"bold"}},
+    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+    didParseCell: function(data){
+      if(data.column.index === 1 && data.section === "body") {
+        const fila = (kpisGrupo.flujoCalendario || [])[data.row.index];
+        if(fila && fila.saldo != null) {
+          if(fila.saldo < 0) data.cell.styles.textColor = _PDF_COLORS.RED;
+          else data.cell.styles.textColor = _PDF_COLORS.TEAL_DARK;
+        }
+      }
+    },
+    margin: {left: 105, right: 12},
+    tableWidth: 80,
+  });
+  yPos = Math.max(tempConsFinalY, doc.lastAutoTable.finalY) + 6;
+
   // ─── SECCIÓN POR CADA EMPRESA ───
   for(let i = 0; i < empresasData.length; i++) {
     const emp = empresasData[i];
 
-    // Si no caben los datos en la página actual, salto a nueva página
-    if(i > 0 || yPos > 230) {
-      doc.addPage();
-      _pdfAddHeader(doc, semana, fechaStr, false, logo);
-      yPos = 28;
-    }
+    // Siempre saltar a nueva página para cada empresa (compacto: 1 página por empresa)
+    doc.addPage();
+    _pdfAddHeader(doc, semana, fechaStr, false, logo);
+    yPos = 28;
 
     _renderEmpresaEnPDF(doc, emp, i + 1, yPos, semana, fechaStr, logo);
     yPos = doc.lastAutoTable ? doc.lastAutoTable.finalY + 6 : yPos + 200;
@@ -7606,34 +7856,22 @@ function _renderEmpresaEnPDF(doc, emp, idx, startY, semana, fechaStr, logo) {
   }
 
   // Título de la empresa
-  ensureSpace(20);
   doc.setTextColor(..._PDF_COLORS.TEAL);
-  doc.setFont("helvetica","bold"); doc.setFontSize(15);
+  doc.setFont("helvetica","bold"); doc.setFontSize(14);
   doc.text(`${idx}. ${emp.nombre}`, 12, y);
-  y += 5;
-  doc.setTextColor(..._PDF_COLORS.GRAY_MED);
-  doc.setFont("helvetica","italic"); doc.setFontSize(9);
-  const saldoLinea1 = `Reporte generado el ${emp.fechaCorte || "—"} · Umbral mínimo: ${_formatUSD(emp.umbralMin)}`;
-  doc.text(saldoLinea1, 12, y);
   y += 4;
-  if(emp.fechaUltimaActualizacion && emp.fechaUltimaActualizacion !== "—") {
-    doc.setFontSize(8);
-    doc.text(`Saldos bancos al día de hoy (última actualización registrada: ${emp.fechaUltimaActualizacion})`, 12, y);
-    y += 4;
-  } else {
-    doc.setFontSize(8);
-    doc.text(`Saldos bancos al día de hoy`, 12, y);
-    y += 4;
-  }
-  y += 2;
+  doc.setTextColor(..._PDF_COLORS.GRAY_MED);
+  doc.setFont("helvetica","italic"); doc.setFontSize(8);
+  doc.text(`Umbral mínimo: ${_formatUSD(emp.umbralMin)} · Saldos al día de hoy${emp.fechaUltimaActualizacion && emp.fechaUltimaActualizacion !== "—" ? ` (última act.: ${emp.fechaUltimaActualizacion})` : ""}`, 12, y);
+  y += 5;
 
-  // Box saldo total
+  // Box saldo total (más compacto)
   const saldoArribaUmbral = emp.saldoTotal >= emp.umbralMin;
   const diferencia = emp.saldoTotal - emp.umbralMin;
   const colorSaldo = saldoArribaUmbral ? _PDF_COLORS.GREEN : (emp.saldoTotal < 0 ? _PDF_COLORS.RED : _PDF_COLORS.ORANGE);
   doc.autoTable({
     startY: y,
-    head: [["Saldo Bancos Total (Equiv. USD)", "Umbral Mínimo", "Diferencia"]],
+    head: [["Saldo Bancos Total (USD)", "Umbral Mínimo", "Diferencia"]],
     body: [[
       _formatUSD(emp.saldoTotal),
       _formatUSD(emp.umbralMin),
@@ -7643,7 +7881,7 @@ function _renderEmpresaEnPDF(doc, emp, idx, startY, semana, fechaStr, logo) {
     headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign: "center"},
     bodyStyles: {
       fillColor: saldoArribaUmbral ? _PDF_COLORS.TEAL_VLIGHT : _PDF_COLORS.CARD_RED,
-      fontSize: 12, halign: "center", fontStyle: "bold", cellPadding: 3,
+      fontSize: 11, halign: "center", fontStyle: "bold", cellPadding: 2.5,
     },
     columnStyles: {
       0: {textColor: colorSaldo},
@@ -7652,65 +7890,57 @@ function _renderEmpresaEnPDF(doc, emp, idx, startY, semana, fechaStr, logo) {
     },
     margin: {left: 12, right: 12},
   });
-  y = doc.lastAutoTable.finalY + 4;
+  y = doc.lastAutoTable.finalY + 3;
 
-  // Detalle saldos por moneda
-  ensureSpace(35);
-  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
-  doc.setFont("helvetica","bold"); doc.setFontSize(9);
-  doc.text("Detalle saldos bancos por moneda", 12, y);
-  y += 2;
-  const monRows = [];
-  for(const ln of (emp.saldos?.lineas || [])) {
-    if(ln.moneda === "USD") monRows.push(["USD", ln.descripcion, _formatUSD(ln.monto)]);
-    else if(ln.moneda === "CLP") monRows.push(["CLP", ln.descripcion, _formatCLP(ln.monto)]);
-    else if(ln.moneda === "PEN") monRows.push(["PEN", ln.descripcion, _formatUSD(ln.enUSD)]);
+  // Detalle saldos por moneda — COMPACTO (solo si hay líneas)
+  if((emp.saldos?.lineas || []).length > 0) {
+    doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
+    doc.setFont("helvetica","bold"); doc.setFontSize(8);
+    doc.text("Saldos bancos por moneda", 12, y);
+    y += 1;
+    const monRows = [];
+    for(const ln of (emp.saldos?.lineas || [])) {
+      if(ln.moneda === "USD") monRows.push(["USD", ln.descripcion, _formatUSD(ln.monto)]);
+      else if(ln.moneda === "CLP") monRows.push(["CLP", ln.descripcion, _formatCLP(ln.monto)]);
+      else if(ln.moneda === "PEN") monRows.push(["PEN", ln.descripcion, _formatUSD(ln.enUSD)]);
+    }
+    if(emp.saldos?.equivCLPenUSD > 0) {
+      monRows.push(["—", "Equivalente CLP en USD", _formatUSD(emp.saldos.equivCLPenUSD)]);
+    }
+    doc.autoTable({
+      startY: y,
+      head: [["Mon.", "Descripción", "Monto"]],
+      body: monRows,
+      theme: "grid",
+      headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7.5, halign: "center"},
+      bodyStyles: {fontSize: 7.5, cellPadding: 1},
+      columnStyles: {0: {halign: "center", cellWidth: 14}, 2: {halign: "right"}},
+      alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
+      margin: {left: 12, right: 12},
+    });
+    y = doc.lastAutoTable.finalY + 3;
   }
-  if(emp.saldos?.equivCLPenUSD > 0) {
-    monRows.push(["—", "Equivalente CLP en USD", _formatUSD(emp.saldos.equivCLPenUSD)]);
-  }
-  monRows.push(["", "Total equivalente USD:", _formatUSD(emp.saldoTotal)]);
-  doc.autoTable({
-    startY: y,
-    head: [["Moneda", "Descripción", "Monto"]],
-    body: monRows,
-    theme: "grid",
-    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign: "center"},
-    bodyStyles: {fontSize: 8, cellPadding: 1.5},
-    columnStyles: {0: {halign: "center"}, 2: {halign: "right"}},
-    alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
-    didParseCell: function(data) {
-      if(data.row.index === monRows.length - 1) {
-        data.cell.styles.fontStyle = "bold";
-        data.cell.styles.textColor = _PDF_COLORS.TEAL_DARK;
-        data.cell.styles.fontSize = 9;
-      }
-    },
-    margin: {left: 12, right: 12},
-  });
-  y = doc.lastAutoTable.finalY + 4;
 
-  // Saldo Caja Proyectado - dos vistas lado a lado
-  ensureSpace(70);
+  // Saldo Caja Proyectado - dos vistas lado a lado (compacto)
   doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
-  doc.setFont("helvetica","bold"); doc.setFontSize(9);
+  doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
   doc.text("Saldo Caja Proyectado", 12, y);
-  y += 2;
-  // Vista temporada - izquierda
+  y += 1;
+
   const tempRows = (emp.proyecciones?.temporada || []).map(m => [m.mes, _formatUSD(m.saldo)]);
   doc.autoTable({
     startY: y,
     head: [["Temporada Jul - Jun", "Saldo USD"]],
     body: tempRows,
     theme: "grid",
-    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign: "center"},
-    bodyStyles: {fontSize: 7.5, cellPadding: 1.2},
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7.5, halign: "center"},
+    bodyStyles: {fontSize: 7, cellPadding: 0.8},
     columnStyles: {1: {halign: "right"}},
     alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
     didParseCell: function(data) {
       if(data.column.index === 1 && data.section === "body") {
         const fila = (emp.proyecciones?.temporada || [])[data.row.index];
-        if(fila) {
+        if(fila && fila.saldo != null) {
           if(fila.saldo < 0) {
             data.cell.styles.textColor = _PDF_COLORS.RED;
             data.cell.styles.fontStyle = "bold";
@@ -7726,21 +7956,20 @@ function _renderEmpresaEnPDF(doc, emp, idx, startY, semana, fechaStr, logo) {
   });
   const tempFinalY = doc.lastAutoTable.finalY;
 
-  // Vista calendario - derecha
   const calRows = (emp.proyecciones?.calendario || []).map(m => [m.mes, _formatUSD(m.saldo)]);
   doc.autoTable({
     startY: y,
     head: [["Calendario Ene - Dic", "Saldo USD"]],
     body: calRows,
     theme: "grid",
-    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8, halign: "center"},
-    bodyStyles: {fontSize: 7.5, cellPadding: 1.2},
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7.5, halign: "center"},
+    bodyStyles: {fontSize: 7, cellPadding: 0.8},
     columnStyles: {1: {halign: "right"}},
     alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
     didParseCell: function(data) {
       if(data.column.index === 1 && data.section === "body") {
         const fila = (emp.proyecciones?.calendario || [])[data.row.index];
-        if(fila) {
+        if(fila && fila.saldo != null) {
           if(fila.saldo < 0) {
             data.cell.styles.textColor = _PDF_COLORS.RED;
             data.cell.styles.fontStyle = "bold";
@@ -7754,121 +7983,96 @@ function _renderEmpresaEnPDF(doc, emp, idx, startY, semana, fechaStr, logo) {
     margin: {left: 105, right: 12},
     tableWidth: 80,
   });
-  y = Math.max(tempFinalY, doc.lastAutoTable.finalY) + 4;
+  y = Math.max(tempFinalY, doc.lastAutoTable.finalY) + 3;
 
-  // Compromisos
-  ensureSpace(40);
+  // Compromisos e Ingresos LADO A LADO (top 5 cada uno)
   doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
-  doc.setFont("helvetica","bold"); doc.setFontSize(9);
-  doc.text("Compromisos próximas 4 semanas", 12, y);
-  y += 2;
-  const compRows = (emp.compromisos || []).map(c => [c.mes, c.label, _formatUSD(c.monto)]);
-  const totalComp = (emp.compromisos || []).reduce((s,c) => s + (c.monto || 0), 0);
-  if(compRows.length > 0) {
-    compRows.push(["", "Total compromisos:", _formatUSD(totalComp)]);
-  }
+  doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
+  doc.text("Movimientos próximas 4 semanas (top 5)", 12, y);
+  y += 1;
+
+  const compTop5 = (emp.compromisos || []).slice(0, 5);
+  const compRowsCompact = compTop5.map(c => [c.mes, c.label, _formatUSD(c.monto)]);
   doc.autoTable({
     startY: y,
-    head: [["Mes / Periodo", "Concepto", "Monto USD"]],
-    body: compRows.length > 0 ? compRows : [["—", "Sin compromisos registrados", "—"]],
+    head: [["Sem.", "Compromiso", "USD"]],
+    body: compRowsCompact.length > 0 ? compRowsCompact : [["—", "Sin compromisos", "—"]],
     theme: "grid",
-    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8.5},
-    bodyStyles: {fontSize: 8, cellPadding: 1.5},
-    columnStyles: {2: {halign: "right"}},
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7.5},
+    bodyStyles: {fontSize: 7, cellPadding: 0.8},
+    columnStyles: {0: {cellWidth: 18}, 2: {halign: "right", textColor: _PDF_COLORS.RED, fontStyle: "bold", cellWidth: 18}},
     alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
-    didParseCell: function(data) {
-      if(data.row.index === compRows.length - 1 && compRows.length > 1) {
-        data.cell.styles.fontStyle = "bold";
-        data.cell.styles.textColor = _PDF_COLORS.TEAL_DARK;
-        data.cell.styles.fontSize = 9;
-      }
-    },
-    margin: {left: 12, right: 12},
+    margin: {left: 12, right: 105},
+    tableWidth: 80,
   });
-  y = doc.lastAutoTable.finalY + 4;
+  const compFinalY = doc.lastAutoTable.finalY;
 
-  // Ingresos
-  ensureSpace(40);
-  doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
-  doc.setFont("helvetica","bold"); doc.setFontSize(9);
-  doc.text("Ingresos proyectados próximas 4 semanas", 12, y);
-  y += 2;
-  const ingRows = (emp.ingresos || []).map(i => [i.mes, i.label, _formatUSD(i.monto)]);
-  const totalIng = (emp.ingresos || []).reduce((s,i) => s + (i.monto || 0), 0);
-  if(ingRows.length > 0) {
-    ingRows.push(["", "Total ingresos:", _formatUSD(totalIng)]);
-  }
+  const ingTop5 = (emp.ingresos || []).slice(0, 5);
+  const ingRowsCompact = ingTop5.map(i => [i.mes, i.label, _formatUSD(i.monto)]);
   doc.autoTable({
     startY: y,
-    head: [["Mes / Periodo", "Concepto", "Monto USD"]],
-    body: ingRows.length > 0 ? ingRows : [["—", "Sin ingresos registrados", "—"]],
+    head: [["Sem.", "Ingreso", "USD"]],
+    body: ingRowsCompact.length > 0 ? ingRowsCompact : [["—", "Sin ingresos", "—"]],
     theme: "grid",
-    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8.5},
-    bodyStyles: {fontSize: 8, cellPadding: 1.5},
-    columnStyles: {2: {halign: "right", textColor: _PDF_COLORS.GREEN, fontStyle: "bold"}},
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7.5},
+    bodyStyles: {fontSize: 7, cellPadding: 0.8},
+    columnStyles: {0: {cellWidth: 18}, 2: {halign: "right", textColor: _PDF_COLORS.GREEN, fontStyle: "bold", cellWidth: 18}},
     alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
-    didParseCell: function(data) {
-      if(data.row.index === ingRows.length - 1 && ingRows.length > 1) {
-        data.cell.styles.fontStyle = "bold";
-        data.cell.styles.fontSize = 9;
-        if(data.column.index === 2) data.cell.styles.textColor = _PDF_COLORS.GREEN;
-        else data.cell.styles.textColor = _PDF_COLORS.TEAL_DARK;
-      }
-    },
-    margin: {left: 12, right: 12},
+    margin: {left: 105, right: 12},
+    tableWidth: 80,
   });
-  y = doc.lastAutoTable.finalY + 4;
+  y = Math.max(compFinalY, doc.lastAutoTable.finalY) + 3;
 
-  // Top 5 ingresos y egresos lado a lado
-  ensureSpace(45);
+  // Top 3 movimientos del mes (compacto)
   doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
-  doc.setFont("helvetica","bold"); doc.setFontSize(9);
-  doc.text("Top 5 movimientos del período", 12, y);
-  y += 2;
-  const topInRows = (emp.topIngresos || []).map((l, i) => [`${i+1}. ${l.label}`, _formatUSD(l.monto)]);
-  const topEgRows = (emp.topEgresos || []).map((l, i) => [`${i+1}. ${l.label}`, _formatUSD(l.monto)]);
+  doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
+  doc.text("Top movimientos del mes (top 3)", 12, y);
+  y += 1;
+
+  const topInRows = (emp.topIngresos || []).slice(0, 3).map((l, i) => [`${i+1}. ${l.label}`, _formatUSD(l.monto)]);
+  const topEgRows = (emp.topEgresos || []).slice(0, 3).map((l, i) => [`${i+1}. ${l.label}`, _formatUSD(l.monto)]);
   doc.autoTable({
     startY: y,
-    head: [["TOP 5 INGRESOS", ""]],
+    head: [["TOP 3 INGRESOS", ""]],
     body: topInRows.length > 0 ? topInRows : [["Sin ingresos", "—"]],
     theme: "grid",
-    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8.5},
-    bodyStyles: {fontSize: 8, cellPadding: 1.2},
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7.5},
+    bodyStyles: {fontSize: 7, cellPadding: 0.8},
     columnStyles: {1: {halign: "right", textColor: _PDF_COLORS.GREEN, fontStyle: "bold"}},
     alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
     margin: {left: 12, right: 105},
     tableWidth: 80,
   });
   const topInFinalY = doc.lastAutoTable.finalY;
+
   doc.autoTable({
     startY: y,
-    head: [["TOP 5 EGRESOS", ""]],
+    head: [["TOP 3 EGRESOS", ""]],
     body: topEgRows.length > 0 ? topEgRows : [["Sin egresos", "—"]],
     theme: "grid",
-    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 8.5},
-    bodyStyles: {fontSize: 8, cellPadding: 1.2},
+    headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 7.5},
+    bodyStyles: {fontSize: 7, cellPadding: 0.8},
     columnStyles: {1: {halign: "right", textColor: _PDF_COLORS.RED, fontStyle: "bold"}},
     alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
     margin: {left: 105, right: 12},
     tableWidth: 80,
   });
-  y = Math.max(topInFinalY, doc.lastAutoTable.finalY) + 4;
+  y = Math.max(topInFinalY, doc.lastAutoTable.finalY) + 3;
 
-  // Alertas
+  // Alertas (compacto)
   if((emp.alertas || []).length > 0) {
-    ensureSpace(30);
     doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
-    doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
     doc.text("Alertas detectadas", 12, y);
-    y += 2;
+    y += 1;
     const alertRows = (emp.alertas || []).map(a => [a.nivel, a.texto]);
     doc.autoTable({
       startY: y,
       body: alertRows,
       theme: "grid",
-      bodyStyles: {fontSize: 8.5, cellPadding: 2, fillColor: _PDF_COLORS.CARD_AMBER, textColor: _PDF_COLORS.GRAY_DARK},
+      bodyStyles: {fontSize: 8, cellPadding: 1.5, fillColor: _PDF_COLORS.CARD_AMBER, textColor: _PDF_COLORS.GRAY_DARK},
       columnStyles: {
-        0: {fontStyle: "bold", fontSize: 8, halign: "center", textColor: 255, cellWidth: 22, valign: "middle"},
+        0: {fontStyle: "bold", fontSize: 7, halign: "center", textColor: 255, cellWidth: 18, valign: "middle"},
         1: {valign: "middle"},
       },
       didParseCell: function(data) {
@@ -7883,36 +8087,30 @@ function _renderEmpresaEnPDF(doc, emp, idx, startY, semana, fechaStr, logo) {
       },
       margin: {left: 12, right: 12},
     });
-    y = doc.lastAutoTable.finalY + 4;
+    y = doc.lastAutoTable.finalY + 3;
   }
 
-  // Comentario CFO
+  // Comentario CFO (compacto)
   if(emp.comentarioCFO && emp.comentarioCFO.trim()) {
-    ensureSpace(30);
     doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
-    doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
     doc.text("Comentario del CFO", 12, y);
-    y += 3;
-    // Caja teal con franja gold a la izquierda
+    y += 2.5;
     const cardW = 186;
     const cardX = 12;
-    const padding = 4;
-    doc.setFontSize(9); doc.setFont("helvetica","italic");
+    const padding = 3;
+    doc.setFontSize(8.5); doc.setFont("helvetica","italic");
     const lines = doc.splitTextToSize(emp.comentarioCFO, cardW - padding*2 - 4);
-    const cardH = lines.length * 4 + padding * 2;
-    // Fondo
+    const cardH = lines.length * 3.5 + padding * 2;
     doc.setFillColor(..._PDF_COLORS.TEAL_VLIGHT);
     doc.rect(cardX, y, cardW, cardH, "F");
-    // Franja teal
     doc.setFillColor(..._PDF_COLORS.TEAL);
-    doc.rect(cardX, y, 1.2, cardH, "F");
-    // Texto
+    doc.rect(cardX, y, 1, cardH, "F");
     doc.setTextColor(..._PDF_COLORS.GRAY_DARK);
     doc.text(lines, cardX + 4, y + padding + 3);
-    y += cardH + 4;
+    y += cardH + 3;
   }
 
-  // Asegurar que el lastAutoTable apunte a la última tabla para el cálculo de y siguiente
   doc.lastAutoTable = doc.lastAutoTable || {finalY: y};
 }
 
