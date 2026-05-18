@@ -4864,7 +4864,12 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                     </td>
                     {colStructure.map(({season:s,collapsed,cols})=>{
                       if(collapsed){
-                        const total=s.indices.reduce((a,i)=>a+getProy(line.label,i),0);
+                        // Total temporada incluye valor base + sublines (consolidado en la fila padre)
+                        const total=s.indices.reduce((a,i)=>{
+                          const v = getProy(line.label, i);
+                          const sub = line.subLines ? sumSubLinesMes(line.label, i) : 0;
+                          return a + v + sub;
+                        },0);
                         return (
                           <td key={s.key} style={{padding:"5px 8px",textAlign:"right",
                             color:total!==0?(sec.signo>0?C.green:C.red):C.muted2,
@@ -4879,9 +4884,9 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                       return cols.map((col,ci)=>{
                         const isTot=col.isTotalMes;
                         const valMesProp=getProy(line.label,col.idx);
-                        // Si la línea tiene subLines, sumar los subLines al valor mostrado en el padre
-                        const sumSubMes = line.subLines && !line.label.includes("Préstamos")
-                          ? sumSubLinesMes(line.label, col.idx) : 0;
+                        // Si la línea tiene subLines, mostrar el valor consolidado (padre + sublineas)
+                        // Esto aplica a TODAS las líneas con subLines, incluyendo Pago Préstamos y Renovaciones
+                        const sumSubMes = line.subLines ? sumSubLinesMes(line.label, col.idx) : 0;
                         const valMes = valMesProp + sumSubMes;
                         // Show full monthly value: on monthly view always
                         // For Pago Préstamos: use exact semana of vencimiento in weekly view
@@ -4894,7 +4899,8 @@ function FlujoEmpresa({empNombre,empresas,realData,onSaveReal,canEdit,saldosBanc
                         } else if(col.type==="week") {
                           // Cada semana tiene su propio valor independiente
                           const propValSem = getProySemana(line.label, col.idx, col.semIdx, col.isLastInMonth);
-                          const subValSem = line.subLines && !line.label.includes("Préstamos")
+                          // Sublines de TODAS las líneas (incluyendo Préstamos) suman al valor del padre
+                          const subValSem = line.subLines
                             ? sumSubLinesSemana(line.label, col.idx, col.semIdx, col.isLastInMonth) : 0;
                           val = propValSem + subValSem;
                         } else {
