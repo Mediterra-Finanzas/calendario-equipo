@@ -7381,19 +7381,31 @@ function reporte_getMovimientos4Semanas(empNombre, realData, empresas, saldosBan
   const compromisos = [];
   const ingresos = [];
 
+  // Helper: mapear cat → label legible
+  const CAT_LABEL = {
+    "ing_op":   "Ingresos Operacionales",
+    "ing_nop":  "Ingresos No Operacionales",
+    "egr_var":  "Egresos Operacionales",
+    "egr_fijo": "Costos Fijos / SG&A",
+    "egr_nop":  "Egresos No Operacionales",
+    "imp":      "Impuestos",
+  };
+
   // DEBUG: log para diagnosticar items faltantes (ej. royalty IQ Osiris)
   const _debugCapturados = [];
 
   for(const sec of empData.sections) {
     const esIngreso = sec.signo > 0;
+    const catLabel = CAT_LABEL[sec.cat] || sec.label || sec.cat || "Otros";
     for(const linea of (sec.lines || [])) {
       // Por cada semana, ver si hay valor
       for(const semInfo of semanas4) {
         const v = getProySemana(linea.label, semInfo.mesIdx, semInfo.semIdx, semInfo.isLastInMonth);
         if(v === 0) continue;
         const semLabel = `${displayMes(semInfo.mesIdx)} S${semInfo.semIdx + 1}`;
-        if(esIngreso) ingresos.push({ mes: semLabel, label: linea.label, monto: Math.abs(v) });
-        else compromisos.push({ mes: semLabel, label: linea.label, monto: Math.abs(v) });
+        const item = { mes: semLabel, label: linea.label, monto: Math.abs(v), cat: sec.cat, catLabel };
+        if(esIngreso) ingresos.push(item);
+        else compromisos.push(item);
         _debugCapturados.push({ emp: empNombre, sec: sec.cat, linea: linea.label, sem: semLabel, monto: v, esIngreso });
       }
 
@@ -7409,8 +7421,9 @@ function reporte_getMovimientos4Semanas(empNombre, realData, empresas, saldosBan
             if(v === 0) continue;
             const semLabel = `${displayMes(semInfo.mesIdx)} S${semInfo.semIdx + 1}`;
             const subLabel = `${linea.label} → ${sl.nombre || sl.label || "—"}`;
-            if(esIngreso) ingresos.push({ mes: semLabel, label: subLabel, monto: Math.abs(v) });
-            else compromisos.push({ mes: semLabel, label: subLabel, monto: Math.abs(v) });
+            const item = { mes: semLabel, label: subLabel, monto: Math.abs(v), cat: sec.cat, catLabel };
+            if(esIngreso) ingresos.push(item);
+            else compromisos.push(item);
           }
         }
       }
@@ -7427,8 +7440,9 @@ function reporte_getMovimientos4Semanas(empNombre, realData, empresas, saldosBan
         if(v === 0) continue;
         const semLabel = `${displayMes(semInfo.mesIdx)} S${semInfo.semIdx + 1}`;
         const label = al.label || al.nombre || "Línea agregada";
-        if(esIngreso) ingresos.push({ mes: semLabel, label, monto: Math.abs(v) });
-        else compromisos.push({ mes: semLabel, label, monto: Math.abs(v) });
+        const item = { mes: semLabel, label, monto: Math.abs(v), cat: sec.cat, catLabel };
+        if(esIngreso) ingresos.push(item);
+        else compromisos.push(item);
       }
     }
   }
@@ -7447,18 +7461,101 @@ function reporte_getMovimientos4Semanas(empNombre, realData, empresas, saldosBan
   compromisos.sort((a,b) => _parseSemKeyLocal(a.mes) - _parseSemKeyLocal(b.mes) || (b.monto - a.monto));
   ingresos.sort((a,b) => _parseSemKeyLocal(a.mes) - _parseSemKeyLocal(b.mes) || (b.monto - a.monto));
 
-  // DEBUG: log para inspeccionar items capturados (revisar consola si falta algo)
-  if(typeof console !== "undefined" && empNombre === "Osiris") {
-    console.log(`[ReporteSemanal][${empNombre}] items capturados:`, _debugCapturados);
-    console.log(`[ReporteSemanal][${empNombre}] secciones disponibles:`, empData.sections?.map(s=>({cat:s.cat, signo:s.signo, lineas:s.lines?.map(l=>l.label)})));
-    // Inspeccionar específicamente líneas con "royalty" o "IQ" en el nombre
+  // DEBUG: log diagnóstico para TODAS las empresas
+  if(typeof console !== "undefined") {
+    const totalCompMonto = compromisos.reduce((s,c)=>s+c.monto, 0);
+    const totalIngMonto = ingresos.reduce((s,c)=>s+c.monto, 0);
+    console.log(
+      `[Reporte][${empNombre}] resumen: ${compromisos.length} compromisos (USD ${Math.round(totalCompMonto).toLocaleString()}), ${ingresos.length} ingresos (USD ${Math.round(totalIngMonto).toLocaleString()})`
+    );
+    // Mostrar TODAS las líneas con sus valores en cada mes (mayo-dic) para detectar las que se quedan afuera
+    console.groupCollapsed(`[Reporte][${empNombre}] detalle de líneas en flujo`);
     empData.sections?.forEach(sec => {
+      console.groupCollapsed(`  Sección "${sec.cat}" (${sec.lines?.length || 0} líneas, signo ${sec.signo})`);
       sec.lines?.forEach(l => {
-        if(/royalty|iq|comercial/i.test(l.label)) {
-          console.log(`  → Línea "${l.label}" (sección ${sec.cat}): proy[mayo-26 a dic-26] =`, MESES_65.slice(idxMesActual, idxMesActual+8).map((m,i)=>`${m}:${l.proy?.[idxMesActual+i]||0}`).join(" | "));
+        const valores = [];
+        for(let i = 0; i < 8; i++) {
+          const idx = idxMesActual + i;
+          if(idx < 0 || idx >= MESES_65.length) continue;
+          const ov = proyOverrides[l.label]?.[idx];
+          const base = l.proy?.[idx] || 0;
+          let efectivo = base;
+          let fuente = "base";
+          if(ov !== undefined) {
+            if(typeof ov === "number") { efectivo = ov; fuente = "ov num"; }
+            else if(typeof ov === "object" && ov !== null) {
+              efectivo = 0;
+              for(let s=0; s<4; s++) {
+                const k = `_sem${s}`;
+                if(ov[k] !== undefined) efectivo += Number(ov[k]) || 0;
+              }
+              fuente = "ov sem";
+            }
+          }
+          if(efectivo !== 0) valores.push(`${MESES_65[idx]}:${Math.round(efectivo).toLocaleString()} (${fuente})`);
+        }
+        if(valores.length > 0) {
+          console.log(`    • "${l.label}": ${valores.join(" | ")}`);
+        } else {
+          console.log(`    • "${l.label}": (sin valores en mayo-dic)`);
         }
       });
+      console.groupEnd();
     });
+    console.groupEnd();
+    // Logs adicionales: addedLines y subLines
+    const empAddedLines = addedLines || {};
+    const empSubLines = subLines || {};
+    if(Object.keys(empAddedLines).length > 0) {
+      console.groupCollapsed(`  AddedLines (líneas agregadas por usuario) en ${empNombre}`);
+      Object.entries(empAddedLines).forEach(([cat, lista]) => {
+        if(!lista?.length) return;
+        console.log(`    Categoría "${cat}": ${lista.length} línea${lista.length > 1 ? "s" : ""}`);
+        lista.forEach(al => {
+          if(typeof al === "string") { console.log(`      • (legacy string) "${al}"`); return; }
+          const label = al.label || al.nombre || "(sin nombre)";
+          const valores = [];
+          const vals = al.vals || {};
+          for(let i = 0; i < 8; i++) {
+            const idx = idxMesActual + i;
+            if(idx < 0) continue;
+            let efectivo = Number(vals[idx]) || 0;
+            for(let s=0; s<4; s++) {
+              const k = `${idx}_${s}`;
+              if(vals[k] !== undefined) efectivo += Number(vals[k]) || 0;
+            }
+            if(efectivo !== 0) valores.push(`${MESES_65[idx]}:${Math.round(efectivo).toLocaleString()}`);
+          }
+          console.log(`      • "${label}": ${valores.length > 0 ? valores.join(" | ") : "(sin valores en mayo-dic)"}`);
+        });
+      });
+      console.groupEnd();
+    }
+    if(Object.keys(empSubLines).length > 0) {
+      console.groupCollapsed(`  SubLines (CxC / Capital Calls / Aportes) en ${empNombre}`);
+      Object.entries(empSubLines).forEach(([parentLabel, lista]) => {
+        if(!lista?.length) return;
+        console.log(`    Sublineas de "${parentLabel}": ${lista.length}`);
+        lista.forEach(sl => {
+          if(typeof sl === "string") return;
+          const subLabel = sl.nombre || sl.label || "(sin nombre)";
+          const valores = [];
+          const vals = sl.vals || {};
+          for(let i = 0; i < 8; i++) {
+            const idx = idxMesActual + i;
+            if(idx < 0) continue;
+            let efectivo = Number(vals[idx]) || 0;
+            for(let s=0; s<4; s++) {
+              const k = `${idx}_${s}`;
+              if(vals[k] !== undefined) efectivo += Number(vals[k]) || 0;
+            }
+            if(efectivo !== 0) valores.push(`${MESES_65[idx]}:${Math.round(efectivo).toLocaleString()}`);
+          }
+          console.log(`      • "${subLabel}": ${valores.length > 0 ? valores.join(" | ") : "(sin valores)"}`);
+        });
+      });
+      console.groupEnd();
+    }
   }
 
   return { compromisos: compromisos.slice(0, 50), ingresos: ingresos.slice(0, 50) };
@@ -7539,7 +7636,7 @@ function reporte_generarResumenCFO(kpisGrupo, empresasData, semana) {
   if(mesesDeficit.length > 0) {
     const labels = mesesDeficit.map(m => m.mes).join(", ");
     partes.push(
-      `⚠️ Alerta crítica: la proyección consolidada muestra déficit en ${mesesDeficit.length} mes${mesesDeficit.length > 1 ? "es" : ""} (${labels}). ` +
+      `ALERTA CRITICA: la proyección consolidada muestra déficit en ${mesesDeficit.length} mes${mesesDeficit.length > 1 ? "es" : ""} (${labels}). ` +
       `Se requiere planificar capital de trabajo o transferencias intercompany.`
     );
   } else {
@@ -7992,10 +8089,42 @@ async function reporte_generarPDF(opts) {
   ensureSpacePortada(50);
   doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
   doc.setFont("helvetica","bold"); doc.setFontSize(10);
-  doc.text("Compromisos Consolidados — Próximas 8 Semanas (mayo-junio, agrupado por empresa)", 12, yPos);
+  doc.text("Compromisos Consolidados — Próximas 8 Semanas (top 5 detallado + resto agrupado)", 12, yPos);
   yPos += 2;
 
-  // Agrupar por empresa
+  // Helper: para una lista de items de una empresa, separar top 5 + agrupar resto por catLabel
+  // Si una línea aparece en varias semanas, se considera un solo "ítem" sumado por linea+monto
+  function _agruparTop5MasResto(items) {
+    // Combinar items que tengan el mismo label para que el "top 5" sea por línea (no por semana suelta)
+    const porLinea = {};
+    for(const it of items) {
+      const k = it.label;
+      if(!porLinea[k]) porLinea[k] = { label: k, monto: 0, cat: it.cat, catLabel: it.catLabel, semanas: new Set() };
+      porLinea[k].monto += it.monto;
+      porLinea[k].semanas.add(it.mes);
+    }
+    const lineasUnicas = Object.values(porLinea).map(l => ({
+      ...l,
+      semanasStr: Array.from(l.semanas).join(", "),
+    }));
+    lineasUnicas.sort((a,b) => b.monto - a.monto);
+
+    const top5 = lineasUnicas.slice(0, 5);
+    const resto = lineasUnicas.slice(5);
+
+    // Agrupar resto por catLabel
+    const restoPorCat = {};
+    for(const r of resto) {
+      const k = r.catLabel || "Otros";
+      if(!restoPorCat[k]) restoPorCat[k] = { catLabel: k, monto: 0, count: 0 };
+      restoPorCat[k].monto += r.monto;
+      restoPorCat[k].count += 1;
+    }
+    const gruposResto = Object.values(restoPorCat).sort((a,b) => b.monto - a.monto);
+    return { top5, gruposResto };
+  }
+
+  // Agrupar items consolidados por empresa
   const compPorEmpresa = {};
   for(const c of (kpisGrupo.compromisosConsolidados || [])) {
     if(!compPorEmpresa[c.empresa]) compPorEmpresa[c.empresa] = [];
@@ -8010,14 +8139,30 @@ async function reporte_generarPDF(opts) {
     if(items.length === 0) continue;
     const subtotal = items.reduce((s,c) => s + (c.monto || 0), 0);
     totalCompGlobal += subtotal;
-    // Header empresa con subtotal
+
+    const { top5, gruposResto } = _agruparTop5MasResto(items);
+
+    // Header empresa con subtotal (3 columnas)
     compConsRows.push([
-      { content: `${empNombre}`, colSpan: 2, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 9 } },
-      { content: `Subtotal: ${_formatUSD(subtotal)}`, colSpan: 1, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 9, halign: "right" } },
+      { content: empNombre, colSpan: 2, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 9 } },
+      { content: `Subtotal: ${_formatUSD(subtotal)}`, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 9, halign: "right" } },
     ]);
-    // Items
-    for(const c of items) {
-      compConsRows.push([c.mes, c.label, _formatUSD(c.monto)]);
+    // Top 5 detallados
+    for(const t of top5) {
+      compConsRows.push([t.semanasStr, t.label, _formatUSD(t.monto)]);
+    }
+    // Resto agrupado por categoría
+    if(gruposResto.length > 0) {
+      compConsRows.push([
+        { content: "Otros (agrupados por categoría)", colSpan: 3, styles: { fillColor: _PDF_COLORS.BG_SOFT, textColor: _PDF_COLORS.GRAY_MED, fontStyle: "italic", fontSize: 7.5 } },
+      ]);
+      for(const g of gruposResto) {
+        compConsRows.push([
+          "—",
+          { content: `${g.catLabel} (${g.count} ítem${g.count > 1 ? "s" : ""})`, styles: { fontStyle: "italic", textColor: _PDF_COLORS.GRAY_MED } },
+          { content: _formatUSD(g.monto), styles: { fontStyle: "italic" } },
+        ]);
+      }
     }
   }
   if(compConsRows.length === 0) compConsRows.push(["—", "Sin compromisos registrados", "—"]);
@@ -8028,13 +8173,13 @@ async function reporte_generarPDF(opts) {
 
   doc.autoTable({
     startY: yPos,
-    head: [["Semana", "Concepto", "Monto USD"]],
+    head: [["Semana(s)", "Concepto", "Monto USD"]],
     body: compConsRows,
     theme: "grid",
     headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 9, fontStyle:"bold"},
     bodyStyles: {fontSize: 8, cellPadding: 1.8},
     columnStyles: {
-      0: {cellWidth: 30},
+      0: {cellWidth: 32},
       2: {halign:"right", textColor: _PDF_COLORS.RED, fontStyle:"bold", cellWidth: 35},
     },
     alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
@@ -8042,11 +8187,11 @@ async function reporte_generarPDF(opts) {
   });
   yPos = doc.lastAutoTable.finalY + 6;
 
-  // 4. Ingresos consolidados próximas 8 semanas, agrupados por empresa
+  // 4. Ingresos consolidados próximas 8 semanas (mismo formato)
   ensureSpacePortada(50);
   doc.setTextColor(..._PDF_COLORS.TEAL_DARK);
   doc.setFont("helvetica","bold"); doc.setFontSize(10);
-  doc.text("Ingresos Consolidados — Próximas 8 Semanas (mayo-junio, agrupado por empresa)", 12, yPos);
+  doc.text("Ingresos Consolidados — Próximas 8 Semanas (top 5 detallado + resto agrupado)", 12, yPos);
   yPos += 2;
 
   const ingPorEmpresa = {};
@@ -8062,12 +8207,27 @@ async function reporte_generarPDF(opts) {
     if(items.length === 0) continue;
     const subtotal = items.reduce((s,c) => s + (c.monto || 0), 0);
     totalIngGlobal += subtotal;
+
+    const { top5, gruposResto } = _agruparTop5MasResto(items);
+
     ingConsRows.push([
-      { content: `${empNombre}`, colSpan: 2, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 9 } },
-      { content: `Subtotal: ${_formatUSD(subtotal)}`, colSpan: 1, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 9, halign: "right" } },
+      { content: empNombre, colSpan: 2, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 9 } },
+      { content: `Subtotal: ${_formatUSD(subtotal)}`, styles: { fillColor: _PDF_COLORS.TEAL, textColor: 255, fontStyle: "bold", fontSize: 9, halign: "right" } },
     ]);
-    for(const c of items) {
-      ingConsRows.push([c.mes, c.label, _formatUSD(c.monto)]);
+    for(const t of top5) {
+      ingConsRows.push([t.semanasStr, t.label, _formatUSD(t.monto)]);
+    }
+    if(gruposResto.length > 0) {
+      ingConsRows.push([
+        { content: "Otros (agrupados por categoría)", colSpan: 3, styles: { fillColor: _PDF_COLORS.BG_SOFT, textColor: _PDF_COLORS.GRAY_MED, fontStyle: "italic", fontSize: 7.5 } },
+      ]);
+      for(const g of gruposResto) {
+        ingConsRows.push([
+          "—",
+          { content: `${g.catLabel} (${g.count} ítem${g.count > 1 ? "s" : ""})`, styles: { fontStyle: "italic", textColor: _PDF_COLORS.GRAY_MED } },
+          { content: _formatUSD(g.monto), styles: { fontStyle: "italic" } },
+        ]);
+      }
     }
   }
   if(ingConsRows.length === 0) ingConsRows.push(["—", "Sin ingresos registrados", "—"]);
@@ -8078,13 +8238,13 @@ async function reporte_generarPDF(opts) {
 
   doc.autoTable({
     startY: yPos,
-    head: [["Semana", "Concepto", "Monto USD"]],
+    head: [["Semana(s)", "Concepto", "Monto USD"]],
     body: ingConsRows,
     theme: "grid",
     headStyles: {fillColor: _PDF_COLORS.TEAL, textColor: 255, fontSize: 9, fontStyle:"bold"},
     bodyStyles: {fontSize: 8, cellPadding: 1.8},
     columnStyles: {
-      0: {cellWidth: 30},
+      0: {cellWidth: 32},
       2: {halign:"right", textColor: _PDF_COLORS.GREEN, fontStyle:"bold", cellWidth: 35},
     },
     alternateRowStyles: {fillColor: _PDF_COLORS.BG_SOFT},
